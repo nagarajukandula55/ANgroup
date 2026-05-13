@@ -1,64 +1,48 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Order from "@/models/Order";
+import { resolveBusiness } from "@/lib/business/resolver";
 
 export async function POST(req: Request) {
   await connectDB();
 
+  const business = await resolveBusiness(req);
+
+  if (!business) {
+    return NextResponse.json(
+      { success: false, message: "Business context not found" },
+      { status: 400 }
+    );
+  }
+
   const body = await req.json();
 
-  const {
-    businessId,
-    cart,
+  const { cart, address, amount, paymentMethod } = body;
+
+  if (!cart?.length) {
+    return NextResponse.json(
+      { success: false, message: "Cart empty" },
+      { status: 400 }
+    );
+  }
+
+  const orderId = `ORD-${Date.now()}`;
+
+  const order = await Order.create({
+    businessId: business._id, // 🔥 AUTO-INJECTED (NO FRONTEND TRUST)
+    orderId,
+    items: cart,
     address,
     amount,
-    paymentMethod,
-    gstType,
-    gstMode,
-  } = body;
+    payment: {
+      method: paymentMethod || "UNKNOWN",
+      status: "PENDING",
+    },
+    status: "PENDING_PAYMENT",
+  });
 
-  // 🔴 HARD VALIDATION
-  if (!businessId) {
-    return NextResponse.json(
-      { success: false, message: "businessId is required" },
-      { status: 400 }
-    );
-  }
-
-  if (!cart || !cart.length) {
-    return NextResponse.json(
-      { success: false, message: "Cart is empty" },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const orderId = `ORD-${Date.now()}`;
-
-    const order = await Order.create({
-      businessId, // 🔥 STRICT ENFORCED
-      orderId,
-      items: cart,
-      address,
-      amount,
-      payment: {
-        method: paymentMethod || "UNKNOWN",
-        status: "PENDING",
-      },
-      status: "PENDING_PAYMENT",
-      gstType,
-      gstMode,
-    });
-
-    return NextResponse.json({
-      success: true,
-      orderId: order.orderId,
-      dbId: order._id,
-    });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, message: err.message },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    success: true,
+    orderId: order.orderId,
+  });
 }
