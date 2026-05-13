@@ -1,32 +1,23 @@
-import { NextResponse } from 'next/server'
-
-import { connectDB } from '@/lib/mongodb'
-
-import Business from '@/models/Business'
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import Business from "@/models/Business";
 
 export async function GET() {
-  try {
-    await connectDB()
+  await connectDB();
 
-    const businesses = await Business.find().sort({
-      createdAt: -1,
-    })
+  try {
+    const businesses = await Business.find({})
+      .select("name businessCode modules createdAt")
+      .lean();
 
     return NextResponse.json({
       success: true,
       businesses,
-    })
-  } catch (error: any) {
-    console.error('BUSINESS_FETCH_ERROR:', error)
-
+    });
+  } catch (err: any) {
     return NextResponse.json(
-      {
-        success: false,
-        message: error.message || 'Failed to fetch businesses',
-      },
-      {
-        status: 500,
-      }
-    )
+      { success: false, message: err.message },
+      { status: 500 }
+    );
   }
 }
