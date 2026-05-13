@@ -7,7 +7,7 @@ export async function resolveBusinessContext(
   businessId: string
 ) {
   const business = await Business.findById(
-    businessId
+    businessCode
   ).lean();
 
   if (!business) {
