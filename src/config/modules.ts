@@ -17,9 +17,10 @@ import {
   Network,
 } from 'lucide-react'
 
-export const sidebarItems = [
+export const modules = [
   {
     title: 'OVERVIEW',
+
     items: [
       {
         label: 'Dashboard',
@@ -43,6 +44,7 @@ export const sidebarItems = [
 
   {
     title: 'ENTERPRISE',
+
     items: [
       {
         label: 'Businesses',
@@ -72,6 +74,7 @@ export const sidebarItems = [
 
   {
     title: 'OPERATIONS',
+
     items: [
       {
         label: 'Inventory',
@@ -95,6 +98,7 @@ export const sidebarItems = [
 
   {
     title: 'FINANCE & REPORTS',
+
     items: [
       {
         label: 'Finance',
@@ -112,6 +116,7 @@ export const sidebarItems = [
 
   {
     title: 'AI & AUTOMATION',
+
     items: [
       {
         label: 'AI Agents',
@@ -129,6 +134,7 @@ export const sidebarItems = [
 
   {
     title: 'SYSTEM',
+
     items: [
       {
         label: 'Notifications',
