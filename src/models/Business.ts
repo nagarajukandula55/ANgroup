@@ -1,20 +1,31 @@
 import mongoose from "mongoose";
 
-/* ================= MODULES (DYNAMIC UI + FEATURES) ================= */
+/* ================= MODULE ================= */
 const ModuleSchema = new mongoose.Schema(
   {
-    key: { type: String, required: true }, // dashboard, ai, logistics
+    key: { type: String, required: true }, // ai, logistics, analytics
     label: { type: String, required: true },
     route: { type: String, required: true },
     icon: String,
     enabled: { type: Boolean, default: true },
 
-    permissions: [String], // ROLE-based gating
+    // ACCESS BASED CONTROL (NOT ROLE BASED)
+    accessKeys: [String], // e.g. ["ADMIN", "INVENTORY_WRITE"]
   },
   { _id: false }
 );
 
-/* ================= INVOICE NUMBERING ENGINE CONFIG ================= */
+/* ================= ACCESS CONTROL (NEW CORE) ================= */
+const AccessSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true }, // INVENTORY_READ
+    label: String,
+    description: String,
+  },
+  { _id: false }
+);
+
+/* ================= NUMBERING ENGINE ================= */
 const NumberingSchema = new mongoose.Schema(
   {
     prefix: { type: String, default: "NA" },
@@ -30,10 +41,7 @@ const NumberingSchema = new mongoose.Schema(
       default: "BUSINESS",
     },
 
-    dateFormat: {
-      type: String,
-      default: "YYMMDD",
-    },
+    dateFormat: { type: String, default: "YYMMDD" },
 
     padding: { type: Number, default: 6 },
 
@@ -46,7 +54,7 @@ const NumberingSchema = new mongoose.Schema(
   { _id: false }
 );
 
-/* ================= DOCUMENT ENGINE CONFIG ================= */
+/* ================= DOCUMENT ENGINE ================= */
 const DocumentSchema = new mongoose.Schema(
   {
     invoices: {
@@ -54,17 +62,14 @@ const DocumentSchema = new mongoose.Schema(
       templateId: String,
       numbering: NumberingSchema,
     },
-
     creditNotes: {
       enabled: { type: Boolean, default: true },
       templateId: String,
     },
-
     debitNotes: {
       enabled: { type: Boolean, default: true },
       templateId: String,
     },
-
     receipts: {
       enabled: { type: Boolean, default: true },
       templateId: String,
@@ -73,7 +78,7 @@ const DocumentSchema = new mongoose.Schema(
   { _id: false }
 );
 
-/* ================= COMPLIANCE LAYER ================= */
+/* ================= COMPLIANCE ================= */
 const ComplianceSchema = new mongoose.Schema(
   {
     gst: {
@@ -83,10 +88,9 @@ const ComplianceSchema = new mongoose.Schema(
     },
 
     pan: String,
-
-    cin: String, // company registration
+    cin: String,
     msme: String,
-    iec: String, // export/import
+    iec: String,
 
     taxRegime: {
       type: String,
@@ -103,11 +107,10 @@ const ComplianceSchema = new mongoose.Schema(
   { _id: false }
 );
 
-/* ================= FINANCIAL ENGINE ================= */
+/* ================= FINANCIAL ================= */
 const FinancialSchema = new mongoose.Schema(
   {
     currency: { type: String, default: "INR" },
-
     fiscalYearStart: { type: String, default: "04-01" },
 
     accountingMethod: {
@@ -117,28 +120,14 @@ const FinancialSchema = new mongoose.Schema(
     },
 
     costCentersEnabled: { type: Boolean, default: false },
-
     profitTrackingEnabled: { type: Boolean, default: true },
 
-    taxStandard: {
-      type: String,
-      default: "GST",
-    },
+    taxStandard: { type: String, default: "GST" },
   },
   { _id: false }
 );
 
-/* ================= ROLE SYSTEM ================= */
-const RoleSchema = new mongoose.Schema(
-  {
-    name: String,
-    level: Number, // 1=admin, 2=manager
-    permissions: [String],
-  },
-  { _id: false }
-);
-
-/* ================= ORGANIZATION STRUCTURE ================= */
+/* ================= ORGANIZATION ================= */
 const OrganizationSchema = new mongoose.Schema(
   {
     departments: [
@@ -155,6 +144,17 @@ const OrganizationSchema = new mongoose.Schema(
         gstApplicable: Boolean,
       },
     ],
+  },
+  { _id: false }
+);
+
+/* ================= ACCESS ASSIGNMENT (IMPORTANT) ================= */
+const AccessAssignmentSchema = new mongoose.Schema(
+  {
+    userId: String,
+    accessKeys: [String], // dynamic access system
+    locationIds: [String],
+    designation: String,
   },
   { _id: false }
 );
@@ -181,26 +181,26 @@ const BusinessSchema = new mongoose.Schema(
     phone: String,
     website: String,
 
-    /* CORE FLAGS */
+    /* CORE */
     isActive: { type: Boolean, default: true },
 
-    /* SYSTEM MODULES */
+    /* ACCESS SYSTEM (NEW CORE) */
+    accessCatalog: [AccessSchema],
+    userAccess: [AccessAssignmentSchema],
+
+    /* MODULE SYSTEM */
     modules: [ModuleSchema],
 
-    /* ENTERPRISE CONFIGS */
+    /* ENTERPRISE CONFIG */
     documents: DocumentSchema,
     compliance: ComplianceSchema,
     financial: FinancialSchema,
     organization: OrganizationSchema,
 
-    roles: [RoleSchema],
-
-    /* FUTURE AI LAYER */
+    /* AI LAYER */
     aiEnabled: { type: Boolean, default: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 export default mongoose.models.Business ||
