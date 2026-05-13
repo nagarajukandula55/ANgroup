@@ -8,28 +8,45 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const { userId, businessId } =
-      await req.json();
+    const { userId, businessId } = await req.json();
 
-    const business = await Business.findById(
-      businessId
-    ).lean();
+    if (!userId || !businessId) {
+      return NextResponse.json(
+        { success: false, message: "INVALID_INPUT" },
+        { status: 400 }
+      );
+    }
+
+    const business = await Business.findById(businessId)
+      .lean()
+      .exec();
 
     const access = await UserBusinessAccess.findOne({
       userId,
       businessId,
-    }).lean();
+    })
+      .lean()
+      .exec();
 
     if (!business || !access) {
       return NextResponse.json(
-        { success: false },
+        { success: false, message: "ACCESS_DENIED" },
         { status: 403 }
       );
     }
 
+    /* ================= SAFE NORMALIZATION ================= */
+    const safeModules = Array.isArray((business as any)?.modules)
+      ? (business as any).modules
+      : [];
+
+    const safeAccessKeys = Array.isArray(access?.accessKeys)
+      ? access.accessKeys
+      : [];
+
     const modules = filterModules({
-      modules: business.modules || [],
-      accessKeys: access.accessKeys || [],
+      modules: safeModules,
+      accessKeys: safeAccessKeys,
     });
 
     return NextResponse.json({
@@ -40,7 +57,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: err.message,
+        message: err?.message || "Internal Server Error",
       },
       { status: 500 }
     );
