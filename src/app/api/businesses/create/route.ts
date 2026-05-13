@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import connectDB from "@/lib/mongodb";
+import { connectDB } from "@/lib/mongodb";
 import { bootstrapBusiness } from "@/services/businessBootstrap.service";
 
 export async function POST(req: Request) {
