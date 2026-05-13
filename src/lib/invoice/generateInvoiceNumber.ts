@@ -17,9 +17,16 @@ function randomSuffix(len = 6) {
 }
 
 export async function generateInvoiceNumber(businessId: string) {
-  const business = await Business.findById(businessId).lean();
+  const business = await Business.findById(businessId)
+    .lean()
+    .exec() as any;
 
-  const prefix = business?.documents?.invoice?.numbering?.prefix || "NA";
+  if (!business) {
+    throw new Error("BUSINESS_NOT_FOUND");
+  }
+
+  const prefix =
+    business?.documents?.invoices?.numbering?.prefix || "NA";
 
   const dateKey = formatDateKey();
 
