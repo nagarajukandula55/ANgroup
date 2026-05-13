@@ -1,51 +1,31 @@
-import { NextResponse } from 'next/server'
-
-import { connectDB } from '@/lib/mongodb'
-
-import Business from '@/models/Business'
-import BusinessLocation from '@/models/BusinessLocation'
-import BusinessSettings from '@/models/BusinessSettings'
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import Business from "@/models/Business";
 
 export async function GET(
-  request: Request,
-  context: {
-    params: Promise<{
-      id: string
-    }>
-  }
+  req: Request,
+  { params }: { params: { id: string } }
 ) {
+  await connectDB();
+
   try {
-    await connectDB()
+    const business = await Business.findById(params.id).lean();
 
-    const { id } = await context.params
-
-    const business = await Business.findById(id)
-
-    const locations = await BusinessLocation.find({
-      businessId: id,
-    })
-
-    const settings = await BusinessSettings.findOne({
-      businessId: id,
-    })
+    if (!business) {
+      return NextResponse.json(
+        { success: false, message: "Business not found" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       business,
-      locations,
-      settings,
-    })
-  } catch (error) {
-    console.error(error)
-
+    });
+  } catch (err: any) {
     return NextResponse.json(
-      {
-        success: false,
-        message: 'Failed to fetch business',
-      },
-      {
-        status: 500,
-      }
-    )
+      { success: false, message: err.message },
+      { status: 500 }
+    );
   }
 }
