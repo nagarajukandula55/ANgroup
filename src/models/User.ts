@@ -32,7 +32,7 @@ const UserSchema = new Schema<IUser>(
     email: { type: String, required: true, unique: true, index: true },
     phone: { type: String },
 
-    password: { type: String, select: false },
+    password: { type: String, select: false, required: true },
 
     isActive: { type: Boolean, default: true },
     isEmailVerified: { type: Boolean, default: false },
@@ -62,4 +62,5 @@ const UserSchema = new Schema<IUser>(
 const User: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
 
-export default User;
+export default mongoose.models.User ||
+  mongoose.model("User", UserSchema);
