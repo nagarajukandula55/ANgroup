@@ -17,8 +17,7 @@ export async function POST(req: Request) {
   const seq = Math.floor(Math.random() * 999999); // replace later with atomic counter
 
   const invoiceNumber = await generateInvoiceNumber(
-    order.businessId,
-    seq
+    order.businessId
   );
 
   order.status = "PAID";
