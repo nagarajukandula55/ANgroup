@@ -1,23 +1,23 @@
-import { createInvoiceDocument } from "@/lib/document/documentService";
-import Business from "@/models/Business";
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
+import { withBusinessContext } from "@/lib/withBusinessContext";
 
-const SELLER_STATE = "Andhra Pradesh";
+export const POST = withBusinessContext(
+  async (req: Request, ctx: any) => {
+    await connectDB();
 
-export async function attachInvoice(orderId: string, businessId: string) {
-  const order = await Order.findById(orderId);
-  const business = await Business.findById(businessId);
+    const body = await req.json();
 
-  const invoice = await createInvoiceDocument({
-    business,
-    order,
-    sellerState: SELLER_STATE,
-  });
+    /* ================= BUSINESS SAFE ================= */
+    const order = await Order.create({
+      ...body,
+      businessId: ctx.businessId,
+    });
 
-  order.invoice = invoice;
-  order.status = "PAID";
-
-  await order.save();
-
-  return invoice;
-}
+    return NextResponse.json({
+      success: true,
+      order,
+    });
+  }
+);
