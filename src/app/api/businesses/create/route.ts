@@ -1,114 +1,86 @@
-import { NextResponse } from 'next/server'
-import { connectDB } from '@/lib/mongodb'
-
-import Business from '@/models/Business'
-import BusinessLocation from '@/models/BusinessLocation'
-import BusinessSettings from '@/models/BusinessSettings'
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import Business from "@/models/Business";
 
 function generateBusinessCode() {
-  const random = Math.floor(1000 + Math.random() * 9000)
-
-  return `BUS-${random}`
-}
-
-function generateSlug(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w-]+/g, '')
+  return "BIZ-" + Date.now().toString().slice(-6);
 }
 
 export async function POST(req: Request) {
+  await connectDB();
+
   try {
-    await connectDB()
-
-    const body = await req.json()
-
-    const {
-      name,
-      legalName,
-      brandName,
-      businessType,
-      industry,
-      description,
-      website,
-      email,
-      phone,
-      gstNumber,
-      panNumber,
-      legalEntityType,
-      location,
-    } = body
-
-    const slug = generateSlug(name)
-
-    const businessCode = generateBusinessCode()
+    const body = await req.json();
 
     const business = await Business.create({
-      businessCode,
+      name: body.name,
+      legalName: body.legalName,
+      brandName: body.brandName,
+      industry: body.industry,
+      type: body.type,
+      email: body.email,
+      phone: body.phone,
 
-      name,
-      legalName,
-      brandName,
+      businessCode: generateBusinessCode(),
 
-      slug,
+      modules: [
+        { key: "dashboard", label: "Dashboard", route: "/", icon: "Home", enabled: true },
+        { key: "ai", label: "AI Workspace", route: "/ai", icon: "Brain", enabled: true },
+        { key: "analytics", label: "Analytics", route: "/analytics", icon: "BarChart", enabled: true },
+        { key: "logistics", label: "Logistics", route: "/logistics", icon: "Truck", enabled: true },
+        { key: "settings", label: "Settings", route: "/settings", icon: "Settings", enabled: true },
+      ],
 
-      businessType,
-      industry,
+      documents: {
+        invoices: {
+          enabled: true,
+          numbering: {
+            prefix: "NA",
+            format: "PREFIX-DATE-SEQ-RANDOM",
+            sequenceScope: "BUSINESS",
+            dateFormat: "YYMMDD",
+            padding: 6,
+            resetPolicy: "DAILY",
+          },
+        },
 
-      description,
+        creditNotes: { enabled: true },
+        debitNotes: { enabled: true },
+        receipts: { enabled: true },
+      },
 
-      website,
-      email,
-      phone,
+      compliance: {
+        taxRegime: "REGULAR",
+        filingCycle: "MONTHLY",
+      },
 
-      gstNumber,
-      panNumber,
+      financial: {
+        currency: "INR",
+        accountingMethod: "ACCRUAL",
+      },
 
-      legalEntityType,
-
-      active: true,
-      aiEnabled: true,
-    })
-
-    await BusinessLocation.create({
-      businessId: business._id,
-
-      type: 'head-office',
-
-      addressLine1: location?.addressLine1,
-
-      addressLine2: location?.addressLine2,
-
-      city: location?.city,
-
-      state: location?.state,
-
-      country: location?.country,
-
-      pincode: location?.pincode,
-    })
-
-    await BusinessSettings.create({
-      businessId: business._id,
-    })
+      roles: [
+        {
+          name: "ADMIN",
+          level: 1,
+          permissions: ["*"],
+        },
+        {
+          name: "MANAGER",
+          level: 2,
+          permissions: ["read", "write"],
+        },
+      ],
+    });
 
     return NextResponse.json({
       success: true,
-      message: 'Business created successfully',
       business,
-    })
-  } catch (error) {
-    console.error(error)
-
+    });
+  } catch (err: any) {
     return NextResponse.json(
-      {
-        success: false,
-        message: 'Failed to create business',
-      },
-      {
-        status: 500,
-      }
-    )
+      { success: false, message: err.message },
+      { status: 500 }
+    );
   }
 }
