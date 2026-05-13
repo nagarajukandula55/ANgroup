@@ -2,14 +2,11 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { BusinessService } from "@/services/business.service";
 
-export async function GET(
-  req: Request,
-  context: { params: { id: string } }
-) {
+export async function GET(req: Request, context: any) {
   try {
     await connectDB();
 
-    const id = context.params?.id;
+    const id = context?.params?.id;
 
     if (!id) {
       return NextResponse.json(
@@ -35,7 +32,7 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-        message: err.message || "Internal Server Error",
+        message: err?.message || "Internal Server Error",
       },
       { status: 500 }
     );
