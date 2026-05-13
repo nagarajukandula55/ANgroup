@@ -1,26 +1,25 @@
 import mongoose from "mongoose";
 
-/* ================= MODULE ================= */
-const ModuleSchema = new mongoose.Schema(
+/* ================= ACCESS SYSTEM (NO ROLES, ONLY ACCESS KEYS) ================= */
+const AccessSchema = new mongoose.Schema(
   {
-    key: { type: String, required: true }, // ai, logistics, analytics
-    label: { type: String, required: true },
-    route: { type: String, required: true },
-    icon: String,
-    enabled: { type: Boolean, default: true },
-
-    // ACCESS BASED CONTROL (NOT ROLE BASED)
-    accessKeys: [String], // e.g. ["ADMIN", "INVENTORY_WRITE"]
+    key: { type: String, required: true }, // e.g. INVOICE_CREATE
+    label: String,
+    description: String,
   },
   { _id: false }
 );
 
-/* ================= ACCESS CONTROL (NEW CORE) ================= */
-const AccessSchema = new mongoose.Schema(
+/* ================= MODULE ================= */
+const ModuleSchema = new mongoose.Schema(
   {
-    key: { type: String, required: true }, // INVENTORY_READ
+    key: { type: String, required: true }, // dashboard, orders, finance
     label: String,
-    description: String,
+    route: String,
+    icon: String,
+    enabled: { type: Boolean, default: true },
+
+    access: [AccessSchema], // 🔥 ACCESS BASED CONTROL
   },
   { _id: false }
 );
@@ -28,27 +27,28 @@ const AccessSchema = new mongoose.Schema(
 /* ================= NUMBERING ENGINE ================= */
 const NumberingSchema = new mongoose.Schema(
   {
-    prefix: { type: String, default: "NA" },
+    prefix: { type: String, default: "NA" }, // NA
 
     format: {
       type: String,
       default: "PREFIX-DATE-SEQ-RANDOM",
     },
 
-    sequenceScope: {
-      type: String,
-      enum: ["BUSINESS", "LOCATION", "FINANCIAL_YEAR"],
-      default: "BUSINESS",
-    },
-
     dateFormat: { type: String, default: "YYMMDD" },
 
     padding: { type: Number, default: 6 },
 
-    resetPolicy: {
+    randomLength: { type: Number, default: 6 },
+
+    example: {
       type: String,
-      enum: ["NEVER", "DAILY", "MONTHLY", "YEARLY"],
-      default: "DAILY",
+      default: "NA-260430-000002-CWDZYA",
+    },
+
+    scope: {
+      type: String,
+      enum: ["BUSINESS", "LOCATION"],
+      default: "BUSINESS",
     },
   },
   { _id: false }
@@ -57,22 +57,29 @@ const NumberingSchema = new mongoose.Schema(
 /* ================= DOCUMENT ENGINE ================= */
 const DocumentSchema = new mongoose.Schema(
   {
-    invoices: {
+    invoice: {
       enabled: { type: Boolean, default: true },
       templateId: String,
       numbering: NumberingSchema,
     },
-    creditNotes: {
+
+    creditNote: {
       enabled: { type: Boolean, default: true },
       templateId: String,
     },
-    debitNotes: {
+
+    debitNote: {
       enabled: { type: Boolean, default: true },
       templateId: String,
     },
-    receipts: {
+
+    receipt: {
       enabled: { type: Boolean, default: true },
       templateId: String,
+      numbering: {
+        type: String,
+        default: "NA-1778239266354-JRUIUC",
+      },
     },
   },
   { _id: false }
@@ -81,28 +88,11 @@ const DocumentSchema = new mongoose.Schema(
 /* ================= COMPLIANCE ================= */
 const ComplianceSchema = new mongoose.Schema(
   {
-    gst: {
-      number: String,
-      stateCode: String,
-      registered: { type: Boolean, default: false },
-    },
-
+    gstNumber: String,
     pan: String,
     cin: String,
     msme: String,
     iec: String,
-
-    taxRegime: {
-      type: String,
-      enum: ["REGULAR", "COMPOSITION"],
-      default: "REGULAR",
-    },
-
-    filingCycle: {
-      type: String,
-      enum: ["MONTHLY", "QUARTERLY", "ANNUAL"],
-      default: "MONTHLY",
-    },
   },
   { _id: false }
 );
@@ -112,49 +102,7 @@ const FinancialSchema = new mongoose.Schema(
   {
     currency: { type: String, default: "INR" },
     fiscalYearStart: { type: String, default: "04-01" },
-
-    accountingMethod: {
-      type: String,
-      enum: ["CASH", "ACCRUAL"],
-      default: "ACCRUAL",
-    },
-
-    costCentersEnabled: { type: Boolean, default: false },
-    profitTrackingEnabled: { type: Boolean, default: true },
-
     taxStandard: { type: String, default: "GST" },
-  },
-  { _id: false }
-);
-
-/* ================= ORGANIZATION ================= */
-const OrganizationSchema = new mongoose.Schema(
-  {
-    departments: [
-      {
-        name: String,
-        headUserId: String,
-      },
-    ],
-
-    locations: [
-      {
-        name: String,
-        address: String,
-        gstApplicable: Boolean,
-      },
-    ],
-  },
-  { _id: false }
-);
-
-/* ================= ACCESS ASSIGNMENT (IMPORTANT) ================= */
-const AccessAssignmentSchema = new mongoose.Schema(
-  {
-    userId: String,
-    accessKeys: [String], // dynamic access system
-    locationIds: [String],
-    designation: String,
   },
   { _id: false }
 );
@@ -162,43 +110,31 @@ const AccessAssignmentSchema = new mongoose.Schema(
 /* ================= MAIN BUSINESS ================= */
 const BusinessSchema = new mongoose.Schema(
   {
-    /* IDENTITY */
     name: { type: String, required: true },
     legalName: String,
     brandName: String,
 
-    businessCode: {
-      type: String,
-      unique: true,
-      index: true,
-    },
+    businessCode: { type: String, unique: true, index: true },
 
     industry: String,
     type: String,
 
-    /* CONTACT */
     email: String,
     phone: String,
     website: String,
 
-    /* CORE */
     isActive: { type: Boolean, default: true },
 
-    /* ACCESS SYSTEM (NEW CORE) */
-    accessCatalog: [AccessSchema],
-    userAccess: [AccessAssignmentSchema],
-
-    /* MODULE SYSTEM */
     modules: [ModuleSchema],
 
-    /* ENTERPRISE CONFIG */
     documents: DocumentSchema,
     compliance: ComplianceSchema,
     financial: FinancialSchema,
-    organization: OrganizationSchema,
 
-    /* AI LAYER */
     aiEnabled: { type: Boolean, default: true },
+
+    // 🔥 MULTI-TENANT KEY
+    tenantKey: { type: String, unique: true, index: true },
   },
   { timestamps: true }
 );
