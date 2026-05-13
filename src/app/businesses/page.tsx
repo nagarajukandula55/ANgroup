@@ -1,93 +1,83 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-import Layout from '@/components/layout'
-
 import Link from 'next/link'
 
-interface Business {
-  _id: string
-  name: string
-  slug: string
-  type: string
-  active: boolean
-}
-
 export default function BusinessesPage() {
-  const [businesses, setBusinesses] = useState<Business[]>([])
-
-  async function loadBusinesses() {
-    const response = await fetch('/api/businesses/all')
-
-    const data = await response.json()
-
-    setBusinesses(data.businesses || [])
-  }
+  const [businesses, setBusinesses] = useState([])
 
   useEffect(() => {
     loadBusinesses()
   }, [])
 
+  async function loadBusinesses() {
+    try {
+      const response = await fetch('/api/businesses/list')
+
+      const data = await response.json()
+
+      if (data.success) {
+        setBusinesses(data.businesses)
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   return (
-    <Layout>
-      <div className="space-y-8">
-        <section className="flex items-center justify-between rounded-[36px] border border-white/10 bg-white/5 p-10">
-          <div>
-            <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">
-              ENTERPRISE MANAGEMENT
-            </p>
+    <div className="min-h-screen bg-[#07111f] text-white p-8">
+      <div className="flex items-center justify-between mb-10">
+        <div>
+          <p className="text-sm uppercase tracking-[0.3em] text-cyan-300">
+            AN GROUP OS
+          </p>
 
-            <h1 className="mt-5 text-6xl font-black">
-              Businesses
-            </h1>
+          <h1 className="mt-4 text-5xl font-black">
+            Businesses
+          </h1>
+        </div>
 
-            <p className="mt-5 text-slate-300">
-              Manage all AN Group businesses.
-            </p>
-          </div>
+        <Link
+          href="/businesses/create"
+          className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 font-semibold"
+        >
+          Create Business
+        </Link>
+      </div>
 
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {businesses.map((business: any) => (
           <Link
-            href="/businesses/create"
-            className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 font-semibold"
+            key={business._id}
+            href={`/businesses/${business._id}`}
+            className="rounded-[32px] border border-white/10 bg-white/5 p-6 transition-all hover:-translate-y-1"
           >
-            Create Business
-          </Link>
-        </section>
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
+                {business.businessType}
+              </span>
 
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {businesses.map((business) => (
-            <div
-              key={business._id}
-              className="rounded-[32px] border border-white/10 bg-white/5 p-8"
-            >
-              <div className="flex items-center justify-between">
-                <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
-                  {business.type}
-                </span>
+              <span className="text-green-400">
+                Active
+              </span>
+            </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-sm ${
-                    business.active
-                      ? 'bg-green-500/10 text-green-400'
-                      : 'bg-red-500/10 text-red-400'
-                  }`}
-                >
-                  {business.active ? 'Active' : 'Inactive'}
-                </span>
-              </div>
+            <h2 className="mt-6 text-3xl font-black">
+              {business.name}
+            </h2>
 
-              <h2 className="mt-6 text-3xl font-black">
-                {business.name}
-              </h2>
+            <p className="mt-4 text-slate-400">
+              {business.industry}
+            </p>
 
-              <p className="mt-3 text-slate-400">
-                {business.slug}
+            <div className="mt-8 border-t border-white/10 pt-5">
+              <p className="text-sm text-slate-500">
+                {business.email}
               </p>
             </div>
-          ))}
-        </section>
+          </Link>
+        ))}
       </div>
-    </Layout>
+    </div>
   )
 }
