@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+
 import { connectDB } from '@/lib/mongodb'
 
 import Business from '@/models/Business'
@@ -6,20 +7,26 @@ import BusinessLocation from '@/models/BusinessLocation'
 import BusinessSettings from '@/models/BusinessSettings'
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: {
+    params: Promise<{
+      id: string
+    }>
+  }
 ) {
   try {
     await connectDB()
 
-    const business = await Business.findById(params.id)
+    const { id } = await context.params
+
+    const business = await Business.findById(id)
 
     const locations = await BusinessLocation.find({
-      businessId: params.id,
+      businessId: id,
     })
 
     const settings = await BusinessSettings.findOne({
-      businessId: params.id,
+      businessId: id,
     })
 
     return NextResponse.json({
