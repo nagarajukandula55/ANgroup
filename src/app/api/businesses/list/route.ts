@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+
 import { connectDB } from '@/lib/mongodb'
 
 import Business from '@/models/Business'
@@ -15,13 +16,13 @@ export async function GET() {
       success: true,
       businesses,
     })
-  } catch (error) {
-    console.error(error)
+  } catch (error: any) {
+    console.error('BUSINESS_FETCH_ERROR:', error)
 
     return NextResponse.json(
       {
         success: false,
-        message: 'Failed to fetch businesses',
+        message: error.message || 'Failed to fetch businesses',
       },
       {
         status: 500,
