@@ -1,44 +1,47 @@
 import mongoose from "mongoose";
 
-const DocumentCounterSchema = new mongoose.Schema(
-  {
-    businessId: {
-      type: String,
-      required: true,
-      index: true,
-    },
+const DocumentCounterSchema =
+  new mongoose.Schema(
+    {
+      businessId: {
+        type: String,
+        required: true,
+        index: true,
+      },
 
-    documentType: {
-      type: String,
-      required: true,
-      index: true,
-    },
+      documentType: {
+        type: String,
+        required: true,
+        index: true,
+      },
 
-    financialYear: {
-      type: String,
-      required: true,
-      index: true,
-    },
+      financialYear: {
+        type: String,
+        required: true,
+        index: true,
+      },
 
-    prefix: {
-      type: String,
-      required: true,
-    },
+      prefix: {
+        type: String,
+        default: "NA",
+      },
 
-    current: {
-      type: Number,
-      default: 0,
+      current: {
+        type: Number,
+        default: 0,
+      },
     },
-  },
-  {
-    timestamps: true,
-  }
-);
+    {
+      timestamps: true,
+    }
+  );
 
 DocumentCounterSchema.index(
   {
     businessId: 1,
+
     documentType: 1,
+
     financialYear: 1,
   },
   {
