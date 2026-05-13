@@ -17,18 +17,35 @@ export async function POST(req: Request) {
       );
     }
 
-    const business = await Business.findById(businessId)
+    /* ================= BUSINESS ================= */
+    const businessDoc = await Business.findById(businessId)
       .lean()
       .exec();
 
-    const access = await UserBusinessAccess.findOne({
+    const safeBusiness = Array.isArray(businessDoc)
+      ? businessDoc[0]
+      : businessDoc;
+
+    if (!safeBusiness) {
+      return NextResponse.json(
+        { success: false, message: "BUSINESS_NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    /* ================= ACCESS ================= */
+    const accessDoc = await UserBusinessAccess.findOne({
       userId,
       businessId,
     })
       .lean()
       .exec();
 
-    if (!business || !access) {
+    const safeAccess = Array.isArray(accessDoc)
+      ? accessDoc[0]
+      : accessDoc;
+
+    if (!safeAccess) {
       return NextResponse.json(
         { success: false, message: "ACCESS_DENIED" },
         { status: 403 }
@@ -36,12 +53,16 @@ export async function POST(req: Request) {
     }
 
     /* ================= SAFE NORMALIZATION ================= */
-    const safeModules = Array.isArray((business as any)?.modules)
-      ? (business as any).modules
+    const safeModules = Array.isArray(
+      (safeBusiness as any)?.modules
+    )
+      ? (safeBusiness as any).modules
       : [];
 
-    const safeAccessKeys = Array.isArray(access?.accessKeys)
-      ? access.accessKeys
+    const safeAccessKeys = Array.isArray(
+      (safeAccess as any)?.accessKeys
+    )
+      ? (safeAccess as any).accessKeys
       : [];
 
     const modules = filterModules({
@@ -57,7 +78,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: err?.message || "Internal Server Error",
+        message: err?.message || "INTERNAL_ERROR",
       },
       { status: 500 }
     );
