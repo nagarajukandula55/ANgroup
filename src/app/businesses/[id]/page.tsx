@@ -5,24 +5,33 @@ import { useEffect, useState } from 'react'
 export default function BusinessDetailsPage({
   params,
 }: {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }) {
-  const [business, setBusiness] = useState<any>(null)
+  const [business, setBusiness] =
+    useState<any>(null)
 
-  const [locations, setLocations] = useState<any[]>([])
+  const [locations, setLocations] =
+    useState<any[]>([])
 
-  const [settings, setSettings] = useState<any>(null)
+  const [settings, setSettings] =
+    useState<any>(null)
 
   useEffect(() => {
-    loadBusiness()
+    async function initialize() {
+      const resolvedParams = await params
+
+      loadBusiness(resolvedParams.id)
+    }
+
+    initialize()
   }, [])
 
-  async function loadBusiness() {
+  async function loadBusiness(id: string) {
     try {
       const response = await fetch(
-        `/api/businesses/${params.id}`
+        `/api/businesses/${id}`
       )
 
       const data = await response.json()
@@ -52,7 +61,7 @@ export default function BusinessDetailsPage({
   }
 
   return (
-    <div className="min-h-screen bg-[#07111f] text-white p-8">
+    <div className="min-h-screen bg-[#07111f] p-8 text-white">
       <div className="mx-auto max-w-7xl">
         <div className="rounded-[40px] border border-white/10 bg-white/5 p-10">
           <div className="flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
@@ -166,8 +175,7 @@ export default function BusinessDetailsPage({
                       <p>{location.addressLine2}</p>
 
                       <p>
-                        {location.city},{' '}
-                        {location.state}
+                        {location.city}, {location.state}
                       </p>
 
                       <p>{location.country}</p>
