@@ -1,23 +1,14 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import Business from "@/models/Business";
+import connectDB from "@/lib/mongodb";
+import { BusinessService } from "@/services/business.service";
 
 export async function GET() {
   await connectDB();
 
-  try {
-    const businesses = await Business.find({})
-      .select("name businessCode modules createdAt")
-      .lean();
+  const businesses = await BusinessService.listBusinesses();
 
-    return NextResponse.json({
-      success: true,
-      businesses,
-    });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, message: err.message },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    success: true,
+    businesses,
+  });
 }
