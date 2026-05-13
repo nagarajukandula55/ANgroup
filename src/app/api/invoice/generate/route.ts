@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Order from "@/models/Order";
+import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoicePDF } from "@/services/pdf/invoicePdf.service";
 
@@ -19,22 +20,27 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= TEMPLATE ================= */
+    /* ================= STEP 1: ENSURE INVOICE NUMBER ================= */
+    const invoice = await createInvoiceForOrder(orderId);
+
+    /* ================= STEP 2: BUILD TEMPLATE ================= */
     const template = buildInvoiceTemplate(order);
 
-    /* ================= PDF ================= */
+    /* ================= STEP 3: GENERATE PDF ================= */
     const pdf = await generateInvoicePDF(template);
 
-    /* ================= SAVE BACK ================= */
+    /* ================= STEP 4: SAVE BACK ================= */
     order.invoice.invoiceUrl = pdf.url;
+    order.invoice.pdfUrl = pdf.url;
 
     await order.save();
 
     return NextResponse.json({
       success: true,
+      invoiceNumber: invoice.invoiceNumber,
       invoiceUrl: pdf.url,
-      invoiceNumber: order.invoice.invoiceNumber,
     });
+
   } catch (err: any) {
     return NextResponse.json(
       { success: false, message: err.message },
