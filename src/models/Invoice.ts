@@ -44,29 +44,15 @@ const InvoiceSchema =
         index: true,
       },
 
-      customerId: {
-        type: String,
-        index: true,
-      },
-
       invoiceNumber: {
         type: String,
-        required: true,
         unique: true,
+        required: true,
         index: true,
       },
 
       invoiceType: {
         type: String,
-        enum: [
-          "TAX",
-          "B2B",
-          "B2C",
-          "POS",
-          "PROFORMA",
-          "CN",
-          "DN",
-        ],
         default: "TAX",
       },
 
@@ -74,14 +60,19 @@ const InvoiceSchema =
 
       customer: {
         name: String,
+
         phone: String,
+
         email: String,
 
         gstNumber: String,
 
         address: String,
+
         city: String,
+
         state: String,
+
         pincode: String,
       },
 
@@ -94,29 +85,20 @@ const InvoiceSchema =
       taxableAmount: Number,
 
       cgst: Number,
+
       sgst: Number,
+
       igst: Number,
 
       grandTotal: Number,
 
       paymentStatus: {
         type: String,
-        enum: [
-          "PENDING",
-          "PARTIAL",
-          "PAID",
-          "REFUNDED",
-        ],
         default: "PENDING",
       },
 
       status: {
         type: String,
-        enum: [
-          "DRAFT",
-          "GENERATED",
-          "CANCELLED",
-        ],
         default: "GENERATED",
       },
 
