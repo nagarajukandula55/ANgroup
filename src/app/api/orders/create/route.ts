@@ -92,7 +92,7 @@ export async function POST(req: Request) {
 
       payment: {
         method: paymentMethod || "RAZORPAY",
-        status: "PENDING",
+        status: "INITIATED",
         amountPaid: 0,
       },
 
