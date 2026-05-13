@@ -1,17 +1,25 @@
-import DocumentCounter from "@/models/DocumentCounter";
-import { getFinancialYear } from "./getFinancialYear";
+import DocumentCounter
+  from "@/models/DocumentCounter";
+
+import { getFinancialYear }
+  from "./getFinancialYear";
 
 type Params = {
   businessId: string;
+
   documentType: string;
+
   prefix?: string;
 };
 
 export async function generateDocumentNumber({
   businessId,
+
   documentType,
+
   prefix = "NA",
 }: Params) {
+
   const financialYear =
     getFinancialYear();
 
@@ -19,9 +27,12 @@ export async function generateDocumentNumber({
     await DocumentCounter.findOneAndUpdate(
       {
         businessId,
+
         documentType,
+
         financialYear,
       },
+
       {
         $inc: {
           current: 1,
@@ -31,15 +42,17 @@ export async function generateDocumentNumber({
           prefix,
         },
       },
+
       {
-        upsert: true,
         new: true,
+
+        upsert: true,
       }
     );
 
-  const seq = String(
-    counter.current
-  ).padStart(6, "0");
+  const sequence =
+    String(counter.current)
+      .padStart(6, "0");
 
-  return `${prefix}-${documentType}-${financialYear}-${seq}`;
+  return `${prefix}-${documentType}-${financialYear}-${sequence}`;
 }
