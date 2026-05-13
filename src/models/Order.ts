@@ -464,13 +464,14 @@ const OrderSchema =
 
         enum: [
           "WEB",
+          "NATIVE",
           "POS",
           "ADMIN",
           "MOBILE_APP",
           "API",
         ],
 
-        default: "WEB",
+        default: "NATIVE",
       },
 
       paymentVerified: {
