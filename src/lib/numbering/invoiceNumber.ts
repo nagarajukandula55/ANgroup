@@ -1,9 +1,5 @@
 import Business from "@/models/Business";
 
-function randomString(len = 6) {
-  return Math.random().toString(36).substring(2, 2 + len).toUpperCase();
-}
-
 function formatDate() {
   const d = new Date();
   const yy = String(d.getFullYear()).slice(2);
@@ -12,16 +8,22 @@ function formatDate() {
   return `${yy}${mm}${dd}`;
 }
 
-export async function generateInvoiceNumber(businessId: string, seq: number) {
-  const business = await Business.findById(businessId).lean();
+export async function getInvoiceNumberPrefix(businessId: string) {
+  const business = await Business.findById(businessId)
+    .lean()
+    .exec() as any;
 
-  const prefix = business?.documents?.invoice?.numbering?.prefix || "NA";
+  if (!business) {
+    throw new Error("BUSINESS_NOT_FOUND");
+  }
+
+  const prefix =
+    business?.documents?.invoices?.numbering?.prefix || "NA";
 
   const date = formatDate();
 
-  const paddedSeq = String(seq).padStart(6, "0");
-
-  const random = randomString(6);
-
-  return `${prefix}-${date}-${paddedSeq}-${random}`;
+  return {
+    prefix,
+    date,
+  };
 }
