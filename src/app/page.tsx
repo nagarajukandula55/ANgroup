@@ -146,7 +146,7 @@ export default function ANGroupDashboard() {
           </h3>
 
           <p className="mt-5 text-sm leading-relaxed text-slate-300">
-            Generate financial reports, analyze operations, predict inventory,
+            Generate financial reports, analyze operations, predict actual inventory,
             automate workflows, and control all businesses from one platform.
           </p>
 
