@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import Business from "@/models/Business";
+import { BusinessService } from "@/services/business.service";
 
 export async function GET(
   req: Request,
@@ -8,24 +8,19 @@ export async function GET(
 ) {
   await connectDB();
 
-  try {
-    const business = await Business.findById(params.id).lean();
+  const business = await BusinessService.getBusinessById(
+    params.id
+  );
 
-    if (!business) {
-      return NextResponse.json(
-        { success: false, message: "Business not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      business,
-    });
-  } catch (err: any) {
+  if (!business) {
     return NextResponse.json(
-      { success: false, message: err.message },
-      { status: 500 }
+      { success: false, message: "Business not found" },
+      { status: 404 }
     );
   }
+
+  return NextResponse.json({
+    success: true,
+    business,
+  });
 }
