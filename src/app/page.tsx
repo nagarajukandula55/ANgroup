@@ -1,4 +1,7 @@
 'use client'
+
+import { useEffect, useState } from 'react'
+
 import {
   BrainCircuit,
   LayoutDashboard,
@@ -52,53 +55,65 @@ const sidebarItems = [
   },
 ]
 
-const stats = [
-  {
-    title: 'Total Revenue',
-    value: '₹48.6L',
-    growth: '+18%',
-  },
-  {
-    title: 'Operational Efficiency',
-    value: '94%',
-    growth: '+9%',
-  },
-  {
-    title: 'AI Insights',
-    value: '28',
-    growth: '+22%',
-  },
-  {
-    title: 'Pending Workflows',
-    value: '142',
-    growth: '+5%',
-  },
-]
-
-const businessUnits = [
-  {
-    name: 'ShopNative Ecommerce',
-    revenue: '₹18.4L',
-    growth: '+18%',
-  },
-  {
-    name: 'Repair Operations',
-    revenue: '₹11.2L',
-    growth: '+9%',
-  },
-  {
-    name: 'Logistics Network',
-    revenue: '₹7.8L',
-    growth: '+12%',
-  },
-  {
-    name: 'Warehouse Division',
-    revenue: '₹5.1L',
-    growth: '+5%',
-  },
-]
-
 export default function ANGroupDashboard() {
+  const [dashboard, setDashboard] = useState<any>(null)
+
+  useEffect(() => {
+    async function fetchDashboard() {
+      try {
+        const response = await fetch('/api/dashboard')
+        const data = await response.json()
+
+        setDashboard(data)
+      } catch (error) {
+        console.error('Dashboard fetch failed', error)
+      }
+    }
+
+    fetchDashboard()
+  }, [])
+
+  if (!dashboard) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
+
+          <h2 className="mt-8 text-3xl font-black">
+            Loading AN Group OS...
+          </h2>
+
+          <p className="mt-3 text-slate-400">
+            Initializing enterprise systems
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const stats = [
+    {
+      title: 'Total Revenue',
+      value: dashboard.revenue,
+      growth: '+18%',
+    },
+    {
+      title: 'Operational Efficiency',
+      value: dashboard.operationalEfficiency,
+      growth: '+9%',
+    },
+    {
+      title: 'AI Insights',
+      value: dashboard.aiInsights,
+      growth: '+22%',
+    },
+    {
+      title: 'Pending Workflows',
+      value: dashboard.pendingWorkflows,
+      growth: '+5%',
+    },
+  ]
+
   return (
     <div className="flex min-h-screen bg-[#07111f] text-white overflow-hidden">
       <aside className="hidden lg:flex w-[300px] border-r border-white/10 bg-[#0b1728] flex-col justify-between p-6">
@@ -110,6 +125,7 @@ export default function ANGroupDashboard() {
 
             <div>
               <h1 className="text-3xl font-black">AN Group</h1>
+
               <p className="text-slate-400 text-sm">
                 Enterprise Operating System
               </p>
@@ -130,6 +146,7 @@ export default function ANGroupDashboard() {
                   }`}
                 >
                   <Icon size={20} />
+
                   <span className="font-medium">{item.label}</span>
                 </button>
               )
@@ -147,8 +164,9 @@ export default function ANGroupDashboard() {
           </h3>
 
           <p className="mt-5 text-sm leading-relaxed text-slate-300">
-            Generate financial reports, analyze operations, predict actual inventory,
-            automate workflows, and control all businesses from one platform.
+            Generate financial reports, analyze operations, predict actual
+            inventory, automate workflows, and control all businesses from one
+            platform.
           </p>
 
           <button className="mt-7 w-full rounded-2xl bg-white py-4 font-semibold text-black transition-all hover:scale-[1.02]">
@@ -190,16 +208,17 @@ export default function ANGroupDashboard() {
 
             <div className="grid grid-cols-2 gap-5 min-w-[320px]">
               {[
-                ['Companies', '06'],
-                ['Employees', '110+'],
-                ['AI Agents', '12'],
-                ['Automation', '84%'],
+                ['Companies', dashboard.companies],
+                ['Employees', dashboard.employees],
+                ['AI Agents', dashboard.aiAgents],
+                ['Automation', dashboard.automation],
               ].map((item, index) => (
                 <div
                   key={index}
                   className="rounded-3xl border border-white/10 bg-black/20 p-6 backdrop-blur-xl"
                 >
                   <p className="text-sm text-slate-400">{item[0]}</p>
+
                   <h3 className="mt-4 text-5xl font-black">{item[1]}</h3>
                 </div>
               ))}
@@ -249,34 +268,40 @@ export default function ANGroupDashboard() {
             </div>
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              {businessUnits.map((item, index) => (
-                <div
-                  key={index}
-                  className="rounded-3xl border border-white/10 bg-[#0d1728] p-6 hover:-translate-y-1 transition-all duration-300"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
-                      Active
-                    </span>
+              {dashboard.businessUnits.map(
+                (item: any, index: number) => (
+                  <div
+                    key={index}
+                    className="rounded-3xl border border-white/10 bg-[#0d1728] p-6 hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
+                        Active
+                      </span>
 
-                    <span className="text-green-400 font-semibold flex items-center gap-1">
-                      {item.growth}
-                      <ArrowUpRight size={16} />
-                    </span>
+                      <span className="text-green-400 font-semibold flex items-center gap-1">
+                        {item.growth}
+
+                        <ArrowUpRight size={16} />
+                      </span>
+                    </div>
+
+                    <h3 className="mt-6 text-2xl font-bold leading-snug">
+                      {item.name}
+                    </h3>
+
+                    <div className="mt-8">
+                      <p className="text-sm text-slate-400">
+                        Revenue
+                      </p>
+
+                      <h4 className="mt-2 text-5xl font-black">
+                        {item.revenue}
+                      </h4>
+                    </div>
                   </div>
-
-                  <h3 className="mt-6 text-2xl font-bold leading-snug">
-                    {item.name}
-                  </h3>
-
-                  <div className="mt-8">
-                    <p className="text-sm text-slate-400">Revenue</p>
-                    <h4 className="mt-2 text-5xl font-black">
-                      {item.revenue}
-                    </h4>
-                  </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </div>
 
@@ -284,7 +309,10 @@ export default function ANGroupDashboard() {
             <div className="rounded-[36px] border border-white/10 bg-white/5 p-7 backdrop-blur-xl">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-cyan-300">AI STATUS</p>
+                  <p className="text-sm text-cyan-300">
+                    AI STATUS
+                  </p>
+
                   <h3 className="mt-2 text-4xl font-black">
                     ACTIVE
                   </h3>
