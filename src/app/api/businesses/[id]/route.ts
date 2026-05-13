@@ -2,17 +2,14 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { BusinessService } from "@/services/business.service";
 
-type RouteContext = {
-  params: {
-    id: string;
-  };
-};
-
-export async function GET(req: Request, context: RouteContext) {
+export async function GET(
+  req: Request,
+  context: { params: { id: string } }
+) {
   try {
     await connectDB();
 
-    const { id } = context.params;
+    const id = context.params?.id;
 
     if (!id) {
       return NextResponse.json(
