@@ -1,22 +1,21 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const rawUri = process.env.MONGODB_URI;
 
-if (!MONGODB_URI) {
+if (!rawUri) {
   throw new Error(
     "❌ MONGODB_URI is not defined in environment variables"
   );
 }
 
-/**
- * Global cache type (prevents multiple connections in Next.js hot reload)
- */
+// 🔒 now TS knows this is ALWAYS string
+const MONGODB_URI: string = rawUri;
+
 type MongooseCache = {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
 };
 
-// attach cache safely to global object
 const globalWithMongoose = global as typeof globalThis & {
   mongooseCache?: MongooseCache;
 };
