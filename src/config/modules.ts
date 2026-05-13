@@ -8,58 +8,139 @@ import {
   Truck,
   Bell,
   Settings,
-  ShoppingCart,
+  Building2,
+  ClipboardList,
+  ShieldCheck,
+  PackageSearch,
+  FileBarChart,
+  Bot,
+  Network,
 } from 'lucide-react'
 
-export const modules = [
+export const sidebarItems = [
   {
-    name: 'Dashboard',
-    href: '/',
-    icon: LayoutDashboard,
+    title: 'OVERVIEW',
+    items: [
+      {
+        label: 'Dashboard',
+        href: '/',
+        icon: LayoutDashboard,
+      },
+
+      {
+        label: 'AI Workspace',
+        href: '/ai',
+        icon: BrainCircuit,
+      },
+
+      {
+        label: 'Analytics',
+        href: '/analytics',
+        icon: BarChart3,
+      },
+    ],
   },
+
   {
-    name: 'AI Workspace',
-    href: '/ai',
-    icon: BrainCircuit,
+    title: 'ENTERPRISE',
+    items: [
+      {
+        label: 'Businesses',
+        href: '/businesses',
+        icon: Building2,
+      },
+
+      {
+        label: 'Employees',
+        href: '/employees',
+        icon: Users,
+      },
+
+      {
+        label: 'Roles & Permissions',
+        href: '/roles',
+        icon: ShieldCheck,
+      },
+
+      {
+        label: 'Workflows',
+        href: '/workflows',
+        icon: ClipboardList,
+      },
+    ],
   },
+
   {
-    name: 'Analytics',
-    href: '/analytics',
-    icon: BarChart3,
+    title: 'OPERATIONS',
+    items: [
+      {
+        label: 'Inventory',
+        href: '/inventory',
+        icon: Boxes,
+      },
+
+      {
+        label: 'Logistics',
+        href: '/logistics',
+        icon: Truck,
+      },
+
+      {
+        label: 'Procurement',
+        href: '/procurement',
+        icon: PackageSearch,
+      },
+    ],
   },
+
   {
-    name: 'Finance',
-    href: '/finance',
-    icon: Wallet,
+    title: 'FINANCE & REPORTS',
+    items: [
+      {
+        label: 'Finance',
+        href: '/finance',
+        icon: Wallet,
+      },
+
+      {
+        label: 'Reports',
+        href: '/reports',
+        icon: FileBarChart,
+      },
+    ],
   },
+
   {
-    name: 'Employees',
-    href: '/employees',
-    icon: Users,
+    title: 'AI & AUTOMATION',
+    items: [
+      {
+        label: 'AI Agents',
+        href: '/ai-agents',
+        icon: Bot,
+      },
+
+      {
+        label: 'Integrations',
+        href: '/integrations',
+        icon: Network,
+      },
+    ],
   },
+
   {
-    name: 'Inventory',
-    href: '/inventory',
-    icon: Boxes,
-  },
-  {
-    name: 'Logistics',
-    href: '/logistics',
-    icon: Truck,
-  },
-  {
-    name: 'Ecommerce',
-    href: '/ecommerce',
-    icon: ShoppingCart,
-  },
-  {
-    name: 'Notifications',
-    href: '/notifications',
-    icon: Bell,
-  },
-  {
-    name: 'Settings',
-    href: '/settings',
-    icon: Settings,
+    title: 'SYSTEM',
+    items: [
+      {
+        label: 'Notifications',
+        href: '/notifications',
+        icon: Bell,
+      },
+
+      {
+        label: 'Settings',
+        href: '/settings',
+        icon: Settings,
+      },
+    ],
   },
 ]
