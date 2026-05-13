@@ -125,7 +125,10 @@ const BusinessSchema = new mongoose.Schema(
 
     isActive: { type: Boolean, default: true },
 
-    modules: [ModuleSchema],
+    modules: {
+      type: [ModuleSchema],
+      default: [],
+    },
 
     documents: DocumentSchema,
     compliance: ComplianceSchema,
