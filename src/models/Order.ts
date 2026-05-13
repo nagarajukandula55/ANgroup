@@ -1,155 +1,91 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose from "mongoose";
 
-/* ================= ORDER ITEM ================= */
-export interface IOrderItem {
-  productId: string;
-  name: string;
-  qty: number;
-  price: number;
-  variant?: string;
-}
-
-/* ================= ORDER ================= */
-export interface IOrder extends Document {
-  orderId: string;
-
-  businessId?: string;
-
-  userId?: string;
-
-  items: IOrderItem[];
-
-  address: {
-    name: string;
-    phone: string;
-    email?: string;
-    address: string;
-    city: string;
-    state: string;
-    pincode: string;
-    gstNumber?: string;
-  };
-
-  pricing: {
-    subtotal: number;
-    tax: number;
-    discount: number;
-    total: number;
-  };
-
-  payment: {
-    method: "RAZORPAY" | "UPI" | "COD";
-    status: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
-
-    razorpayOrderId?: string;
-    razorpayPaymentId?: string;
-  };
-
-  gst: {
-    type: "B2B" | "B2C";
-    mode: "IGST" | "CGST_SGST";
-    gstNumber?: string;
-  };
-
-  invoice: {
-    invoiceNumber?: string;
-    invoiceUrl?: string;
-  };
-
-  status:
-    | "CREATED"
-    | "CONFIRMED"
-    | "PACKED"
-    | "SHIPPED"
-    | "DELIVERED"
-    | "CANCELLED";
-
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/* ================= ORDER SCHEMA ================= */
-const OrderSchema = new Schema<IOrder>(
+const OrderItemSchema = new mongoose.Schema(
   {
-    orderId: { type: String, required: true, unique: true, index: true },
+    productId: { type: String, required: true },
+    name: String,
+    qty: { type: Number, required: true },
+    price: { type: Number, required: true },
+    variant: String,
+  },
+  { _id: false }
+);
+
+const AddressSchema = new mongoose.Schema(
+  {
+    name: String,
+    phone: String,
+    email: String,
+    address: String,
+    city: String,
+    state: String,
+    pincode: String,
+    gstNumber: String,
+  },
+  { _id: false }
+);
+
+const InvoiceSchema = new mongoose.Schema(
+  {
+    invoiceNumber: String,
+    invoiceUrl: String,
+    generatedAt: Date,
+  },
+  { _id: false }
+);
+
+const PaymentSchema = new mongoose.Schema(
+  {
+    method: {
+      type: String,
+      enum: ["RAZORPAY", "UPI", "COD"],
+    },
+    status: {
+      type: String,
+      enum: ["PENDING", "PAID", "FAILED"],
+      default: "PENDING",
+    },
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
+  },
+  { _id: false }
+);
+
+const OrderSchema = new mongoose.Schema(
+  {
+    orderId: { type: String, unique: true, index: true },
 
     businessId: { type: String, index: true },
+
     userId: { type: String, index: true },
 
-    items: [
-      {
-        productId: { type: String, required: true },
-        name: String,
-        qty: Number,
-        price: Number,
-        variant: String,
-      },
-    ],
+    cart: [OrderItemSchema],
 
-    address: {
-      name: String,
-      phone: String,
-      email: String,
-      address: String,
-      city: String,
-      state: String,
-      pincode: String,
-      gstNumber: String,
-    },
+    address: AddressSchema,
 
-    pricing: {
-      subtotal: Number,
-      tax: Number,
-      discount: Number,
-      total: Number,
-    },
+    amount: { type: Number, required: true },
 
-    payment: {
-      method: {
-        type: String,
-        enum: ["RAZORPAY", "UPI", "COD"],
-        default: "UPI",
-      },
-      status: {
-        type: String,
-        enum: ["PENDING", "PAID", "FAILED", "REFUNDED"],
-        default: "PENDING",
-      },
-      razorpayOrderId: String,
-      razorpayPaymentId: String,
-    },
+    discount: { type: Number, default: 0 },
 
-    gst: {
-      type: { type: String, enum: ["B2B", "B2C"], default: "B2C" },
-      mode: { type: String, enum: ["IGST", "CGST_SGST"], default: "CGST_SGST" },
-      gstNumber: String,
-    },
+    coupon: String,
 
-    invoice: {
-      invoiceNumber: String,
-      invoiceUrl: String,
-    },
+    taxItems: Array,
+
+    gstType: String,
+    gstMode: String,
 
     status: {
       type: String,
-      enum: [
-        "CREATED",
-        "CONFIRMED",
-        "PACKED",
-        "SHIPPED",
-        "DELIVERED",
-        "CANCELLED",
-      ],
+      enum: ["CREATED", "PROCESSING", "PAID", "FAILED", "SHIPPED"],
       default: "CREATED",
     },
+
+    payment: PaymentSchema,
+
+    invoice: InvoiceSchema,
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-/* ================= SAFE EXPORT ================= */
-const Order: Model<IOrder> =
-  mongoose.models.Order || mongoose.model<IOrder>("Order", OrderSchema);
-
-export default Order;
+export default mongoose.models.Order ||
+  mongoose.model("Order", OrderSchema);
