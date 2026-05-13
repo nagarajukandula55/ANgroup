@@ -3,6 +3,18 @@ import connectDB from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { resolveBusiness } from "@/lib/business/resolver";
 
+import { NextResponse } from "next/server";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "https://shopnative.in",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
   await connectDB();
 
