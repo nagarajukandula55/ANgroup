@@ -2,29 +2,20 @@ import Order from "@/models/Order";
 import { generateInvoiceNumber } from "./generateInvoiceNumber";
 
 export async function createInvoiceForOrder(orderId: string) {
-  const order = await Order.findOne({ orderId });
+  const order = await Order.findOne({ orderId })
+    .lean()
+    .exec() as any;
 
-  if (!order) throw new Error("Order not found");
-
-  if (order.invoice?.invoiceNumber) {
-    return order.invoice; // already generated (idempotent safety)
+  if (!order) {
+    throw new Error("ORDER_NOT_FOUND");
   }
 
-  const invoiceNumber = await generateInvoiceNumber(order.businessId);
+  const invoiceNumber = await generateInvoiceNumber(
+    order.businessId
+  );
 
-  order.invoice = {
+  return {
     invoiceNumber,
-    generatedAt: new Date(),
-    billingSnapshot: order.billing,
+    order,
   };
-
-  order.events.push({
-    type: "INVOICE_GENERATED",
-    data: { invoiceNumber },
-    at: new Date(),
-  });
-
-  await order.save();
-
-  return order.invoice;
 }
