@@ -1,17 +1,39 @@
-import Order from "@/models/Order";
+import mongoose from "mongoose";
 
 /**
- * Enterprise-safe invoice sequence generator
- * Scope: business-wide (can be upgraded later to financial-year scoped)
+ * Collection: invoice_sequences
  */
-export async function getNextInvoiceSequence(prefix = "NA") {
-  const count = await Order.countDocuments({
-    "invoice.invoiceNumber": { $exists: true },
-  });
+const SequenceSchema = new mongoose.Schema({
+  businessId: String,
+  dateKey: String,
+  seq: { type: Number, default: 0 },
+});
 
-  const next = count + 1;
+const SequenceModel =
+  mongoose.models.InvoiceSequence ||
+  mongoose.model("InvoiceSequence", SequenceSchema);
 
-  const padded = String(next).padStart(6, "0");
+export async function getNextInvoiceSequence(
+  businessId: string,
+  dateKey: string
+): Promise<number> {
+  const result = await SequenceModel.findOneAndUpdate(
+    {
+      businessId,
+      dateKey,
+    },
+    {
+      $inc: { seq: 1 },
+      $setOnInsert: {
+        businessId,
+        dateKey,
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+    }
+  ).exec();
 
-  return `${prefix}-${padded}`;
+  return result?.seq || 1;
 }
