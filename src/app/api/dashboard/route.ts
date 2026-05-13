@@ -4,10 +4,12 @@ export async function GET() {
   return NextResponse.json({
     revenue: '₹48.6L',
     employees: 112,
+    aiAgents: 12,
+    automation: '84%',
+    operationalEfficiency: '94%',
     aiInsights: 28,
     pendingWorkflows: 142,
     companies: 6,
-    automation: '84%',
     businessUnits: [
       {
         name: 'ShopNative Ecommerce',
