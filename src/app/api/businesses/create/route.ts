@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import { BusinessService } from "@/services/business.service";
+import connectDB from "@/lib/mongodb";
+import { bootstrapBusiness } from "@/services/businessBootstrap.service";
 
 export async function POST(req: Request) {
   try {
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const business = await BusinessService.createBusiness(body);
+    const business = await bootstrapBusiness(body);
 
     return NextResponse.json({
       success: true,
