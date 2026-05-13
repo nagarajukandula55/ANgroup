@@ -61,7 +61,7 @@ export async function POST(
     const body = await req.json();
 
     const {
-      source = "SHOP_NATIVE",
+      source = "NATIVE",
 
       customerType = "INDIVIDUAL",
 
@@ -141,7 +141,7 @@ export async function POST(
 
     const invoiceType =
       gstType === "B2B"
-        ? "TI"
+        ? "TAX"
         : "B2C";
 
     const invoicePrefix =
