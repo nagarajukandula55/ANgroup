@@ -1,8 +1,34 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
 import crypto from "crypto";
+
+import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
-import { processOrderAfterPayment } from "@/services/orderPipeline.service";
+
+/* ================= CORS ================= */
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin":
+    "https://shopnative.in",
+
+  "Access-Control-Allow-Methods":
+    "POST, OPTIONS",
+
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization",
+};
+
+/* ================= OPTIONS ================= */
+
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
+    {
+      headers: corsHeaders,
+    }
+  );
+}
+
+/* ================= VERIFY ================= */
 
 export async function POST(req: Request) {
   try {
@@ -17,86 +43,165 @@ export async function POST(req: Request) {
       orderId,
     } = body;
 
-    const secret = process.env.RAZORPAY_SECRET!;
+    /* ================= VALIDATION ================= */
 
-    const generatedSignature = crypto
-      .createHmac("sha256", secret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
-
-    /* ================= VERIFY ================= */
-    if (generatedSignature !== razorpay_signature) {
-      await Order.updateOne(
-        { orderId },
-        {
-          $push: {
-            events: {
-              type: "PAYMENT_VERIFIED",
-              data: {
-                status: "FAILED",
-                razorpay_payment_id,
-              },
-              at: new Date(),
-            },
-          },
-        }
-      );
-
+    if (
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature ||
+      !orderId
+    ) {
       return NextResponse.json(
-        { success: false, message: "Invalid signature" },
-        { status: 400 }
+        {
+          success: false,
+          message:
+            "Missing payment fields",
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        }
       );
     }
 
-    /* ================= UPDATE ORDER ================= */
-    const order = await Order.findOneAndUpdate(
-      { orderId },
-      {
-        $set: {
-          "payment.status": "SUCCESS",
-          "payment.razorpay_payment_id":
-            razorpay_payment_id,
-          "payment.razorpay_order_id":
-            razorpay_order_id,
-          "payment.razorpay_signature":
-            razorpay_signature,
-          "payment.paidAt": new Date(),
-          status: "PAID",
-          "statusTimeline.paidAt": new Date(),
-        },
-        $push: {
-          events: {
-            type: "PAYMENT_VERIFIED",
-            data: {
-              razorpay_payment_id,
-              razorpay_order_id,
-            },
-            at: new Date(),
-          },
-        },
-      },
-      { new: true }
-    );
+    /* ================= SIGNATURE ================= */
 
-    /* ================= PIPELINE ================= */
-    const result = await processOrderAfterPayment({
-      orderId,
-      payment: {
-        method: "RAZORPAY",
-        amount: order?.amount,
+    const generatedSignature =
+      crypto
+        .createHmac(
+          "sha256",
+          process.env
+            .RAZORPAY_KEY_SECRET!
+        )
+        .update(
+          `${razorpay_order_id}|${razorpay_payment_id}`
+        )
+        .digest("hex");
+
+    /* ================= VERIFY ================= */
+
+    if (
+      generatedSignature !==
+      razorpay_signature
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid payment signature",
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        }
+      );
+    }
+
+    /* ================= FIND ORDER ================= */
+
+    const order =
+      await Order.findOne({
+        orderId,
+      });
+
+    if (!order) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Order not found",
+        },
+        {
+          status: 404,
+          headers: corsHeaders,
+        }
+      );
+    }
+
+    /* ================= UPDATE ================= */
+
+    order.payment.status =
+      "SUCCESS";
+
+    order.payment.razorpayOrderId =
+      razorpay_order_id;
+
+    order.payment.razorpayPaymentId =
+      razorpay_payment_id;
+
+    order.status = "PAID";
+
+    order.events.push({
+      type: "PAYMENT_SUCCESS",
+
+      data: {
+        razorpay_order_id,
         razorpay_payment_id,
       },
+
+      createdAt: new Date(),
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Payment verified",
-      ...result,
-    });
-  } catch (err: any) {
+    /* ================= INVOICE ================= */
+
+    if (!order.invoice?.invoiceNumber) {
+      const fy = "2526";
+
+      const invoiceType =
+        order.gstType === "B2B"
+          ? "B2B"
+          : "TAX";
+
+      const count =
+        await Order.countDocuments({
+          "invoice.invoiceType":
+            invoiceType,
+        });
+
+      const serial = String(
+        count + 1
+      ).padStart(6, "0");
+
+      order.invoice = {
+        invoiceType,
+
+        invoiceNumber:
+          `NA-${invoiceType}-${fy}-${serial}`,
+
+        generatedAt:
+          new Date(),
+      };
+    }
+
+    await order.save();
+
+    /* ================= RESPONSE ================= */
+
     return NextResponse.json(
-      { success: false, message: err.message },
-      { status: 500 }
+      {
+        success: true,
+      },
+      {
+        headers: corsHeaders,
+      }
+    );
+  } catch (err: any) {
+    console.error(
+      "PAYMENT VERIFY ERROR",
+      err
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          err.message ||
+          "Verification failed",
+      },
+      {
+        status: 500,
+        headers: corsHeaders,
+      }
     );
   }
 }
