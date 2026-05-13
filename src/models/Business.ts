@@ -1,10 +1,24 @@
-import mongoose from 'mongoose'
+import mongoose, { Schema, models, model } from 'mongoose'
 
-const BusinessSchema = new mongoose.Schema(
+const BusinessSchema = new Schema(
   {
+    businessCode: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
     name: {
       type: String,
       required: true,
+    },
+
+    legalName: {
+      type: String,
+    },
+
+    brandName: {
+      type: String,
     },
 
     slug: {
@@ -13,18 +27,63 @@ const BusinessSchema = new mongoose.Schema(
       unique: true,
     },
 
-    type: {
+    businessType: {
       type: String,
       required: true,
     },
 
-    description: String,
+    industry: {
+      type: String,
+    },
 
-    logo: String,
+    description: {
+      type: String,
+    },
+
+    logo: {
+      type: String,
+    },
+
+    website: {
+      type: String,
+    },
+
+    email: {
+      type: String,
+    },
+
+    phone: {
+      type: String,
+    },
+
+    gstNumber: {
+      type: String,
+    },
+
+    panNumber: {
+      type: String,
+    },
+
+    legalEntityType: {
+      type: String,
+    },
 
     active: {
       type: Boolean,
       default: true,
+    },
+
+    aiEnabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    createdBy: {
+      type: String,
+    },
+
+    updatedBy: {
+      type: String,
     },
   },
   {
@@ -32,5 +91,4 @@ const BusinessSchema = new mongoose.Schema(
   }
 )
 
-export default mongoose.models.Business ||
-  mongoose.model('Business', BusinessSchema)
+export default models.Business || model('Business', BusinessSchema)
