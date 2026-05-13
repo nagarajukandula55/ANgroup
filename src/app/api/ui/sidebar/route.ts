@@ -10,64 +10,27 @@ export async function POST(req: Request) {
 
     const { userId, businessId } = await req.json();
 
-    if (!userId || !businessId) {
-      return NextResponse.json(
-        { success: false, message: "INVALID_INPUT" },
-        { status: 400 }
-      );
-    }
-
-    /* ================= BUSINESS ================= */
-    const businessDoc = await Business.findById(businessId)
+    const business = await Business.findById(businessId)
       .lean()
-      .exec();
+      .exec() as any;
 
-    const safeBusiness = Array.isArray(businessDoc)
-      ? businessDoc[0]
-      : businessDoc;
-
-    if (!safeBusiness) {
-      return NextResponse.json(
-        { success: false, message: "BUSINESS_NOT_FOUND" },
-        { status: 404 }
-      );
-    }
-
-    /* ================= ACCESS ================= */
-    const accessDoc = await UserBusinessAccess.findOne({
+    const access = await UserBusinessAccess.findOne({
       userId,
       businessId,
     })
       .lean()
-      .exec();
+      .exec() as any;
 
-    const safeAccess = Array.isArray(accessDoc)
-      ? accessDoc[0]
-      : accessDoc;
-
-    if (!safeAccess) {
+    if (!business || !access) {
       return NextResponse.json(
-        { success: false, message: "ACCESS_DENIED" },
+        { success: false, message: "Forbidden" },
         { status: 403 }
       );
     }
 
-    /* ================= SAFE NORMALIZATION ================= */
-    const safeModules = Array.isArray(
-      (safeBusiness as any)?.modules
-    )
-      ? (safeBusiness as any).modules
-      : [];
-
-    const safeAccessKeys = Array.isArray(
-      (safeAccess as any)?.accessKeys
-    )
-      ? (safeAccess as any).accessKeys
-      : [];
-
     const modules = filterModules({
-      modules: safeModules,
-      accessKeys: safeAccessKeys,
+      modules: business?.modules ?? [],
+      accessKeys: access?.accessKeys ?? [],
     });
 
     return NextResponse.json({
@@ -76,10 +39,7 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     return NextResponse.json(
-      {
-        success: false,
-        message: err?.message || "INTERNAL_ERROR",
-      },
+      { success: false, message: err.message },
       { status: 500 }
     );
   }
