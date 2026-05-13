@@ -3,10 +3,6 @@ import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
 import crypto from "crypto";
 
-/* =========================================================
-   CORS
-========================================================= */
-
 const corsHeaders = {
   "Access-Control-Allow-Origin":
     "https://shopnative.in",
@@ -18,10 +14,6 @@ const corsHeaders = {
     "Content-Type, Authorization",
 };
 
-/* =========================================================
-   OPTIONS
-========================================================= */
-
 export async function OPTIONS() {
   return NextResponse.json(
     {},
@@ -31,25 +23,34 @@ export async function OPTIONS() {
   );
 }
 
-/* =========================================================
-   ORDER ID
-========================================================= */
+/* ================= ORDER NUMBER ================= */
 
 function generateOrderId() {
   const ts = Date.now();
 
-  const rand =
-    crypto
-      .randomBytes(3)
-      .toString("hex")
-      .toUpperCase();
+  const rand = crypto
+    .randomBytes(3)
+    .toString("hex")
+    .toUpperCase();
 
   return `ORD-${ts}-${rand}`;
 }
 
-/* =========================================================
-   MAIN
-========================================================= */
+/* ================= INVOICE NUMBER ================= */
+
+function generateInvoicePrefix(
+  invoiceType = "B2C"
+) {
+  const year = new Date();
+
+  const fy =
+    String(year.getFullYear()).slice(2) +
+    String(
+      year.getFullYear() + 1
+    ).slice(2);
+
+  return `NA-${invoiceType}-${fy}`;
+}
 
 export async function POST(
   req: Request
@@ -57,67 +58,49 @@ export async function POST(
   try {
     await connectDB();
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const {
+      source = "SHOP_NATIVE",
+
+      customerType = "INDIVIDUAL",
+
       cart,
 
       address,
 
-      paymentMethod =
-        "UPI",
+      amount,
 
-      subtotal = 0,
+      billing,
+
+      paymentMethod,
+
+      coupon,
 
       discount = 0,
 
-      amount,
-
-      cgst = 0,
-
-      sgst = 0,
-
-      igst = 0,
-
-      gstTotal = 0,
-
-      shippingCharges = 0,
-
       taxItems = [],
-
-      coupon = null,
 
       gstType = "B2C",
 
-      gstMode =
-        "CGST_SGST",
-
-      businessId =
-        "NATIVE",
-
-      userId = null,
+      gstMode = "CGST_SGST",
     } = body;
 
-    /* =========================================================
-       VALIDATION
-    ========================================================= */
+    /* ================= VALIDATION ================= */
 
     if (
       !cart ||
       !Array.isArray(cart) ||
-      cart.length === 0
+      !cart.length
     ) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Cart is empty",
+          message: "Cart empty",
         },
         {
           status: 400,
-          headers:
-            corsHeaders,
+          headers: corsHeaders,
         }
       );
     }
@@ -130,323 +113,166 @@ export async function POST(
         {
           success: false,
           message:
-            "Customer details missing",
+            "Invalid customer info",
         },
         {
           status: 400,
-          headers:
-            corsHeaders,
+          headers: corsHeaders,
         }
       );
     }
 
-    if (
-      !amount ||
-      Number(amount) <= 0
-    ) {
+    if (!amount || amount <= 0) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Invalid amount",
+          message: "Invalid amount",
         },
         {
           status: 400,
-          headers:
-            corsHeaders,
+          headers: corsHeaders,
         }
       );
     }
 
-    /* =========================================================
-       ORDER ID
-    ========================================================= */
+    /* ================= IDS ================= */
 
-    const orderId =
-      generateOrderId();
+    const orderId = generateOrderId();
 
-    /* =========================================================
-       CART TRANSFORM
-    ========================================================= */
+    const invoiceType =
+      gstType === "B2B"
+        ? "TI"
+        : "B2C";
 
-    const items = cart.map(
-      (item: any) => {
-        const qty =
-          Number(item.qty || 1);
+    const invoicePrefix =
+      generateInvoicePrefix(
+        invoiceType
+      );
 
-        const price =
-          Number(
-            item.price || 0
-          );
+    /* ================= PAYMENT STATUS ================= */
 
-        const taxableValue =
-          qty * price;
-
-        const gstPercent =
-          Number(
-            item.gstPercent ||
-              0
-          );
-
-        return {
-          productId:
-            item.productId,
-
-          sku:
-            item.sku || "",
-
-          name:
-            item.name ||
-            "Unnamed Product",
-
-          variant:
-            item.variant ||
-            "default",
-
-          hsn:
-            item.hsn || "",
-
-          qty,
-
-          price,
-
-          mrp:
-            item.mrp ||
-            price,
-
-          taxableValue,
-
-          gstPercent,
-
-          cgst:
-            item.cgst || 0,
-
-          sgst:
-            item.sgst || 0,
-
-          igst:
-            item.igst || 0,
-
-          total:
-            taxableValue +
-            (item.gstTotal ||
-              0),
-        };
-      }
-    );
-
-    /* =========================================================
-       ORDER CREATE
-    ========================================================= */
-
-    const order =
-      await Order.create({
-        /* ================= IDs ================= */
-
-        orderId,
-
-        businessId,
-
-        userId,
-
-        source: "WEB",
-
-        /* ================= CART ================= */
-
-        cart: items,
-
-        /* ================= ADDRESS ================= */
-
-        address,
-
-        /* ================= AMOUNTS ================= */
-
-        subtotal:
-          Number(subtotal),
-
-        discount:
-          Number(discount),
-
-        taxableAmount:
-          Number(subtotal),
-
-        cgst:
-          Number(cgst),
-
-        sgst:
-          Number(sgst),
-
-        igst:
-          Number(igst),
-
-        gstTotal:
-          Number(gstTotal),
-
-        shippingCharges:
-          Number(
-            shippingCharges
-          ),
-
-        roundOff: 0,
-
-        amount:
-          Number(amount),
-
-        /* ================= GST ================= */
-
-        gstType,
-
-        gstMode,
-
-        taxItems,
-
-        /* ================= PAYMENT ================= */
-
-        payment: {
-          method:
-            paymentMethod,
-
-          status:
-            paymentMethod ===
-            "COD"
-              ? "PENDING"
-              : "INITIATED",
-
-          amountPaid: 0,
-
-          gateway:
-            paymentMethod ===
-            "RAZORPAY"
-              ? "RAZORPAY"
-              : "MANUAL",
-        },
-
-        /* ================= ORDER STATUS ================= */
-
-        status:
-          paymentMethod ===
-          "COD"
-            ? "PAID"
-            : "PENDING_PAYMENT",
-
-        /* ================= COUPON ================= */
-
-        coupon,
-
-        /* ================= ERP FLAGS ================= */
-
-        paymentVerified: false,
-
-        stockReserved: false,
-
-        invoiceGenerated: false,
-
-        shipmentCreated: false,
-
-        locked: false,
-
-        /* ================= EVENTS ================= */
-
-        events: [
-          {
-            type:
-              "ORDER_CREATED",
-
-            message:
-              "Order created successfully",
-
-            data: {
-              amount,
-
-              paymentMethod,
-
-              gstType,
-            },
-          },
-        ],
-      });
-
-    /* =========================================================
-       RAZORPAY
-    ========================================================= */
-
-    let razorpayOrder =
-      null;
+    let paymentStatus =
+      "NOT_INITIATED";
 
     if (
-      paymentMethod ===
-      "RAZORPAY"
+      paymentMethod === "RAZORPAY"
+    ) {
+      paymentStatus = "INITIATED";
+    }
+
+    if (paymentMethod === "UPI") {
+      paymentStatus = "PENDING";
+    }
+
+    /* ================= CREATE ================= */
+
+    const order = await Order.create({
+      source,
+
+      orderId,
+
+      customerType,
+
+      cart,
+
+      address,
+
+      amount,
+
+      billing,
+
+      discount,
+
+      coupon,
+
+      taxItems,
+
+      gstType,
+
+      gstMode,
+
+      status:
+        paymentMethod === "COD"
+          ? "CONFIRMED"
+          : "PENDING_PAYMENT",
+
+      payment: {
+        method: paymentMethod,
+
+        status: paymentStatus,
+
+        amountPaid: 0,
+      },
+
+      invoice: {
+        invoiceType,
+
+        invoicePrefix,
+
+        status: "NOT_GENERATED",
+      },
+
+      auditLogs: [
+        {
+          action: "ORDER_CREATED",
+
+          message:
+            "Order created successfully",
+
+          createdAt: new Date(),
+        },
+      ],
+    });
+
+    /* ================= RAZORPAY ================= */
+
+    let razorpayOrder = null;
+
+    if (
+      paymentMethod === "RAZORPAY"
     ) {
       try {
-        const Razorpay =
-          (
-            await import(
-              "razorpay"
-            )
-          ).default;
-
-        if (
-          !process.env
-            .RAZORPAY_KEY_ID ||
-          !process.env
-            .RAZORPAY_KEY_SECRET
-        ) {
-          throw new Error(
-            "Razorpay env missing"
-          );
-        }
+        const Razorpay = (
+          await import("razorpay")
+        ).default;
 
         const razorpay =
           new Razorpay({
             key_id:
               process.env
-                .RAZORPAY_KEY_ID,
+                .RAZORPAY_KEY_ID!,
 
             key_secret:
               process.env
-                .RAZORPAY_KEY_SECRET,
+                .RAZORPAY_KEY_SECRET!,
           });
 
         razorpayOrder =
-          await razorpay.orders.create(
-            {
-              amount:
-                Math.round(
-                  Number(
-                    amount
-                  ) * 100
-                ),
+          await razorpay.orders.create({
+            amount: Math.round(
+              amount * 100
+            ),
 
-              currency:
-                "INR",
+            currency: "INR",
 
-              receipt:
-                orderId,
+            receipt: orderId,
 
-              notes: {
-                orderId,
-              },
-            }
-          );
+            notes: {
+              orderId,
+            },
+          });
 
-        order.payment.gateway =
-          "RAZORPAY";
-
-        order.payment.gatewayOrderId =
+        order.payment.razorpayOrderId =
           razorpayOrder.id;
 
         await order.save();
       } catch (err) {
         console.error(
-          "RAZORPAY ERROR:",
+          "RAZORPAY ERROR",
           err
         );
       }
     }
-
-    /* =========================================================
-       RESPONSE
-    ========================================================= */
 
     return NextResponse.json(
       {
@@ -455,25 +281,14 @@ export async function POST(
         orderId,
 
         razorpayOrder,
-
-        order: {
-          id: order._id,
-
-          orderId:
-            order.orderId,
-
-          status:
-            order.status,
-        },
       },
       {
-        headers:
-          corsHeaders,
+        headers: corsHeaders,
       }
     );
   } catch (err: any) {
     console.error(
-      "ORDER CREATE ERROR:",
+      "ORDER CREATE ERROR",
       err
     );
 
@@ -488,8 +303,7 @@ export async function POST(
       {
         status: 500,
 
-        headers:
-          corsHeaders,
+        headers: corsHeaders,
       }
     );
   }
