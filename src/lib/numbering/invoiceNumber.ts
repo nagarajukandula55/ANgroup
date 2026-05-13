@@ -1,4 +1,5 @@
 import Business from "@/models/Business";
+export { generateInvoiceNumber } from "@/lib/invoice/generateInvoiceNumber";
 
 function formatDate() {
   const d = new Date();
