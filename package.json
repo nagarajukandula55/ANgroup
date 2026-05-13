@@ -32,6 +32,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "pdf-lib": "^1.17.1",
-    "fontkit": "^2.0.2"
+    "fontkit": "^2.0.2",
+    "razorpay": "^2.9.4",
   }
 }
