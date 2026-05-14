@@ -145,6 +145,12 @@ const PaymentSchema = new mongoose.Schema(
 
     paidAt: Date,
     refundedAt: Date,
+      expiresAt: {
+        type: Date,
+        index: {
+          expires: 0,
+        },
+      },
   },
   {
     _id: false,
