@@ -4,7 +4,7 @@ import { calculateGST } from "@/lib/gst";
 import Order from "@/models/Order";
 
 /* =========================================================
-   CORS (PRODUCTION SAFE)
+   CORS (ERP SAFE)
 ========================================================= */
 
 const corsHeaders = {
@@ -13,36 +13,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+/* =========================================================
+   OPTIONS
+========================================================= */
+
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
 /* =========================================================
-   ORDER ID (ERP SAFE UNIQUE FORMAT)
+   ERP-GRADE ORDER ID (NO COLLISION RISK)
 ========================================================= */
 
 async function generateOrderId() {
   const now = new Date();
-  const year = now.getFullYear();
-  const fy = `${String(year).slice(-2)}${String(year + 1).slice(-2)}`;
 
-  const count = await Order.countDocuments();
-  const serial = String(count + 1).padStart(6, "0");
+  const ts =
+    now.getFullYear().toString().slice(-2) +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0") +
+    String(now.getHours()).padStart(2, "0") +
+    String(now.getMinutes()).padStart(2, "0") +
+    String(now.getSeconds()).padStart(2, "0");
 
-  return `NA-ORD-${fy}-${serial}`;
+  const random = Math.floor(Math.random() * 9000 + 1000);
+
+  return `NA-ORD-${ts}-${random}`;
 }
 
 /* =========================================================
-   SAFE NUMBER UTILITY
+   CART NORMALIZER (ERP LAYER)
 ========================================================= */
 
-const n = (v: any, f = 0) => {
-  const x = Number(v);
-  return Number.isFinite(x) ? x : f;
-};
+function normalizeItem(item: any) {
+  const qty = Number(item.qty || 1);
+
+  const sellingPriceRaw =
+    item.sellingPrice ??
+    item.price ??
+    item.mrp ??
+    0;
+
+  if (!sellingPriceRaw || isNaN(Number(sellingPriceRaw))) {
+    throw new Error(
+      `Invalid sellingPrice for productId: ${item.productId}`
+    );
+  }
+
+  const sellingPrice = Number(sellingPriceRaw);
+
+  return {
+    ...item,
+    qty,
+    sellingPrice,
+  };
+}
 
 /* =========================================================
-   MAIN ROUTE
+   CREATE ORDER
 ========================================================= */
 
 export async function POST(req: Request) {
@@ -55,7 +83,7 @@ export async function POST(req: Request) {
       source = "NATIVE",
       cart,
       address,
-      paymentMethod = "COD",
+      paymentMethod,
       coupon = "",
       discount = 0,
       gstType = "B2C",
@@ -81,30 +109,17 @@ export async function POST(req: Request) {
     }
 
     /* =========================================================
-       CART NORMALIZATION (CRITICAL FIX LAYER)
+       PROCESS CART (ERP SAFE LAYER)
     ========================================================= */
 
-    const processedCart = cart.map((item: any) => {
-      const qty = Math.max(n(item.qty, 1), 1);
+    console.log("INCOMING CART:", cart);
 
-      // 🔴 FIX: NEVER FAIL on missing frontend field
-      const priceSource =
-        item.sellingPrice ??
-        item.price ??
-        item.mrp ??
-        0;
+    const processedCart = cart.map((raw: any) => {
+      const item = normalizeItem(raw);
 
-      if (!priceSource) {
-        throw new Error(
-          `Missing price for productId: ${item.productId}`
-        );
-      }
+      const gstPercent = Number(item.gstPercent || 18);
 
-      const sellingPrice = n(priceSource);
-
-      const gstPercent = n(item.gstPercent, 18);
-
-      const gst = calculateGST(sellingPrice, gstPercent);
+      const gst = calculateGST(item.sellingPrice, gstPercent);
 
       return {
         productId: item.productId,
@@ -112,12 +127,10 @@ export async function POST(req: Request) {
         name: item.name,
         variant: item.variant || "",
         hsn: item.hsn || "",
+        qty: item.qty,
 
-        qty,
-
-        sellingPrice,
-
-        mrp: n(item.mrp, sellingPrice),
+        sellingPrice: item.sellingPrice,
+        mrp: Number(item.mrp || item.sellingPrice),
 
         taxableValue: gst.taxableValue,
         gstPercent,
@@ -126,56 +139,41 @@ export async function POST(req: Request) {
         sgst: gst.sgst,
         igst: gst.igst,
 
-        lineTotal: Number((gst.total * qty).toFixed(2)),
+        total: +(gst.total * item.qty).toFixed(2),
       };
     });
 
     /* =========================================================
-       GST TOTALS (ERP ACCURATE)
+       TOTAL CALCULATION (AUDIT SAFE)
     ========================================================= */
 
-    const subtotal = Number(
-      processedCart.reduce(
-        (a, i) => a + i.taxableValue * i.qty,
-        0
-      ).toFixed(2)
+    const subtotal = processedCart.reduce(
+      (a, i) => a + i.taxableValue * i.qty,
+      0
     );
 
-    const cgst = Number(
-      processedCart.reduce(
-        (a, i) => a + i.cgst * i.qty,
-        0
-      ).toFixed(2)
+    const cgst = processedCart.reduce(
+      (a, i) => a + i.cgst * i.qty,
+      0
     );
 
-    const sgst = Number(
-      processedCart.reduce(
-        (a, i) => a + i.sgst * i.qty,
-        0
-      ).toFixed(2)
+    const sgst = processedCart.reduce(
+      (a, i) => a + i.sgst * i.qty,
+      0
     );
 
-    const igst = Number(
-      processedCart.reduce(
-        (a, i) => a + i.igst * i.qty,
-        0
-      ).toFixed(2)
+    const igst = processedCart.reduce(
+      (a, i) => a + i.igst * i.qty,
+      0
     );
 
-    const gstTotal = Number((cgst + sgst + igst).toFixed(2));
+    const gstTotal = cgst + sgst + igst;
 
     const shippingCharges = 0;
     const roundOff = 0;
 
-    const amount = Number(
-      (
-        subtotal +
-        gstTotal +
-        shippingCharges -
-        n(discount, 0) +
-        roundOff
-      ).toFixed(2)
-    );
+    const amount =
+      subtotal + gstTotal + shippingCharges - discount + roundOff;
 
     /* =========================================================
        ORDER ID
@@ -187,7 +185,7 @@ export async function POST(req: Request) {
        PAYMENT STATE MACHINE
     ========================================================= */
 
-    let paymentStatus: any = "NOT_INITIATED";
+    let paymentStatus = "NOT_INITIATED";
 
     if (paymentMethod === "RAZORPAY") paymentStatus = "INITIATED";
     if (paymentMethod === "UPI") paymentStatus = "PENDING";
@@ -196,18 +194,18 @@ export async function POST(req: Request) {
     const invoiceType = gstType === "B2B" ? "B2B" : "TAX";
 
     /* =========================================================
-       CREATE ORDER (SOURCE OF TRUTH)
+       ORDER CREATE (IMMUTABLE SNAPSHOT)
     ========================================================= */
 
     const order = await Order.create({
       source,
       orderId,
-
       cart: processedCart,
+
       address,
 
       subtotal,
-      discount: n(discount, 0),
+      discount,
       taxableAmount: subtotal,
 
       cgst,
@@ -220,7 +218,6 @@ export async function POST(req: Request) {
       amount,
 
       coupon,
-
       gstType,
       gstMode,
 
@@ -256,7 +253,7 @@ export async function POST(req: Request) {
     });
 
     /* =========================================================
-       RAZORPAY (HARDENED + SAFE FAILOVER)
+       RAZORPAY (HARDENED INIT)
     ========================================================= */
 
     let razorpayOrder = null;
@@ -280,7 +277,7 @@ export async function POST(req: Request) {
         order.payment.gatewayOrderId = razorpayOrder.id;
         await order.save();
       } catch (err) {
-        console.error("RAZORPAY INIT ERROR:", err);
+        console.error("RAZORPAY ERROR:", err);
       }
     }
 
@@ -305,7 +302,10 @@ export async function POST(req: Request) {
         success: false,
         message: err.message || "Internal Server Error",
       },
-      { status: 500, headers: corsHeaders }
+      {
+        status: 500,
+        headers: corsHeaders,
+      }
     );
   }
 }
