@@ -179,8 +179,7 @@ export async function POST(
 
           qty,
 
-          price:
-            sellingPrice,
+          sellingPrice: sellingPrice,
 
           mrp:
             Number(
