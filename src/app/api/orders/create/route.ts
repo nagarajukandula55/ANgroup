@@ -6,6 +6,9 @@ import { connectNativeDB } from "@/lib/native-mongodb";
 import { getProductModel } from "@/models/Product";
 import mongoose from "mongoose";
 
+const nativeConn = await connectNativeDB();
+const Product = getProductModel(nativeConn);
+
 /* =========================================================
    CORS (ERP SAFE)
 ========================================================= */
