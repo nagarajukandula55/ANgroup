@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Connection } from "mongoose";
 
 const rawUri = process.env.NATIVE_MONGODB_URI;
 
@@ -9,11 +9,13 @@ if (!rawUri) {
 const NATIVE_MONGODB_URI: string = rawUri;
 
 type Cache = {
-  conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
+  conn: Connection | null;
+  promise: Promise<Connection> | null;
 };
 
-const globalWithMongoose = global as any;
+const globalWithMongoose = global as unknown as {
+  nativeMongooseCache?: Cache;
+};
 
 const cached: Cache = globalWithMongoose.nativeMongooseCache || {
   conn: null,
@@ -22,11 +24,13 @@ const cached: Cache = globalWithMongoose.nativeMongooseCache || {
 
 globalWithMongoose.nativeMongooseCache = cached;
 
-export async function connectNativeDB() {
+export async function connectNativeDB(): Promise<Connection> {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.createConnection(NATIVE_MONGODB_URI).asPromise();
+    cached.promise = mongoose
+      .createConnection(NATIVE_MONGODB_URI)
+      .asPromise();
   }
 
   cached.conn = await cached.promise;
