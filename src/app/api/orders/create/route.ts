@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { calculateGST } from "@/lib/gst";
 import Order from "@/models/Order";
-import Product from "@/models/Product";
+import { connectNativeDB } from "@/lib/native-mongodb";
+import { getProductModel } from "@/models/Product";
 import mongoose from "mongoose";
 
 /* =========================================================
@@ -86,6 +87,8 @@ export async function POST(req: Request) {
     await connectDB();
 
     const body = await req.json();
+     const nativeConn = await connectNativeDB();
+     const Product = getProductModel(nativeConn);
 
    const {
      source = "NATIVE",
