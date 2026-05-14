@@ -25,16 +25,26 @@ export async function OPTIONS() {
 
 /* ================= ORDER NUMBER ================= */
 
-function generateOrderId() {
-  const ts = Date.now();
-
-  const rand = crypto
-    .randomBytes(3)
-    .toString("hex")
-    .toUpperCase();
-
-  return `ORD-${ts}-${rand}`;
-}
+  async function generateOrderId() {
+    const now = new Date();
+  
+    const year = now.getFullYear();
+  
+    const nextYear =
+      String(year + 1).slice(-2);
+  
+    const fy =
+      `${String(year).slice(-2)}${nextYear}`;
+  
+    const count =
+      await Order.countDocuments();
+  
+    const serial = String(
+      count + 1
+    ).padStart(6, "0");
+  
+    return `NA-ORD-${fy}-${serial}`;
+  }
 
 /* ================= INVOICE NUMBER ================= */
 
@@ -137,7 +147,7 @@ export async function POST(
 
     /* ================= IDS ================= */
 
-    const orderId = generateOrderId();
+    const orderId = await generateOrderId();
 
     const invoiceType =
       gstType === "B2B"
