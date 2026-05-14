@@ -503,19 +503,3 @@ export async function POST(
     );
   }
 }
-```
-
-# What This Fixes
-
-* GST values now calculate correctly
-* Backend controls final amount
-* Prevents frontend price tampering
-* Correct payment lifecycle
-* Correct invoice lifecycle
-* Correct Razorpay gateway field names
-* Proper audit/event logging
-* Proper tax snapshots
-* Correct subtotal / GST storage
-* Consistent order states
-* Safer invoice generation pipeline
-* Prevents zero-value GST orders
