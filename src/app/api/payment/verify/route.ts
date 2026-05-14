@@ -4,6 +4,9 @@ import crypto from "crypto";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
 
+import { getFinancialYear }
+from "@/lib/financialYear";
+
 /* ================= CORS ================= */
 
 const corsHeaders = {
@@ -118,61 +121,111 @@ export async function POST(req: Request) {
       );
     }
 
+    if (
+      order.payment?.status ===
+      "SUCCESS"
+    ) {
+      return NextResponse.json(
+        {
+          success: true,
+          message:
+            "Payment already verified",
+        },
+        {
+          headers: corsHeaders,
+        }
+      );
+    }
+
     /* ================= UPDATE ================= */
 
+    if (!order.payment) {
+      order.payment = {
+        status: "INITIATED",
+      };
+    }
+    
     order.payment.status =
       "SUCCESS";
 
-    order.payment.razorpayOrderId =
+    order.payment.gatewayOrderId =
       razorpay_order_id;
-
-    order.payment.razorpayPaymentId =
+    
+    order.payment.gatewayPaymentId =
       razorpay_payment_id;
+    
+    order.payment.gatewaySignature =
+      razorpay_signature;
 
     order.status = "PAID";
 
+    order.locked = true;
+
+    order.paymentVerified = true;
+
+    order.payment.paidAt = new Date();
+
+    order.payment.amountPaid = order.amount;
+
     order.events.push({
       type: "PAYMENT_SUCCESS",
-
+    
+      message:
+        "Payment verified successfully",
+    
       data: {
         razorpay_order_id,
         razorpay_payment_id,
       },
-
+    
       createdAt: new Date(),
     });
 
-    /* ================= INVOICE ================= */
+/* ================= INVOICE ================= */
 
-    if (!order.invoice?.invoiceNumber) {
-      const fy = "2526";
-
-      const invoiceType =
-        order.gstType === "B2B"
-          ? "B2B"
-          : "TAX";
-
-      const count =
-        await Order.countDocuments({
-          "invoice.invoiceType":
-            invoiceType,
-        });
-
-      const serial = String(
-        count + 1
-      ).padStart(6, "0");
-
-      order.invoice = {
-        invoiceType,
-
-        invoiceNumber:
-          `NA-${invoiceType}-${fy}-${serial}`,
-
-        generatedAt:
-          new Date(),
-      };
+  if (!order.invoice?.invoiceNumber) {
+  
+    const fy = getFinancialYear();
+  
+    const invoiceType =
+      order.gstType === "B2B"
+        ? "B2B"
+        : "TAX";
+  
+    const count =
+      await Order.countDocuments({
+        "invoice.invoiceType":
+          invoiceType,
+      });
+  
+    const serial = String(
+      count + 1
+    ).padStart(6, "0");
+  
+    if (!order.invoice) {
+      order.invoice = {};
     }
+  
+    order.invoice.invoiceType =
+      invoiceType;
+  
+    order.invoice.invoiceNumber =
+      `NA-${invoiceType}-${fy}-${serial}`;
+  
+    order.invoice.financialYear =
+      fy;
+  
+    order.invoice.generatedAt =
+      new Date();
 
+    order.invoiceGenerated = true;
+  
+    order.invoice.pdfGenerated =
+      false;
+  
+    order.invoice.locked =
+      false;
+  }
     await order.save();
 
     /* ================= RESPONSE ================= */
