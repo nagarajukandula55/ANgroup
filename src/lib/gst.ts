@@ -1,30 +1,26 @@
 export function calculateGST(
-  amount: number,
-  gstPercent: number
+  base: number,
+  gstPercent: number,
+  gstMode: "CGST_SGST" | "IGST"
 ) {
-  const taxableValue =
-    +(amount / (1 + gstPercent / 100))
-      .toFixed(2);
+  const gstAmount = (base * gstPercent) / 100;
 
-  const gstAmount =
-    +(amount - taxableValue)
-      .toFixed(2);
+  if (gstMode === "IGST") {
+    return {
+      taxableValue: base,
+      cgst: 0,
+      sgst: 0,
+      igst: gstAmount,
+      total: base + gstAmount,
+    };
+  }
 
-  const splitTax =
-    +(gstAmount / 2)
-      .toFixed(2);
-
+  // CGST + SGST split
   return {
-    taxableValue,
-
-    cgst: splitTax,
-
-    sgst: splitTax,
-
+    taxableValue: base,
+    cgst: gstAmount / 2,
+    sgst: gstAmount / 2,
     igst: 0,
-
-    gstTotal: gstAmount,
-
-    total: amount,
+    total: base + gstAmount,
   };
 }
