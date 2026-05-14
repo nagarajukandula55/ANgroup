@@ -30,7 +30,7 @@ const OrderItemSchema =
         min: 1,
       },
 
-      price: {
+      sellingPrice: {
         type: Number,
         required: true,
       },
@@ -59,7 +59,7 @@ const OrderItemSchema =
         default: 0,
       },
 
-      total: Number,
+      lineTotal: Number,
     },
     {
       _id: false,
@@ -208,7 +208,7 @@ const InvoiceSchema =
 
       locked: {
         type: Boolean,
-        default: true,
+        default: false,
       },
     },
     {
