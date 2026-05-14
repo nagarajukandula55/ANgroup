@@ -1,550 +1,552 @@
-import mongoose from "mongoose";
+import { NextResponse } from "next/server";
+
+import { connectDB } from "@/lib/mongodb";
+import { calculateGST } from "@/lib/gst";
+
+import Order from "@/models/Order";
 
 /* =========================================================
-   ORDER ITEMS
+   CORS
 ========================================================= */
 
-const OrderItemSchema =
-  new mongoose.Schema(
+const corsHeaders = {
+  "Access-Control-Allow-Origin":
+    "https://shopnative.in",
+
+  "Access-Control-Allow-Methods":
+    "POST, OPTIONS",
+
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization",
+};
+
+/* =========================================================
+   OPTIONS
+========================================================= */
+
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
     {
-      productId: {
-        type: String,
-        required: true,
-        index: true,
-      },
-
-      sku: String,
-
-      name: {
-        type: String,
-        required: true,
-      },
-
-      variant: String,
-
-      hsn: String,
-
-      qty: {
-        type: Number,
-        required: true,
-        min: 1,
-      },
-
-      sellingPrice: {
-        type: Number,
-        required: true,
-      },
-
-      mrp: Number,
-
-      taxableValue: Number,
-
-      gstPercent: {
-        type: Number,
-        default: 0,
-      },
-
-      cgst: {
-        type: Number,
-        default: 0,
-      },
-
-      sgst: {
-        type: Number,
-        default: 0,
-      },
-
-      igst: {
-        type: Number,
-        default: 0,
-      },
-
-      lineTotal: Number,
-    },
-    {
-      _id: false,
+      headers: corsHeaders,
     }
   );
+}
 
 /* =========================================================
-   CUSTOMER ADDRESS
+   ORDER NUMBER
 ========================================================= */
 
-const AddressSchema =
-  new mongoose.Schema(
-    {
-      name: String,
+async function generateOrderId() {
 
-      phone: String,
+  const now = new Date();
 
-      email: String,
+  const year =
+    now.getFullYear();
 
-      companyName: String,
+  const nextYear =
+    String(year + 1).slice(-2);
 
-      gstNumber: String,
+  const fy =
+    `${String(year).slice(-2)}${nextYear}`;
 
-      address: String,
+  const count =
+    await Order.countDocuments();
 
-      landmark: String,
+  const serial = String(
+    count + 1
+  ).padStart(6, "0");
 
-      city: String,
+  return `NA-ORD-${fy}-${serial}`;
+}
 
-      district: String,
+/* =========================================================
+   CREATE ORDER
+========================================================= */
 
-      state: String,
+export async function POST(
+  req: Request
+) {
+  try {
 
-      country: {
-        type: String,
-        default: "India",
-      },
+    await connectDB();
 
-      pincode: String,
-    },
-    {
-      _id: false,
+    const body =
+      await req.json();
+
+    const {
+      source = "NATIVE",
+
+      cart,
+
+      address,
+
+      paymentMethod,
+
+      coupon = "",
+
+      discount = 0,
+
+      gstType = "B2C",
+
+      gstMode = "CGST_SGST",
+    } = body;
+
+    /* =========================================================
+       VALIDATION
+    ========================================================= */
+
+    if (
+      !cart ||
+      !Array.isArray(cart) ||
+      !cart.length
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Cart empty",
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        }
+      );
     }
-  );
 
-/* =========================================================
-   PAYMENT
-========================================================= */
-
-const PaymentSchema =
-  new mongoose.Schema(
-    {
-      method: {
-        type: String,
-
-        enum: [
-          "RAZORPAY",
-          "UPI",
-          "COD",
-          "BANK_TRANSFER",
-          "CASH",
-        ],
-
-        default: "UPI",
-      },
-
-      status: {
-        type: String,
-
-        enum: [
-          "NOT_INITIATED",
-          "INITIATED",
-          "PENDING",
-          "SUCCESS",
-          "FAILED",
-          "REFUNDED",
-          "PARTIAL_REFUND",
-        ],
-
-        default: "NOT_INITIATED",
-      },
-
-      amountPaid: {
-        type: Number,
-        default: 0,
-      },
-
-      transactionId: String,
-
-      utr: String,
-
-      gateway: String,
-
-      gatewayOrderId: String,
-
-      gatewayPaymentId: String,
-
-      gatewaySignature: String,
-
-      paidAt: Date,
-
-      refundedAt: Date,
-    },
-    {
-      _id: false,
+    if (
+      !address?.name ||
+      !address?.phone
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid customer info",
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        }
+      );
     }
-  );
 
-/* =========================================================
-   INVOICE
-========================================================= */
+    /* =========================================================
+       PROCESS CART
+    ========================================================= */
 
-const InvoiceSchema =
-  new mongoose.Schema(
-    {
-      invoiceId: String,
+    const processedCart =
+      cart.map((item: any) => {
 
-      invoiceNumber: String,
+        const qty =
+          Number(item.qty || 1);
 
-      invoiceType: {
-        type: String,
+        const sellingPrice =
+          Number(
+            item.sellingPrice ||
+            item.price ||
+            0
+          );
 
-        enum: [
-          "TAX",
-          "B2B",
-          "B2C",
-          "POS",
-          "PROFORMA",
-          "CN",
-          "DN",
-        ],
+        const gstPercent =
+          Number(
+            item.gstPercent || 18
+          );
 
-        default: "TAX",
-      },
+        const gst =
+          calculateGST(
+            sellingPrice,
+            gstPercent
+          );
 
-      financialYear: String,
+        return {
 
-      invoiceUrl: String,
+          productId:
+            item.productId,
 
-      generatedAt: Date,
+          sku:
+            item.sku || "",
 
-      pdfGenerated: {
-        type: Boolean,
-        default: false,
-      },
+          name:
+            item.name,
 
-      locked: {
-        type: Boolean,
-        default: false,
-      },
-    },
-    {
-      _id: false,
+          variant:
+            item.variant || "",
+
+          hsn:
+            item.hsn || "",
+
+          qty,
+
+          sellingPrice:
+            sellingPrice,
+
+          mrp:
+            Number(
+              item.mrp ||
+              sellingPrice
+            ),
+
+          taxableValue:
+            +(
+              gst.taxableValue *
+              qty
+            ).toFixed(2),
+
+          gstPercent,
+
+          cgst:
+            +(
+              gst.cgst *
+              qty
+            ).toFixed(2),
+
+          sgst:
+            +(
+              gst.sgst *
+              qty
+            ).toFixed(2),
+
+          igst:
+            +(
+              gst.igst *
+              qty
+            ).toFixed(2),
+
+          lineTotal:
+            +(
+              sellingPrice *
+              qty
+            ).toFixed(2),
+        };
+      });
+
+    /* =========================================================
+       TOTALS
+    ========================================================= */
+
+    const subtotal =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc +
+            item.taxableValue,
+          0
+        )
+        .toFixed(2);
+
+    const cgst =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc + item.cgst,
+          0
+        )
+        .toFixed(2);
+
+    const sgst =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc + item.sgst,
+          0
+        )
+        .toFixed(2);
+
+    const igst =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc + item.igst,
+          0
+        )
+        .toFixed(2);
+
+    const gstTotal =
+      +(
+        cgst +
+        sgst +
+        igst
+      ).toFixed(2);
+
+    const shippingCharges = 0;
+
+    const taxableAmount =
+      subtotal;
+
+    const roundOff = 0;
+
+    const amount =
+      +(
+        subtotal +
+        gstTotal +
+        shippingCharges -
+        discount +
+        roundOff
+      ).toFixed(2);
+
+    /* =========================================================
+       IDS
+    ========================================================= */
+
+    const orderId =
+      await generateOrderId();
+
+    /* =========================================================
+       PAYMENT STATUS
+    ========================================================= */
+
+    let paymentStatus =
+      "NOT_INITIATED";
+
+    if (
+      paymentMethod ===
+      "RAZORPAY"
+    ) {
+      paymentStatus =
+        "INITIATED";
     }
-  );
 
-/* =========================================================
-   SHIPPING
-========================================================= */
-
-const ShippingSchema =
-  new mongoose.Schema(
-    {
-      dispatchType: {
-        type: String,
-
-        enum: [
-          "COURIER",
-          "BY_HAND",
-          "LOCAL_DELIVERY",
-        ],
-      },
-
-      courierPartner: String,
-
-      courierId: String,
-
-      awbNumber: String,
-
-      trackingUrl: String,
-
-      trackingStatus: String,
-
-      labelUrl: String,
-
-      shippedAt: Date,
-
-      deliveredAt: Date,
-    },
-    {
-      _id: false,
+    if (
+      paymentMethod ===
+      "UPI"
+    ) {
+      paymentStatus =
+        "PENDING";
     }
-  );
 
-/* =========================================================
-   ORDER EVENTS / AUDIT TRAIL
-========================================================= */
-
-const EventSchema =
-  new mongoose.Schema(
-    {
-      type: String,
-
-      message: String,
-
-      by: String,
-
-      data: Object,
-
-      createdAt: {
-        type: Date,
-        default: Date.now,
-      },
-    },
-    {
-      _id: false,
+    if (
+      paymentMethod ===
+      "COD"
+    ) {
+      paymentStatus =
+        "PENDING";
     }
-  );
 
-/* =========================================================
-   MAIN ORDER
-========================================================= */
+    /* =========================================================
+       INVOICE TYPE
+    ========================================================= */
 
-const OrderSchema =
-  new mongoose.Schema(
-    {
-      /* ================= IDs ================= */
+    const invoiceType =
+      gstType === "B2B"
+        ? "B2B"
+        : "TAX";
 
-      orderId: {
-        type: String,
-        unique: true,
-        required: true,
-        index: true,
-      },
+    /* =========================================================
+       CREATE ORDER
+    ========================================================= */
 
-      businessId: {
-        type: String,
-        index: true,
-      },
+    const order =
+      await Order.create({
 
-      branchId: {
-        type: String,
-        index: true,
-      },
+        source,
 
-      userId: {
-        type: String,
-        index: true,
-      },
+        orderId,
 
-      customerId: {
-        type: String,
-        index: true,
-      },
+        cart:
+          processedCart,
 
-      /* ================= CART ================= */
+        address,
 
-      cart: [OrderItemSchema],
+        subtotal,
 
-      /* ================= CUSTOMER ================= */
+        discount,
 
-      address: AddressSchema,
+        taxableAmount,
 
-      /* ================= MONEY ================= */
+        cgst,
 
-      subtotal: {
-        type: Number,
-        default: 0,
-      },
+        sgst,
 
-      discount: {
-        type: Number,
-        default: 0,
-      },
+        igst,
 
-      taxableAmount: {
-        type: Number,
-        default: 0,
-      },
+        gstTotal,
 
-      cgst: {
-        type: Number,
-        default: 0,
-      },
+        shippingCharges,
 
-      sgst: {
-        type: Number,
-        default: 0,
-      },
+        roundOff,
 
-      igst: {
-        type: Number,
-        default: 0,
-      },
+        amount,
 
-      gstTotal: {
-        type: Number,
-        default: 0,
-      },
+        coupon,
 
-      shippingCharges: {
-        type: Number,
-        default: 0,
-      },
+        gstType,
 
-      roundOff: {
-        type: Number,
-        default: 0,
-      },
+        gstMode,
 
-      amount: {
-        type: Number,
-        required: true,
-      },
+        taxItems: [],
 
-      /* ================= GST ================= */
-
-      gstType: {
-        type: String,
-
-        enum: [
-          "B2B",
-          "B2C",
-          "EXPORT",
-        ],
-
-        default: "B2C",
-      },
-
-      gstMode: {
-        type: String,
-
-        enum: [
-          "CGST_SGST",
-          "IGST",
-        ],
-
-        default: "CGST_SGST",
-      },
-
-      taxItems: {
-        type: Array,
-        default: [],
-      },
-
-      /* ================= COUPON ================= */
-
-      coupon: String,
-
-      /* ================= STATUS ================= */
-
-      status: {
-        type: String,
-
-        enum: [
-          "CREATED",
-
+        status:
           "PENDING_PAYMENT",
 
-          "PAID",
+        payment: {
+          method:
+            paymentMethod,
 
-          "PROCESSING",
+          status:
+            paymentStatus,
 
-          "PACKED",
+          amountPaid: 0,
+        },
 
-          "DISPATCHED",
+        invoice: {
 
-          "DELIVERED",
+          invoiceType,
 
-          "COMPLETED",
+          pdfGenerated:
+            false,
 
-          "FAILED",
+          locked:
+            false,
+        },
 
-          "CANCELLED",
+        paymentVerified:
+          false,
 
-          "RETURNED",
+        stockReserved:
+          false,
 
-          "REFUNDED",
+        invoiceGenerated:
+          false,
+
+        shipmentCreated:
+          false,
+
+        locked:
+          false,
+
+        events: [
+          {
+            type:
+              "ORDER_CREATED",
+
+            message:
+              "Order created successfully",
+
+            createdAt:
+              new Date(),
+          },
         ],
+      });
 
-        default: "CREATED",
+    /* =========================================================
+       RAZORPAY
+    ========================================================= */
 
-        index: true,
-      },
+    let razorpayOrder =
+      null;
 
-      /* ================= PAYMENT ================= */
+    if (
+      paymentMethod ===
+      "RAZORPAY"
+    ) {
+      try {
 
-      payment: PaymentSchema,
+        const Razorpay = (
+          await import(
+            "razorpay"
+          )
+        ).default;
 
-      /* ================= INVOICE ================= */
+        const razorpay =
+          new Razorpay({
 
-      invoice: InvoiceSchema,
+            key_id:
+              process.env
+                .RAZORPAY_KEY_ID!,
 
-      /* ================= SHIPPING ================= */
+            key_secret:
+              process.env
+                .RAZORPAY_KEY_SECRET!,
+          });
 
-      shipping: ShippingSchema,
+        razorpayOrder =
+          await razorpay
+            .orders
+            .create({
 
-      /* ================= ERP FLAGS ================= */
+              amount:
+                Math.round(
+                  amount * 100
+                ),
 
-      source: {
-        type: String,
+              currency:
+                "INR",
 
-        enum: [
-          "WEB",
-          "NATIVE",
-          "POS",
-          "ADMIN",
-          "MOBILE_APP",
-          "API",
-        ],
+              receipt:
+                orderId,
 
-        default: "NATIVE",
-      },
+              notes: {
+                orderId,
+              },
+            });
 
-      paymentVerified: {
-        type: Boolean,
-        default: false,
-      },
+        order.payment.gatewayOrderId =
+          razorpayOrder.id;
 
-      stockReserved: {
-        type: Boolean,
-        default: false,
-      },
+        await order.save();
 
-      invoiceGenerated: {
-        type: Boolean,
-        default: false,
-      },
+      } catch (err) {
 
-      shipmentCreated: {
-        type: Boolean,
-        default: false,
-      },
-
-      locked: {
-        type: Boolean,
-        default: false,
-      },
-
-      /* ================= EVENTS ================= */
-
-      events: {
-        type: [EventSchema],
-        default: [],
-      },
-
-      /* ================= NOTES ================= */
-
-      internalNotes: String,
-
-      customerNotes: String,
-    },
-    {
-      timestamps: true,
+        console.error(
+          "RAZORPAY ERROR",
+          err
+        );
+      }
     }
-  );
 
-/* =========================================================
-   INDEXES
-========================================================= */
+    /* =========================================================
+       RESPONSE
+    ========================================================= */
 
-OrderSchema.index({
-  createdAt: -1,
-});
+    return NextResponse.json(
+      {
+        success: true,
 
-OrderSchema.index({
-  businessId: 1,
-  status: 1,
-});
+        orderId,
 
-OrderSchema.index({
-  "payment.status": 1,
-});
+        amount,
 
-OrderSchema.index({
-  "shipping.awbNumber": 1,
-});
+        razorpayOrder,
+      },
+      {
+        headers:
+          corsHeaders,
+      }
+    );
 
-/* =========================================================
-   EXPORT
-========================================================= */
+  } catch (err: any) {
 
-export default
-  mongoose.models.Order ||
-  mongoose.model(
-    "Order",
-    OrderSchema
-  );
+    console.error(
+      "ORDER CREATE ERROR",
+      err
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+
+        message:
+          err.message ||
+          "Internal Server Error",
+      },
+      {
+        status: 500,
+
+        headers:
+          corsHeaders,
+      }
+    );
+  }
+}
