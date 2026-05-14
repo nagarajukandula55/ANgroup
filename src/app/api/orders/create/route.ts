@@ -129,7 +129,8 @@ export async function POST(
     /* =========================================================
        PROCESS CART
     ========================================================= */
-
+   console.log("INCOMING CART:", cart);
+     
     const processedCart =
       cart.map((item: any) => {
 
@@ -144,7 +145,7 @@ export async function POST(
         sellingPriceRaw === null
       ) {
         throw new Error(
-          `Missing sellingPrice for product ${item.productId}`
+          `Missing sellingPrice for productId: ${item.productId}`
         );
       }
       
