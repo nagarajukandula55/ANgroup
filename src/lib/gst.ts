@@ -1,25 +1,30 @@
-export function calculateInclusiveGST(
+export function calculateGST(
   amount: number,
-  gstRate: number
+  gstPercent: number
 ) {
   const taxableValue =
-    +(amount / (1 + gstRate / 100)).toFixed(2)
+    +(amount / (1 + gstPercent / 100))
+      .toFixed(2);
 
   const gstAmount =
-    +(amount - taxableValue).toFixed(2)
+    +(amount - taxableValue)
+      .toFixed(2);
 
-  const halfGST =
-    +(gstAmount / 2).toFixed(2)
+  const splitTax =
+    +(gstAmount / 2)
+      .toFixed(2);
 
   return {
     taxableValue,
 
-    cgst: halfGST,
-    sgst: halfGST,
+    cgst: splitTax,
+
+    sgst: splitTax,
+
     igst: 0,
 
     gstTotal: gstAmount,
 
-    total: amount
-  }
+    total: amount,
+  };
 }
