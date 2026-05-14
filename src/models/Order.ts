@@ -550,3 +550,20 @@ export async function POST(
     );
   }
 }
+
+OrderSchema.index({
+  "shipping.awbNumber": 1,
+});
+
+/* =========================================================
+   EXPORT
+========================================================= */
+
+const Order =
+  mongoose.models.Order ||
+  mongoose.model(
+    "Order",
+    OrderSchema
+  );
+
+export default Order;
