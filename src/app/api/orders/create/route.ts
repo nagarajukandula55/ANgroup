@@ -136,8 +136,20 @@ export async function POST(
         const qty =
           Number(item.qty || 1);
 
-        const sellingPrice =
-          Number(item.price || 0);
+      const sellingPriceRaw =
+        item.sellingPrice ?? item.price;
+      
+      if (
+        sellingPriceRaw === undefined ||
+        sellingPriceRaw === null
+      ) {
+        throw new Error(
+          `Missing sellingPrice for product ${item.productId}`
+        );
+      }
+      
+      const sellingPrice =
+        Number(sellingPriceRaw);
 
         const gstPercent =
           Number(item.gstPercent || 18);
