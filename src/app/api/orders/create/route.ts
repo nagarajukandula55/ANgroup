@@ -54,7 +54,11 @@ function normalizeItem(item: any) {
     item.mrp ??
     0;
 
-  if (!sellingPriceRaw || isNaN(Number(sellingPriceRaw))) {
+  if (
+     sellingPriceRaw === undefined ||
+     sellingPriceRaw === null ||
+     isNaN(Number(sellingPriceRaw))
+   ) {
     throw new Error(
       `Invalid sellingPrice for productId: ${item.productId}`
     );
@@ -113,6 +117,11 @@ export async function POST(req: Request) {
     ========================================================= */
 
     console.log("INCOMING CART:", cart);
+
+    console.log(
+        "FIRST ITEM:",
+        JSON.stringify(cart[0], null, 2)
+      );
 
     const processedCart = cart.map((raw: any) => {
       const item = normalizeItem(raw);
@@ -276,8 +285,27 @@ export async function POST(req: Request) {
 
         order.payment.gatewayOrderId = razorpayOrder.id;
         await order.save();
-      } catch (err) {
-        console.error("RAZORPAY ERROR:", err);
+      } 
+
+      catch (err: any) {
+
+        console.error(
+          "RAZORPAY ERROR:",
+          err
+        );
+      
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Unable to initialize payment gateway",
+            error: err?.message,
+          },
+          {
+            status: 500,
+            headers: corsHeaders,
+          }
+        );
       }
     }
 
