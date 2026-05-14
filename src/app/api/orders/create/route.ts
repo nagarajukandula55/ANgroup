@@ -1,6 +1,3 @@
-# `src/app/api/orders/create/route.ts`
-
-```ts
 import { NextResponse } from "next/server";
 
 import { connectDB } from "@/lib/mongodb";
