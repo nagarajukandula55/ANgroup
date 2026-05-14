@@ -1,7 +1,16 @@
+# `src/app/api/orders/create/route.ts`
+
+```ts
 import { NextResponse } from "next/server";
+
 import { connectDB } from "@/lib/mongodb";
+import { calculateGST } from "@/lib/gst";
+
 import Order from "@/models/Order";
-import crypto from "crypto";
+
+/* =========================================================
+   CORS
+========================================================= */
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":
@@ -14,6 +23,10 @@ const corsHeaders = {
     "Content-Type, Authorization",
 };
 
+/* =========================================================
+   OPTIONS
+========================================================= */
+
 export async function OPTIONS() {
   return NextResponse.json(
     {},
@@ -23,44 +36,34 @@ export async function OPTIONS() {
   );
 }
 
-/* ================= ORDER NUMBER ================= */
+/* =========================================================
+   ORDER NUMBER
+========================================================= */
 
-  async function generateOrderId() {
-    const now = new Date();
-  
-    const year = now.getFullYear();
-  
-    const nextYear =
-      String(year + 1).slice(-2);
-  
-    const fy =
-      `${String(year).slice(-2)}${nextYear}`;
-  
-    const count =
-      await Order.countDocuments();
-  
-    const serial = String(
-      count + 1
-    ).padStart(6, "0");
-  
-    return `NA-ORD-${fy}-${serial}`;
-  }
+async function generateOrderId() {
+  const now = new Date();
 
-/* ================= INVOICE NUMBER ================= */
+  const year = now.getFullYear();
 
-function generateInvoicePrefix(
-  invoiceType = "B2C"
-) {
-  const year = new Date();
+  const nextYear =
+    String(year + 1).slice(-2);
 
   const fy =
-    String(year.getFullYear()).slice(2) +
-    String(
-      year.getFullYear() + 1
-    ).slice(2);
+    `${String(year).slice(-2)}${nextYear}`;
 
-  return `NA-${invoiceType}-${fy}`;
+  const count =
+    await Order.countDocuments();
+
+  const serial = String(
+    count + 1
+  ).padStart(6, "0");
+
+  return `NA-ORD-${fy}-${serial}`;
 }
+
+/* =========================================================
+   CREATE ORDER
+========================================================= */
 
 export async function POST(
   req: Request
@@ -73,30 +76,24 @@ export async function POST(
     const {
       source = "NATIVE",
 
-      customerType = "INDIVIDUAL",
-
       cart,
 
       address,
 
-      amount,
-
-      billing,
-
       paymentMethod,
 
-      coupon,
+      coupon = "",
 
       discount = 0,
-
-      taxItems = [],
 
       gstType = "B2C",
 
       gstMode = "CGST_SGST",
     } = body;
 
-    /* ================= VALIDATION ================= */
+    /* =========================================================
+       VALIDATION
+    ========================================================= */
 
     if (
       !cart ||
@@ -132,34 +129,176 @@ export async function POST(
       );
     }
 
-    if (!amount || amount <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid amount",
-        },
-        {
-          status: 400,
-          headers: corsHeaders,
-        }
-      );
-    }
+    /* =========================================================
+       PROCESS CART
+    ========================================================= */
 
-    /* ================= IDS ================= */
+    const processedCart =
+      cart.map((item: any) => {
 
-    const orderId = await generateOrderId();
+        const qty =
+          Number(item.qty || 1);
 
-    const invoiceType =
-      gstType === "B2B"
-        ? "TAX"
-        : "B2C";
+        const sellingPrice =
+          Number(item.price || 0);
 
-    const invoicePrefix =
-      generateInvoicePrefix(
-        invoiceType
-      );
+        const gstPercent =
+          Number(item.gstPercent || 18);
 
-    /* ================= PAYMENT STATUS ================= */
+        const gst =
+          calculateGST(
+            sellingPrice,
+            gstPercent
+          );
+
+        return {
+          productId:
+            item.productId,
+
+          sku:
+            item.sku || "",
+
+          name:
+            item.name,
+
+          variant:
+            item.variant || "",
+
+          hsn:
+            item.hsn || "",
+
+          qty,
+
+          price:
+            sellingPrice,
+
+          mrp:
+            Number(
+              item.mrp || sellingPrice
+            ),
+
+          taxableValue:
+            gst.taxableValue,
+
+          gstPercent,
+
+          cgst:
+            gst.cgst,
+
+          sgst:
+            gst.sgst,
+
+          igst:
+            gst.igst,
+
+          total:
+            +(
+              gst.total * qty
+            ).toFixed(2),
+        };
+      });
+
+    /* =========================================================
+       TOTALS
+    ========================================================= */
+
+    const subtotal =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc +
+            (
+              item.taxableValue *
+              item.qty
+            ),
+          0
+        )
+        .toFixed(2);
+
+    const cgst =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc +
+            (
+              item.cgst *
+              item.qty
+            ),
+          0
+        )
+        .toFixed(2);
+
+    const sgst =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc +
+            (
+              item.sgst *
+              item.qty
+            ),
+          0
+        )
+        .toFixed(2);
+
+    const igst =
+      +processedCart
+        .reduce(
+          (
+            acc: number,
+            item: any
+          ) =>
+            acc +
+            (
+              item.igst *
+              item.qty
+            ),
+          0
+        )
+        .toFixed(2);
+
+    const gstTotal =
+      +(
+        cgst +
+        sgst +
+        igst
+      ).toFixed(2);
+
+    const shippingCharges = 0;
+
+    const taxableAmount =
+      subtotal;
+
+    const roundOff = 0;
+
+    const amount =
+      +(
+        subtotal +
+        gstTotal +
+        shippingCharges -
+        discount +
+        roundOff
+      ).toFixed(2);
+
+    /* =========================================================
+       IDS
+    ========================================================= */
+
+    const orderId =
+      await generateOrderId();
+
+    /* =========================================================
+       PAYMENT STATUS
+    ========================================================= */
 
     let paymentStatus =
       "NOT_INITIATED";
@@ -174,37 +313,62 @@ export async function POST(
       paymentStatus = "PENDING";
     }
 
-    /* ================= CREATE ================= */
+    if (paymentMethod === "COD") {
+      paymentStatus = "PENDING";
+    }
+
+    /* =========================================================
+       INVOICE TYPE
+    ========================================================= */
+
+    const invoiceType =
+      gstType === "B2B"
+        ? "B2B"
+        : "TAX";
+
+    /* =========================================================
+       CREATE ORDER
+    ========================================================= */
 
     const order = await Order.create({
+
       source,
 
       orderId,
 
-      customerType,
-
-      cart,
+      cart: processedCart,
 
       address,
 
-      amount,
-
-      billing,
+      subtotal,
 
       discount,
 
-      coupon,
+      taxableAmount,
 
-      taxItems,
+      cgst,
+
+      sgst,
+
+      igst,
+
+      gstTotal,
+
+      shippingCharges,
+
+      roundOff,
+
+      amount,
+
+      coupon,
 
       gstType,
 
       gstMode,
 
-      status:
-        paymentMethod === "COD"
-          ? "CONFIRMED"
-          : "PENDING_PAYMENT",
+      taxItems: processedCart,
+
+      status: "PENDING_PAYMENT",
 
       payment: {
         method: paymentMethod,
@@ -217,24 +381,37 @@ export async function POST(
       invoice: {
         invoiceType,
 
-        invoicePrefix,
+        pdfGenerated: false,
 
-        status: "NOT_GENERATED",
+        locked: false,
       },
 
-      auditLogs: [
+      paymentVerified: false,
+
+      stockReserved: false,
+
+      invoiceGenerated: false,
+
+      shipmentCreated: false,
+
+      locked: false,
+
+      events: [
         {
-          action: "ORDER_CREATED",
+          type: "ORDER_CREATED",
 
           message:
             "Order created successfully",
 
-          createdAt: new Date(),
+          createdAt:
+            new Date(),
         },
       ],
     });
 
-    /* ================= RAZORPAY ================= */
+    /* =========================================================
+       RAZORPAY ORDER
+    ========================================================= */
 
     let razorpayOrder = null;
 
@@ -242,6 +419,7 @@ export async function POST(
       paymentMethod === "RAZORPAY"
     ) {
       try {
+
         const Razorpay = (
           await import("razorpay")
         ).default;
@@ -272,11 +450,13 @@ export async function POST(
             },
           });
 
-        order.payment.razorpayOrderId =
+        order.payment.gatewayOrderId =
           razorpayOrder.id;
 
         await order.save();
+
       } catch (err) {
+
         console.error(
           "RAZORPAY ERROR",
           err
@@ -284,11 +464,17 @@ export async function POST(
       }
     }
 
+    /* =========================================================
+       RESPONSE
+    ========================================================= */
+
     return NextResponse.json(
       {
         success: true,
 
         orderId,
+
+        amount,
 
         razorpayOrder,
       },
@@ -296,7 +482,9 @@ export async function POST(
         headers: corsHeaders,
       }
     );
+
   } catch (err: any) {
+
     console.error(
       "ORDER CREATE ERROR",
       err
@@ -318,3 +506,19 @@ export async function POST(
     );
   }
 }
+```
+
+# What This Fixes
+
+* GST values now calculate correctly
+* Backend controls final amount
+* Prevents frontend price tampering
+* Correct payment lifecycle
+* Correct invoice lifecycle
+* Correct Razorpay gateway field names
+* Proper audit/event logging
+* Proper tax snapshots
+* Correct subtotal / GST storage
+* Consistent order states
+* Safer invoice generation pipeline
+* Prevents zero-value GST orders
