@@ -1,8 +1,12 @@
 import Order from "@/models/Order";
 import { generateInvoiceNumber } from "./generateInvoiceNumber";
 
-export async function createInvoiceForOrder(orderId: string) {
-  const order = await Order.findOne({ orderId })
+export async function createInvoiceForOrder(
+  orderId: string
+) {
+  const order = await Order.findOne({
+    orderId,
+  })
     .lean()
     .exec() as any;
 
@@ -10,12 +14,20 @@ export async function createInvoiceForOrder(orderId: string) {
     throw new Error("ORDER_NOT_FOUND");
   }
 
-  const invoiceNumber = await generateInvoiceNumber(
-    order.businessId
-  );
+  const invoiceNumber =
+    await generateInvoiceNumber(
+      order.businessId
+    );
 
   return {
     invoiceNumber,
     order,
   };
 }
+
+/* =========================================================
+   ALIAS EXPORT
+========================================================= */
+
+export const createInvoice =
+  createInvoiceForOrder;
