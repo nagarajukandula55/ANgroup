@@ -7,8 +7,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AN Group OS",
-  description: "Premium Enterprise Operating System",
+  title: "AN Group",
+  description: "Luxury Enterprise Platform",
 };
 
 export default function RootLayout({
@@ -18,7 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+      </body>
     </html>
   );
 }
