@@ -215,14 +215,6 @@ const processedCartRaw = await Promise.all(
 
   const searchConditions: any[] = [];
 
- const product = await Product.findOne({
-     $or: searchConditions,
-   }).lean<any>();
-   
-   if (!product) {
-     throw new Error("Product not found");
-   }
-
 /* =========================================================
    PRODUCT ID
 ========================================================= */
@@ -283,32 +275,71 @@ if (item._id) {
   }
 }
 
-/* =========================================================
-   PRODUCT FIND
-========================================================= */
+   /* =========================================================
+      PRODUCT FIND
+   ========================================================= */
+   
+   console.log(
+     "SEARCH CONDITIONS:",
+     JSON.stringify(searchConditions, null, 2)
+   );
 
-console.log(
-  "SEARCH CONDITIONS:",
-  JSON.stringify(searchConditions, null, 2)
+   const product = await Product.findOne({
+        $or: searchConditions,
+      }).lean<any>();
+      
+      if (!product) {
+        throw new Error("Product not found");
+      }         
+   console.log(
+     "FOUND PRODUCT:",
+     product
+   );
+
+      return {
+        productId: product.productId || product._id.toString(),
+        productKey: product.productKey || null,
+        sku: product.sku || null,
+        name: product.name,
+      
+        qty: item.qty,
+      
+        sellingPrice: Number(product.price),
+      
+        mrp: Number(
+          product.mrp ?? product.price
+        ),
+      
+         gstRate: Number(
+           product.gstRate ??
+           item.gstRate ??
+           0
+         ),
+      
+        baseTotal: money(
+          Number(product.price) * qty
+        ),
+      };
+  })
 );
 
-console.log(
-  "FOUND PRODUCT:",
-  product
-);
+const subtotalBeforeDiscount =
+  processedCartRaw.reduce(
+    (sum, item) => sum + item.baseTotal,
+    0
+  );
 
 /* =========================================================
-   COUPON VALIDATION
+   DISTRIBUTE DISCOUNT
 ========================================================= */
 
 let couponDiscount = 0;
 
 if (coupon) {
-  const result =
-    await validateCoupon(
-      coupon,
-      subtotalBeforeDiscount
-    );
+  const result = await validateCoupon(
+    coupon,
+    subtotalBeforeDiscount
+  );
 
   if (!result?.valid) {
     return NextResponse.json(
@@ -333,15 +364,10 @@ const finalDiscount = Math.min(
   subtotalBeforeDiscount
 );
 
-/* =========================================================
-   DISTRIBUTE DISCOUNT
-========================================================= */
-
 let distributedDiscount = 0;
 
-const processedCart =
-  processedCartRaw.map((item, index) => {
-
+const processedCart = processedCartRaw.map(
+  (item, index) => {
     const ratio =
       subtotalBeforeDiscount > 0
         ? item.baseTotal /
@@ -367,79 +393,49 @@ const processedCart =
         itemDiscount;
     }
 
-    const taxableValue = money(
-      item.baseTotal -
-      itemDiscount
-    );
-
-    const gstAmount = money(
-      taxableValue *
-      item.gstRate /
-      100
-    );
+   const taxableValue = money(
+     item.baseTotal - itemDiscount
+   );
+   
+   const gstAmount = money(
+     taxableValue * (item.gstRate / 100)
+   );
 
     let cgstAmount = 0;
     let sgstAmount = 0;
     let igstAmount = 0;
 
-   if (gstMode === "CGST_SGST") {
-   
-     cgstAmount = money(
-       gstAmount / 2
-     );
-   
-     sgstAmount = money(
-       gstAmount - cgstAmount
-     );
-   
-   } else {
-   
-     igstAmount = gstAmount;
-   
-   }
+    if (gstMode === "CGST_SGST") {
+      cgstAmount = money(gstAmount / 2);
+      sgstAmount = money(
+        gstAmount - cgstAmount
+      );
+    } else {
+      igstAmount = gstAmount;
+    }
 
     const lineTotal = money(
-      taxableValue +
-      gstAmount
+      taxableValue + gstAmount
     );
 
     return {
       productId: item.productId,
-
       sku: item.sku,
-
       name: item.name,
-
       qty: item.qty,
-
-      price: item.price,
-
+      price: item.sellingPrice,
       gstRate: item.gstRate,
-
       baseTotal: item.baseTotal,
-
       discount: itemDiscount,
-
       taxableValue,
-
       gstAmount,
-
       cgstAmount,
-
       sgstAmount,
-
       igstAmount,
-
       lineTotal,
     };
-  });
-
-
-   const subtotalBeforeDiscount =
-     processedCartRaw.reduce(
-       (sum, item) => sum + item.baseTotal,
-       0
-     );
+  }
+);
 
 /* =========================================================
    TOTALS
