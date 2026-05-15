@@ -12,7 +12,10 @@ const OrderItemSchema = new mongoose.Schema(
       index: true,
     },
 
-    sku: String,
+    sku: {
+      type: String,
+      default: "",
+    },
 
     name: {
       type: String,
@@ -29,16 +32,60 @@ const OrderItemSchema = new mongoose.Schema(
       min: 1,
     },
 
-    sellingPrice: {
+    /* ================= PRICING ================= */
+
+    price: {
       type: Number,
       required: true,
     },
 
+    sellingPrice: Number,
+
     mrp: Number,
 
-    taxableValue: Number,
+    baseTotal: {
+      type: Number,
+      default: 0,
+    },
+
+    discount: {
+      type: Number,
+      default: 0,
+    },
+
+    taxableValue: {
+      type: Number,
+      default: 0,
+    },
+
+    /* ================= GST ================= */
+
+    gstRate: {
+      type: Number,
+      default: 0,
+    },
 
     gstPercent: {
+      type: Number,
+      default: 0,
+    },
+
+    gstAmount: {
+      type: Number,
+      default: 0,
+    },
+
+    cgstAmount: {
+      type: Number,
+      default: 0,
+    },
+
+    sgstAmount: {
+      type: Number,
+      default: 0,
+    },
+
+    igstAmount: {
       type: Number,
       default: 0,
     },
@@ -58,7 +105,10 @@ const OrderItemSchema = new mongoose.Schema(
       default: 0,
     },
 
-    lineTotal: Number,
+    lineTotal: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     _id: false,
@@ -72,17 +122,30 @@ const OrderItemSchema = new mongoose.Schema(
 const AddressSchema = new mongoose.Schema(
   {
     name: String,
-    phone: String,
+
+    phone: {
+      type: String,
+      index: true,
+    },
+
     email: String,
 
     companyName: String,
+
     gstNumber: String,
 
     address: String,
+
+    addressLine1: String,
+
+    addressLine2: String,
+
     landmark: String,
 
     city: String,
+
     district: String,
+
     state: String,
 
     country: {
@@ -135,22 +198,35 @@ const PaymentSchema = new mongoose.Schema(
     },
 
     transactionId: String,
+
     utr: String,
 
-    gateway: String,
+    gateway: {
+      type: String,
+      default: "RAZORPAY",
+    },
 
-    gatewayOrderId: String,
-    gatewayPaymentId: String,
+    gatewayOrderId: {
+      type: String,
+      index: true,
+    },
+
+    gatewayPaymentId: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+
     gatewaySignature: String,
 
+    rawWebhook: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+
     paidAt: Date,
+
     refundedAt: Date,
-      expiresAt: {
-        type: Date,
-        index: {
-          expires: 0,
-        },
-      },
   },
   {
     _id: false,
@@ -218,15 +294,19 @@ const ShippingSchema = new mongoose.Schema(
     },
 
     courierPartner: String,
+
     courierId: String,
+
     awbNumber: String,
 
     trackingUrl: String,
+
     trackingStatus: String,
 
     labelUrl: String,
 
     shippedAt: Date,
+
     deliveredAt: Date,
   },
   {
@@ -241,8 +321,11 @@ const ShippingSchema = new mongoose.Schema(
 const EventSchema = new mongoose.Schema(
   {
     type: String,
+
     message: String,
+
     by: String,
+
     data: Object,
 
     createdAt: {
@@ -292,7 +375,10 @@ const OrderSchema = new mongoose.Schema(
 
     /* ================= CART ================= */
 
-    cart: [OrderItemSchema],
+    cart: {
+      type: [OrderItemSchema],
+      default: [],
+    },
 
     /* ================= ADDRESS ================= */
 
@@ -387,9 +473,11 @@ const OrderSchema = new mongoose.Schema(
         "DELIVERED",
         "COMPLETED",
         "FAILED",
+        "PAYMENT_FAILED",
         "CANCELLED",
         "RETURNED",
         "REFUNDED",
+        "EXPIRED",
       ],
       default: "CREATED",
       index: true,
@@ -447,17 +535,12 @@ const OrderSchema = new mongoose.Schema(
       default: false,
     },
 
-    OrderSchema.index(
-        { orderId: 1 },
-        { unique: true }
-      );
-      
-      OrderSchema.index(
-        {
-          "payment.gatewayPaymentId": 1,
-        },
-        { sparse: true }
-      );
+    expiresAt: {
+      type: Date,
+      index: true,
+    },
+
+    orderHash: String,
 
     /* ================= EVENTS ================= */
 
@@ -469,6 +552,7 @@ const OrderSchema = new mongoose.Schema(
     /* ================= NOTES ================= */
 
     internalNotes: String,
+
     customerNotes: String,
   },
   {
@@ -492,7 +576,20 @@ OrderSchema.index({
 });
 
 OrderSchema.index({
+  "payment.gatewayPaymentId": 1,
+});
+
+OrderSchema.index({
   "shipping.awbNumber": 1,
+});
+
+OrderSchema.index({
+  expiresAt: 1,
+});
+
+OrderSchema.index({
+  "address.phone": 1,
+  status: 1,
 });
 
 /* =========================================================
