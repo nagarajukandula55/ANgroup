@@ -2,15 +2,426 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import mongoose from "mongoose";
 
 import { connectDB } from "@/lib/mongodb";
+
 import Order from "@/models/Order";
+import WebhookLog from "@/models/WebhookLog";
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function safeEqual(a: string, b: string) {
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    aBuffer,
+    bBuffer
+  );
+}
+
+/* =========================================================
+   SUCCESS PAYMENT PROCESSOR
+========================================================= */
+
+async function processSuccessfulPayment({
+  payment,
+  event,
+  razorpaySignature,
+}: {
+  payment: any;
+  event: any;
+  razorpaySignature: string;
+}) {
+  /* =========================================================
+     BASIC VALIDATION
+  ========================================================= */
+
+  if (!payment) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Invalid payment payload",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (payment.status !== "captured") {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Payment not captured",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (payment.currency !== "INR") {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Invalid currency",
+      },
+      { status: 400 }
+    );
+  }
+
+  const orderId =
+    payment?.notes?.orderId;
+
+  if (!orderId) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Order ID missing",
+      },
+      { status: 400 }
+    );
+  }
+
+  /* =========================================================
+     PAYMENT REPLAY PROTECTION
+  ========================================================= */
+
+  const existingPayment =
+    await Order.findOne({
+      "payment.gatewayPaymentId":
+        payment.id,
+    });
+
+  if (existingPayment) {
+    return NextResponse.json({
+      success: true,
+      duplicate: true,
+      replayBlocked: true,
+    });
+  }
+
+  /* =========================================================
+     FIND ORDER
+  ========================================================= */
+
+  const order =
+    await Order.findOne({
+      orderId,
+    });
+
+  if (!order) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Order not found",
+      },
+      { status: 404 }
+    );
+  }
+
+  /* =========================================================
+     EXPIRED ORDER CHECK
+  ========================================================= */
+
+  if (
+    order.expiresAt &&
+    new Date(order.expiresAt) <
+      new Date()
+  ) {
+    order.events.push({
+      type: "ORDER_EXPIRED_PAYMENT_ATTEMPT",
+
+      message:
+        "Payment received after order expiry",
+
+      data: {
+        paymentId: payment.id,
+      },
+
+      createdAt: new Date(),
+    });
+
+    await order.save();
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Order expired",
+      },
+      { status: 400 }
+    );
+  }
+
+  /* =========================================================
+     VERIFY RAZORPAY ORDER ID
+  ========================================================= */
+
+  if (
+    payment.order_id !==
+    order.payment?.gatewayOrderId
+  ) {
+    order.events.push({
+      type: "PAYMENT_ORDER_MISMATCH",
+
+      message:
+        "Gateway order ID mismatch",
+
+      data: {
+        razorpayOrderId:
+          payment.order_id,
+
+        dbGatewayOrderId:
+          order.payment
+            ?.gatewayOrderId,
+      },
+
+      createdAt: new Date(),
+    });
+
+    await order.save();
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Gateway order mismatch",
+      },
+      { status: 400 }
+    );
+  }
+
+  /* =========================================================
+     IDEMPOTENCY CHECK
+  ========================================================= */
+
+  if (
+    order.paymentVerified ||
+    order.payment?.status ===
+      "SUCCESS"
+  ) {
+    return NextResponse.json({
+      success: true,
+      duplicate: true,
+    });
+  }
+
+  /* =========================================================
+     AMOUNT VALIDATION
+  ========================================================= */
+
+  const paidAmount =
+    Number(payment.amount || 0) /
+    100;
+
+  if (
+    Number(order.amount) !==
+    Number(paidAmount)
+  ) {
+    order.events.push({
+      type:
+        "PAYMENT_AMOUNT_MISMATCH",
+
+      message:
+        "Webhook payment amount mismatch",
+
+      data: {
+        orderAmount:
+          order.amount,
+
+        paidAmount,
+
+        paymentId:
+          payment.id,
+      },
+
+      createdAt: new Date(),
+    });
+
+    await order.save();
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Amount mismatch",
+      },
+      { status: 400 }
+    );
+  }
+
+  /* =========================================================
+     FRAUD CHECKS
+  ========================================================= */
+
+  if (
+    payment.contact &&
+    order.address?.phone &&
+    String(payment.contact).slice(-10) !==
+      String(order.address.phone).slice(
+        -10
+      )
+  ) {
+    order.events.push({
+      type:
+        "PAYMENT_CONTACT_MISMATCH",
+
+      message:
+        "Payment contact differs from order phone",
+
+      data: {
+        paymentContact:
+          payment.contact,
+
+        orderPhone:
+          order.address.phone,
+      },
+
+      createdAt: new Date(),
+    });
+  }
+
+  /* =========================================================
+     TRANSACTION
+  ========================================================= */
+
+  const session =
+    await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    /* ================= PAYMENT ================= */
+
+    order.payment.status =
+      "SUCCESS";
+
+    order.payment
+      .gatewayPaymentId =
+      payment.id;
+
+    order.payment
+      .gatewaySignature =
+      razorpaySignature;
+
+    order.payment.paidAt =
+      payment.captured_at
+        ? new Date(
+            payment.captured_at * 1000
+          )
+        : new Date();
+
+    order.payment.amountPaid =
+      paidAmount;
+
+    order.payment.rawWebhook =
+      event;
+
+    /* ================= ORDER ================= */
+
+    order.paymentVerified = true;
+
+    order.stockReserved = false;
+
+    order.invoiceGenerated =
+      false;
+
+    order.shipmentCreated =
+      false;
+
+    order.locked = true;
+
+    order.status = "PAID";
+
+    /* ================= EVENTS ================= */
+
+    order.events.push({
+      type:
+        "PAYMENT_SUCCESS_WEBHOOK",
+
+      message:
+        "Payment confirmed via Razorpay webhook",
+
+      data: {
+        paymentId:
+          payment.id,
+
+        razorpayOrderId:
+          payment.order_id,
+
+        orderId,
+
+        amount:
+          paidAmount,
+
+        method:
+          payment.method,
+
+        email:
+          payment.email,
+
+        contact:
+          payment.contact,
+      },
+
+      createdAt: new Date(),
+    });
+
+    /* =========================================================
+       TODO PIPELINE FLAGS
+    ========================================================= */
+
+    order.events.push({
+      type: "POST_PAYMENT_PENDING",
+
+      message:
+        "Pending stock reservation, invoice generation and shipment creation",
+
+      createdAt: new Date(),
+    });
+
+    /* ================= SAVE ================= */
+
+    await order.save({
+      session,
+    });
+
+    await session.commitTransaction();
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (err: any) {
+    await session.abortTransaction();
+
+    console.error(
+      "PAYMENT PROCESS ERROR:",
+      err
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Payment processing failed",
+      },
+      { status: 500 }
+    );
+  } finally {
+    session.endSession();
+  }
+}
 
 /* =========================================================
    WEBHOOK
 ========================================================= */
 
 export async function POST(req: Request) {
+  let webhookLog: any = null;
+
   try {
     await connectDB();
 
@@ -18,7 +429,10 @@ export async function POST(req: Request) {
        ENV VALIDATION
     ========================================================= */
 
-    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+    if (
+      !process.env
+        .RAZORPAY_WEBHOOK_SECRET
+    ) {
       throw new Error(
         "Missing RAZORPAY_WEBHOOK_SECRET"
       );
@@ -28,7 +442,8 @@ export async function POST(req: Request) {
        RAW BODY
     ========================================================= */
 
-    const rawBody = await req.text();
+    const rawBody =
+      await req.text();
 
     /* =========================================================
        SIGNATURE VALIDATION
@@ -39,39 +454,20 @@ export async function POST(req: Request) {
         "x-razorpay-signature"
       ) || "";
 
-    const expectedSignature = crypto
-      .createHmac(
-        "sha256",
-        process.env
-          .RAZORPAY_WEBHOOK_SECRET
-      )
-      .update(rawBody)
-      .digest("hex");
-
-    const signatureBuffer =
-      Buffer.from(razorpaySignature);
-
-    const expectedBuffer =
-      Buffer.from(expectedSignature);
-
-    if (
-      signatureBuffer.length !==
-      expectedBuffer.length
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid webhook signature",
-        },
-        { status: 400 }
-      );
-    }
+    const expectedSignature =
+      crypto
+        .createHmac(
+          "sha256",
+          process.env
+            .RAZORPAY_WEBHOOK_SECRET
+        )
+        .update(rawBody)
+        .digest("hex");
 
     const isValidSignature =
-      crypto.timingSafeEqual(
-        signatureBuffer,
-        expectedBuffer
+      safeEqual(
+        razorpaySignature,
+        expectedSignature
       );
 
     if (!isValidSignature) {
@@ -89,277 +485,94 @@ export async function POST(req: Request) {
        PARSE EVENT
     ========================================================= */
 
-    const event = JSON.parse(rawBody);
+    const event =
+      JSON.parse(rawBody);
 
-    const eventType = event?.event;
+    const eventType =
+      event?.event;
+
+    /* =========================================================
+       WEBHOOK LOG
+    ========================================================= */
+
+    webhookLog =
+      await WebhookLog.create({
+        event: eventType,
+
+        payload: event,
+
+        signature:
+          razorpaySignature,
+
+        processed: false,
+
+        receivedAt: new Date(),
+      });
 
     /* =========================================================
        PAYMENT CAPTURED
     ========================================================= */
 
-    if (eventType === "payment.captured") {
-      const payment =
-        event?.payload?.payment
-          ?.entity;
-
-      /* ================= VALIDATE ================= */
-
-      if (!payment) {
-        return NextResponse.json(
+    if (
+      eventType ===
+      "payment.captured"
+    ) {
+      const response =
+        await processSuccessfulPayment(
           {
-            success: false,
-            message:
-              "Invalid payment payload",
-          },
-          { status: 400 }
-        );
-      }
+            payment:
+              event?.payload
+                ?.payment?.entity,
 
-      if (
-        payment.status !==
-        "captured"
-      ) {
-        return NextResponse.json(
+            event,
+
+            razorpaySignature,
+          }
+        );
+
+      webhookLog.processed = true;
+
+      await webhookLog.save();
+
+      return response;
+    }
+
+    /* =========================================================
+       ORDER PAID
+    ========================================================= */
+
+    if (
+      eventType ===
+      "order.paid"
+    ) {
+      const response =
+        await processSuccessfulPayment(
           {
-            success: false,
-            message:
-              "Payment not captured",
-          },
-          { status: 400 }
+            payment:
+              event?.payload
+                ?.payment?.entity,
+
+            event,
+
+            razorpaySignature,
+          }
         );
-      }
 
-      const orderId =
-        payment?.notes?.orderId;
+      webhookLog.processed = true;
 
-      if (!orderId) {
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              "Order ID missing",
-          },
-          { status: 400 }
-        );
-      }
+      await webhookLog.save();
 
-      /* ================= FIND ORDER ================= */
-
-      const order =
-        await Order.findOne({
-          orderId,
-        });
-
-      if (!order) {
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              "Order not found",
-          },
-          { status: 404 }
-        );
-      }
-
-      /* =========================================================
-         VERIFY RAZORPAY ORDER ID
-      ========================================================= */
-
-      if (
-        payment.order_id !==
-        order.payment
-          ?.gatewayOrderId
-      ) {
-        order.events.push({
-          type:
-            "PAYMENT_ORDER_MISMATCH",
-
-          message:
-            "Gateway order ID mismatch",
-
-          data: {
-            razorpayOrderId:
-              payment.order_id,
-
-            dbGatewayOrderId:
-              order.payment
-                ?.gatewayOrderId,
-          },
-
-          createdAt: new Date(),
-        });
-
-        await order.save();
-
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              "Gateway order mismatch",
-          },
-          { status: 400 }
-        );
-      }
-
-      /* =========================================================
-         IDEMPOTENCY CHECK
-      ========================================================= */
-
-      if (
-        order.paymentVerified ||
-        order.payment?.status ===
-          "SUCCESS"
-      ) {
-        return NextResponse.json({
-          success: true,
-          duplicate: true,
-        });
-      }
-
-      /* =========================================================
-         AMOUNT VALIDATION
-      ========================================================= */
-
-      const paidAmount =
-        Number(payment.amount || 0) /
-        100;
-
-      if (
-        Number(order.amount) !==
-        Number(paidAmount)
-      ) {
-        order.events.push({
-          type:
-            "PAYMENT_AMOUNT_MISMATCH",
-
-          message:
-            "Webhook payment amount mismatch",
-
-          data: {
-            orderAmount:
-              order.amount,
-
-            paidAmount,
-
-            paymentId:
-              payment.id,
-          },
-
-          createdAt: new Date(),
-        });
-
-        await order.save();
-
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              "Amount mismatch",
-          },
-          { status: 400 }
-        );
-      }
-
-      /* =========================================================
-         UPDATE PAYMENT
-      ========================================================= */
-
-      order.payment.status =
-        "SUCCESS";
-
-      order.payment
-        .gatewayPaymentId =
-        payment.id;
-
-      order.payment
-        .gatewaySignature =
-        razorpaySignature;
-
-      order.payment.paidAt =
-        payment.captured_at
-          ? new Date(
-              payment.captured_at *
-                1000
-            )
-          : new Date();
-
-      order.payment.amountPaid =
-        paidAmount;
-
-      /* =========================================================
-         OPTIONAL RAW STORAGE
-      ========================================================= */
-
-      order.payment.rawWebhook =
-        event;
-
-      /* =========================================================
-         ORDER STATE
-      ========================================================= */
-
-      order.paymentVerified = true;
-
-      order.stockReserved = true;
-
-      order.invoiceGenerated =
-        false;
-
-      order.shipmentCreated =
-        false;
-
-      order.locked = true;
-
-      order.status = "PAID";
-
-      /* =========================================================
-         EVENTS
-      ========================================================= */
-
-      order.events.push({
-        type:
-          "PAYMENT_SUCCESS_WEBHOOK",
-
-        message:
-          "Payment confirmed via Razorpay webhook",
-
-        data: {
-          paymentId:
-            payment.id,
-
-          orderId,
-
-          amount:
-            paidAmount,
-
-          method:
-            payment.method,
-
-          email:
-            payment.email,
-
-          contact:
-            payment.contact,
-        },
-
-        createdAt: new Date(),
-      });
-
-      /* =========================================================
-         SAVE
-      ========================================================= */
-
-      await order.save();
-
-      return NextResponse.json({
-        success: true,
-      });
+      return response;
     }
 
     /* =========================================================
        PAYMENT FAILED
     ========================================================= */
 
-    if (eventType === "payment.failed") {
+    if (
+      eventType ===
+      "payment.failed"
+    ) {
       const payment =
         event?.payload?.payment
           ?.entity;
@@ -439,6 +652,10 @@ export async function POST(req: Request) {
 
       await order.save();
 
+      webhookLog.processed = true;
+
+      await webhookLog.save();
+
       return NextResponse.json({
         success: true,
       });
@@ -486,6 +703,10 @@ export async function POST(req: Request) {
         }
       }
 
+      webhookLog.processed = true;
+
+      await webhookLog.save();
+
       return NextResponse.json({
         success: true,
       });
@@ -494,6 +715,10 @@ export async function POST(req: Request) {
     /* =========================================================
        UNHANDLED EVENTS
     ========================================================= */
+
+    webhookLog.processed = true;
+
+    await webhookLog.save();
 
     return NextResponse.json({
       success: true,
@@ -505,6 +730,13 @@ export async function POST(req: Request) {
       "RAZORPAY WEBHOOK ERROR:",
       err
     );
+
+    if (webhookLog) {
+      webhookLog.error =
+        err?.message;
+
+      await webhookLog.save();
+    }
 
     return NextResponse.json(
       {
