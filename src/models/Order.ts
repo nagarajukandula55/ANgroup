@@ -447,6 +447,18 @@ const OrderSchema = new mongoose.Schema(
       default: false,
     },
 
+    OrderSchema.index(
+        { orderId: 1 },
+        { unique: true }
+      );
+      
+      OrderSchema.index(
+        {
+          "payment.gatewayPaymentId": 1,
+        },
+        { sparse: true }
+      );
+
     /* ================= EVENTS ================= */
 
     events: {
