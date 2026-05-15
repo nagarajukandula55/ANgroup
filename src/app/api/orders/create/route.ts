@@ -208,11 +208,49 @@ const processedCartRaw = await Promise.all(
       throw new Error("Invalid quantity");
     }
 
-   const searchConditions: any[] = [
-     { productId: item.productId },
-     { productKey: item.productId },
-     { sku: item.productId },
-   ];
+   const searchConditions: any[] = [];
+   
+   /* =========================================================
+      PRODUCT ID
+   ========================================================= */
+   
+   if (item.productId) {
+     searchConditions.push({
+       productId: item.productId,
+     });
+   
+     if (
+       /^[0-9a-fA-F]{24}$/.test(item.productId)
+     ) {
+       searchConditions.push({
+         _id: item.productId,
+       });
+     }
+   }
+   
+   /* =========================================================
+      PRODUCT KEY
+   ========================================================= */
+   
+   if (item.productKey) {
+     searchConditions.push({
+       productKey: item.productKey,
+     });
+   }
+   
+   /* =========================================================
+      SKU
+   ========================================================= */
+   
+   if (item.sku) {
+     searchConditions.push({
+       sku: item.sku,
+     });
+   }
+   
+   const product = await Product.findOne({
+     $or: searchConditions,
+   }).lean<any>();
    
    const isObjectId =
      /^[0-9a-fA-F]{24}$/.test(
