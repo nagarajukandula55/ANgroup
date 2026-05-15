@@ -21,9 +21,9 @@ export default function HomePage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-14 w-14 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-          <h2 className="mt-8 text-2xl font-semibold tracking-wide">
-            Initializing AN Group OS
+          <div className="mx-auto h-14 w-14 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+          <h2 className="mt-8 text-2xl font-medium">
+            Loading AN Group
           </h2>
         </div>
       </div>
@@ -33,43 +33,41 @@ export default function HomePage() {
   const stats = [
     { title: 'Revenue', value: dashboard.revenue },
     { title: 'Employees', value: dashboard.employees },
-    { title: 'AI Agents', value: dashboard.aiAgents },
     { title: 'Automation', value: dashboard.automation },
+    { title: 'Growth', value: dashboard.aiAgents },
   ]
 
   return (
     <Layout>
-      <div className="space-y-8 px-4 py-6">
+      <div className="space-y-8">
 
-        <section className="relative overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.03] p-12 backdrop-blur-2xl">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-blue-500/10" />
+        <section className="rounded-[42px] border border-white/10 bg-white/[0.03] p-8 md:p-12 backdrop-blur-3xl">
+          <p className="text-xs uppercase tracking-[0.45em] text-zinc-500">
+            AN
+          </p>
 
-          <div className="relative z-10">
-            <p className="text-xs uppercase tracking-[0.45em] text-cyan-300">
-              AN GROUP CENTRAL INTELLIGENCE
-            </p>
+          <h1 className="mt-6 text-5xl md:text-7xl font-semibold tracking-tight">
+            Precision.
+            <span className="block text-zinc-400">
+              Intelligence.
+            </span>
+          </h1>
 
-            <h1 className="mt-6 text-7xl font-semibold tracking-tight">
-              Enterprise
-              <span className="block text-cyan-300">
-                Command Center
-              </span>
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-lg text-slate-300 leading-relaxed">
-              Unified control layer powering ecommerce, finance,
-              logistics, AI operations, automation and business intelligence.
-            </p>
-          </div>
+          <p className="mt-6 max-w-2xl text-lg text-zinc-400 leading-relaxed">
+            A luxury executive platform built to unify operations,
+            analytics, intelligence, and enterprise performance.
+          </p>
         </section>
 
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
           {stats.map((item, index) => (
             <div
               key={index}
-              className="group rounded-[28px] border border-white/10 bg-white/[0.03] p-7 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/30"
+              className="rounded-[30px] border border-white/10 bg-white/[0.03] p-7 backdrop-blur-2xl transition-all hover:bg-white/[0.05]"
             >
-              <p className="text-sm text-slate-400">{item.title}</p>
+              <p className="text-sm text-zinc-500">
+                {item.title}
+              </p>
 
               <h3 className="mt-4 text-5xl font-semibold tracking-tight">
                 {item.value}
@@ -78,20 +76,20 @@ export default function HomePage() {
           ))}
         </section>
 
-        <section className="rounded-[36px] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-xl">
+        <section className="rounded-[42px] border border-white/10 bg-white/[0.03] p-8 backdrop-blur-3xl">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">
-                BUSINESS MATRIX
+              <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
+                BUSINESS
               </p>
 
               <h2 className="mt-3 text-4xl font-semibold">
-                Operational Ecosystem
+                Portfolio
               </h2>
             </div>
 
-            <button className="rounded-2xl bg-white/10 px-6 py-3 text-sm font-medium backdrop-blur-xl transition hover:bg-cyan-500/20">
-              Export Reports
+            <button className="rounded-2xl border border-white/10 bg-white/[0.05] px-6 py-3 text-sm hover:bg-white/[0.08]">
+              Reports
             </button>
           </div>
 
@@ -99,14 +97,14 @@ export default function HomePage() {
             {dashboard.businessUnits.map((item: any, index: number) => (
               <div
                 key={index}
-                className="rounded-[28px] border border-white/10 bg-black/20 p-7 transition-all hover:border-cyan-400/30"
+                className="rounded-[30px] border border-white/10 bg-black/20 p-7"
               >
                 <div className="flex items-center justify-between">
-                  <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs text-cyan-300">
+                  <span className="rounded-full bg-white/[0.06] px-3 py-1 text-xs text-zinc-300">
                     Active
                   </span>
 
-                  <span className="flex items-center gap-1 text-green-400">
+                  <span className="flex items-center gap-1 text-white">
                     {item.growth}
                     <ArrowUpRight size={16} />
                   </span>
@@ -123,6 +121,7 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+
       </div>
     </Layout>
   )
