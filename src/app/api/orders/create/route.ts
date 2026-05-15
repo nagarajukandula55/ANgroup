@@ -104,6 +104,11 @@ export async function POST(req: Request) {
       gstType = "B2C",
     } = body;
 
+     console.log(
+        "INCOMING CART:",
+        JSON.stringify(cart, null, 2)
+      );
+
     const origin = req.headers.get("origin");
 
     const isAllowedOrigin =
@@ -208,96 +213,84 @@ const processedCartRaw = await Promise.all(
       throw new Error("Invalid quantity");
     }
 
-   const searchConditions: any[] = [];
-   
-   /* =========================================================
-      PRODUCT ID
-   ========================================================= */
-   
-   if (item.productId) {
-     searchConditions.push({
-       productId: item.productId,
-     });
-   
-     if (
-       /^[0-9a-fA-F]{24}$/.test(item.productId)
-     ) {
-       searchConditions.push({
-         _id: item.productId,
-       });
-     }
-   }
-   
-   /* =========================================================
-      PRODUCT KEY
-   ========================================================= */
-   
-   if (item.productKey) {
-     searchConditions.push({
-       productKey: item.productKey,
-     });
-   }
-   
-   /* =========================================================
-      SKU
-   ========================================================= */
-   
-   if (item.sku) {
-     searchConditions.push({
-       sku: item.sku,
-     });
-   }
-   
-   const product = await Product.findOne({
-     $or: searchConditions,
-   }).lean<any>();
+  const searchConditions: any[] = [];
 
-    if (!product) {
-      throw new Error("Product not found");
-    }
+/* =========================================================
+   PRODUCT ID
+========================================================= */
 
-    if (product.status !== "ACTIVE") {
-      throw new Error(
-        `${product.name} unavailable`
-      );
-    }
+if (item.productId) {
 
-    const price = Number(
-      product.sellingPrice ??
-      product.price ??
-      0
-    );
+  // direct productId field
+  searchConditions.push({
+    productId: item.productId,
+  });
 
-    if (!price || price <= 0) {
-      throw new Error(
-        `Invalid price for ${product.name}`
-      );
-    }
+  // Mongo ObjectId
+  if (
+    /^[0-9a-fA-F]{24}$/.test(item.productId)
+  ) {
+    searchConditions.push({
+      _id: item.productId,
+    });
+  }
+}
 
-    const gstRate = Number(
-      product.gstRate ?? 0
-    );
+/* =========================================================
+   PRODUCT KEY
+========================================================= */
 
-    const baseTotal = Number(
-      (price * qty).toFixed(2)
-    );
+if (item.productKey) {
+  searchConditions.push({
+    productKey: item.productKey,
+  });
+}
 
-    return {
-      productId: String(product._id),
+/* =========================================================
+   SKU
+========================================================= */
 
-      sku: product.sku || "",
+if (item.sku) {
+  searchConditions.push({
+    sku: item.sku,
+  });
+}
 
-      name: product.name,
+/* =========================================================
+   FALLBACK _id
+========================================================= */
 
-      qty,
+if (item._id) {
 
-      price,
+  searchConditions.push({
+    productKey: item._id,
+  });
 
-      gstRate,
+  if (
+    /^[0-9a-fA-F]{24}$/.test(item._id)
+  ) {
+    searchConditions.push({
+      _id: item._id,
+    });
+  }
+}
 
-      baseTotal,
-    };
-  })
+/* =========================================================
+   PRODUCT FIND
+========================================================= */
+
+console.log(
+  "SEARCH CONDITIONS:",
+  JSON.stringify(searchConditions, null, 2)
+);
+
+const product = await Product.findOne({
+  $or: searchConditions,
+}).lean<any>();
+
+console.log(
+  "FOUND PRODUCT:",
+  product
 );
 
 /* =========================================================
@@ -735,13 +728,38 @@ const igst = money(
       ],
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        orderId,
-        amount,
-        razorpayOrder,
-      },
+   return NextResponse.json(
+     {
+       success: true,
+   
+       orderId,
+   
+       amount,
+   
+       razorpayOrder,
+   
+       summary: {
+         subtotal,
+         discount: finalDiscount,
+   
+         taxableAmount,
+   
+         cgst,
+         sgst,
+         igst,
+   
+         gstTotal,
+   
+         shippingCharges,
+   
+         roundOff,
+   
+         grandTotal: amount,
+   
+         gstMode,
+   
+         items: processedCart,
+       },
       { headers: getCorsHeaders(origin) }
     );
   } catch (err: any) {
