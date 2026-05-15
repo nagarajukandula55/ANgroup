@@ -77,11 +77,10 @@ export async function POST(req: Request) {
        CREATE INVOICE (YOUR EXISTING MODULE)
     ========================================================= */
 
-    const invoice = await createInvoice({
-      orderId: order.orderId,
-      gstType: order.gstType,
-      stateCode: order.address?.stateCode || "KA",
-    });
+    const invoice =
+      await createInvoice(
+        order.orderId
+      );
 
     /* =========================================================
        ATTACH INVOICE
