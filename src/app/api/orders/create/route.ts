@@ -208,9 +208,14 @@ const processedCartRaw = await Promise.all(
       throw new Error("Invalid quantity");
     }
 
-    const product = await Product.findOne({
-      _id: item.productId,
-    }).lean<any>();
+   const product = await Product.findOne({
+     $or: [
+       { _id: item.productId },
+       { productId: item.productId },
+       { productKey: item.productId },
+       { sku: item.productId },
+     ],
+   }).lean<any>();
 
     if (!product) {
       throw new Error("Product not found");
