@@ -35,12 +35,13 @@ export default function Sidebar() {
 
     const data = await res.json();
 
-    if (data.success) setModules(data.modules);
+    if (data.success) {
+      setModules(data.modules);
+    }
   }
 
   return (
     <>
-      {/* Mobile Toggle */}
       <button
         onClick={() => setOpen(!open)}
         className="fixed left-4 top-4 z-50 rounded-2xl border border-white/10 bg-black/40 p-3 backdrop-blur-xl lg:hidden"
@@ -48,11 +49,10 @@ export default function Sidebar() {
         {open ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Overlay */}
       {open && (
         <div
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/70 lg:hidden"
         />
       )}
 
@@ -64,17 +64,18 @@ export default function Sidebar() {
         }`}
       >
         <div className="flex h-full flex-col px-6 py-8">
-          <div className="mb-10">
-            <p className="text-[11px] uppercase tracking-[0.45em] text-cyan-300/80">
-              Enterprise Core
+
+          <div className="mb-12">
+            <p className="text-[11px] uppercase tracking-[0.45em] text-zinc-500">
+              Executive Platform
             </p>
 
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight">
-              AN Group OS
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight">
+              AN Group
             </h2>
 
-            <p className="mt-2 text-sm text-slate-400">
-              Unified business intelligence
+            <p className="mt-2 text-sm text-zinc-400">
+              Unified intelligence layer
             </p>
           </div>
 
@@ -87,13 +88,15 @@ export default function Sidebar() {
                   key={m.key}
                   href={m.route}
                   onClick={() => setOpen(false)}
-                  className={`group flex items-center justify-between rounded-2xl px-4 py-4 transition-all ${
+                  className={`group flex items-center justify-between rounded-2xl px-4 py-4 transition-all duration-300 ${
                     active
-                      ? "bg-cyan-500/10 text-cyan-300 border border-cyan-400/20"
-                      : "text-slate-300 hover:bg-white/[0.04]"
+                      ? "bg-white/[0.08] text-white border border-white/10"
+                      : "text-zinc-400 hover:bg-white/[0.04] hover:text-white"
                   }`}
                 >
-                  <span>{m.label}</span>
+                  <span className="font-medium">
+                    {m.label}
+                  </span>
 
                   <ChevronRight
                     size={16}
@@ -104,15 +107,16 @@ export default function Sidebar() {
             })}
           </nav>
 
-          <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs uppercase tracking-[0.3em] text-cyan-300">
-              System Status
+          <div className="mt-auto rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
+              STATUS
             </p>
 
             <div className="mt-4 flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-sm text-slate-300">
-                Operational
+              <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
+
+              <span className="text-sm text-zinc-300">
+                Fully Operational
               </span>
             </div>
           </div>
