@@ -6,6 +6,7 @@ import { connectNativeDB } from "@/lib/native-mongodb";
 import { getProductModel } from "@/models/Product";
 import mongoose from "mongoose";
 
+
 const nativeConn = await connectNativeDB();
 const Product = getProductModel(nativeConn);
 
@@ -601,73 +602,63 @@ if (paymentMethod === "RAZORPAY") {
        ORDER CREATE (IMMUTABLE SNAPSHOT)
     ========================================================= */
 
-    const order = await Order.create({
-      source,
-      orderId: {
-        type: String,
-        unique: true,
-        index: true,
-      },
-       
-      cart: processedCart,
-
-      address,   
-
-      subtotal,
-      discount: finalDiscount,
-      taxableAmount: subtotal,
-
-      cgst,
-      sgst,
-      igst,
-      gstTotal,
-
-      shippingCharges,
-      roundOff,
-      amount,
-
-      coupon,
-      gstType,
-      gstMode,
-
-      taxItems: processedCart,
-
-      status: orderStatus,
-
-      payment: {
-        method: paymentMethod,
-        status: paymentStatus,
-        amountPaid: 0,
-        gatewayOrderId: {
-           type: String,
-           sparse: true,
-           unique: true,
-         },
-      },
-
-      invoice: {
-        invoiceType,
-        pdfGenerated: false,
-        locked: false,
-      },
-
-      paymentVerified: false,
-      stockReserved: false,
-      invoiceGenerated: false,
-      shipmentCreated: false,
-      locked: false,
-      expiresAt: new Date(
-        Date.now() + 15 * 60 * 1000
-      ),
-
-      events: [
-        {
-          type: "ORDER_CREATED",
-          message: "Order created successfully",
-          createdAt: new Date(),
+      const order = await Order.create({
+        source,
+        orderId, // string only
+      
+        cart: processedCart,
+        address,
+      
+        subtotal,
+        discount: finalDiscount,
+        taxableAmount: subtotal,
+      
+        cgst,
+        sgst,
+        igst,
+        gstTotal,
+      
+        shippingCharges,
+        roundOff,
+        amount,
+      
+        coupon,
+        gstType,
+        gstMode,
+      
+        taxItems: processedCart,
+      
+        status: orderStatus,
+      
+        payment: {
+          method: paymentMethod,
+          status: paymentStatus,
+          amountPaid: 0,
+          gatewayOrderId: gatewayOrderId || null,
         },
-      ],
-    });      
+      
+        invoice: {
+          invoiceType,
+          pdfGenerated: false,
+          locked: false,
+        },
+      
+        paymentVerified: false,
+        stockReserved: false,
+        invoiceGenerated: false,
+        shipmentCreated: false,
+        locked: false,
+      
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      
+        events: [
+          {
+            type: "ORDER_CREATED",
+            message: "Order created successfully",
+            createdAt: new Date(),
+          },
+        ],
+      });    
 
     /* =========================================================
        RESPONSE
