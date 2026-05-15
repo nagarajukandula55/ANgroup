@@ -208,13 +208,25 @@ const processedCartRaw = await Promise.all(
       throw new Error("Invalid quantity");
     }
 
+   const searchConditions: any[] = [
+     { productId: item.productId },
+     { productKey: item.productId },
+     { sku: item.productId },
+   ];
+   
+   const isObjectId =
+     /^[0-9a-fA-F]{24}$/.test(
+       item.productId
+     );
+   
+   if (isObjectId) {
+     searchConditions.push({
+       _id: item.productId,
+     });
+   }
+   
    const product = await Product.findOne({
-     $or: [
-       { _id: item.productId },
-       { productId: item.productId },
-       { productKey: item.productId },
-       { sku: item.productId },
-     ],
+     $or: searchConditions,
    }).lean<any>();
 
     if (!product) {
