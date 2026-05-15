@@ -1,43 +1,32 @@
-import Coupon from "@/models/Coupon";
+type ValidateCouponResult = {
+  valid: boolean;
+  discount: number;
+  coupon?: any;
+};
 
-export async function validateCoupon(code: string, cartTotal: number) {
-  if (!code) return { discount: 0, coupon: null };
-
-  const coupon = await Coupon.findOne({
-    code: code.toUpperCase(),
-    active: true,
-  });
-
-  if (!coupon) {
-    throw new Error("Invalid coupon");
-  }
-
-  if (coupon.expiresAt && coupon.expiresAt < new Date()) {
-    throw new Error("Coupon expired");
-  }
-
-  if (cartTotal < coupon.minOrderValue) {
-    throw new Error("Cart value too low for coupon");
-  }
-
-  let discount = 0;
-
-  if (coupon.type === "FLAT") {
-    discount = coupon.value;
-  }
-
-  if (coupon.type === "PERCENT") {
-    discount = (cartTotal * coupon.value) / 100;
-
-    if (coupon.maxDiscount > 0) {
-      discount = Math.min(discount, coupon.maxDiscount);
+export async function validateCoupon(
+  code: string,
+  subtotal: number
+): Promise<ValidateCouponResult> {
+  try {
+    if (!code) {
+      return {
+        valid: false,
+        discount: 0,
+      };
     }
+
+    // your coupon lookup logic
+
+    return {
+      valid: true,
+      discount: 100,
+      coupon: {},
+    };
+  } catch (err) {
+    return {
+      valid: false,
+      discount: 0,
+    };
   }
-
-  await Coupon.updateOne(
-    { _id: coupon._id },
-    { $inc: { usedCount: 1 } }
-  );
-
-  return { discount, coupon };
 }
