@@ -5,6 +5,7 @@ import { connectNativeDB } from "@/lib/native-mongodb";
 import { getProductModel } from "@/models/Product";
 import { validateCoupon } from "@/lib/coupon";
 import crypto from "crypto";
+import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
 
 const nativeConn = await connectNativeDB();
 const Product = getProductModel(nativeConn);
@@ -80,6 +81,9 @@ function stableHash(obj: any) {
   const sorted = JSON.stringify(obj, Object.keys(obj).sort());
   return crypto.createHash("sha256").update(sorted).digest("hex");
 }
+   
+const money = (v: number) =>
+  Number(v.toFixed(2));
 
 /* =========================================================
    MAIN API
@@ -98,7 +102,6 @@ export async function POST(req: Request) {
       paymentMethod,
       coupon = "",
       gstType = "B2C",
-      gstMode = "CGST_SGST",
     } = body;
 
     const origin = req.headers.get("origin");
@@ -140,6 +143,21 @@ export async function POST(req: Request) {
         { status: 400, headers: getCorsHeaders(origin) }
       );
     }
+     const COMPANY_STATE = "Andhra Pradesh";
+
+     const allowedGstModes = [
+        "CGST_SGST",
+        "IGST",
+      ];
+
+      const isInterState =
+        address.state?.trim()?.toLowerCase() !==
+        COMPANY_STATE.toLowerCase();
+      
+      const resolvedGstMode =
+        isInterState
+          ? "IGST"
+          : "CGST_SGST";
 
     if (!phoneRegex.test(address.phone)) {
       return NextResponse.json(
@@ -164,88 +182,283 @@ export async function POST(req: Request) {
       );
     }
 
-    /* =========================================================
-       PROCESS CART + GST (SOURCE OF TRUTH)
-    ========================================================= */
+/* =========================================================
+   GST MODE VALIDATION
+========================================================= */
 
-    const processedCart = await Promise.all(
-      cart.map(async (item: any) => {
-        const qty = Number(item.qty);
+const gstMode = resolvedGstMode;
 
-        const product = await Product.findOne({
-          _id: item.productId,
-        }).lean<any>();
+if (!allowedGstModes.includes(gstMode)) {
+  throw new Error("Invalid GST mode");
+}
 
-        if (!product) throw new Error("Product not found");
+/* =========================================================
+   PROCESS CART
+========================================================= */
 
-        const price = Number(product.sellingPrice ?? product.price ?? 0);
-        const gstRate = Number(product.gstRate ?? 0);
+const processedCartRaw = await Promise.all(
+  cart.map(async (item: any) => {
+    const qty = Number(item.qty);
 
-        const baseTotal = price * qty;
-        const gstAmount = (baseTotal * gstRate) / 100;
+    if (!item.productId) {
+      throw new Error("Invalid product");
+    }
 
-        return {
-          productId: String(product._id),
-          name: product.name,
-          qty,
-          price,
-          gstRate,
-          baseTotal,
-          gstAmount,
-          taxableValue: baseTotal,
-          totalBeforeDiscount: baseTotal + gstAmount,
-        };
-      })
-    );
+    if (!qty || qty <= 0) {
+      throw new Error("Invalid quantity");
+    }
 
-    const subtotal = processedCart.reduce(
-      (a, i) => a + i.totalBeforeDiscount,
+    const product = await Product.findOne({
+      _id: item.productId,
+    }).lean<any>();
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    if (product.status !== "ACTIVE") {
+      throw new Error(
+        `${product.name} unavailable`
+      );
+    }
+
+    const price = Number(
+      product.sellingPrice ??
+      product.price ??
       0
     );
 
-    const totalGST = processedCart.reduce(
-      (a, i) => a + i.gstAmount,
-      0
+    if (!price || price <= 0) {
+      throw new Error(
+        `Invalid price for ${product.name}`
+      );
+    }
+
+    const gstRate = Number(
+      product.gstRate ?? 0
     );
 
-    /* =========================================================
-       COUPON (APPLIED BEFORE GST BREAKUP FINALIZATION)
-    ========================================================= */
+    const baseTotal = Number(
+      (price * qty).toFixed(2)
+    );
 
-    let couponDiscount = 0;
+    return {
+      productId: String(product._id),
 
-    if (coupon) {
-      const result = await validateCoupon(coupon, subtotal);
+      sku: product.sku || "",
 
-      if (!result?.valid) {
-        return NextResponse.json(
-          { success: false, message: "Invalid coupon" },
-          { status: 400, headers: getCorsHeaders(origin) }
-        );
+      name: product.name,
+
+      qty,
+
+      price,
+
+      gstRate,
+
+      baseTotal,
+    };
+  })
+);
+
+/* =========================================================
+   SUBTOTAL BEFORE GST
+========================================================= */
+
+const subtotalBeforeDiscount =
+  processedCartRaw.reduce(
+    (sum, item) =>
+      sum + item.baseTotal,
+    0
+  );
+
+/* =========================================================
+   COUPON VALIDATION
+========================================================= */
+
+let couponDiscount = 0;
+
+if (coupon) {
+  const result =
+    await validateCoupon(
+      coupon,
+      subtotalBeforeDiscount
+    );
+
+  if (!result?.valid) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Invalid coupon",
+      },
+      {
+        status: 400,
+        headers: getCorsHeaders(origin),
       }
+    );
+  }
 
-      couponDiscount = Number(result.discount || 0);
-    }
+  couponDiscount = Number(
+    result.discount || 0
+  );
+}
 
-    const finalDiscount = Math.min(couponDiscount, subtotal);
-    const taxableAmount = subtotal - finalDiscount;
+const finalDiscount = Math.min(
+  couponDiscount,
+  subtotalBeforeDiscount
+);
 
-    /* =========================================================
-       GST DISTRIBUTION (AFTER DISCOUNT LOGIC)
-    ========================================================= */
+/* =========================================================
+   DISTRIBUTE DISCOUNT
+========================================================= */
 
-    let cgst = 0;
-    let sgst = 0;
-    let igst = 0;
+let distributedDiscount = 0;
 
-    if (gstMode === "CGST_SGST") {
-      cgst = totalGST / 2;
-      sgst = totalGST / 2;
+const processedCart =
+  processedCartRaw.map((item, index) => {
+
+    const ratio =
+      subtotalBeforeDiscount > 0
+        ? item.baseTotal /
+          subtotalBeforeDiscount
+        : 0;
+
+    let itemDiscount = 0;
+
+    if (
+      index ===
+      processedCartRaw.length - 1
+    ) {
+      itemDiscount = money(
+        finalDiscount -
+        distributedDiscount
+      );
     } else {
-      igst = totalGST;
+      itemDiscount = money(
+        finalDiscount * ratio
+      );
+
+      distributedDiscount +=
+        itemDiscount;
     }
 
-    const gstTotal = totalGST;
+    const taxableValue = money(
+      item.baseTotal -
+      itemDiscount
+    );
+
+    const gstAmount = money(
+      taxableValue *
+      item.gstRate /
+      100
+    );
+
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+
+   if (gstMode === "CGST_SGST") {
+   
+     cgstAmount = money(
+       gstAmount / 2
+     );
+   
+     sgstAmount = money(
+       gstAmount - cgstAmount
+     );
+   
+   } else {
+   
+     igstAmount = gstAmount;
+   
+   }
+
+    const lineTotal = money(
+      taxableValue +
+      gstAmount
+    );
+
+    return {
+      productId: item.productId,
+
+      sku: item.sku,
+
+      name: item.name,
+
+      qty: item.qty,
+
+      price: item.price,
+
+      gstRate: item.gstRate,
+
+      baseTotal: item.baseTotal,
+
+      discount: itemDiscount,
+
+      taxableValue,
+
+      gstAmount,
+
+      cgstAmount,
+
+      sgstAmount,
+
+      igstAmount,
+
+      lineTotal,
+    };
+  });
+
+/* =========================================================
+   TOTALS
+========================================================= */
+
+const subtotal = money(
+  processedCart.reduce(
+    (sum, item) =>
+      sum + item.baseTotal,
+    0
+  )
+);
+
+const taxableAmount = money(
+  processedCart.reduce(
+    (sum, item) =>
+      sum + item.taxableValue,
+    0
+  )
+);
+
+const gstTotal = money(
+  processedCart.reduce(
+    (sum, item) =>
+      sum + item.gstAmount,
+    0
+  )
+);
+
+const cgst = money(
+  processedCart.reduce(
+    (sum, item) =>
+      sum + item.cgstAmount,
+    0
+  )
+);
+
+const sgst = money(
+  processedCart.reduce(
+    (sum, item) =>
+      sum + item.sgstAmount,
+    0
+  )
+);
+
+const igst = money(
+  processedCart.reduce(
+    (sum, item) =>
+      sum + item.igstAmount,
+    0
+  )
+);
 
     /* =========================================================
        FINAL AMOUNT
@@ -254,10 +467,15 @@ export async function POST(req: Request) {
     const shippingCharges = 0;
     const roundOff = 0;
 
-    const amount = Math.max(
-      1,
-      taxableAmount + gstTotal + shippingCharges + roundOff
-    );
+   const amount = money(
+     Math.max(
+       1,
+       taxableAmount +
+       gstTotal +
+       shippingCharges +
+       roundOff
+     )
+   );
 
     /* =========================================================
        ORDER ID
@@ -337,20 +555,41 @@ export async function POST(req: Request) {
        ORDER HASH
     ========================================================= */
 
-    const orderHash = stableHash({
-      cart: processedCart.map((i) => ({
-        productId: i.productId,
-        qty: i.qty,
-        price: i.price,
-        total: i.totalBeforeDiscount,
-      })),
-      subtotal,
-      discount: finalDiscount,
-      taxableAmount,
-      gstTotal,
-      amount,
-    });
-
+   const orderHash = stableHash({
+     source,
+   
+     orderId,
+   
+     cart: processedCart,
+   
+     address,
+   
+     subtotal,
+   
+     discount: finalDiscount,
+   
+     taxableAmount,
+   
+     cgst,
+     sgst,
+     igst,
+   
+     gstTotal,
+   
+     shippingCharges,
+   
+     roundOff,
+   
+     amount,
+   
+     coupon,
+   
+     gstType,
+   
+     gstMode,
+   
+     paymentMethod,
+   });
     /* =========================================================
        CREATE ORDER
     ========================================================= */
@@ -379,22 +618,63 @@ export async function POST(req: Request) {
       gstType,
       gstMode,
 
-      taxItems: processedCart,
+      taxItems: processedCart.map((item) => ({
+        productId: item.productId,
+        name: item.name,
+        sku: item.sku,
+      
+        qty: item.qty,
+      
+        price: item.price,
+      
+        gstRate: item.gstRate,
+      
+        baseTotal: item.baseTotal,
+      
+        discount: item.discount,
+      
+        taxableValue: item.taxableValue,
+      
+        cgstAmount: item.cgstAmount,
+        sgstAmount: item.sgstAmount,
+        igstAmount: item.igstAmount,
+      
+        gstAmount: item.gstAmount,
+      
+        lineTotal: item.lineTotal,
+      })),
 
       status: orderStatus,
 
       payment: {
         method: paymentMethod,
+      
         status: paymentStatus,
+      
         amountPaid: 0,
-        gatewayOrderId,
+      
+        gatewayOrderId: razorpayOrder?.id || null,
+      
+        gatewayPaymentId: null,
+      
+        gatewaySignature: null,
+      
+        paidAt: null,
       },
 
       orderHash,
 
       invoice: {
         invoiceType,
+      
+        invoiceNumber: null,
+      
+        financialYear: getFinancialYear(),
+      
         pdfGenerated: false,
+      
+        generatedAt: null,
+      
         locked: false,
       },
 
