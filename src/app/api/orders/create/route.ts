@@ -133,7 +133,7 @@ export async function POST(req: Request) {
     if (
       !address?.name ||
       !address?.phone ||
-      !address?.addressLine1 ||
+      !address?.address ||
       !address?.city ||
       !address?.state ||
       !address?.pincode
