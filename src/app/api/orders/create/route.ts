@@ -251,21 +251,6 @@ const processedCartRaw = await Promise.all(
    const product = await Product.findOne({
      $or: searchConditions,
    }).lean<any>();
-   
-   const isObjectId =
-     /^[0-9a-fA-F]{24}$/.test(
-       item.productId
-     );
-   
-   if (isObjectId) {
-     searchConditions.push({
-       _id: item.productId,
-     });
-   }
-   
-   const product = await Product.findOne({
-     $or: searchConditions,
-   }).lean<any>();
 
     if (!product) {
       throw new Error("Product not found");
