@@ -197,12 +197,6 @@ if (!allowedGstModes.includes(gstMode)) {
   throw new Error("Invalid GST mode");
 }
 
-const subtotalBeforeDiscount =
-  processedCartRaw.reduce(
-    (sum, item) => sum + item.baseTotal,
-    0
-  );
-
 /* =========================================================
    PROCESS CART
 ========================================================= */
@@ -220,6 +214,14 @@ const processedCartRaw = await Promise.all(
     }
 
   const searchConditions: any[] = [];
+
+ const product = await Product.findOne({
+     $or: searchConditions,
+   }).lean<any>();
+   
+   if (!product) {
+     throw new Error("Product not found");
+   }
 
 /* =========================================================
    PRODUCT ID
@@ -431,6 +433,13 @@ const processedCart =
       lineTotal,
     };
   });
+
+
+   const subtotalBeforeDiscount =
+     processedCartRaw.reduce(
+       (sum, item) => sum + item.baseTotal,
+       0
+     );
 
 /* =========================================================
    TOTALS
@@ -719,7 +728,7 @@ const igst = money(
       ],
     });
 
-         return NextResponse.json(
+    return NextResponse.json(
       {
         success: true,
         orderId,
@@ -744,14 +753,14 @@ const igst = money(
         headers: getCorsHeaders(origin),
       }
     );
-  } // ✅ THIS closes try block
 
-} catch (err: any) {
-  return NextResponse.json(
-    {
-      success: false,
-      message: err?.message || "Internal Server Error",
-    },
-    { status: 500 }
-  );
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: err?.message || "Internal Server Error",
+      },
+      { status: 500 }
+    );
+  }
 }
