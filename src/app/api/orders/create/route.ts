@@ -719,38 +719,37 @@ const igst = money(
       ],
     });
 
-   return NextResponse.json(
-     {
-       success: true,
-       orderId,
-       amount,
-       razorpayOrder,
-       summary: {
-         subtotal,
-         discount: finalDiscount,
-         taxableAmount,
-         cgst,
-         sgst,
-         igst,
-         gstTotal,
-         shippingCharges,
-         roundOff,
-         grandTotal: amount,
-         gstMode,
-         items: processedCart,
-       },
-     },
-     {
-       headers: getCorsHeaders(origin),
-     }
-   );
-  } catch (err: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: err?.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
+return NextResponse.json(
+  {
+    success: true,
+    orderId,
+    amount,
+    razorpayOrder,
+    summary: {
+      subtotal,
+      discount: finalDiscount,
+      taxableAmount,
+      cgst,
+      sgst,
+      igst,
+      gstTotal,
+      shippingCharges,
+      roundOff,
+      grandTotal: amount,
+      gstMode,
+      items: processedCart,
+    },
+  },
+  {
+    headers: getCorsHeaders(origin),
   }
+);
+} catch (err: any) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: err?.message || "Internal Server Error",
+    },
+    { status: 500 }
+  );
 }
