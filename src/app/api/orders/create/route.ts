@@ -213,66 +213,37 @@ const processedCartRaw = await Promise.all(
       throw new Error("Invalid quantity");
     }
 
-  const searchConditions: any[] = [];
+const searchConditions: any[] = [];
 
 /* =========================================================
-   PRODUCT ID
+   PRIMARY: productId (Mongo ID preferred)
 ========================================================= */
 
-if (item.productId) {
+const id = item.productId || item._id;
 
-  // direct productId field
-  searchConditions.push({
-    productId: item.productId,
-  });
-
-  // Mongo ObjectId
-  if (
-    /^[0-9a-fA-F]{24}$/.test(item.productId)
-  ) {
-    searchConditions.push({
-      _id: item.productId,
-    });
+if (id) {
+  if (/^[0-9a-fA-F]{24}$/.test(id)) {
+    searchConditions.push({ _id: id });
+  } else {
+    // treat as SKU-style identifier
+    searchConditions.push({ productKey: id });
   }
 }
 
 /* =========================================================
-   PRODUCT KEY
+   SECONDARY: explicit productKey
 ========================================================= */
 
-if (item.productKey) {
-  searchConditions.push({
-    productKey: item.productKey,
-  });
+if (item.productKey && item.productKey !== id) {
+  searchConditions.push({ productKey: item.productKey });
 }
 
 /* =========================================================
-   SKU
+   SECONDARY: SKU fallback
 ========================================================= */
 
 if (item.sku) {
-  searchConditions.push({
-    sku: item.sku,
-  });
-}
-
-/* =========================================================
-   FALLBACK _id
-========================================================= */
-
-if (item._id) {
-
-  searchConditions.push({
-    productKey: item._id,
-  });
-
-  if (
-    /^[0-9a-fA-F]{24}$/.test(item._id)
-  ) {
-    searchConditions.push({
-      _id: item._id,
-    });
-  }
+  searchConditions.push({ sku: item.sku });
 }
 
    /* =========================================================
