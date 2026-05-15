@@ -111,8 +111,8 @@ export async function POST(req: Request) {
 
     const origin = req.headers.get("origin");
 
-    const isAllowedOrigin =
-      !!origin && allowedOrigins.includes(origin);
+   const isAllowedOrigin =
+     !origin || allowedOrigins.includes(origin);
 
     if (!isAllowedOrigin) {
       return NextResponse.json(
@@ -196,6 +196,12 @@ const gstMode = resolvedGstMode;
 if (!allowedGstModes.includes(gstMode)) {
   throw new Error("Invalid GST mode");
 }
+
+const subtotalBeforeDiscount =
+  processedCartRaw.reduce(
+    (sum, item) => sum + item.baseTotal,
+    0
+  );
 
 /* =========================================================
    PROCESS CART
@@ -284,25 +290,10 @@ console.log(
   JSON.stringify(searchConditions, null, 2)
 );
 
-const product = await Product.findOne({
-  $or: searchConditions,
-}).lean<any>();
-
 console.log(
   "FOUND PRODUCT:",
   product
 );
-
-/* =========================================================
-   SUBTOTAL BEFORE GST
-========================================================= */
-
-const subtotalBeforeDiscount =
-  processedCartRaw.reduce(
-    (sum, item) =>
-      sum + item.baseTotal,
-    0
-  );
 
 /* =========================================================
    COUPON VALIDATION
@@ -731,37 +722,28 @@ const igst = money(
    return NextResponse.json(
      {
        success: true,
-   
        orderId,
-   
        amount,
-   
        razorpayOrder,
-   
        summary: {
          subtotal,
          discount: finalDiscount,
-   
          taxableAmount,
-   
          cgst,
          sgst,
          igst,
-   
          gstTotal,
-   
          shippingCharges,
-   
          roundOff,
-   
          grandTotal: amount,
-   
          gstMode,
-   
          items: processedCart,
        },
-      { headers: getCorsHeaders(origin) }
-    );
+     },
+     {
+       headers: getCorsHeaders(origin),
+     }
+   );
   } catch (err: any) {
     return NextResponse.json(
       {
