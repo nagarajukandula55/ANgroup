@@ -9,6 +9,10 @@ import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
 import WebhookLog from "@/models/WebhookLog";
 
+import {
+  reserveStock,
+} from "@/lib/order/reserveStock";
+
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -319,6 +323,47 @@ async function processSuccessfulPayment({
 
     order.payment.rawWebhook =
       event;
+
+   /* =========================================================
+   RESERVE STOCK
+========================================================= */
+
+if (!order.stockReserved) {
+  const stockResult =
+    await reserveStock(
+      order.cart
+    );
+
+  if (!stockResult.success) {
+    order.status =
+      "STOCK_FAILED";
+
+    order.events.push({
+      type:
+        "STOCK_RESERVATION_FAILED",
+
+      message:
+        stockResult.message,
+
+      createdAt:
+        new Date(),
+    });
+
+    await order.save();
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          stockResult.message,
+      },
+      { status: 400 }
+    );
+  }
+
+  order.stockReserved =
+    true;
+}
 
     /* ================= ORDER ================= */
 
