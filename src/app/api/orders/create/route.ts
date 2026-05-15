@@ -205,103 +205,64 @@ const processedCartRaw = await Promise.all(
   cart.map(async (item: any) => {
     const qty = Number(item.qty);
 
-    if (!item.productId) {
-      throw new Error("Invalid product");
+    if (!item.productId) throw new Error("Invalid product");
+    if (!qty || qty <= 0) throw new Error("Invalid quantity");
+
+    const searchConditions: any[] = [];
+
+    const id = item.productId || item._id;
+
+    /* 1. Mongo _id */
+    if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
+      searchConditions.push({ _id: id });
     }
 
-    if (!qty || qty <= 0) {
-      throw new Error("Invalid quantity");
+    /* 2. productKey */
+    if (item.productKey) {
+      searchConditions.push({ productKey: item.productKey });
     }
 
-const searchConditions: any[] = [];
+    /* 3. SKU */
+    if (item.sku) {
+      searchConditions.push({ sku: item.sku });
+    }
 
-const id = item.productId || item._id;
+    /* 4. fallback */
+    if (id && !/^[0-9a-fA-F]{24}$/.test(id)) {
+      searchConditions.push({
+        $or: [{ productKey: id }, { sku: id }],
+      });
+    }
 
-const searchConditions: any[] = [];
+    const product = await Product.findOne({
+      $or: searchConditions,
+    }).lean<any>();
 
-/* 1. STRICT Mongo _id match */
-if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
-  searchConditions.push({ _id: id });
-}
+    if (!product) {
+      console.log("FAILED PRODUCT MATCH:", searchConditions);
+      throw new Error("Product not found");
+    }
 
-/* 2. productKey match (PRIMARY fallback) */
-if (item.productKey) {
-  searchConditions.push({ productKey: item.productKey });
-}
+    console.log("FOUND PRODUCT:", product);
 
-/* 3. SKU match */
-if (item.sku) {
-  searchConditions.push({ sku: item.sku });
-}
+    return {
+      productId: product.productId || product._id.toString(),
+      productKey: product.productKey || null,
+      sku: product.sku || null,
+      name: product.name,
 
-/* 4. fallback: treat id as productKey */
-if (id && !/^[0-9a-fA-F]{24}$/.test(id)) {
-  searchConditions.push({
-    $or: [
-      { productKey: id },
-      { sku: id }
-    ]
-  });
-}
+      qty,
 
-const product = await Product.findOne({
-  $or: searchConditions,
-}).lean<any>();
+      sellingPrice: Number(product.price),
 
-if (!product) {
-  console.log("FAILED PRODUCT MATCH:", searchConditions);
-  throw new Error("Product not found");
-}
-     
-     
-   /* =========================================================
-      PRODUCT FIND
-   ========================================================= */
-   
-   console.log(
-     "SEARCH CONDITIONS:",
-     JSON.stringify(searchConditions, null, 2)
-   );
+      mrp: Number(product.mrp ?? product.price),
 
-   const product = await Product.findOne({
-        $or: searchConditions,
-      }).lean<any>();
-      
-      if (!product) {
-        throw new Error("Product not found");
-      }         
-   console.log(
-     "FOUND PRODUCT:",
-     product
-   );
+      gstRate: Number(product.gstRate ?? item.gstRate ?? 0),
 
-      return {
-        productId: product.productId || product._id.toString(),
-        productKey: product.productKey || null,
-        sku: product.sku || null,
-        name: product.name,
-      
-        qty: item.qty,
-      
-        sellingPrice: Number(product.price),
-      
-        mrp: Number(
-          product.mrp ?? product.price
-        ),
-      
-         gstRate: Number(
-           product.gstRate ??
-           item.gstRate ??
-           0
-         ),
-      
-        baseTotal: money(
-          Number(product.price) * qty
-        ),
-      };
+      baseTotal: money(Number(product.price) * qty),
+    };
   })
 );
-
 const subtotalBeforeDiscount =
   processedCartRaw.reduce(
     (sum, item) => sum + item.baseTotal,
