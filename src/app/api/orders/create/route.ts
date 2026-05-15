@@ -215,37 +215,45 @@ const processedCartRaw = await Promise.all(
 
 const searchConditions: any[] = [];
 
-/* =========================================================
-   PRIMARY: productId (Mongo ID preferred)
-========================================================= */
-
 const id = item.productId || item._id;
 
-if (id) {
-  if (/^[0-9a-fA-F]{24}$/.test(id)) {
-    searchConditions.push({ _id: id });
-  } else {
-    // treat as SKU-style identifier
-    searchConditions.push({ productKey: id });
-  }
+const searchConditions: any[] = [];
+
+/* 1. STRICT Mongo _id match */
+if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
+  searchConditions.push({ _id: id });
 }
 
-/* =========================================================
-   SECONDARY: explicit productKey
-========================================================= */
-
-if (item.productKey && item.productKey !== id) {
+/* 2. productKey match (PRIMARY fallback) */
+if (item.productKey) {
   searchConditions.push({ productKey: item.productKey });
 }
 
-/* =========================================================
-   SECONDARY: SKU fallback
-========================================================= */
-
+/* 3. SKU match */
 if (item.sku) {
   searchConditions.push({ sku: item.sku });
 }
 
+/* 4. fallback: treat id as productKey */
+if (id && !/^[0-9a-fA-F]{24}$/.test(id)) {
+  searchConditions.push({
+    $or: [
+      { productKey: id },
+      { sku: id }
+    ]
+  });
+}
+
+const product = await Product.findOne({
+  $or: searchConditions,
+}).lean<any>();
+
+if (!product) {
+  console.log("FAILED PRODUCT MATCH:", searchConditions);
+  throw new Error("Product not found");
+}
+     
+     
    /* =========================================================
       PRODUCT FIND
    ========================================================= */
