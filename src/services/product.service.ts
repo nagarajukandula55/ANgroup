@@ -78,24 +78,25 @@ export class ProductService {
        BUILD SAFE OR QUERY
     ========================================================== */
 
-    const or: any[] = [];
-
-    // Always try business key first (fast indexed)
-    or.push({ productKey: id });
-
-    // Only add ObjectId search if valid
-    if (this.isObjectId(id)) {
-      or.push({ _id: new mongoose.Types.ObjectId(id) });
-    }
-
-    /* =========================================================
-       EXECUTE QUERY
-    ========================================================== */
-
-    product = await Product.findOne({
-      isDeleted: false,
-      $or: or,
-    }).lean<NativeProduct>();
+   const or: any[] = [
+     { productKey: id },
+   ];
+   
+   if (this.isObjectId(id)) {
+     or.push({ _id: new mongoose.Types.ObjectId(id) });
+   }
+   
+   const product = await Product.findOne({
+     $or: or,
+     $and: [
+       {
+         $or: [
+           { isDeleted: false },
+           { isDeleted: { $exists: false } },
+         ],
+       },
+     ],
+   }).lean();
 
     /* =========================================================
        HARD FAILURE
