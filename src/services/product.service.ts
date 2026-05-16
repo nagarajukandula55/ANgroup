@@ -1,9 +1,9 @@
 import { getProductModel } from "@/models/Product";
 import { connectNativeDB } from "@/lib/native-mongodb";
-import type mongoose from "mongoose";
+import mongoose from "mongoose";
 
 /* =========================================================
-   GLOBAL DB SINGLETON (STRICT + TYPE SAFE)
+   GLOBAL DB SINGLETON (STRICT + SAFE)
 ========================================================= */
 
 declare global {
@@ -39,89 +39,83 @@ export type NativeProduct = {
 ========================================================= */
 
 export class ProductService {
+  /**
+   * Check valid Mongo ObjectId
+   */
   static isObjectId(id: string) {
-    return /^[0-9a-fA-F]{24}$/.test(id);
+    return mongoose.Types.ObjectId.isValid(id);
   }
 
   /**
-   * Normalize incoming identifiers into a single candidate list
+   * Resolve product safely (FIXED)
    */
-  private static buildCandidates(item: any): string[] {
-    const candidates: string[] = [];
+  static async resolveProduct(
+    item: any
+  ): Promise<{ product: NativeProduct; qty: number }> {
+    const qty = Number(item.qty);
 
-    if (item.productId) candidates.push(item.productId);
-    if (item._id) candidates.push(item._id);
-    if (item.productKey) candidates.push(item.productKey);
+    if (!qty || qty <= 0) {
+      throw new Error("Invalid quantity");
+    }
 
-    // remove duplicates
-    return [...new Set(candidates)];
+    const conn = await getNativeConn();
+    const Product = getProductModel(conn);
+
+    const id =
+      item.productId ||
+      item._id ||
+      item.productKey;
+
+    if (!id) {
+      throw new Error("Missing product identifier");
+    }
+
+    console.log("RESOLVING PRODUCT WITH ID:", id);
+
+    let product: NativeProduct | null = null;
+
+    /* =========================================================
+       BUILD SAFE OR QUERY
+    ========================================================== */
+
+    const or: any[] = [];
+
+    // Always try business key first (fast indexed)
+    or.push({ productKey: id });
+
+    // Only add ObjectId search if valid
+    if (this.isObjectId(id)) {
+      or.push({ _id: new mongoose.Types.ObjectId(id) });
+    }
+
+    /* =========================================================
+       EXECUTE QUERY
+    ========================================================== */
+
+    product = await Product.findOne({
+      isDeleted: false,
+      $or: or,
+    }).lean<NativeProduct>();
+
+    /* =========================================================
+       HARD FAILURE
+    ========================================================== */
+
+    if (!product) {
+      console.error("PRODUCT NOT FOUND:", {
+        id,
+        or,
+        item,
+      });
+
+      throw new Error(`Product not found: ${id}`);
+    }
+
+    return { product, qty };
   }
 
   /**
-   * Resolve product using multi-strategy fallback chain
-   */
-static async resolveProduct(
-  item: any
-): Promise<{ product: NativeProduct; qty: number }> {
-  const qty = Number(item.qty);
-
-  if (!qty || qty <= 0) {
-    throw new Error("Invalid quantity");
-  }
-
-  const conn = await getNativeConn();
-  const Product = getProductModel(conn);
-
-  const id =
-    item.productId ||
-    item._id ||
-    item.productKey;
-
-  if (!id) {
-    throw new Error("Missing product identifier");
-  }
-
-  console.log("RESOLVING PRODUCT WITH ID:", id);
-
-  let product: NativeProduct | null = null;
-
-  /* =========================================================
-     SINGLE SAFE QUERY (NO MULTI PASS, NO NULL BUGS)
-  ========================================================= */
-
-  const query: any = {
-    isDeleted: false,
-    $or: [
-      { productKey: id },
-    ],
-  };
-
-  // only add _id check if valid ObjectId
-  if (this.isObjectId(id)) {
-    query.$or.push({ _id: id });
-  }
-
-  product = await Product.findOne(query).lean<NativeProduct>();
-
-  /* =========================================================
-     HARD FAILURE
-  ========================================================= */
-
-  if (!product) {
-    console.error("PRODUCT NOT FOUND:", {
-      item,
-      query,
-    });
-
-    throw new Error(
-      `Product not found: ${id}`
-    );
-  }
-
-  return { product, qty };
-}
-  /**
-   * Price resolver (strict)
+   * PRICE RESOLVER (SAFE)
    */
   static getPrice(product: NativeProduct): number {
     const price =
