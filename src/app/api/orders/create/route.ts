@@ -210,39 +210,36 @@ const processedCartRaw = await Promise.all(
 
     const searchConditions: any[] = [];
 
-    const id = item.productId || item._id;
-
-    let product = null;
-    
-    const id = item.productId || item._id;
-    
-    // 1. ObjectId match
-    if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
-      product = await Product.findById(id).lean();
-    }
-    
-    // 2. productKey match (YOUR PRIMARY KEY)
-    if (!product && item.productKey) {
-      product = await Product.findOne({
-        productKey: item.productKey,
-        isActive: true,
-        isDeleted: false,
-      }).lean();
-    }
-    
-    // 3. fallback: treat id as productKey
-    if (!product && typeof id === "string") {
-      product = await Product.findOne({
-        productKey: id,
-        isActive: true,
-        isDeleted: false,
-      }).lean();
-    }
-    
-    if (!product) {
-      console.log("PRODUCT NOT FOUND:", item);
-      throw new Error("Product not found");
-    }
+   const id = item.productId || item._id;
+   let product = null;
+   
+   // 1. ObjectId match
+   if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
+     product = await Product.findById(id).lean();
+   }
+   
+   // 2. productKey match
+   if (!product && item.productKey) {
+     product = await Product.findOne({
+       productKey: item.productKey,
+       isActive: true,
+       isDeleted: false,
+     }).lean();
+   }
+   
+   // 3. fallback
+   if (!product && typeof id === "string") {
+     product = await Product.findOne({
+       productKey: id,
+       isActive: true,
+       isDeleted: false,
+     }).lean();
+   }
+   
+   if (!product) {
+     console.log("PRODUCT NOT FOUND:", item);
+     throw new Error("Product not found");
+   }
 
     console.log("FOUND PRODUCT:", product);
 
