@@ -3,7 +3,6 @@ import { connectNativeDB } from "@/lib/native-mongodb";
 import mongoose from "mongoose";
 
 declare global {
-  // eslint-disable-next-line no-var
   var nativeConn: mongoose.Connection | undefined;
 }
 
@@ -13,14 +12,11 @@ async function getNativeConn(): Promise<mongoose.Connection> {
   }
 
   const conn = await connectNativeDB();
+
   globalThis.nativeConn = conn;
 
   return conn;
 }
-
-/* =========================================================
-   TYPES
-========================================================= */
 
 export type NativeProduct = {
   _id: any;
@@ -41,10 +37,6 @@ export type NativeProduct = {
   isDeleted?: boolean;
 };
 
-/* =========================================================
-   SERVICE
-========================================================= */
-
 export class ProductService {
   static isObjectId(id: string) {
     return mongoose.Types.ObjectId.isValid(id);
@@ -52,10 +44,13 @@ export class ProductService {
 
   static async resolveProduct(
     item: any
-  ): Promise<{ product: NativeProduct; qty: number }> {
+  ): Promise<{
+    product: NativeProduct;
+    qty: number;
+  }> {
     const qty = Number(item.qty || 1);
 
-    if (!qty || qty <= 0) {
+    if (qty <= 0) {
       throw new Error("Invalid quantity");
     }
 
@@ -63,53 +58,55 @@ export class ProductService {
 
     const Product = getProductModel(conn);
 
-    const productId =
-      item.productId ||
-      item._id ||
-      null;
+    const productId = item.productId;
+    const productKey = item.productKey;
 
-    const productKey =
-      item.productKey || null;
-
-    console.log("RESOLVE PRODUCT:", {
+    console.log("LOOKUP:", {
       productId,
       productKey,
     });
 
     let product: NativeProduct | null = null;
 
-    /* =========================================
-       TRY MONGO _id FIRST
-    ========================================= */
+    /* ===============================
+       FIND BY OBJECT ID
+    =============================== */
 
     if (
       productId &&
       this.isObjectId(productId)
     ) {
       product =
-        (await Product.findById(
-          new mongoose.Types.ObjectId(productId)
-        ).lean()) as NativeProduct | null;
+        await Product.findById(productId).lean<NativeProduct | null>();
+
+      console.log(
+        "FOUND BY OBJECT ID:",
+        !!product
+      );
     }
 
-    /* =========================================
-       FALLBACK TO productKey
-    ========================================= */
+    /* ===============================
+       FALLBACK PRODUCT KEY
+    =============================== */
 
     if (!product && productKey) {
       product =
-        (await Product.findOne({
+        await Product.findOne({
           productKey,
-        }).lean()) as NativeProduct | null;
+        }).lean<NativeProduct | null>();
+
+      console.log(
+        "FOUND BY PRODUCT KEY:",
+        !!product
+      );
     }
 
-    /* =========================================
-       HARD FAIL
-    ========================================= */
+    /* ===============================
+       FINAL FAILURE
+    =============================== */
 
     if (!product) {
       console.error("PRODUCT NOT FOUND", {
-        item,
         productId,
         productKey,
       });
@@ -121,21 +118,11 @@ export class ProductService {
       );
     }
 
-    console.log("PRODUCT FOUND:", {
-      id: product._id,
-      name: product.name,
-      key: product.productKey,
-    });
-
     return {
       product,
       qty,
     };
   }
-
-  /* =========================================================
-     PRICE RESOLVER
-  ========================================================= */
 
   static getPrice(
     product: NativeProduct
