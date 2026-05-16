@@ -8,7 +8,10 @@ import crypto from "crypto";
 import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
 
 const nativeConn = await connectNativeDB();
-const Product = getProductModel(nativeConn);
+
+const Product =
+  nativeConn.models.Product ||
+  nativeConn.model("Product", ProductSchema);
 
 /* =========================================================
    CORS (ERP SAFE)
