@@ -3,17 +3,22 @@ import { connectNativeDB } from "@/lib/native-mongodb";
 import type mongoose from "mongoose";
 
 /* =========================================================
-   GLOBAL DB SINGLETON (SAFE FOR NEXT.JS HOT RELOAD)
+   GLOBAL DB SINGLETON (STRICT + TYPE SAFE)
 ========================================================= */
 
-const getNativeConn = async (): Promise<mongoose.Connection> => {
+declare global {
+  // eslint-disable-next-line no-var
+  var nativeConn: mongoose.Connection | undefined;
+}
+
+async function getNativeConn(): Promise<mongoose.Connection> {
   if (globalThis.nativeConn) return globalThis.nativeConn;
 
   const conn = await connectNativeDB();
   globalThis.nativeConn = conn;
 
   return conn;
-};
+}
 
 /* =========================================================
    TYPES
@@ -30,7 +35,7 @@ export type NativeProduct = {
 };
 
 /* =========================================================
-   PRODUCT SERVICE
+   SERVICE
 ========================================================= */
 
 export class ProductService {
@@ -38,10 +43,23 @@ export class ProductService {
     return /^[0-9a-fA-F]{24}$/.test(id);
   }
 
-  /* ---------------------------------------------------------
-     RESOLVE PRODUCT (SAFE + PRIORITY BASED LOOKUP)
-  --------------------------------------------------------- */
+  /**
+   * Normalize incoming identifiers into a single candidate list
+   */
+  private static buildCandidates(item: any): string[] {
+    const candidates: string[] = [];
 
+    if (item.productId) candidates.push(item.productId);
+    if (item._id) candidates.push(item._id);
+    if (item.productKey) candidates.push(item.productKey);
+
+    // remove duplicates
+    return [...new Set(candidates)];
+  }
+
+  /**
+   * Resolve product using multi-strategy fallback chain
+   */
   static async resolveProduct(
     item: any
   ): Promise<{ product: NativeProduct; qty: number }> {
@@ -51,63 +69,79 @@ export class ProductService {
       throw new Error("Invalid quantity");
     }
 
-    const id = item.productId || item._id;
-
     const conn = await getNativeConn();
     const Product = getProductModel(conn);
+
+    const candidates = this.buildCandidates(item);
+
+    console.log("PRODUCT RESOLUTION INPUT:", {
+      item,
+      candidates,
+    });
 
     let product: NativeProduct | null = null;
 
     /* =========================================================
-       1. OBJECT ID LOOKUP (FAST PATH)
+       STRATEGY 1: OBJECTID MATCH (FAST PATH)
     ========================================================= */
+    for (const id of candidates) {
+      if (this.isObjectId(id)) {
+        product = await Product.findOne({
+          _id: id,
+          isDeleted: false,
+        }).lean<NativeProduct>();
 
-    if (id && this.isObjectId(id)) {
-      product = await Product.findOne({
-        _id: id,
-        isDeleted: false,
-      }).lean<NativeProduct>();
+        if (product) break;
+      }
     }
 
     /* =========================================================
-       2. PRODUCT KEY LOOKUP (PRIMARY BUSINESS KEY)
+       STRATEGY 2: PRODUCT KEY MATCH (PRIMARY BUSINESS KEY)
     ========================================================= */
-
-    if (!product && item.productKey) {
-      product = await Product.findOne({
-        productKey: item.productKey,
-        isDeleted: false,
-      }).lean<NativeProduct>();
-    }
-
-    /* =========================================================
-       3. FALLBACK SAFETY (NO GUESSING)
-    ========================================================= */
-
-    if (!product && typeof id === "string") {
-      product = await Product.findOne({
-        productKey: id,
-        isDeleted: false,
-      }).lean<NativeProduct>();
-    }
-
-    /* =========================================================
-       HARD FAILURE (CLEAN ERROR)
-    ========================================================= */
-
     if (!product) {
+      for (const key of candidates) {
+        product = await Product.findOne({
+          productKey: key,
+          isDeleted: false,
+        }).lean<NativeProduct>();
+
+        if (product) break;
+      }
+    }
+
+    /* =========================================================
+       STRATEGY 3: CROSS MATCH (_id == productKey CASE FIX)
+    ========================================================= */
+    if (!product) {
+      const fallback = item.productKey || item._id || item.productId;
+
+      if (fallback) {
+        product = await Product.findOne({
+          $or: [
+            { productKey: fallback },
+            { _id: this.isObjectId(fallback) ? fallback : null },
+          ],
+          isDeleted: false,
+        }).lean<NativeProduct>();
+      }
+    }
+
+    /* =========================================================
+       HARD FAILURE
+    ========================================================= */
+    if (!product) {
+      console.error("PRODUCT NOT FOUND FINAL:", item);
       throw new Error(
-        `Product not found: ${item.productKey || id}`
+        `Product not found (checked all identifiers): ${JSON.stringify(item)}`
       );
     }
 
     return { product, qty };
   }
 
-  /* ---------------------------------------------------------
-     PRICE RESOLUTION (STRICT SAFE)
-  --------------------------------------------------------- */
-
+  /**
+   * Price resolver (strict)
+   */
   static getPrice(product: NativeProduct): number {
     const price =
       product.primaryVariant?.price ??
