@@ -1,38 +1,51 @@
 import Order from "@/models/Order";
 import crypto from "crypto";
+
 import { ProductService } from "./product.service";
 import { PricingService } from "./pricing.service";
+
 import { validateCoupon } from "@/lib/coupon";
 import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
+
+/* =========================================================
+   HASH
+========================================================= */
 
 function stableHash(obj: any) {
   return crypto
     .createHash("sha256")
-    .update(JSON.stringify(obj, Object.keys(obj).sort()))
+    .update(JSON.stringify(obj))
     .digest("hex");
 }
 
 /* =========================================================
-   TYPES (local safe declaration)
+   TYPES
 ========================================================= */
 
 type CartBaseItem = {
   productId: string;
   productKey: string;
   name: string;
+
   qty: number;
+
   sellingPrice: number;
   gstRate: number;
+
   baseTotal: number;
 };
 
 type CartTaxedItem = CartBaseItem & {
   discount: number;
+
   taxableValue: number;
+
   gstAmount: number;
+
   cgst: number;
   sgst: number;
   igst: number;
+
   lineTotal: number;
 };
 
@@ -41,112 +54,229 @@ type CartTaxedItem = CartBaseItem & {
 ========================================================= */
 
 export class OrderService {
+  /* =========================================================
+     BUILD CART
+  ========================================================= */
 
-  /* -------------------------------
-     BUILD CART (DB SAFE)
-  ------------------------------- */
-  static async buildCart(cart: any[]): Promise<CartBaseItem[]> {
-    return Promise.all(
+  static async buildCart(
+    cart: any[]
+  ): Promise<CartBaseItem[]> {
+    if (!Array.isArray(cart) || cart.length === 0) {
+      throw new Error("Cart is empty");
+    }
+
+    const items = await Promise.all(
       cart.map(async (item) => {
+        console.log("CHECKOUT ITEM:", item);
+
         const { product, qty } =
           await ProductService.resolveProduct(item);
 
-        const price = ProductService.getPrice(product);
+        console.log("PRODUCT FOUND:", {
+          id: product._id,
+          productKey: product.productKey,
+          name: product.name,
+        });
+
+        const price =
+          ProductService.getPrice(product);
 
         return {
           productId: product._id.toString(),
-          productKey: product.productKey,
-          name: product.name,
+
+          productKey:
+            product.productKey || "",
+
+          name: product.name || "Product",
+
           qty,
-          sellingPrice: price,
-          gstRate: product.tax ?? 0,
-          baseTotal: price * qty,
+
+          sellingPrice: Number(price || 0),
+
+          gstRate: Number(product.tax || 0),
+
+          baseTotal: Number(price || 0) * qty,
         };
       })
     );
+
+    return items;
   }
 
-  /* -------------------------------
-     CREATE ORDER (PIPELINE FIXED)
-  ------------------------------- */
+  /* =========================================================
+     CREATE ORDER
+  ========================================================= */
+
   static async createOrder(payload: any) {
-    const {
-      cart,
-      address,
-      coupon,
-      paymentMethod,
-      gstType,
-      gstMode,
-    } = payload;
+    try {
+      const {
+        cart,
+        address,
+        coupon,
+        paymentMethod,
+        gstType,
+        gstMode,
+      } = payload;
 
-    /* STEP 1: BASE CART */
-    let items: CartBaseItem[] = await this.buildCart(cart);
+      console.log("CREATE ORDER PAYLOAD:", payload);
 
-    const subtotal = items.reduce((s, i) => s + i.baseTotal, 0);
+      /* =====================================================
+         STEP 1: BUILD CART
+      ===================================================== */
 
-    /* STEP 2: DISCOUNT */
-    let discount = 0;
+      let items: CartBaseItem[] =
+        await this.buildCart(cart);
 
-    if (coupon) {
-      const res = await validateCoupon(coupon, subtotal);
-      if (!res?.valid) throw new Error("Invalid coupon");
-      discount = Number(res.discount || 0);
-    }
+      /* =====================================================
+         STEP 2: SUBTOTAL
+      ===================================================== */
 
-    const discountedItems = PricingService.applyDiscount(items, discount);
-
-    /* STEP 3: GST CALCULATION (FINAL STATE) */
-    const taxedItems: CartTaxedItem[] =
-      discountedItems.map((i) =>
-        PricingService.applyGST(i, gstMode)
+      const subtotal = items.reduce(
+        (sum, item) =>
+          sum + item.baseTotal,
+        0
       );
 
-    /* STEP 4: TOTALS */
-    const taxableAmount = taxedItems.reduce(
-      (s, i) => s + i.taxableValue,
-      0
-    );
+      /* =====================================================
+         STEP 3: COUPON
+      ===================================================== */
 
-    const gstTotal = taxedItems.reduce(
-      (s, i) => s + i.gstAmount,
-      0
-    );
+      let discount = 0;
 
-    const amount = Math.max(1, taxableAmount + gstTotal);
+      if (coupon) {
+        const couponResult =
+          await validateCoupon(
+            coupon,
+            subtotal
+          );
 
-    /* STEP 5: ORDER ID */
-    const orderId = `NA-ORD-${Date.now()}-${Math.floor(
-      Math.random() * 9999
-    )}`;
+        if (!couponResult?.valid) {
+          throw new Error("Invalid coupon");
+        }
 
-    /* STEP 6: ORDER CREATE */
-    const order = await Order.create({
-      orderId,
-      cart: taxedItems,
-      address,
+        discount = Number(
+          couponResult.discount || 0
+        );
+      }
 
-      subtotal,
-      discount,
-      taxableAmount,
-      gstTotal,
-      amount,
+      /* =====================================================
+         STEP 4: APPLY DISCOUNT
+      ===================================================== */
 
-      gstMode,
+      const discountedItems =
+        PricingService.applyDiscount(
+          items,
+          discount
+        );
 
-      invoice: {
-        invoiceType: gstType === "B2B" ? "B2B" : "TAX",
-        financialYear: getFinancialYear(),
-      },
+      /* =====================================================
+         STEP 5: GST
+      ===================================================== */
 
-      orderHash: stableHash({
+      const taxedItems: CartTaxedItem[] =
+        discountedItems.map((item) =>
+          PricingService.applyGST(
+            item,
+            gstMode
+          )
+        );
+
+      /* =====================================================
+         STEP 6: TOTALS
+      ===================================================== */
+
+      const taxableAmount =
+        taxedItems.reduce(
+          (sum, item) =>
+            sum + item.taxableValue,
+          0
+        );
+
+      const gstTotal = taxedItems.reduce(
+        (sum, item) =>
+          sum + item.gstAmount,
+        0
+      );
+
+      const amount = Math.max(
+        1,
+        Number(taxableAmount) +
+          Number(gstTotal)
+      );
+
+      /* =====================================================
+         STEP 7: ORDER ID
+      ===================================================== */
+
+      const orderId = `NA-ORD-${Date.now()}-${Math.floor(
+        Math.random() * 9999
+      )}`;
+
+      /* =====================================================
+         STEP 8: CREATE ORDER
+      ===================================================== */
+
+      const order = await Order.create({
         orderId,
-        taxedItems,
+
+        cart: taxedItems,
+
+        address,
+
+        subtotal,
+        discount,
+
+        taxableAmount,
+        gstTotal,
+
         amount,
-      }),
 
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-    });
+        paymentMethod,
 
-    return { orderId, amount, items: taxedItems, order };
+        gstMode,
+
+        invoice: {
+          invoiceType:
+            gstType === "B2B"
+              ? "B2B"
+              : "TAX",
+
+          financialYear:
+            getFinancialYear(),
+        },
+
+        orderHash: stableHash({
+          orderId,
+          taxedItems,
+          amount,
+        }),
+
+        expiresAt: new Date(
+          Date.now() + 15 * 60 * 1000
+        ),
+      });
+
+      console.log(
+        "ORDER CREATED SUCCESSFULLY:",
+        orderId
+      );
+
+      return {
+        success: true,
+        orderId,
+        amount,
+        items: taxedItems,
+        order,
+      };
+    } catch (err: any) {
+      console.error(
+        "CREATE ORDER FAILED:",
+        err
+      );
+
+      throw new Error(
+        err.message || "Order creation failed"
+      );
+    }
   }
 }
