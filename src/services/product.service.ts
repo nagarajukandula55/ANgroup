@@ -1,13 +1,8 @@
-import { getNativeProductModel } from "@/models/NativeProduct";
+import { getProductModel } from "@/models/Product";
 import { connectNativeDB } from "@/lib/native-mongodb";
 import mongoose from "mongoose";
 
-/* =========================================================
-   GLOBAL DB SINGLETON
-========================================================= */
-
 declare global {
-  // eslint-disable-next-line no-var
   var nativeConn: mongoose.Connection | undefined;
 }
 
@@ -23,43 +18,32 @@ async function getNativeConn(): Promise<mongoose.Connection> {
   return conn;
 }
 
-/* =========================================================
-   TYPES
-========================================================= */
-
 export type NativeProduct = {
   _id: any;
   productKey: string;
   name: string;
   tax?: number;
+
   primaryVariant?: {
     price?: number;
     mrp?: number;
   };
+
   pricing?: {
     sellingPrice?: number;
     mrp?: number;
   };
+
   isDeleted?: boolean;
 };
-
-/* =========================================================
-   PRODUCT SERVICE
-========================================================= */
 
 export class ProductService {
   static isObjectId(id: string) {
     return mongoose.Types.ObjectId.isValid(id);
   }
 
-  /* =========================================================
-     RESOLVE PRODUCT
-  ========================================================= */
-
-  static async resolveProduct(
-    item: any
-  ): Promise<{ product: NativeProduct; qty: number }> {
-    const qty = Number(item.qty || 0);
+  static async resolveProduct(item: any) {
+    const qty = Number(item.qty || 1);
 
     if (qty <= 0) {
       throw new Error("Invalid quantity");
@@ -67,61 +51,49 @@ export class ProductService {
 
     const conn = await getNativeConn();
 
-    const Product = getNativeProductModel(conn);
+    const Product = getProductModel(conn);
 
-    /* =========================================================
-       ONLY TRUST productId
-    ========================================================= */
+    const productId =
+      item.productId ||
+      item._id;
 
-    const productId = item.productId;
+    const productKey =
+      item.productKey;
 
-    if (!productId) {
-      throw new Error("Missing productId");
-    }
-
-    console.log(
-      "RESOLVING PRODUCT:",
-      productId
-    );
+    console.log("RESOLVING:", {
+      productId,
+      productKey,
+    });
 
     let product: NativeProduct | null = null;
 
-    /* =========================================================
-       PRIMARY LOOKUP → Mongo ObjectId
-    ========================================================= */
+    /* ===============================
+       TRY OBJECT ID
+    =============================== */
 
-    if (this.isObjectId(productId)) {
-      product = await Product.findById(
-        productId
-      ).lean<NativeProduct>();
+    if (productId && this.isObjectId(productId)) {
+      product = await Product.findById(productId).lean();
     }
 
-    /* =========================================================
-       FALLBACK → productKey
-    ========================================================= */
+    /* ===============================
+       FALLBACK TO PRODUCT KEY
+    =============================== */
 
-    if (!product) {
+    if (!product && productKey) {
       product = await Product.findOne({
-        productKey: productId,
-        $or: [
-          { isDeleted: false },
-          { isDeleted: { $exists: false } },
-        ],
-      }).lean<NativeProduct>();
+        productKey,
+      }).lean();
     }
-
-    /* =========================================================
-       NOT FOUND
-    ========================================================= */
 
     if (!product) {
       console.error("PRODUCT NOT FOUND:", {
         productId,
+        productKey,
         item,
       });
 
       throw new Error(
-        `Product not found: ${productId}`
+        `Product not found: ${productId || productKey}`
       );
     }
 
@@ -131,21 +103,15 @@ export class ProductService {
     };
   }
 
-  /* =========================================================
-     PRICE RESOLVER
-  ========================================================= */
-
   static getPrice(product: NativeProduct): number {
     const price =
       product.primaryVariant?.price ??
-      product.pricing?.sellingPrice;
+      product.pricing?.sellingPrice ??
+      0;
 
-    if (
-      price == null ||
-      Number.isNaN(price)
-    ) {
+    if (!price || isNaN(price)) {
       throw new Error(
-        `Invalid price for product: ${product.productKey}`
+        `Invalid price for product ${product.productKey}`
       );
     }
 
