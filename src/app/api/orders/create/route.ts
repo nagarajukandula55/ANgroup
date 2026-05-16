@@ -8,10 +8,7 @@ import crypto from "crypto";
 import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
 
 const nativeConn = await connectNativeDB();
-
-const Product =
-  nativeConn.models.Product ||
-  nativeConn.model("Product", ProductSchema);
+const Product = getProductModel(nativeConn);
 
 /* =========================================================
    CORS (ERP SAFE)
@@ -215,52 +212,64 @@ const processedCartRaw = await Promise.all(
 
     const id = item.productId || item._id;
 
-let product = null;
-
-// 1. Try Mongo _id first (fastest & safest)
-if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
-  product = await Product.findById(id).lean();
-}
-
-// 2. Try SKU
-if (!product && item.sku) {
-  product = await Product.findOne({ sku: item.sku }).lean();
-}
-
-// 3. Try productKey
-if (!product && item.productKey) {
-  product = await Product.findOne({ productKey: item.productKey }).lean();
-}
-
-// 4. fallback: treat id as productKey
-if (!product && id && typeof id === "string") {
-  product = await Product.findOne({
-    $or: [{ productKey: id }, { sku: id }],
-  }).lean();
-}
-
-if (!product) {
-  console.log("FAILED PRODUCT LOOKUP INPUT:", item);
-  throw new Error("Product not found");
-}
+    let product = null;
+    
+    const id = item.productId || item._id;
+    
+    // 1. ObjectId match
+    if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
+      product = await Product.findById(id).lean();
+    }
+    
+    // 2. productKey match (YOUR PRIMARY KEY)
+    if (!product && item.productKey) {
+      product = await Product.findOne({
+        productKey: item.productKey,
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+    }
+    
+    // 3. fallback: treat id as productKey
+    if (!product && typeof id === "string") {
+      product = await Product.findOne({
+        productKey: id,
+        isActive: true,
+        isDeleted: false,
+      }).lean();
+    }
+    
+    if (!product) {
+      console.log("PRODUCT NOT FOUND:", item);
+      throw new Error("Product not found");
+    }
 
     console.log("FOUND PRODUCT:", product);
 
     return {
-      productId: product.productId || product._id.toString(),
-      productKey: product.productKey || null,
-      sku: product.sku || null,
+      productId: product._id.toString(),
+      productKey: product.productKey,
       name: product.name,
-
+    
       qty,
-
-      sellingPrice: Number(product.price),
-
-      mrp: Number(product.mrp ?? product.price),
-
-      gstRate: Number(product.gstRate ?? item.gstRate ?? 0),
-
-      baseTotal: money(Number(product.price) * qty),
+    
+      // ❌ WRONG (does not exist in your DB)
+      // sellingPrice: product.price
+    
+      // ✅ CORRECT (from your structure)
+      sellingPrice: product.primaryVariant?.price 
+        || product.pricing?.sellingPrice 
+        || 0,
+    
+      mrp: product.primaryVariant?.mrp 
+        || product.pricing?.mrp 
+        || 0,
+    
+      gstRate: product.tax ?? 0,
+    
+      baseTotal: money(
+        (product.primaryVariant?.price || 0) * qty
+      ),
     };
   })
 );
