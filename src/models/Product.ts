@@ -1,13 +1,38 @@
 import mongoose from "mongoose";
 
-const ProductSchema = new mongoose.Schema(
+const NativeProductSchema = new mongoose.Schema(
   {
     name: String,
     slug: String,
 
-    productKey: String,
+    productKey: {
+      type: String,
+      index: true,
+    },
+
+    category: String,
+    brand: String,
+    subcategory: String,
 
     tax: Number,
+    hsn: String,
+
+    description: String,
+    shortDescription: String,
+
+    primaryImage: String,
+
+    images: [String],
+
+    pricing: {
+      sellingPrice: Number,
+      mrp: Number,
+    },
+
+    primaryVariant: {
+      price: Number,
+      mrp: Number,
+    },
 
     isDeleted: {
       type: Boolean,
@@ -16,20 +41,10 @@ const ProductSchema = new mongoose.Schema(
 
     isActive: Boolean,
     isListed: Boolean,
-
-    primaryVariant: {
-      price: Number,
-      mrp: Number,
-    },
-
-    pricing: {
-      sellingPrice: Number,
-      mrp: Number,
-    },
   },
   {
     timestamps: true,
-    strict: false, // IMPORTANT
+    collection: "products", // IMPORTANT
   }
 );
 
@@ -42,6 +57,10 @@ export const getProductModel = (
 ) => {
   return (
     conn.models.Product ||
-    conn.model("Product", ProductSchema)
+    conn.model(
+      "Product",
+      NativeProductSchema,
+      "products"
+    )
   );
 };
