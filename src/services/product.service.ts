@@ -1,4 +1,4 @@
-import { getProductModel } from "@/models/Product";
+import { getNativeProductModel } from "@/models/NativeProduct";
 import { connectNativeDB } from "@/lib/native-mongodb";
 import mongoose from "mongoose";
 
@@ -67,7 +67,7 @@ export class ProductService {
 
     const conn = await getNativeConn();
 
-    const Product = getProductModel(conn);
+    const Product = getNativeProductModel(conn);
 
     /* =========================================================
        ONLY TRUST productId
