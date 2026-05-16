@@ -212,36 +212,34 @@ const processedCartRaw = await Promise.all(
 
     const id = item.productId || item._id;
 
-    /* 1. Mongo _id */
-    if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
-      searchConditions.push({ _id: id });
-    }
+let product = null;
 
-    /* 2. productKey */
-    if (item.productKey) {
-      searchConditions.push({ productKey: item.productKey });
-    }
+// 1. Try Mongo _id first (fastest & safest)
+if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
+  product = await Product.findById(id).lean();
+}
 
-    /* 3. SKU */
-    if (item.sku) {
-      searchConditions.push({ sku: item.sku });
-    }
+// 2. Try SKU
+if (!product && item.sku) {
+  product = await Product.findOne({ sku: item.sku }).lean();
+}
 
-    /* 4. fallback */
-    if (id && !/^[0-9a-fA-F]{24}$/.test(id)) {
-      searchConditions.push({
-        $or: [{ productKey: id }, { sku: id }],
-      });
-    }
+// 3. Try productKey
+if (!product && item.productKey) {
+  product = await Product.findOne({ productKey: item.productKey }).lean();
+}
 
-    const product = await Product.findOne({
-      $or: searchConditions,
-    }).lean<any>();
+// 4. fallback: treat id as productKey
+if (!product && id && typeof id === "string") {
+  product = await Product.findOne({
+    $or: [{ productKey: id }, { sku: id }],
+  }).lean();
+}
 
-    if (!product) {
-      console.log("FAILED PRODUCT MATCH:", searchConditions);
-      throw new Error("Product not found");
-    }
+if (!product) {
+  console.log("FAILED PRODUCT LOOKUP INPUT:", item);
+  throw new Error("Product not found");
+}
 
     console.log("FOUND PRODUCT:", product);
 
