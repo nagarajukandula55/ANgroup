@@ -3,19 +3,45 @@ import mongoose from "mongoose";
 const ProductSchema = new mongoose.Schema(
   {
     name: String,
-    price: Number,
-    mrp: Number,
-    stock: Number,
-    status: String,
-    gstPercent: Number,
-    productId: String,
+    slug: String,
+
     productKey: String,
+
+    tax: Number,
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    isActive: Boolean,
+    isListed: Boolean,
+
+    primaryVariant: {
+      price: Number,
+      mrp: Number,
+    },
+
+    pricing: {
+      sellingPrice: Number,
+      mrp: Number,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    strict: false, // IMPORTANT
+  }
 );
 
-// ❗ IMPORTANT: DO NOT bind to default mongoose connection
+/* =========================================================
+   NATIVE DB MODEL
+========================================================= */
 
-export const getProductModel = (conn: mongoose.Connection) => {
-  return conn.models.Product || conn.model("Product", ProductSchema);
+export const getProductModel = (
+  conn: mongoose.Connection
+) => {
+  return (
+    conn.models.Product ||
+    conn.model("Product", ProductSchema)
+  );
 };
