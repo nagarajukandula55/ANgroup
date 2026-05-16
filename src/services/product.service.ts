@@ -2,12 +2,7 @@ import { getProductModel } from "@/models/Product";
 import { connectNativeDB } from "@/lib/native-mongodb";
 import mongoose from "mongoose";
 
-/* =========================================================
-   GLOBAL DB SINGLETON (STRICT + SAFE)
-========================================================= */
-
 declare global {
-  // eslint-disable-next-line no-var
   var nativeConn: mongoose.Connection | undefined;
 }
 
@@ -16,13 +11,8 @@ async function getNativeConn(): Promise<mongoose.Connection> {
 
   const conn = await connectNativeDB();
   globalThis.nativeConn = conn;
-
   return conn;
 }
-
-/* =========================================================
-   TYPES
-========================================================= */
 
 export type NativeProduct = {
   _id: any;
@@ -34,21 +24,11 @@ export type NativeProduct = {
   isDeleted?: boolean;
 };
 
-/* =========================================================
-   SERVICE
-========================================================= */
-
 export class ProductService {
-  /**
-   * Check valid Mongo ObjectId
-   */
   static isObjectId(id: string) {
     return mongoose.Types.ObjectId.isValid(id);
   }
 
-  /**
-   * Resolve product safely (FIXED)
-   */
   static async resolveProduct(
     item: any
   ): Promise<{ product: NativeProduct; qty: number }> {
@@ -61,10 +41,7 @@ export class ProductService {
     const conn = await getNativeConn();
     const Product = getProductModel(conn);
 
-    const id =
-      item.productId ||
-      item._id ||
-      item.productKey;
+    const id = item.productId || item._id || item.productKey;
 
     if (!id) {
       throw new Error("Missing product identifier");
@@ -72,41 +49,31 @@ export class ProductService {
 
     console.log("RESOLVING PRODUCT WITH ID:", id);
 
-    let product: NativeProduct | null = null;
+    const orConditions: any[] = [
+      { productKey: id },
+    ];
 
-    /* =========================================================
-       BUILD SAFE OR QUERY
-    ========================================================== */
+    if (this.isObjectId(id)) {
+      orConditions.push({ _id: new mongoose.Types.ObjectId(id) });
+    }
 
-   const or: any[] = [
-     { productKey: id },
-   ];
-   
-   if (this.isObjectId(id)) {
-     or.push({ _id: new mongoose.Types.ObjectId(id) });
-   }
-   
-   const product = await Product.findOne({
-     $or: or,
-     $and: [
-       {
-         $or: [
-           { isDeleted: false },
-           { isDeleted: { $exists: false } },
-         ],
-       },
-     ],
-   }).lean();
-
-    /* =========================================================
-       HARD FAILURE
-    ========================================================== */
+    const product = await Product.findOne({
+      $or: orConditions,
+      $and: [
+        {
+          $or: [
+            { isDeleted: false },
+            { isDeleted: { $exists: false } },
+          ],
+        },
+      ],
+    }).lean<NativeProduct>();
 
     if (!product) {
       console.error("PRODUCT NOT FOUND:", {
         id,
-        or,
         item,
+        orConditions,
       });
 
       throw new Error(`Product not found: ${id}`);
@@ -115,9 +82,6 @@ export class ProductService {
     return { product, qty };
   }
 
-  /**
-   * PRICE RESOLVER (SAFE)
-   */
   static getPrice(product: NativeProduct): number {
     const price =
       product.primaryVariant?.price ??
