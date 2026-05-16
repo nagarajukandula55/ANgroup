@@ -213,26 +213,22 @@ const processedCartRaw = await Promise.all(
    const id = item.productId || item._id;
    let product = null;
    
-   // 1. ObjectId match
+   // 1. Mongo _id
    if (id && /^[0-9a-fA-F]{24}$/.test(id)) {
      product = await Product.findById(id).lean();
    }
    
-   // 2. productKey match
+   // 2. productKey (PRIMARY IDENTIFIER in your DB)
    if (!product && item.productKey) {
      product = await Product.findOne({
        productKey: item.productKey,
-       isActive: true,
-       isDeleted: false,
      }).lean();
    }
    
-   // 3. fallback
+   // 3. fallback: id treated as productKey
    if (!product && typeof id === "string") {
      product = await Product.findOne({
        productKey: id,
-       isActive: true,
-       isDeleted: false,
      }).lean();
    }
    
