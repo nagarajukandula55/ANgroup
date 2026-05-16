@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { connectDB } from "@/lib/mongodb";
 import { OrderService } from "@/services/order.service";
 
@@ -8,19 +9,26 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const result = await OrderService.createOrder(body);
+    const result =
+      await OrderService.createOrder(body);
 
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
+    return NextResponse.json(result);
   } catch (err: any) {
+    console.error(
+      "ORDER API ERROR:",
+      err
+    );
+
     return NextResponse.json(
       {
         success: false,
-        message: err.message || "Internal Error",
+        message:
+          err.message ||
+          "Internal Server Error",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
