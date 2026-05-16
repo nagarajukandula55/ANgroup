@@ -60,85 +60,66 @@ export class ProductService {
   /**
    * Resolve product using multi-strategy fallback chain
    */
-  static async resolveProduct(
-    item: any
-  ): Promise<{ product: NativeProduct; qty: number }> {
-    const qty = Number(item.qty);
+static async resolveProduct(
+  item: any
+): Promise<{ product: NativeProduct; qty: number }> {
+  const qty = Number(item.qty);
 
-    if (!qty || qty <= 0) {
-      throw new Error("Invalid quantity");
-    }
-
-    const conn = await getNativeConn();
-    const Product = getProductModel(conn);
-
-    const candidates = this.buildCandidates(item);
-
-    console.log("PRODUCT RESOLUTION INPUT:", {
-      item,
-      candidates,
-    });
-
-    let product: NativeProduct | null = null;
-
-    /* =========================================================
-       STRATEGY 1: OBJECTID MATCH (FAST PATH)
-    ========================================================= */
-    for (const id of candidates) {
-      if (this.isObjectId(id)) {
-        product = await Product.findOne({
-          _id: id,
-          isDeleted: false,
-        }).lean<NativeProduct>();
-
-        if (product) break;
-      }
-    }
-
-    /* =========================================================
-       STRATEGY 2: PRODUCT KEY MATCH (PRIMARY BUSINESS KEY)
-    ========================================================= */
-    if (!product) {
-      for (const key of candidates) {
-        product = await Product.findOne({
-          productKey: key,
-          isDeleted: false,
-        }).lean<NativeProduct>();
-
-        if (product) break;
-      }
-    }
-
-    /* =========================================================
-       STRATEGY 3: CROSS MATCH (_id == productKey CASE FIX)
-    ========================================================= */
-    if (!product) {
-      const fallback = item.productKey || item._id || item.productId;
-
-      if (fallback) {
-        product = await Product.findOne({
-          $or: [
-            { productKey: fallback },
-            { _id: this.isObjectId(fallback) ? fallback : null },
-          ],
-          isDeleted: false,
-        }).lean<NativeProduct>();
-      }
-    }
-
-    /* =========================================================
-       HARD FAILURE
-    ========================================================= */
-    if (!product) {
-      console.error("PRODUCT NOT FOUND FINAL:", item);
-      throw new Error(
-        `Product not found (checked all identifiers): ${JSON.stringify(item)}`
-      );
-    }
-
-    return { product, qty };
+  if (!qty || qty <= 0) {
+    throw new Error("Invalid quantity");
   }
 
+  const conn = await getNativeConn();
+  const Product = getProductModel(conn);
+
+  const id =
+    item.productId ||
+    item._id ||
+    item.productKey;
+
+  if (!id) {
+    throw new Error("Missing product identifier");
+  }
+
+  console.log("RESOLVING PRODUCT WITH ID:", id);
+
+  let product: NativeProduct | null = null;
+
+  /* =========================================================
+     SINGLE SAFE QUERY (NO MULTI PASS, NO NULL BUGS)
+  ========================================================= */
+
+  const query: any = {
+    isDeleted: false,
+    $or: [
+      { productKey: id },
+    ],
+  };
+
+  // only add _id check if valid ObjectId
+  if (this.isObjectId(id)) {
+    query.$or.push({ _id: id });
+  }
+
+  product = await Product.findOne(query).lean<NativeProduct>();
+
+  /* =========================================================
+     HARD FAILURE
+  ========================================================= */
+
+  if (!product) {
+    console.error("PRODUCT NOT FOUND:", {
+      item,
+      query,
+    });
+
+    throw new Error(
+      `Product not found: ${id}`
+    );
+  }
+
+  return { product, qty };
+}
   /**
    * Price resolver (strict)
    */
