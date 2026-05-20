@@ -72,15 +72,22 @@ export class ProductService {
        FIND BY OBJECT ID
      =============================== */
 
-    if (
-      productId &&
-      this.isObjectId(productId)
-    ) {
-      product =
-        await Product.findById(productId).lean<NativeProduct | null>();
-
+    if (productId) {
+      product = await Product.findOne({
+        $or: [
+          { _id: productId },
+          ...(this.isObjectId(productId)
+            ? [
+                {
+                  _id: new mongoose.Types.ObjectId(productId),
+                },
+              ]
+            : []),
+        ],
+      }).lean<NativeProduct | null>();
+    
       console.log(
-        "FOUND BY OBJECT ID:",
+        "FOUND BY PRODUCT ID:",
         !!product
       );
     }
