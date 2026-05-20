@@ -12,7 +12,6 @@ async function getNativeConn(): Promise<mongoose.Connection> {
   }
 
   const conn = await connectNativeDB();
-
   globalThis.nativeConn = conn;
 
   return conn;
@@ -38,10 +37,6 @@ export type NativeProduct = {
 };
 
 export class ProductService {
-  static isObjectId(id: string) {
-    return mongoose.Types.ObjectId.isValid(id);
-  }
-
   static async resolveProduct(
     item: any
   ): Promise<{
@@ -55,73 +50,34 @@ export class ProductService {
     }
 
     const conn = await getNativeConn();
-
     const Product = getProductModel(conn);
 
-    const productId = item.productId;
     const productKey = item.productKey;
 
-    console.log("LOOKUP:", {
-      productId,
+    if (!productKey) {
+      throw new Error("Missing product key");
+    }
+
+    console.log("LOOKUP BY PRODUCT KEY:", productKey);
+
+    const product = await Product.findOne({
       productKey,
-    });
+      isDeleted: { $ne: true },
+    }).lean<NativeProduct | null>();
 
-    let product: NativeProduct | null = null;
-
-    /* ===============================
-       FIND BY OBJECT ID
-     =============================== */
-
-    if (productId) {
-      product = await Product.findOne({
-        $or: [
-          { _id: productId },
-          ...(this.isObjectId(productId)
-            ? [
-                {
-                  _id: new mongoose.Types.ObjectId(productId),
-                },
-              ]
-            : []),
-        ],
-      }).lean<NativeProduct | null>();
-    
-      console.log(
-        "FOUND BY PRODUCT ID:",
-        !!product
-      );
-    }
-
-    /* ===============================
-       FALLBACK PRODUCT KEY
-    =============================== */
-
-    if (!product && productKey) {
-      product =
-        await Product.findOne({
-          productKey,
-        }).lean<NativeProduct | null>();
-
-      console.log(
-        "FOUND BY PRODUCT KEY:",
-        !!product
-      );
-    }
-
-    /* ===============================
-       FINAL FAILURE
-    =============================== */
+    console.log(
+      "FOUND PRODUCT:",
+      !!product
+    );
 
     if (!product) {
-      console.error("PRODUCT NOT FOUND", {
-        productId,
-        productKey,
-      });
+      console.error(
+        "PRODUCT NOT FOUND:",
+        productKey
+      );
 
       throw new Error(
-        `Product not found: ${
-          productId || productKey
-        }`
+        `Product not found: ${productKey}`
       );
     }
 
