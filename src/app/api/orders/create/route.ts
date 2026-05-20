@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
 import { connectNativeDB } from "@/lib/native-mongodb";
 import { OrderService } from "@/services/order.service";
 
@@ -23,7 +24,7 @@ function getCorsHeaders(origin: string | null) {
 }
 
 /* =========================================
-   OPTIONS (Preflight)
+   OPTIONS
 ========================================= */
 
 export async function OPTIONS(req: Request) {
@@ -47,6 +48,10 @@ export async function POST(req: Request) {
       "============ CREATE ORDER API ============"
     );
 
+    // MAIN AN DB (Orders)
+    await connectDB();
+
+    // NATIVE DB (Products)
     await connectNativeDB();
 
     const body = await req.json();
