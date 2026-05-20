@@ -274,6 +274,18 @@ export class OrderService {
         orderId,
         amount,
         items: taxedItems,
+        subtotal,
+        discount,
+        taxableAmount,
+        gstTotal,
+        cgst: taxedItems.reduce((s, i) => s + i.cgst, 0),
+        sgst: taxedItems.reduce((s, i) => s + i.sgst, 0),
+        igst: taxedItems.reduce((s, i) => s + i.igst, 0),
+        razorpayOrder: {
+          amount: amount * 100,
+          currency: "INR",
+          id: orderId,
+        },
         order,
       };
     } catch (err: any) {
