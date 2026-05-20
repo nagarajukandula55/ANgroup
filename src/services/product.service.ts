@@ -58,17 +58,15 @@ export class ProductService {
       throw new Error("Missing product key");
     }
 
-    console.log("LOOKUP BY PRODUCT KEY:", productKey);
+    console.log("=================================");
+    console.log("CHECKOUT PRODUCT LOOKUP");
+    console.log("PRODUCT KEY:", productKey);
 
     const product = await Product.findOne({
       productKey,
-      isDeleted: { $ne: true },
     }).lean<NativeProduct | null>();
 
-    console.log(
-      "FOUND PRODUCT:",
-      !!product
-    );
+    console.log("FOUND:", !!product);
 
     if (!product) {
       console.error(
