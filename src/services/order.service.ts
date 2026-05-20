@@ -36,6 +36,8 @@ type CartBaseItem = {
 };
 
 type CartTaxedItem = CartBaseItem & {
+  price: number;
+
   discount: number;
 
   taxableValue: number;
@@ -174,12 +176,18 @@ export class OrderService {
       ===================================================== */
 
       const taxedItems: CartTaxedItem[] =
-        discountedItems.map((item) =>
-          PricingService.applyGST(
-            item,
-            gstMode
-          )
-        );
+        discountedItems.map((item) => {
+          const taxed =
+            PricingService.applyGST(
+              item,
+              gstMode
+            );
+      
+          return {
+            ...taxed,
+            price: taxed.sellingPrice,
+          };
+        });
 
       /* =====================================================
          STEP 6: TOTALS
