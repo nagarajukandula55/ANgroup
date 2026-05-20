@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
+import { connectNativeDB } from "@/lib/native-mongodb";
 import { OrderService } from "@/services/order.service";
 
 export async function POST(req: Request) {
   try {
     console.log("============ CREATE ORDER API ============");
 
-    await connectDB();
+    await connectNativeDB();
 
     const body = await req.json();
 
@@ -26,23 +26,17 @@ export async function POST(req: Request) {
       amount: result.amount,
       items: result.items,
     });
+
   } catch (err: any) {
     console.error("ORDER CREATE FAILED:");
     console.error(err);
-    console.error(err?.stack);
 
     return NextResponse.json(
       {
         success: false,
         error: err?.message,
-        stack:
-          process.env.NODE_ENV === "development"
-            ? err?.stack
-            : undefined,
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
