@@ -2,17 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  context: any
+  context: { params: Promise<{ code: string }> }
 ) {
   try {
-    const code =
-      context?.params?.code;
+    const { code } = await context.params;
 
     if (!code) {
       return NextResponse.json(
         {
           success: false,
-          error: "Pincode missing",
+          error: "Pincode required",
         },
         {
           status: 400,
@@ -29,44 +28,18 @@ export async function GET(
 
     const data = await response.json();
 
-    if (
-      !data?.[0] ||
-      data?.[0]?.Status !== "Success"
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid pincode",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    const po =
-      data?.[0]?.PostOffice?.[0];
-
     return NextResponse.json({
       success: true,
-      city: po?.District || "",
-      state: po?.State || "",
-      country:
-        po?.Country || "India",
+      data,
     });
 
   } catch (err: any) {
-    console.error(
-      "PINCODE API ERROR:",
-      err
-    );
+    console.error("PINCODE API ERROR:", err);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          err?.message ||
-          "Pincode fetch failed",
+        error: err.message,
       },
       {
         status: 500,
