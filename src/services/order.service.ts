@@ -309,47 +309,49 @@ export class OrderService {
       const taxableAmount =
         taxedItems.reduce(
           (sum, item) =>
-            sum +
-            item.taxableValue,
+            sum + Number(item.taxableValue || 0),
           0
         );
-
+      
       const gstTotal =
         taxedItems.reduce(
           (sum, item) =>
-            sum + item.gstAmount,
+            sum + Number(item.gstAmount || 0),
           0
         );
-
+      
       const cgst =
         taxedItems.reduce(
           (sum, item) =>
-            sum + item.cgst,
+            sum + Number(item.cgst || 0),
           0
         );
-
+      
       const sgst =
         taxedItems.reduce(
           (sum, item) =>
-            sum + item.sgst,
+            sum + Number(item.sgst || 0),
           0
         );
-
+      
       const igst =
         taxedItems.reduce(
           (sum, item) =>
-            sum + item.igst,
+            sum + Number(item.igst || 0),
           0
         );
-
-      const amount = Math.max(
-        1,
+      
+      /* IMPORTANT:
+         FINAL PAYABLE AMOUNT
+         SHOULD COME FROM lineTotal
+      */
+      
+      const amount =
         taxedItems.reduce(
           (sum, item) =>
-            sum + item.lineTotal,
+            sum + Number(item.lineTotal || 0),
           0
-        )
-      );
+        );
 
       /* =====================================================
          STEP 8: ORDER ID
