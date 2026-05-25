@@ -506,7 +506,7 @@ export class OrderService {
 
       throw new Error(
         err.message ||
-          "Order creation failed"
+          "Order creation failed now"
       );
     }
   }
