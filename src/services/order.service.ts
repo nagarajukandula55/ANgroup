@@ -344,11 +344,10 @@ export class OrderService {
 
       const amount = Math.max(
         1,
-        Number(
-          (
-            taxableAmount +
-            gstTotal
-          ).toFixed(2)
+        taxedItems.reduce(
+          (sum, item) =>
+            sum + item.lineTotal,
+          0
         )
       );
 
