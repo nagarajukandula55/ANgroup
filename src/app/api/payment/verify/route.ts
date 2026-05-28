@@ -12,6 +12,7 @@ import Order from "@/models/Order";
 
 export async function POST(req: Request) {
   try {
+
     await connectDB();
 
     /* =========================================================
@@ -38,6 +39,11 @@ export async function POST(req: Request) {
       razorpay_signature,
       orderId,
     } = body;
+
+    console.log(
+      "VERIFY PAYMENT BODY:",
+      body
+    );
 
     /* =========================================================
        VALIDATION
@@ -78,6 +84,29 @@ export async function POST(req: Request) {
       );
     }
 
+    console.log(
+      "ORDER FOUND:",
+      {
+        orderId:
+          order.orderId,
+
+        razorpayOrderId:
+          order.razorpayOrderId,
+      }
+    );
+
+    /* =========================================================
+       SAFETY INIT
+    ========================================================= */
+
+    if (!order.payment) {
+      order.payment = {};
+    }
+
+    if (!order.events) {
+      order.events = [];
+    }
+
     /* =========================================================
        IDEMPOTENCY CHECK
     ========================================================= */
@@ -100,8 +129,9 @@ export async function POST(req: Request) {
 
     if (
       razorpay_order_id !==
-      order.payment?.gatewayOrderId
+      order.razorpayOrderId
     ) {
+
       order.events.push({
         type:
           "VERIFY_ORDER_ID_MISMATCH",
@@ -114,8 +144,7 @@ export async function POST(req: Request) {
             razorpay_order_id,
 
           storedOrderId:
-            order.payment
-              ?.gatewayOrderId,
+            order.razorpayOrderId,
         },
 
         createdAt: new Date(),
@@ -180,6 +209,7 @@ export async function POST(req: Request) {
       );
 
     if (!isValidSignature) {
+
       order.payment.status =
         "FAILED";
 
@@ -220,6 +250,9 @@ export async function POST(req: Request) {
     order.payment.status =
       "SUCCESS";
 
+    order.payment.gatewayOrderId =
+      razorpay_order_id;
+
     order.payment.gatewayPaymentId =
       razorpay_payment_id;
 
@@ -232,11 +265,14 @@ export async function POST(req: Request) {
     order.paymentVerified =
       true;
 
-    order.stockReserved = true;
+    order.stockReserved =
+      true;
 
-    order.status = "PAID";
+    order.status =
+      "PAID";
 
-    order.locked = true;
+    order.locked =
+      true;
 
     /* =========================================================
        EVENTS
@@ -263,21 +299,31 @@ export async function POST(req: Request) {
 
     await order.save();
 
+    console.log(
+      "PAYMENT VERIFIED:",
+      orderId
+    );
+
     /* =========================================================
        RESPONSE
     ========================================================= */
 
     return NextResponse.json({
       success: true,
+
       message:
         "Payment verified successfully",
+
       orderId,
     });
+
   } catch (err: any) {
+
     console.error(
-      "PAYMENT VERIFY ERROR:",
-      err
+      "PAYMENT VERIFY ERROR:"
     );
+
+    console.error(err);
 
     return NextResponse.json(
       {
