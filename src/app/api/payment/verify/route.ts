@@ -7,10 +7,51 @@ import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
 
 /* =========================================================
+   CORS
+========================================================= */
+
+const allowedOrigins = [
+  "https://shopnative.in",
+  "https://www.shopnative.in",
+  "https://angroup.in",
+  "https://www.angroup.in",
+];
+
+function getCorsHeaders(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin":
+      origin && allowedOrigins.includes(origin)
+        ? origin
+        : "",
+
+    "Access-Control-Allow-Methods":
+      "GET, POST, OPTIONS",
+
+    "Access-Control-Allow-Headers":
+      "Content-Type, Authorization",
+  };
+}
+
+/* =========================================================
+   OPTIONS
+========================================================= */
+
+export async function OPTIONS(req: Request) {
+  const origin = req.headers.get("origin");
+
+  return new NextResponse(null, {
+    status: 200,
+    headers: getCorsHeaders(origin),
+  });
+}
+
+/* =========================================================
    VERIFY PAYMENT API
 ========================================================= */
 
 export async function POST(req: Request) {
+  const origin = req.headers.get("origin");
+
   try {
     await connectDB();
 
@@ -19,10 +60,6 @@ export async function POST(req: Request) {
         "Missing RAZORPAY_KEY_SECRET"
       );
     }
-
-    /* =========================================================
-       BODY
-    ========================================================= */
 
     const body = await req.json();
 
@@ -38,10 +75,6 @@ export async function POST(req: Request) {
       body
     );
 
-    /* =========================================================
-       VALIDATION
-    ========================================================= */
-
     if (
       !razorpay_order_id ||
       !razorpay_payment_id ||
@@ -54,36 +87,17 @@ export async function POST(req: Request) {
           message:
             "Missing payment verification fields",
         },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(origin),
+        }
       );
     }
 
-    /* =========================================================
-       FIND ORDER
-    ========================================================= */
-
-      console.log("========== VERIFY START ==========");
-      
-      console.log("FRONTEND DATA:", {
+    const order =
+      await Order.findOne({
         orderId,
-        razorpay_order_id,
-        razorpay_payment_id,
       });
-      
-      const order =
-        await Order.findOne({
-          orderId,
-        });
-      
-      console.log("DB ORDER:", order);
-      
-      if (order) {
-        console.log("DB VALUES:", {
-          dbOrderId: order.orderId,
-          dbRazorpayOrderId:
-            order.razorpayOrderId,
-        });
-      }
 
     if (!order) {
       return NextResponse.json(
@@ -91,63 +105,44 @@ export async function POST(req: Request) {
           success: false,
           message: "Order not found",
         },
-        { status: 404 }
+        {
+          status: 404,
+          headers: getCorsHeaders(origin),
+        }
       );
     }
-
-    console.log(
-      "ORDER FOUND:",
-      {
-        orderId: order.orderId,
-        storedRazorpayOrderId:
-          order.razorpayOrderId,
-        receivedRazorpayOrderId:
-          razorpay_order_id,
-      }
-    );
-
-    /* =========================================================
-       ALREADY VERIFIED
-    ========================================================= */
 
     if (
       order.paymentVerified === true
     ) {
-      return NextResponse.json({
-        success: true,
-        duplicate: true,
-        orderId,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          duplicate: true,
+          orderId,
+        },
+        {
+          headers: getCorsHeaders(origin),
+        }
+      );
     }
 
-    /* =========================================================
-       VERIFY ORDER ID
-    ========================================================= */
-
-      console.log("COMPARE:", {
-        frontend:
-          razorpay_order_id,
-        database:
-          order.razorpayOrderId,
-      });
-      
-      if (
-        String(razorpay_order_id).trim() !==
-        String(order.razorpayOrderId).trim()
-      ) {
+    if (
+      String(razorpay_order_id).trim() !==
+      String(order.razorpayOrderId).trim()
+    ) {
       return NextResponse.json(
         {
           success: false,
           message:
             "Gateway order mismatch",
         },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(origin),
+        }
       );
     }
-
-    /* =========================================================
-       VERIFY SIGNATURE
-    ========================================================= */
 
     const generatedSignature =
       crypto
@@ -189,13 +184,12 @@ export async function POST(req: Request) {
           message:
             "Invalid payment signature",
         },
-        { status: 400 }
+        {
+          status: 400,
+          headers: getCorsHeaders(origin),
+        }
       );
     }
-
-    /* =========================================================
-       UPDATE ORDER
-    ========================================================= */
 
     order.paymentVerified = true;
 
@@ -221,16 +215,17 @@ export async function POST(req: Request) {
       orderId
     );
 
-    /* =========================================================
-       SUCCESS
-    ========================================================= */
-
-    return NextResponse.json({
-      success: true,
-      message:
-        "Payment verified successfully",
-      orderId,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message:
+          "Payment verified successfully",
+        orderId,
+      },
+      {
+        headers: getCorsHeaders(origin),
+      }
+    );
 
   } catch (err: any) {
     console.error(
@@ -247,6 +242,7 @@ export async function POST(req: Request) {
       },
       {
         status: 500,
+        headers: getCorsHeaders(origin),
       }
     );
   }
