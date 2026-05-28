@@ -20,34 +20,46 @@ export class PricingService {
     let distributed = 0;
 
     const subtotal = items.reduce(
-      (s, i) => s + i.baseTotal,
+      (sum, item) =>
+        sum + Number(item.baseTotal || 0),
       0
     );
 
-    return items.map((item, i) => {
+    return items.map((item, index) => {
 
+      const itemBaseTotal = Number(
+        item.baseTotal || 0
+      );
+
+      // DISTRIBUTE DISCOUNT PROPORTIONALLY
       const ratio =
         subtotal > 0
-          ? item.baseTotal / subtotal
+          ? itemBaseTotal / subtotal
           : 0;
 
       const discount =
-        i === items.length - 1
+        index === items.length - 1
           ? money(totalDiscount - distributed)
           : money(totalDiscount * ratio);
 
-      if (i !== items.length - 1) {
+      if (index !== items.length - 1) {
         distributed += discount;
       }
 
-      // PRICE AFTER DISCOUNT
+      // ENSURE NEVER NEGATIVE
       const taxableValue = money(
-        item.baseTotal - discount
+        Math.max(
+          0,
+          itemBaseTotal - discount
+        )
       );
 
       return {
         ...item,
+
         discount,
+
+        // PRICE AFTER DISCOUNT
         taxableValue,
       };
     });
@@ -55,6 +67,7 @@ export class PricingService {
 
   /* =========================================================
      GST EXCLUSIVE
+     GST APPLIED AFTER DISCOUNT
   ========================================================= */
 
   static applyGST(
@@ -62,12 +75,18 @@ export class PricingService {
     gstMode: string
   ): CartWithGST {
 
-    // GST ON DISCOUNTED PRICE
-    const gstAmount = money(
-      item.taxableValue *
-      (item.gstRate / 100)
+    // FINAL TAXABLE VALUE
+    const taxableValue = money(
+      Number(item.taxableValue || 0)
     );
 
+    // GST ON DISCOUNTED VALUE
+    const gstAmount = money(
+      taxableValue *
+      (Number(item.gstRate || 0) / 100)
+    );
+
+    // GST SPLIT
     const cgst =
       gstMode === "CGST_SGST"
         ? money(gstAmount / 2)
@@ -83,13 +102,15 @@ export class PricingService {
         ? gstAmount
         : 0;
 
-    // FINAL PAYABLE
+    // FINAL PAYABLE AMOUNT
     const lineTotal = money(
-      item.taxableValue + gstAmount
+      taxableValue + gstAmount
     );
 
     return {
       ...item,
+
+      taxableValue,
 
       gstAmount,
 
