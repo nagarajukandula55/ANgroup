@@ -40,21 +40,21 @@ export class PricingService {
         distributed += discount;
       }
 
+      // PRICE AFTER DISCOUNT
+      const taxableValue = money(
+        item.baseTotal - discount
+      );
+
       return {
         ...item,
-
         discount,
-
-        // FINAL PRICE AFTER DISCOUNT
-        taxableValue: money(
-          item.baseTotal - discount
-        ),
+        taxableValue,
       };
     });
   }
 
   /* =========================================================
-     GST INCLUSIVE
+     GST EXCLUSIVE
   ========================================================= */
 
   static applyGST(
@@ -62,20 +62,10 @@ export class PricingService {
     gstMode: string
   ): CartWithGST {
 
-    // FINAL PRICE AFTER DISCOUNT
-    const finalPrice = money(
-      item.taxableValue
-    );
-
-    // GST INCLUDED SPLIT
-    const taxableValue = money(
-      finalPrice *
-        100 /
-        (100 + item.gstRate)
-    );
-
+    // GST ON DISCOUNTED PRICE
     const gstAmount = money(
-      finalPrice - taxableValue
+      item.taxableValue *
+      (item.gstRate / 100)
     );
 
     const cgst =
@@ -93,10 +83,13 @@ export class PricingService {
         ? gstAmount
         : 0;
 
+    // FINAL PAYABLE
+    const lineTotal = money(
+      item.taxableValue + gstAmount
+    );
+
     return {
       ...item,
-
-      taxableValue,
 
       gstAmount,
 
@@ -106,9 +99,7 @@ export class PricingService {
 
       igst,
 
-      // IMPORTANT:
-      // FINAL PRICE ALREADY INCLUDES GST
-      lineTotal: finalPrice,
+      lineTotal,
     };
   }
 }
