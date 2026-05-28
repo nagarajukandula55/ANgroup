@@ -203,8 +203,18 @@ export class OrderService {
       
       if (coupon) {
       
+        console.log(
+          "VALIDATING COUPON:",
+          coupon
+        );
+      
+        console.log(
+          "NATIVE API:",
+          process.env.NATIVE_API_URL
+        );
+      
         const couponRes = await fetch(
-          `${process.env.NEXT_PUBLIC_SHOPNATIVE_API}/api/coupons/validate`,
+          `${process.env.NATIVE_API_URL}/api/coupons/validate`,
           {
             method: "POST",
       
@@ -220,11 +230,16 @@ export class OrderService {
           }
         );
       
+        console.log(
+          "COUPON STATUS:",
+          couponRes.status
+        );
+      
         const couponResult =
           await couponRes.json();
       
         console.log(
-          "COUPON RESULT:",
+          "COUPON RESPONSE:",
           couponResult
         );
       
@@ -241,7 +256,6 @@ export class OrderService {
           couponResult.discount || 0
         );
       }
-
       /* =====================================================
          STEP 4: APPLY DISCOUNT
       ===================================================== */
