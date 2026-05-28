@@ -62,10 +62,28 @@ export async function POST(req: Request) {
        FIND ORDER
     ========================================================= */
 
-    const order =
-      await Order.findOne({
+      console.log("========== VERIFY START ==========");
+      
+      console.log("FRONTEND DATA:", {
         orderId,
+        razorpay_order_id,
+        razorpay_payment_id,
       });
+      
+      const order =
+        await Order.findOne({
+          orderId,
+        });
+      
+      console.log("DB ORDER:", order);
+      
+      if (order) {
+        console.log("DB VALUES:", {
+          dbOrderId: order.orderId,
+          dbRazorpayOrderId:
+            order.razorpayOrderId,
+        });
+      }
 
     if (!order) {
       return NextResponse.json(
@@ -106,10 +124,17 @@ export async function POST(req: Request) {
        VERIFY ORDER ID
     ========================================================= */
 
-    if (
-      razorpay_order_id !==
-      order.razorpayOrderId
-    ) {
+      console.log("COMPARE:", {
+        frontend:
+          razorpay_order_id,
+        database:
+          order.razorpayOrderId,
+      });
+      
+      if (
+        String(razorpay_order_id).trim() !==
+        String(order.razorpayOrderId).trim()
+      ) {
       return NextResponse.json(
         {
           success: false,
