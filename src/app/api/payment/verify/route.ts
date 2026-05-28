@@ -127,6 +127,16 @@ export async function POST(req: Request) {
       );
     }
 
+     console.log("COMPARE:", {
+        frontend: razorpay_order_id,
+        database: order.razorpayOrderId,
+      });
+      
+      console.log("TYPES:", {
+        frontendType: typeof razorpay_order_id,
+        databaseType: typeof order.razorpayOrderId,
+      });
+
     if (
       String(razorpay_order_id).trim() !==
       String(order.razorpayOrderId).trim()
