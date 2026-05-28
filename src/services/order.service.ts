@@ -5,7 +5,7 @@ import Razorpay from "razorpay";
 import { ProductService } from "./product.service";
 import { PricingService } from "./pricing.service";
 
-import { validateCoupon } from "@/lib/coupon";
+// import { validateCoupon } from "@/lib/coupon";
 import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
 
 /* =========================================================
@@ -198,27 +198,47 @@ export class OrderService {
       /* =====================================================
          STEP 3: COUPON
       ===================================================== */
-
+      
       let discount = 0;
-
+      
       if (coupon) {
+      
+        const couponRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SHOPNATIVE_API}/api/coupons/validate`,
+          {
+            method: "POST",
+      
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+      
+            body: JSON.stringify({
+              code: coupon,
+              subtotal,
+            }),
+          }
+        );
+      
         const couponResult =
-          await validateCoupon(
-            coupon,
-            subtotal
-          );
-
+          await couponRes.json();
+      
+        console.log(
+          "COUPON RESULT:",
+          couponResult
+        );
+      
         if (
-          !couponResult?.valid
+          !couponResult?.success
         ) {
           throw new Error(
+            couponResult.message ||
             "Invalid coupon"
           );
         }
-
+      
         discount = Number(
-          couponResult.discount ||
-            0
+          couponResult.discount || 0
         );
       }
 
