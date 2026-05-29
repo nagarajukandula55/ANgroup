@@ -429,59 +429,64 @@ export class OrderService {
       const order =
         await Order.create({
           orderId,
-
-          razorpayOrderId:
-            razorpayOrder.id,
-
+      
           cart: taxedItems,
-
+      
           address,
-
+      
           subtotal,
-
+      
           discount,
-
+      
           taxableAmount,
-
+      
           gstTotal,
-
+      
           cgst,
-
+      
           sgst,
-
+      
           igst,
-
+      
           amount,
-
-          paymentMethod,
-
+      
           gstMode,
-
-          paymentStatus:
-            "PENDING",
-
-          orderStatus:
-            "CREATED",
-
+      
+          status: "CREATED",
+      
+          paymentVerified: false,
+      
+          payment: {
+            method:
+              paymentMethod || "RAZORPAY",
+      
+            status: "PENDING",
+      
+            gateway: "RAZORPAY",
+      
+            gatewayOrderId:
+              razorpayOrder.id,
+          },
+      
           invoice: {
             invoiceType:
               gstType === "B2B"
                 ? "B2B"
                 : "TAX",
-
+      
             financialYear:
               getFinancialYear(),
           },
-
+      
           orderHash:
             stableHash({
               orderId,
-
+      
               taxedItems,
-
+      
               amount,
             }),
-
+      
           expiresAt: new Date(
             Date.now() +
               15 *
