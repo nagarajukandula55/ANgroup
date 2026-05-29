@@ -593,6 +593,10 @@ const OrderSchema = new mongoose.Schema(
          default: Date.now,
        },
      },
+   notes: {
+        type: Array,
+        default: [],
+      },
    ],
 
    statusHistory: [
