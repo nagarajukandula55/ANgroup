@@ -8,16 +8,19 @@ import Order from "@/models/Order";
 
 export async function GET(
   req: Request,
-  { params }: any
+  context: any
 ) {
   try {
     await connectDB();
 
-    const order = await Order.findOne({
-      orderId: params.id,
-    })
-      .select("timeline statusHistory events")
-      .lean();
+    const order: any =
+      await Order.findOne({
+        orderId: context.params.id,
+      })
+        .select(
+          "timeline statusHistory events"
+        )
+        .lean();
 
     if (!order) {
       return NextResponse.json(
@@ -33,12 +36,17 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      timeline: order.timeline || [],
+
+      timeline: order?.timeline || [],
+
       statusHistory:
-        order.statusHistory || [],
-      events: order.events || [],
+        order?.statusHistory || [],
+
+      events: order?.events || [],
     });
   } catch (error: any) {
+    console.log(error);
+
     return NextResponse.json(
       {
         success: false,
