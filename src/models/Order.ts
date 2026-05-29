@@ -649,11 +649,6 @@ const OrderSchema = new mongoose.Schema(
     internalNotes: String,
 
     customerNotes: String,
-
-   notes: {
-     type: Array,
-     default: [],
-   },
   },
   {
     timestamps: true,
