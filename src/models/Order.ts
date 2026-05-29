@@ -308,6 +308,16 @@ const ShippingSchema = new mongoose.Schema(
     shippedAt: Date,
 
     deliveredAt: Date,
+
+   manifestId: String,
+
+   shipmentId: String,
+   
+   shippingCost: Number,
+   
+   rtoStatus: String,
+   
+   rtoDeliveredAt: Date,
   },
   {
     _id: false,
@@ -363,15 +373,34 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
+   project: {
+     code: {
+       type: String,
+       default: "NATIVE",
+       index: true,
+     },
+   
+     name: {
+       type: String,
+       default: "Native",
+     },
+   },
+
     userId: {
       type: String,
       index: true,
     },
 
-    customerId: {
-      type: String,
-      index: true,
-    },
+   customerId: {
+     type: String,
+     index: true,
+   },
+   
+   customer: {
+     name: String,
+     phone: String,
+     email: String,
+   },
 
     /* ================= CART ================= */
 
@@ -549,6 +578,67 @@ const OrderSchema = new mongoose.Schema(
       default: [],
     },
 
+   timeline: [
+     {
+       status: String,
+   
+       note: String,
+   
+       by: String,
+   
+       role: String,
+   
+       at: {
+         type: Date,
+         default: Date.now,
+       },
+     },
+   ],
+
+   statusHistory: [
+     {
+       from: String,
+       to: String,
+       by: String,
+       at: {
+         type: Date,
+         default: Date.now,
+       },
+     },
+   ],
+
+   processingLocked: {
+     type: Boolean,
+     default: false,
+   },
+   
+   priorityOrder: {
+     type: Boolean,
+     default: false,
+   },
+   
+   fraudFlag: {
+     type: Boolean,
+     default: false,
+   },
+
+   assignedTo: {
+     userId: String,
+     name: String,
+     role: String,
+   },
+
+   warehouse: {
+     warehouseId: String,
+     warehouseName: String,
+   },
+
+   sla: {
+     dispatchBy: Date,
+     deliverBy: Date,
+     priority: String,
+   },
+
     /* ================= NOTES ================= */
 
     internalNotes: String,
@@ -589,6 +679,21 @@ OrderSchema.index({
 
 OrderSchema.index({
   "address.phone": 1,
+  status: 1,
+});
+
+OrderSchema.index({
+  project: 1,
+  createdAt: -1,
+});
+
+OrderSchema.index({
+  status: 1,
+  createdAt: -1,
+});
+
+OrderSchema.index({
+  "shipping.awbNumber": 1,
   status: 1,
 });
 
