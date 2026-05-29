@@ -75,6 +75,10 @@ export async function POST(req: Request) {
       body
     );
 
+    /* =========================================================
+       VALIDATION
+    ========================================================= */
+
     if (
       !razorpay_order_id ||
       !razorpay_payment_id ||
@@ -94,6 +98,10 @@ export async function POST(req: Request) {
       );
     }
 
+    /* =========================================================
+       FIND ORDER
+    ========================================================= */
+
     const order =
       await Order.findOne({
         orderId,
@@ -112,6 +120,25 @@ export async function POST(req: Request) {
       );
     }
 
+    console.log(
+      "ORDER FOUND:",
+      {
+        orderId:
+          order.orderId,
+
+        storedGatewayOrderId:
+          order.payment
+            ?.gatewayOrderId,
+
+        receivedGatewayOrderId:
+          razorpay_order_id,
+      }
+    );
+
+    /* =========================================================
+       ALREADY VERIFIED
+    ========================================================= */
+
     if (
       order.paymentVerified === true
     ) {
@@ -127,19 +154,36 @@ export async function POST(req: Request) {
       );
     }
 
-     console.log("COMPARE:", {
-        frontend: razorpay_order_id,
-        database: order.razorpayOrderId,
-      });
-      
-      console.log("TYPES:", {
-        frontendType: typeof razorpay_order_id,
-        databaseType: typeof order.razorpayOrderId,
-      });
+    /* =========================================================
+       VERIFY ORDER ID
+    ========================================================= */
+
+    console.log("COMPARE:", {
+      frontend:
+        razorpay_order_id,
+
+      database:
+        order.payment
+          ?.gatewayOrderId,
+    });
+
+    console.log("TYPES:", {
+      frontendType:
+        typeof razorpay_order_id,
+
+      databaseType:
+        typeof order.payment
+          ?.gatewayOrderId,
+    });
 
     if (
-      String(razorpay_order_id).trim() !==
-      String(order.razorpayOrderId).trim()
+      String(
+        razorpay_order_id
+      ).trim() !==
+      String(
+        order.payment
+          ?.gatewayOrderId
+      ).trim()
     ) {
       return NextResponse.json(
         {
@@ -153,6 +197,10 @@ export async function POST(req: Request) {
         }
       );
     }
+
+    /* =========================================================
+       VERIFY SIGNATURE
+    ========================================================= */
 
     const generatedSignature =
       crypto
@@ -179,11 +227,15 @@ export async function POST(req: Request) {
       }
     );
 
+    /* =========================================================
+       INVALID SIGNATURE
+    ========================================================= */
+
     if (!isValidSignature) {
-      order.paymentStatus =
+      order.payment.status =
         "FAILED";
 
-      order.orderStatus =
+      order.status =
         "PAYMENT_FAILED";
 
       await order.save();
@@ -201,22 +253,28 @@ export async function POST(req: Request) {
       );
     }
 
+    /* =========================================================
+       PAYMENT SUCCESS
+    ========================================================= */
+
     order.paymentVerified = true;
 
-    order.paymentStatus =
-      "PAID";
+    order.status = "PAID";
 
-    order.orderStatus =
-      "CONFIRMED";
+    order.payment.status =
+      "SUCCESS";
 
-    order.razorpayPaymentId =
+    order.payment.gatewayPaymentId =
       razorpay_payment_id;
 
-    order.razorpaySignature =
+    order.payment.gatewaySignature =
       razorpay_signature;
 
-    order.paidAt =
+    order.payment.paidAt =
       new Date();
+
+    order.payment.amountPaid =
+      order.amount;
 
     await order.save();
 
@@ -225,11 +283,17 @@ export async function POST(req: Request) {
       orderId
     );
 
+    /* =========================================================
+       SUCCESS RESPONSE
+    ========================================================= */
+
     return NextResponse.json(
       {
         success: true,
+
         message:
           "Payment verified successfully",
+
         orderId,
       },
       {
@@ -246,6 +310,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
+
         message:
           err?.message ||
           "Payment verification failed",
