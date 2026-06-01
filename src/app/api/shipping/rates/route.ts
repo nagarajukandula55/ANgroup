@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     console.log("ORDER ID RECEIVED:", orderId);
 
     const order = await Order.findOne({
-      orderId,
+      orderId: orderId,
     });
 
     console.log("ORDER FOUND:", order);
