@@ -5,14 +5,11 @@ import { connectDB } from "@/lib/mongodb";
 import Invoice from "@/models/Invoice";
 import fs from "fs";
 
-export async function GET(
-  req: Request,
-  context: { params: { id: string } }
-) {
+export async function GET(req: Request, context: any) {
   try {
     await connectDB();
 
-    const id = context.params.id;
+    const id = context?.params?.id;
 
     if (!id) {
       return NextResponse.json(
@@ -35,7 +32,7 @@ export async function GET(
 
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(
-        { success: false, message: "PDF missing" },
+        { success: false, message: "PDF missing on server" },
         { status: 404 }
       );
     }
