@@ -2,41 +2,55 @@ import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
 
-export async function generateInvoicePDF(template: any) {
+type PDFResult = {
+  url: string;
+  path: string;
+};
+
+export async function generateInvoicePDF(template: any): Promise<PDFResult> {
   return new Promise((resolve, reject) => {
     try {
       const fileName = `invoice_${template.invoiceNumber}.pdf`;
-      const filePath = path.join(process.cwd(), "public/invoices", fileName);
+      const dirPath = path.join(process.cwd(), "public/invoices");
+      const filePath = path.join(dirPath, fileName);
+
+      /* ================= ENSURE DIRECTORY ================= */
+      fs.mkdirSync(dirPath, { recursive: true });
 
       const doc = new PDFDocument({ margin: 40 });
-
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
-
       const stream = fs.createWriteStream(filePath);
+
       doc.pipe(stream);
 
       /* ================= HEADER ================= */
       doc
         .fontSize(20)
-        .text(template.business.name || "AN Group", { align: "center" });
+        .text(template.business?.name || "AN Group", {
+          align: "center",
+        });
 
       doc.moveDown();
+
       doc
         .fontSize(12)
         .text(`Invoice No: ${template.invoiceNumber}`)
         .text(`Date: ${new Date().toLocaleDateString()}`)
-        .text(`Invoice Type: ${template.invoiceType}`);
+        .text(`Invoice Type: ${template.invoiceType || "TAX"}`);
 
       doc.moveDown();
 
       /* ================= CUSTOMER ================= */
       doc.fontSize(14).text("Bill To:");
-      doc.fontSize(10).text(template.customer.name);
-      doc.text(template.customer.address);
-      doc.text(`${template.customer.city}, ${template.customer.state}`);
-      doc.text(template.customer.phone);
 
-      if (template.customer.gstNumber) {
+      doc.fontSize(10);
+      doc.text(template.customer?.name || "-");
+      doc.text(template.customer?.address || "-");
+      doc.text(
+        `${template.customer?.city || ""}, ${template.customer?.state || ""}`
+      );
+      doc.text(template.customer?.phone || "-");
+
+      if (template.customer?.gstNumber) {
         doc.text(`GSTIN: ${template.customer.gstNumber}`);
       }
 
@@ -49,18 +63,18 @@ export async function generateInvoicePDF(template: any) {
         .text("Qty", 200, doc.y)
         .text("Price", 260, doc.y)
         .text("GST%", 330, doc.y)
-        .text("Total", 400, doc.y);
+        .text("Total", 420, doc.y);
 
       doc.moveDown();
 
       /* ================= ITEMS ================= */
-      template.items.forEach((item: any) => {
+      (template.items || []).forEach((item: any) => {
         doc
-          .text(item.name, 40)
-          .text(item.qty.toString(), 200)
-          .text(item.price.toFixed(2), 260)
-          .text(item.gstPercent + "%", 330)
-          .text(item.total.toFixed(2), 400);
+          .text(item.name || "-", 40)
+          .text(String(item.qty || 0), 200)
+          .text(Number(item.price || 0).toFixed(2), 260)
+          .text(`${item.gstPercent || 0}%`, 330)
+          .text(Number(item.total || 0).toFixed(2), 420);
 
         doc.moveDown(0.5);
       });
@@ -70,34 +84,39 @@ export async function generateInvoicePDF(template: any) {
       /* ================= GST SUMMARY ================= */
       doc.fontSize(12).text("GST Summary");
 
-      doc
-        .fontSize(10)
-        .text(`Taxable Amount: ${template.taxableAmount}`)
-        .text(`CGST: ${template.cgst}`)
-        .text(`SGST: ${template.sgst}`)
-        .text(`IGST: ${template.igst}`)
-        .text(`Total GST: ${template.totalGST}`);
+      doc.fontSize(10);
+      doc.text(`Taxable Amount: ${template.taxableAmount || 0}`);
+      doc.text(`CGST: ${template.cgst || 0}`);
+      doc.text(`SGST: ${template.sgst || 0}`);
+      doc.text(`IGST: ${template.igst || 0}`);
+
+      const totalGST =
+        (template.cgst || 0) +
+        (template.sgst || 0) +
+        (template.igst || 0);
+
+      doc.text(`Total GST: ${totalGST}`);
 
       doc.moveDown();
 
-      /* ================= TOTAL ================= */
-      doc
-        .fontSize(14)
-        .text(`GRAND TOTAL: ₹${template.grandTotal}`, {
+      /* ================= GRAND TOTAL ================= */
+      doc.fontSize(14).text(
+        `GRAND TOTAL: ₹${Number(template.grandTotal || 0).toFixed(2)}`,
+        {
           underline: true,
-        });
+        }
+      );
 
       doc.moveDown();
 
       /* ================= FOOTER ================= */
-      doc
-        .fontSize(10)
-        .text("Thank you for your business!", {
-          align: "center",
-        });
+      doc.fontSize(10).text("Thank you for your business!", {
+        align: "center",
+      });
 
       doc.end();
 
+      /* ================= STREAM HANDLING ================= */
       stream.on("finish", () => {
         resolve({
           url: `/invoices/${fileName}`,
@@ -105,7 +124,9 @@ export async function generateInvoicePDF(template: any) {
         });
       });
 
-      stream.on("error", reject);
+      stream.on("error", (err) => {
+        reject(err);
+      });
     } catch (err) {
       reject(err);
     }
