@@ -78,9 +78,7 @@ export async function POST(req: Request) {
     ========================================================= */
 
     const invoice =
-      await createInvoice(
-        order.orderId
-      );
+      await createInvoiceForOrder(orderId);
 
     /* =========================================================
        ATTACH INVOICE
