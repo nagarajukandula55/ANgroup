@@ -402,6 +402,33 @@ const OrderSchema = new mongoose.Schema(
      email: String,
    },
 
+   packageDetails: {
+     weight: {
+       type: Number,
+       default: 0,
+     },
+   
+     length: {
+       type: Number,
+       default: 0,
+     },
+   
+     breadth: {
+       type: Number,
+       default: 0,
+     },
+   
+     height: {
+       type: Number,
+       default: 0,
+     },
+   
+     packageType: {
+       type: String,
+       default: "BOX",
+     },
+   },
+
     /* ================= CART ================= */
 
     cart: {
