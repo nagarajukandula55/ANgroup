@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import chromium from "@sparticuz/chromium";
-import { chromium as pwChromium } from "playwright-core";
+import puppeteer from "puppeteer-core";
 
 export async function generateInvoicePDF(template: any) {
   try {
@@ -14,18 +14,16 @@ export async function generateInvoicePDF(template: any) {
 
     const html = buildHTML(template);
 
-    const browser = await pwChromium.launch({
+    const browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-
-      // ✅ FIX: normalize headless type issue
       headless: true,
     });
 
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "networkidle",
+      waitUntil: "networkidle0",
     });
 
     await page.pdf({
@@ -48,7 +46,7 @@ export async function generateInvoicePDF(template: any) {
     };
   } catch (err: any) {
     console.error("PDF GENERATION ERROR:", err);
-    throw new Error("PDF generation failed");
+    throw new Error(err?.message || "PDF generation failed");
   }
 }
 
@@ -63,35 +61,18 @@ function buildHTML(t: any) {
   <meta charset="utf-8" />
   <title>Invoice</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 30px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-    }
-    th {
-      background: #f4f4f4;
-    }
-    .total {
-      margin-top: 20px;
-      font-size: 18px;
-      font-weight: bold;
-      text-align: right;
-    }
+    body { font-family: Arial; padding: 30px; color: #111; }
+    h2 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+    th { background: #f4f4f4; }
+    .total { margin-top: 20px; font-size: 18px; font-weight: bold; text-align: right; }
   </style>
 </head>
 
 <body>
 
-  <h2 style="text-align:center">
-    ${t.business?.name || "AN Group"}
-  </h2>
+  <h2>${t.business?.name || "AN Group"}</h2>
 
   <p><b>Invoice:</b> ${t.invoiceNumber}</p>
   <p><b>Order:</b> ${t.orderId}</p>
@@ -115,10 +96,10 @@ function buildHTML(t: any) {
       .map(
         (i: any) => `
       <tr>
-        <td>${i.name}</td>
-        <td>${i.qty}</td>
-        <td>₹${i.price}</td>
-        <td>₹${i.total}</td>
+        <td>${i.name || ""}</td>
+        <td>${i.qty || 0}</td>
+        <td>₹${i.price || 0}</td>
+        <td>₹${i.total || 0}</td>
       </tr>
     `
       )
