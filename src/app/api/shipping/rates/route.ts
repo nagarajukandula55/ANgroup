@@ -10,7 +10,9 @@ export async function POST(req: Request) {
     await connectDB();
 
     const body = await req.json();
-
+    
+    console.log("BODY =", body);
+    
     const {
       orderId,
       weight,
@@ -18,6 +20,8 @@ export async function POST(req: Request) {
       width,
       height,
     } = body;
+    
+    console.log("ORDER ID =", orderId);
 
     if (!orderId) {
       return NextResponse.json(
