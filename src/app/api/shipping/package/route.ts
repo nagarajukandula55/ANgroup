@@ -3,16 +3,14 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { connectDB } from "@/lib/mongodb";
+
 import Order from "@/models/Order";
 
-export async function POST(
-  req: Request
-) {
+export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
     const {
       orderId,
@@ -22,27 +20,26 @@ export async function POST(
       height,
     } = body;
 
-    const order =
-      await Order.findOne({
-        orderId,
-      });
+    const order = await Order.findOne({
+      orderId,
+    });
 
     if (!order) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Order not found",
-        }
-      );
+      return NextResponse.json({
+        success: false,
+        message: "Order not found",
+      });
     }
 
-    order.packageDetails = {
-      weight,
-      length,
-      breadth,
-      height,
-      packageType: "BOX",
+    order.shipping = {
+      ...order.shipping,
+
+      package: {
+        weight,
+        length,
+        breadth,
+        height,
+      },
     };
 
     await order.save();
@@ -56,7 +53,9 @@ export async function POST(
         success: false,
         message: error.message,
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
