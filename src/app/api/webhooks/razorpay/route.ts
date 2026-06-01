@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import Order from "@/models/Order";
-import { createInvoice } from "@/lib/invoice/createInvoice";
+import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 
 export async function POST(req: Request) {
   try {
