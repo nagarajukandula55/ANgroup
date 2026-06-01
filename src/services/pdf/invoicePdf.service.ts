@@ -14,17 +14,18 @@ export async function generateInvoicePDF(template: any) {
 
       const chunks: Buffer[] = [];
 
-      doc.on("data", (chunk) => chunks.push(chunk));
+      /* ================= FIXED TYPE HERE ================= */
+      doc.on("data", (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
 
       doc.on("error", reject);
 
       doc.on("end", () => {
         const pdfBuffer = Buffer.concat(chunks);
 
-        const base64 = pdfBuffer.toString("base64");
-
         resolve({
-          url: `data:application/pdf;base64,${base64}`,
+          url: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
           buffer: pdfBuffer,
         });
       });
