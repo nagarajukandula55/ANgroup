@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
-
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoicePDF } from "@/services/pdf/invoicePdf.service";
@@ -13,7 +12,8 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const { orderId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const orderId = body?.orderId;
 
     if (!orderId) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= FETCH ORDER (SAFE) ================= */
+    /* ================= FETCH ORDER ================= */
     const order = await Order.findOne({ orderId }).lean();
 
     if (!order) {
@@ -32,68 +32,71 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= INVOICE GENERATION ================= */
-    let invoiceNumber = "";
+    const safeOrderId = order.orderId || order._id?.toString();
+
+    /* ================= INVOICE ================= */
+    let invoiceNumber = "N/A";
 
     try {
-      const invoice = await createInvoiceForOrder(order.orderId);
-      invoiceNumber = invoice.invoiceNumber;
+      const invoice = await createInvoiceForOrder(safeOrderId);
+      invoiceNumber = invoice?.invoiceNumber || "N/A";
     } catch (err: any) {
-      console.log("Invoice fallback:", err.message);
-      invoiceNumber = order?.invoice?.invoiceNumber || `INV-${Date.now()}`;
+      console.log("Invoice fallback:", err?.message);
+      invoiceNumber = order?.invoice?.invoiceNumber || "N/A";
     }
 
     /* ================= NORMALIZE ORDER ================= */
     const normalizedOrder = {
       ...order,
-
       invoice: {
-        ...(order.invoice || {}),
+        ...order.invoice,
         invoiceNumber,
       },
-
       billing: {
         subtotal: order?.subtotal || order?.taxableAmount || 0,
         cgst: order?.cgst || 0,
         sgst: order?.sgst || 0,
         igst: order?.igst || 0,
-        grandTotal: order?.amount || 0,
+        grandTotal: order?.amount || order?.subtotal || 0,
         currency: "INR",
       },
     };
 
-    /* ================= BUILD TEMPLATE ================= */
+    /* ================= TEMPLATE ================= */
     const template = buildInvoiceTemplate(normalizedOrder);
 
     /* ================= PDF GENERATION ================= */
-    let pdf;
+    let pdfResult: any;
 
     try {
-      pdf = await generateInvoicePDF(template);
+      pdfResult = await generateInvoicePDF(template);
     } catch (err: any) {
-      console.error("PDF ERROR:", err);
+      console.error("PDF generation failed:", err?.message);
 
       return NextResponse.json(
         {
           success: false,
           message: "PDF generation failed",
+          error: err?.message,
         },
         { status: 500 }
       );
     }
 
-    /* ================= EMAIL (NON-BLOCKING SAFE) ================= */
+    const pdfUrl = (pdfResult as any)?.url;
+
+    /* ================= EMAIL ================= */
     try {
       await sendInvoiceEmail({
         to: order?.address?.email,
         customerName: order?.address?.name,
         invoiceNumber,
-        pdfUrl: pdf.url,
-        grandTotal: order?.amount || 0,
-        orderId: order.orderId,
+        pdfUrl,
+        grandTotal: order?.amount,
+        orderId: safeOrderId,
       });
     } catch (err) {
-      console.error("Email failed (ignored):", err);
+      console.error("Email failed:", err);
     }
 
     /* ================= SAVE ORDER ================= */
@@ -102,8 +105,8 @@ export async function POST(req: Request) {
       {
         $set: {
           "invoice.invoiceNumber": invoiceNumber,
-          "invoice.pdfUrl": pdf.url,
-          "invoice.invoiceUrl": pdf.url,
+          "invoice.pdfUrl": pdfUrl,
+          "invoice.invoiceGenerated": true,
         },
       }
     );
@@ -111,13 +114,16 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       invoiceNumber,
-      invoiceUrl: pdf.url,
+      invoiceUrl: pdfUrl,
     });
   } catch (err: any) {
-    console.error("INVOICE ROUTE CRASH:", err);
+    console.error("INVOICE ERROR:", err);
 
     return NextResponse.json(
-      { success: false, message: err.message },
+      {
+        success: false,
+        message: err?.message || "Internal error",
+      },
       { status: 500 }
     );
   }
