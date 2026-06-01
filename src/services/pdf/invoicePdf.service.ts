@@ -1,10 +1,9 @@
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
-export async function generateInvoicePDF(
-  template: any
-): Promise<{ url: string; path: string }> {
+export async function generateInvoicePDF(template: any) {
   return new Promise((resolve, reject) => {
     try {
       if (!template?.invoiceNumber) {
@@ -13,10 +12,16 @@ export async function generateInvoicePDF(
 
       const fileName = `invoice_${template.invoiceNumber}.pdf`;
 
-      const dir = path.join(process.cwd(), "public", "invoices");
-      const filePath = path.join(dir, fileName);
+      /* ================= SAFE PATH (Vercel + Local) ================= */
+      const isProd = process.env.NODE_ENV === "production";
 
-      fs.mkdirSync(dir, { recursive: true });
+      const baseDir = isProd
+        ? path.join(os.tmpdir(), "invoices") // Vercel-safe
+        : path.join(process.cwd(), "public", "invoices"); // local dev
+
+      const filePath = path.join(baseDir, fileName);
+
+      fs.mkdirSync(baseDir, { recursive: true });
 
       const doc = new PDFDocument({
         margin: 40,
@@ -45,62 +50,50 @@ export async function generateInvoicePDF(
       /* ================= CUSTOMER ================= */
       doc.fontSize(12).text("BILL TO");
       doc.fontSize(10);
-
-      doc.text(template.customer?.name || "N/A");
-      doc.text(template.customer?.address || "N/A");
-      doc.text(template.customer?.phone || "N/A");
+      doc.text(template.customer?.name || "");
+      doc.text(template.customer?.address || "");
+      doc.text(template.customer?.phone || "");
 
       doc.moveDown();
 
       /* ================= ITEMS ================= */
       doc.fontSize(12).text("ITEMS");
-      doc.fontSize(10);
 
-      const items = Array.isArray(template?.items)
-        ? template.items
-        : [];
-
-      items.forEach((item: any) => {
-        doc.text(
-          `${item.name || "Item"} | Qty: ${
-            item.qty || 0
-          } | ₹${item.price || 0} | GST: ${
-            item.gstPercent || 0
-          }% | Total: ₹${item.total || 0}`
-        );
+      template.items?.forEach((item: any) => {
+        doc
+          .fontSize(10)
+          .text(
+            `${item.name} | Qty: ${item.qty} | ₹${item.price} | GST: ${item.gstPercent}% | Total: ₹${item.total}`
+          );
       });
 
       doc.moveDown();
 
       /* ================= SUMMARY ================= */
       doc.fontSize(12).text("SUMMARY");
+
       doc.fontSize(10);
-
-      const totals = template?.totals || {};
-
-      doc.text(`Subtotal: ₹${totals.subtotal || 0}`);
-      doc.text(`CGST: ₹${totals.cgst || 0}`);
-      doc.text(`SGST: ₹${totals.sgst || 0}`);
-      doc.text(`IGST: ₹${totals.igst || 0}`);
+      doc.text(`Subtotal: ₹${template.totals?.subtotal || 0}`);
+      doc.text(`CGST: ₹${template.totals?.cgst || 0}`);
+      doc.text(`SGST: ₹${template.totals?.sgst || 0}`);
+      doc.text(`IGST: ₹${template.totals?.igst || 0}`);
 
       doc.moveDown();
 
-      doc
-        .fontSize(14)
-        .text(`GRAND TOTAL: ₹${totals.grandTotal || 0}`);
+      doc.fontSize(14).text(
+        `GRAND TOTAL: ₹${template.totals?.grandTotal || 0}`
+      );
 
       doc.end();
 
       stream.on("finish", () => {
         resolve({
-          url: `/invoices/${fileName}`,
+          url: `/invoices/${fileName}`, // for local dev
           path: filePath,
         });
       });
 
-      stream.on("error", (err) => {
-        reject(err);
-      });
+      stream.on("error", reject);
     } catch (err) {
       reject(err);
     }
