@@ -33,9 +33,14 @@ export async function POST(req: Request) {
       );
     }
 
+    console.log("REQUEST BODY:", body);
+    console.log("ORDER ID RECEIVED:", orderId);
+
     const order = await Order.findOne({
       orderId,
     });
+
+    console.log("ORDER FOUND:", order);
 
     if (!order) {
       return NextResponse.json(
