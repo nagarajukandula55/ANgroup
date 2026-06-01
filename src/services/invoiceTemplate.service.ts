@@ -8,7 +8,12 @@ export function buildInvoiceTemplate(order: any) {
   const safeNum = (v: any) =>
     Number.isFinite(Number(v)) ? Number(v) : 0;
 
-  const items = Array.isArray(order?.items) ? order.items : [];
+  /* ================= UNIFIED ITEMS SOURCE ================= */
+  const items = Array.isArray(order?.cart)
+    ? order.cart
+    : Array.isArray(order?.items)
+    ? order.items
+    : [];
 
   /* ================= BUSINESS ================= */
   const businessLocation =
@@ -20,12 +25,65 @@ export function buildInvoiceTemplate(order: any) {
       : businessLocation?.address || "";
 
   const businessState = safeStr(order?.business?.state);
-
   const customerState = safeStr(order?.address?.state);
+
+  /* ================= ITEMS ================= */
+  const mappedItems = items.map((i: any) => {
+    const qty = safeNum(i?.qty || 1);
+    const price = safeNum(i?.price || i?.sellingPrice || 0);
+    const gstPercent = safeNum(i?.gstPercent || 0);
+
+    const taxableValue =
+      safeNum(i?.taxableValue) || qty * price;
+
+    let cgst = 0;
+    let sgst = 0;
+    let igst = 0;
+
+    let total = taxableValue;
+
+    /* ================= GST LOGIC ================= */
+    if (isB2B) {
+      const gstAmount = (taxableValue * gstPercent) / 100;
+
+      const sameState =
+        customerState &&
+        businessState &&
+        customerState === businessState;
+
+      if (sameState) {
+        cgst = gstAmount / 2;
+        sgst = gstAmount / 2;
+      } else {
+        igst = gstAmount;
+      }
+
+      total = taxableValue + gstAmount;
+    } else {
+      // B2C fallback (GST already included in price usually)
+      total = taxableValue;
+    }
+
+    return {
+      name: safeStr(i?.name || i?.productName),
+      hsn: safeStr(i?.snapshot?.hsn || i?.hsn || ""),
+      qty,
+      price,
+      gstPercent,
+
+      taxableValue,
+      cgst,
+      sgst,
+      igst,
+      total,
+    };
+  });
 
   /* ================= TEMPLATE ================= */
   return {
-    invoiceNumber: safeStr(order?.invoice?.invoiceNumber) || "N/A",
+    invoiceNumber:
+      safeStr(order?.invoice?.invoiceNumber) || "N/A",
+
     orderId: safeStr(order?.orderId || order?._id),
 
     /* ================= BUSINESS ================= */
@@ -43,57 +101,16 @@ export function buildInvoiceTemplate(order: any) {
       email: safeStr(order?.address?.email),
       gstNumber: safeStr(order?.address?.gstNumber),
       address:
-        safeStr(order?.address?.line1 || order?.address?.address),
+        safeStr(
+          order?.address?.line1 || order?.address?.address
+        ),
       city: safeStr(order?.address?.city),
       state: customerState,
       pincode: safeStr(order?.address?.pincode),
     },
 
     /* ================= ITEMS ================= */
-    items: items.map((i: any) => {
-      const qty = safeNum(i?.qty || 1);
-      const price = safeNum(i?.price || 0);
-      const gstPercent = safeNum(i?.gstPercent || 0);
-
-      const taxableValue = qty * price;
-
-      let cgst = 0;
-      let sgst = 0;
-      let igst = 0;
-
-      let total = taxableValue;
-
-      if (isB2B) {
-        const gstAmount = (taxableValue * gstPercent) / 100;
-
-        const sameState =
-          customerState &&
-          businessState &&
-          customerState === businessState;
-
-        if (sameState) {
-          cgst = gstAmount / 2;
-          sgst = gstAmount / 2;
-        } else {
-          igst = gstAmount;
-        }
-
-        total = taxableValue + gstAmount;
-      }
-
-      return {
-        name: safeStr(i?.name),
-        hsn: safeStr(i?.snapshot?.hsn || i?.hsn),
-        qty,
-        price,
-        gstPercent,
-        taxableValue,
-        cgst,
-        sgst,
-        igst,
-        total,
-      };
-    }),
+    items: mappedItems,
 
     /* ================= TOTALS ================= */
     totals: {
