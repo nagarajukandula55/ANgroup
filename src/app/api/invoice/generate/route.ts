@@ -6,6 +6,7 @@ import Order from "@/models/Order";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoicePDF } from "@/services/pdf/invoicePdf.service";
+import { sendInvoiceEmail } from "@/services/email/resend.service";
 
 export async function POST(req: Request) {
   try {
@@ -42,6 +43,22 @@ export async function POST(req: Request) {
 
     /* ================= STEP 3: GENERATE PDF ================= */
     const pdf = await generateInvoicePDF(template);
+
+    /* ================= EMAIL TRIGGER ================= */
+    setImmediate(async () => {
+      try {
+        await sendInvoiceEmail({
+          to: order.address.email,
+          customerName: order.address.name,
+          invoiceNumber: invoice.invoiceNumber,
+          pdfUrl: pdf.url,
+          grandTotal: order.billing.grandTotal,
+          orderId: order.orderId,
+        });
+      } catch (err) {
+        console.error("Invoice email failed:", err);
+      }
+    });
 
     /* ================= STEP 4: SAFE ORDER UPDATE ================= */
     if (!order.invoice) {
