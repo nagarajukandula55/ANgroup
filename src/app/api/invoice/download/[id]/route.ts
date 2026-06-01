@@ -5,13 +5,10 @@ import { connectDB } from "@/lib/mongodb";
 import Invoice from "@/models/Invoice";
 import fs from "fs";
 
-type Params = {
-  params: {
-    id: string;
-  };
-};
-
-export async function GET(req: Request, context: Params) {
+export async function GET(
+  req: Request,
+  context: { params: { id: string } }
+) {
   try {
     await connectDB();
 
@@ -26,7 +23,7 @@ export async function GET(req: Request, context: Params) {
 
     const invoice = await Invoice.findById(id);
 
-    if (!invoice || !invoice.pdfUrl) {
+    if (!invoice?.pdfUrl) {
       return NextResponse.json(
         { success: false, message: "Invoice not found" },
         { status: 404 }
@@ -38,7 +35,7 @@ export async function GET(req: Request, context: Params) {
 
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(
-        { success: false, message: "PDF missing on server" },
+        { success: false, message: "PDF missing" },
         { status: 404 }
       );
     }
@@ -48,9 +45,10 @@ export async function GET(req: Request, context: Params) {
     return new NextResponse(fileBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${invoice.invoiceNumber}.pdf"`,
-      },
+        "Content-Disposition": `attachment; filename="${invoice.invoiceNumber}.pdf"`
+      }
     });
+
   } catch (err: any) {
     return NextResponse.json(
       { success: false, message: err.message },
