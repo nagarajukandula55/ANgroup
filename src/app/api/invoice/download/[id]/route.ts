@@ -1,38 +1,25 @@
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import Invoice from "@/models/Invoice";
 import fs from "fs";
+import path from "path";
+import os from "os";
 
-export async function GET(req: Request, context: any) {
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    await connectDB();
+    const fileName = `invoice_${params.id}.pdf`;
 
-    const id = context?.params?.id;
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: "Invoice ID missing" },
-        { status: 400 }
-      );
-    }
-
-    const invoice = await Invoice.findById(id);
-
-    if (!invoice?.pdfUrl) {
-      return NextResponse.json(
-        { success: false, message: "Invoice not found" },
-        { status: 404 }
-      );
-    }
-
-    const filePath =
-      process.cwd() + "/public" + invoice.pdfUrl;
+    const filePath = path.join(
+      process.env.NODE_ENV === "production"
+        ? path.join(os.tmpdir(), "invoices")
+        : path.join(process.cwd(), "public", "invoices"),
+      fileName
+    );
 
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(
-        { success: false, message: "PDF missing on server" },
+        { success: false, message: "Invoice not found" },
         { status: 404 }
       );
     }
@@ -42,10 +29,9 @@ export async function GET(req: Request, context: any) {
     return new NextResponse(fileBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${invoice.invoiceNumber}.pdf"`
-      }
+        "Content-Disposition": `attachment; filename=${fileName}`,
+      },
     });
-
   } catch (err: any) {
     return NextResponse.json(
       { success: false, message: err.message },
