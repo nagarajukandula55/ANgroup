@@ -1,107 +1,113 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
 
-export async function generateInvoicePDF(
-  template: any
-) {
-  const pdfDoc = await PDFDocument.create();
+export async function generateInvoicePDF(template: any) {
+  return new Promise((resolve, reject) => {
+    try {
+      const fileName = `invoice_${template.invoiceNumber}.pdf`;
+      const filePath = path.join(process.cwd(), "public/invoices", fileName);
 
-  const page = pdfDoc.addPage([600, 800]);
+      const doc = new PDFDocument({ margin: 40 });
 
-  const font = await pdfDoc.embedFont(
-    StandardFonts.Helvetica
-  );
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
-  let y = 750;
+      const stream = fs.createWriteStream(filePath);
+      doc.pipe(stream);
 
-  /* ================= HEADER ================= */
-  page.drawText("INVOICE", {
-    x: 250,
-    y,
-    size: 20,
-    font,
-    color: rgb(0, 0, 0),
-  });
+      /* ================= HEADER ================= */
+      doc
+        .fontSize(20)
+        .text(template.business.name || "AN Group", { align: "center" });
 
-  y -= 40;
+      doc.moveDown();
+      doc
+        .fontSize(12)
+        .text(`Invoice No: ${template.invoiceNumber}`)
+        .text(`Date: ${new Date().toLocaleDateString()}`)
+        .text(`Invoice Type: ${template.invoiceType}`);
 
-  page.drawText(
-    `Invoice No: ${template.invoiceNumber}`,
-    { x: 50, y, size: 10, font }
-  );
+      doc.moveDown();
 
-  y -= 20;
+      /* ================= CUSTOMER ================= */
+      doc.fontSize(14).text("Bill To:");
+      doc.fontSize(10).text(template.customer.name);
+      doc.text(template.customer.address);
+      doc.text(`${template.customer.city}, ${template.customer.state}`);
+      doc.text(template.customer.phone);
 
-  page.drawText(
-    `Order ID: ${template.orderId}`,
-    { x: 50, y, size: 10, font }
-  );
+      if (template.customer.gstNumber) {
+        doc.text(`GSTIN: ${template.customer.gstNumber}`);
+      }
 
-  y -= 30;
+      doc.moveDown();
 
-  /* ================= CUSTOMER ================= */
-  page.drawText("BILL TO:", {
-    x: 50,
-    y,
-    size: 12,
-    font,
-  });
+      /* ================= TABLE HEADER ================= */
+      doc
+        .fontSize(10)
+        .text("Item", 40, doc.y)
+        .text("Qty", 200, doc.y)
+        .text("Price", 260, doc.y)
+        .text("GST%", 330, doc.y)
+        .text("Total", 400, doc.y);
 
-  y -= 20;
+      doc.moveDown();
 
-  page.drawText(
-    `${template.customer.name} - ${template.customer.phone}`,
-    { x: 50, y, size: 10, font }
-  );
+      /* ================= ITEMS ================= */
+      template.items.forEach((item: any) => {
+        doc
+          .text(item.name, 40)
+          .text(item.qty.toString(), 200)
+          .text(item.price.toFixed(2), 260)
+          .text(item.gstPercent + "%", 330)
+          .text(item.total.toFixed(2), 400);
 
-  y -= 30;
+        doc.moveDown(0.5);
+      });
 
-  /* ================= ITEMS ================= */
-  page.drawText("ITEMS:", {
-    x: 50,
-    y,
-    size: 12,
-    font,
-  });
+      doc.moveDown();
 
-  y -= 20;
+      /* ================= GST SUMMARY ================= */
+      doc.fontSize(12).text("GST Summary");
 
-  template.items.forEach((item: any) => {
-    page.drawText(
-      `${item.name} | HSN: ${item.hsn} | Qty: ${item.qty} | ₹${item.total}`,
-      { x: 50, y, size: 9, font }
-    );
+      doc
+        .fontSize(10)
+        .text(`Taxable Amount: ${template.taxableAmount}`)
+        .text(`CGST: ${template.cgst}`)
+        .text(`SGST: ${template.sgst}`)
+        .text(`IGST: ${template.igst}`)
+        .text(`Total GST: ${template.totalGST}`);
 
-    y -= 15;
-  });
+      doc.moveDown();
 
-  y -= 20;
+      /* ================= TOTAL ================= */
+      doc
+        .fontSize(14)
+        .text(`GRAND TOTAL: ₹${template.grandTotal}`, {
+          underline: true,
+        });
 
-  /* ================= TOTAL ================= */
-  page.drawText(
-    `TOTAL: ₹${template.totals.grandTotal}`,
-    {
-      x: 50,
-      y,
-      size: 14,
-      font,
+      doc.moveDown();
+
+      /* ================= FOOTER ================= */
+      doc
+        .fontSize(10)
+        .text("Thank you for your business!", {
+          align: "center",
+        });
+
+      doc.end();
+
+      stream.on("finish", () => {
+        resolve({
+          url: `/invoices/${fileName}`,
+          path: filePath,
+        });
+      });
+
+      stream.on("error", reject);
+    } catch (err) {
+      reject(err);
     }
-  );
-
-  const pdfBytes = await pdfDoc.save();
-
-  const fileName = `invoice-${template.invoiceNumber}.pdf`;
-
-  const filePath = path.join(
-    process.cwd(),
-    "public/invoices",
-    fileName
-  );
-
-  fs.writeFileSync(filePath, pdfBytes);
-
-  return {
-    url: `/invoices/${fileName}`,
-  };
+  });
 }
