@@ -14,13 +14,11 @@ export async function POST(req: Request) {
     const {
       orderId,
       weight = 0.5,
-      length,
-      width,
-      height,
+      length = 10,
+      width = 10,
+      height = 10,
     } = body;
 
-    console.log("================================");
-    console.log("SHIPPING RATE REQUEST");
     console.log("BODY:", body);
     console.log("ORDER ID:", orderId);
 
@@ -34,9 +32,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const order = await Order.findOne({
+    const order: any = await Order.findOne({
       orderId: String(orderId).trim(),
-    }).lean();
+    })
+      .lean()
+      .exec();
 
     console.log(
       "ORDER FOUND:",
@@ -69,6 +69,17 @@ export async function POST(req: Request) {
       deliveryPincode
     );
 
+    if (!pickupPincode) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "SHIPROCKET_PICKUP_PINCODE missing",
+        },
+        { status: 500 }
+      );
+    }
+
     if (!deliveryPincode) {
       return NextResponse.json(
         {
@@ -82,6 +93,10 @@ export async function POST(req: Request) {
 
     const token =
       await getShiprocketToken();
+
+    console.log(
+      "SHIPROCKET TOKEN RECEIVED"
+    );
 
     const url =
       `https://apiv2.shiprocket.in/v1/external/courier/serviceability/?pickup_postcode=${pickupPincode}` +
@@ -98,22 +113,16 @@ export async function POST(req: Request) {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
+        "Content-Type":
+          "application/json",
       },
     });
 
-    const result =
-      await response.json();
+    const result = await response.json();
 
     console.log(
-      "SHIPROCKET RESPONSE:"
-    );
-
-    console.log(
-      JSON.stringify(
-        result,
-        null,
-        2
-      )
+      "SHIPROCKET RESPONSE:",
+      JSON.stringify(result, null, 2)
     );
 
     if (!response.ok) {
@@ -129,61 +138,46 @@ export async function POST(req: Request) {
       );
     }
 
-    const available =
+    const availableCouriers =
       result?.data
-        ?.available_courier_companies || [];
+        ?.available_courier_companies ||
+      [];
 
     console.log(
-      "AVAILABLE COURIERS:",
-      available.length
+      "COURIERS COUNT:",
+      availableCouriers.length
     );
 
     const couriers =
-      available.map((c: any) => ({
-        courierId:
-          c.courier_company_id,
+      availableCouriers.map(
+        (c: any) => ({
+          courierId:
+            c.courier_company_id,
 
-        courierName:
-          c.courier_name,
+          courierName:
+            c.courier_name,
 
-        rate:
-          c.freight_charge,
+          rate:
+            c.freight_charge,
 
-        etd:
-          c.estimated_delivery_days,
+          etd:
+            c.estimated_delivery_days,
 
-        courier_company_id:
-          c.courier_company_id,
+          companyId:
+            c.courier_company_id,
 
-        courier_name:
-          c.courier_name,
-
-        freight_charge:
-          c.freight_charge,
-
-        estimated_delivery_days:
-          c.estimated_delivery_days,
-
-        srData: c,
-      }));
-
-    console.log(
-      "FINAL COURIERS:",
-      JSON.stringify(
-        couriers,
-        null,
-        2
-      )
-    );
+          srData: c,
+        })
+      );
 
     return NextResponse.json({
       success: true,
-      count: couriers.length,
       couriers,
+      total: couriers.length,
     });
   } catch (error: any) {
     console.error(
-      "RATE API ERROR:",
+      "SHIPPING RATE ERROR:",
       error
     );
 
