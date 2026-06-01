@@ -46,12 +46,23 @@ export async function POST(req: Request) {
       }
     const isNew = true;
 
-    /* ================= STEP 2: BUILD TEMPLATE (B2B / B2C SAFE) ================= */
-    const template = buildInvoiceTemplate({
+  /* ===========  ============ */ 
+    const normalizedOrder = {
       ...order.toObject(),
-      invoiceNumber: invoice.invoiceNumber,
-      invoiceType: order.customerType || "B2C",
-    });
+    
+      billing: {
+        subtotal: order?.taxableAmount || order?.subtotal || 0,
+        cgst: order?.cgst || 0,
+        sgst: order?.sgst || 0,
+        igst: order?.igst || 0,
+        grandTotal: order?.amount || 0,
+        currency: "INR",
+      },
+    };
+
+    /* ================= STEP 2: BUILD TEMPLATE (B2B / B2C SAFE) ================= */
+    
+    const template = buildInvoiceTemplate(normalizedOrder);
 
     /* ================= STEP 3: GENERATE PDF ================= */
     let pdf;
