@@ -1,5 +1,5 @@
 export function buildInvoiceTemplate(order: any) {
-  const isB2B = order?.customerType === "B2B";
+  const isB2B = order?.gstType === "B2B" || order?.customerType === "B2B";
 
   /* ================= SAFE HELPERS ================= */
   const safeStr = (v: any) =>
@@ -8,7 +8,7 @@ export function buildInvoiceTemplate(order: any) {
   const safeNum = (v: any) =>
     Number.isFinite(Number(v)) ? Number(v) : 0;
 
-  /* ================= UNIFIED ITEMS SOURCE ================= */
+  /* ================= ITEMS SOURCE (TRUTH LAYER) ================= */
   const items = Array.isArray(order?.cart)
     ? order.cart
     : Array.isArray(order?.items)
@@ -27,46 +27,40 @@ export function buildInvoiceTemplate(order: any) {
   const businessState = safeStr(order?.business?.state);
   const customerState = safeStr(order?.address?.state);
 
-  /* ================= ITEMS ================= */
+  /* ================= ITEMS MAPPING (NO OVERCALCULATION) ================= */
   const mappedItems = items.map((i: any) => {
-    const qty = safeNum(i?.qty || 1);
-    const price = safeNum(i?.price || i?.sellingPrice || 0);
-    const gstPercent = safeNum(i?.gstPercent || 0);
+    const qty = safeNum(i?.qty ?? 1);
 
-    const taxableValue =
-      safeNum(i?.taxableValue) || qty * price;
+    const price = safeNum(
+      i?.sellingPrice ??
+      i?.price ??
+      i?.baseTotal ??
+      0
+    );
 
-    let cgst = 0;
-    let sgst = 0;
-    let igst = 0;
+    const gstPercent = safeNum(i?.gstPercent ?? i?.gstRate ?? 0);
 
-    let total = taxableValue;
+    /* ================= STRICT SOURCE PRIORITY ================= */
+    const taxableValue = safeNum(
+      i?.taxableValue ??
+      i?.lineTotal ??
+      qty * price
+    );
 
-    /* ================= GST LOGIC ================= */
-    if (isB2B) {
-      const gstAmount = (taxableValue * gstPercent) / 100;
+    const cgst = safeNum(i?.cgstAmount ?? i?.cgst ?? 0);
+    const sgst = safeNum(i?.sgstAmount ?? i?.sgst ?? 0);
+    const igst = safeNum(i?.igstAmount ?? i?.igst ?? 0);
 
-      const sameState =
-        customerState &&
-        businessState &&
-        customerState === businessState;
-
-      if (sameState) {
-        cgst = gstAmount / 2;
-        sgst = gstAmount / 2;
-      } else {
-        igst = gstAmount;
-      }
-
-      total = taxableValue + gstAmount;
-    } else {
-      // B2C fallback (GST already included in price usually)
-      total = taxableValue;
-    }
+    const total = safeNum(
+      i?.total ??
+      i?.lineTotal ??
+      taxableValue + cgst + sgst + igst
+    );
 
     return {
-      name: safeStr(i?.name || i?.productName),
+      name: safeStr(i?.name || i?.productName || "Item"),
       hsn: safeStr(i?.snapshot?.hsn || i?.hsn || ""),
+
       qty,
       price,
       gstPercent,
@@ -82,28 +76,32 @@ export function buildInvoiceTemplate(order: any) {
   /* ================= TEMPLATE ================= */
   return {
     invoiceNumber:
-      safeStr(order?.invoice?.invoiceNumber) || "N/A",
+      safeStr(order?.invoice?.invoiceNumber || order?.invoiceNumber) ||
+      "N/A",
 
     orderId: safeStr(order?.orderId || order?._id),
 
     /* ================= BUSINESS ================= */
     business: {
-      name: safeStr(order?.business?.name) || "Native",
-      gst: safeStr(order?.business?.compliance?.gst?.number),
+      name: safeStr(order?.business?.name) || "AN Group",
+      gst: safeStr(order?.business?.compliance?.gst?.number || ""),
       state: businessState,
       address: safeStr(businessAddress),
     },
 
     /* ================= CUSTOMER ================= */
     customer: {
-      name: safeStr(order?.address?.name) || "N/A",
+      name: safeStr(order?.address?.name),
       phone: safeStr(order?.address?.phone),
       email: safeStr(order?.address?.email),
       gstNumber: safeStr(order?.address?.gstNumber),
-      address:
-        safeStr(
-          order?.address?.line1 || order?.address?.address
-        ),
+
+      address: safeStr(
+        order?.address?.address ||
+        order?.address?.line1 ||
+        ""
+      ),
+
       city: safeStr(order?.address?.city),
       state: customerState,
       pincode: safeStr(order?.address?.pincode),
@@ -112,20 +110,21 @@ export function buildInvoiceTemplate(order: any) {
     /* ================= ITEMS ================= */
     items: mappedItems,
 
-    /* ================= TOTALS ================= */
+    /* ================= TOTALS (SOURCE OF TRUTH = ORDER) ================= */
     totals: {
-      subtotal: safeNum(order?.billing?.subtotal),
-      cgst: safeNum(order?.billing?.cgst),
-      sgst: safeNum(order?.billing?.sgst),
-      igst: safeNum(order?.billing?.igst),
-      grandTotal: safeNum(order?.billing?.grandTotal),
+      subtotal: safeNum(order?.subtotal ?? order?.billing?.subtotal),
+      cgst: safeNum(order?.cgst ?? order?.billing?.cgst),
+      sgst: safeNum(order?.sgst ?? order?.billing?.sgst),
+      igst: safeNum(order?.igst ?? order?.billing?.igst),
+      grandTotal: safeNum(order?.amount ?? order?.billing?.grandTotal),
     },
 
     /* ================= META ================= */
     meta: {
       generatedAt: new Date(),
-      currency: safeStr(order?.billing?.currency) || "INR",
+      currency: safeStr(order?.billing?.currency || "INR"),
       invoiceType: isB2B ? "B2B_TAX" : "B2C_RETAIL",
+      gstMode: order?.gstMode || "CGST_SGST",
     },
   };
 }
