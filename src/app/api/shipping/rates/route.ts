@@ -10,18 +10,19 @@ export async function POST(req: Request) {
     await connectDB();
 
     const body = await req.json();
-    
-    console.log("BODY =", body);
-    
+
     const {
       orderId,
-      weight,
+      weight = 0.5,
       length,
       width,
       height,
     } = body;
-    
-    console.log("ORDER ID =", orderId);
+
+    console.log("================================");
+    console.log("SHIPPING RATE REQUEST");
+    console.log("BODY:", body);
+    console.log("ORDER ID:", orderId);
 
     if (!orderId) {
       return NextResponse.json(
@@ -33,44 +34,14 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("REQUEST BODY:", body);
-    console.log("ORDER ID RECEIVED:", orderId);
+    const order = await Order.findOne({
+      orderId: String(orderId).trim(),
+    }).lean();
 
-console.log("DB NAME:", Order.db.name);
-
-const count = await Order.countDocuments();
-
-console.log(
-  "TOTAL ORDERS IN DB:",
-  count
-);
-
-const sample: any =
-  await Order.findOne().lean();
-
-console.log(
-  "SAMPLE ORDER ID:",
-  sample?.orderId
-);
-
-console.log(
-  "SEARCHING ORDER:",
-  orderId
-);
-
-const order = await Order.findOne({
-  orderId: String(orderId).trim(),
-});
-
-console.log(
-  "ORDER FOUND:",
-  order ? "YES" : "NO"
-);
-
-console.log(
-  "ORDER DATA:",
-  order
-);
+    console.log(
+      "ORDER FOUND:",
+      order ? "YES" : "NO"
+    );
 
     if (!order) {
       return NextResponse.json(
@@ -82,14 +53,21 @@ console.log(
       );
     }
 
-    const token =
-      await getShiprocketToken();
-
     const pickupPincode =
       process.env.SHIPROCKET_PICKUP_PINCODE;
 
     const deliveryPincode =
       order?.address?.pincode;
+
+    console.log(
+      "PICKUP PINCODE:",
+      pickupPincode
+    );
+
+    console.log(
+      "DELIVERY PINCODE:",
+      deliveryPincode
+    );
 
     if (!deliveryPincode) {
       return NextResponse.json(
@@ -102,66 +80,118 @@ console.log(
       );
     }
 
-    const response = await fetch(
-      `https://apiv2.shiprocket.in/v1/external/courier/serviceability/?pickup_postcode=${pickupPincode}&delivery_postcode=${deliveryPincode}&cod=0&weight=${weight}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+    const token =
+      await getShiprocketToken();
+
+    const url =
+      `https://apiv2.shiprocket.in/v1/external/courier/serviceability/?pickup_postcode=${pickupPincode}` +
+      `&delivery_postcode=${deliveryPincode}` +
+      `&cod=0` +
+      `&weight=${weight}`;
+
+    console.log(
+      "SHIPROCKET URL:",
+      url
     );
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     const result =
       await response.json();
 
-    if (!response.ok) {
-      console.log(result);
+    console.log(
+      "SHIPROCKET RESPONSE:"
+    );
 
+    console.log(
+      JSON.stringify(
+        result,
+        null,
+        2
+      )
+    );
+
+    if (!response.ok) {
       return NextResponse.json(
         {
           success: false,
           message:
             result?.message ||
             "Shiprocket error",
+          shiprocket: result,
         },
         { status: 400 }
       );
     }
 
+    const available =
+      result?.data
+        ?.available_courier_companies || [];
+
+    console.log(
+      "AVAILABLE COURIERS:",
+      available.length
+    );
+
     const couriers =
-      result?.data?.available_courier_companies?.map(
-        (c: any) => ({
-          courierId:
-            c.courier_company_id,
+      available.map((c: any) => ({
+        courierId:
+          c.courier_company_id,
 
-          courierName:
-            c.courier_name,
+        courierName:
+          c.courier_name,
 
-          rate:
-            c.freight_charge,
+        rate:
+          c.freight_charge,
 
-          etd:
-            c.estimated_delivery_days,
+        etd:
+          c.estimated_delivery_days,
 
-          companyId:
-            c.courier_company_id,
+        courier_company_id:
+          c.courier_company_id,
 
-          srData: c,
-        })
-      ) || [];
+        courier_name:
+          c.courier_name,
+
+        freight_charge:
+          c.freight_charge,
+
+        estimated_delivery_days:
+          c.estimated_delivery_days,
+
+        srData: c,
+      }));
+
+    console.log(
+      "FINAL COURIERS:",
+      JSON.stringify(
+        couriers,
+        null,
+        2
+      )
+    );
 
     return NextResponse.json({
       success: true,
+      count: couriers.length,
       couriers,
     });
   } catch (error: any) {
-    console.error(error);
+    console.error(
+      "RATE API ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
         message:
-          error.message ||
+          error?.message ||
           "Failed loading rates",
       },
       {
