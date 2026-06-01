@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     /* ================= STEP 1: INVOICE NUMBER (IDEMPOTENT) ================= */
-    const invoice = await createInvoiceForOrder(order._id.toString());
+    const { invoice, isNew } = await generateOrFetchInvoice(order);
 
     /* ================= STEP 2: BUILD TEMPLATE (B2B / B2C SAFE) ================= */
     const template = buildInvoiceTemplate({
