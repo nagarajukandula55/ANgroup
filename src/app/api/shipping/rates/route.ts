@@ -53,7 +53,7 @@ export async function POST(
 
     const result =
       await shiprocketRequest(
-        `/courier/serviceability/?pickup_postcode=500001&delivery_postcode=${pincode}&cod=0&weight=${pkg.weight}`
+        `/courier/serviceability/?pickup_postcode=535215&delivery_postcode=${pincode}&cod=0&weight=${pkg.weight}`
       );
 
     return NextResponse.json({
