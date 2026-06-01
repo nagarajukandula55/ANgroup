@@ -3,11 +3,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
+
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoicePDF } from "@/services/pdf/invoicePdf.service";
 import { sendInvoiceEmail } from "@/services/email/resend.service";
-import { generateOrFetchInvoice } from "@/lib/invoice/generateOrFetchInvoice";
 
 export async function POST(req: Request) {
   try {
@@ -22,8 +22,8 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= STEP 0: FETCH ORDER ================= */
-    const order = await Order.findOne({ orderId }); // 🔥 FIXED
+    /* ================= FETCH ORDER (SAFE) ================= */
+    const order = await Order.findOne({ orderId }).lean();
 
     if (!order) {
       return NextResponse.json(
@@ -32,26 +32,28 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= STEP 1: INVOICE NUMBER (IDEMPOTENT) ================= */
-    let invoice;
+    /* ================= INVOICE GENERATION ================= */
+    let invoiceNumber = "";
 
-      try {
-        invoice = await createInvoiceForOrder(order.orderId);
-      } catch (err: any) {
-        // if duplicate or already exists, fetch existing invoice
-        console.log("Invoice create failed, fallback:", err.message);
-        invoice = {
-          invoiceNumber: order.invoice?.invoiceNumber || "EXISTING",
-        };
-      }
-    const isNew = true;
+    try {
+      const invoice = await createInvoiceForOrder(order.orderId);
+      invoiceNumber = invoice.invoiceNumber;
+    } catch (err: any) {
+      console.log("Invoice fallback:", err.message);
+      invoiceNumber = order?.invoice?.invoiceNumber || `INV-${Date.now()}`;
+    }
 
-  /* ===========  ============ */ 
+    /* ================= NORMALIZE ORDER ================= */
     const normalizedOrder = {
-      ...order.toObject(),
-    
+      ...order,
+
+      invoice: {
+        ...(order.invoice || {}),
+        invoiceNumber,
+      },
+
       billing: {
-        subtotal: order?.taxableAmount || order?.subtotal || 0,
+        subtotal: order?.subtotal || order?.taxableAmount || 0,
         cgst: order?.cgst || 0,
         sgst: order?.sgst || 0,
         igst: order?.igst || 0,
@@ -60,56 +62,60 @@ export async function POST(req: Request) {
       },
     };
 
-    /* ================= STEP 2: BUILD TEMPLATE (B2B / B2C SAFE) ================= */
-    
+    /* ================= BUILD TEMPLATE ================= */
     const template = buildInvoiceTemplate(normalizedOrder);
 
-    /* ================= STEP 3: GENERATE PDF ================= */
+    /* ================= PDF GENERATION ================= */
     let pdf;
 
-      try {
-        pdf = await generateInvoicePDF(template);
-      } catch (err: any) {
-        console.log("PDF generation failed:", err.message);
-      
-        return NextResponse.json(
-          {
-            success: false,
-            message: "PDF generation failed",
-          },
-          { status: 500 }
-        );
-      }
+    try {
+      pdf = await generateInvoicePDF(template);
+    } catch (err: any) {
+      console.error("PDF ERROR:", err);
 
-    /* ================= EMAIL TRIGGER ================= */
-      await sendInvoiceEmail({
-        to: order.address.email,
-        customerName: order.address.name,
-        invoiceNumber: invoice.invoiceNumber,
-        pdfUrl: pdf.url,
-        grandTotal: order.billing.grandTotal,
-        orderId: order.orderId,
-      }).catch((err) => {
-        console.error("Email failed:", err);
-      });
-
-    /* ================= STEP 4: SAFE ORDER UPDATE ================= */
-    if (!order.invoice) {
-      order.invoice = {};
+      return NextResponse.json(
+        {
+          success: false,
+          message: "PDF generation failed",
+        },
+        { status: 500 }
+      );
     }
 
-    order.invoice.invoiceUrl = pdf.url;
-    order.invoice.pdfUrl = pdf.url;
-    order.invoice.invoiceNumber = invoice.invoiceNumber;
+    /* ================= EMAIL (NON-BLOCKING SAFE) ================= */
+    try {
+      await sendInvoiceEmail({
+        to: order?.address?.email,
+        customerName: order?.address?.name,
+        invoiceNumber,
+        pdfUrl: pdf.url,
+        grandTotal: order?.amount || 0,
+        orderId: order.orderId,
+      });
+    } catch (err) {
+      console.error("Email failed (ignored):", err);
+    }
 
-    await order.save();
+    /* ================= SAVE ORDER ================= */
+    await Order.updateOne(
+      { orderId },
+      {
+        $set: {
+          "invoice.invoiceNumber": invoiceNumber,
+          "invoice.pdfUrl": pdf.url,
+          "invoice.invoiceUrl": pdf.url,
+        },
+      }
+    );
 
     return NextResponse.json({
       success: true,
-      invoiceNumber: invoice.invoiceNumber,
+      invoiceNumber,
       invoiceUrl: pdf.url,
     });
   } catch (err: any) {
+    console.error("INVOICE ROUTE CRASH:", err);
+
     return NextResponse.json(
       { success: false, message: err.message },
       { status: 500 }
