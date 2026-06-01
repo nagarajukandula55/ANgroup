@@ -7,6 +7,7 @@ import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoicePDF } from "@/services/pdf/invoicePdf.service";
 import { sendInvoiceEmail } from "@/services/email/resend.service";
+import { generateOrFetchInvoice } from "@/lib/invoice/generateOrFetchInvoice";
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +33,8 @@ export async function POST(req: Request) {
     }
 
     /* ================= STEP 1: INVOICE NUMBER (IDEMPOTENT) ================= */
-    const { invoice, isNew } = await generateOrFetchInvoice(order);
+    const invoice = await createInvoiceForOrder(order.orderId);
+    const isNew = true;
 
     /* ================= STEP 2: BUILD TEMPLATE (B2B / B2C SAFE) ================= */
     const template = buildInvoiceTemplate({
