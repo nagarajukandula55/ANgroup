@@ -3,110 +3,72 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { connectDB } from "@/lib/mongodb";
-
 import Order from "@/models/Order";
 
-export async function POST(req: Request) {
+import {
+  shiprocketRequest,
+} from "@/lib/shipping/shiprocket";
+
+export async function POST(
+  req: Request
+) {
   try {
     await connectDB();
 
-    const body = await req.json();
+    const { orderId } =
+      await req.json();
 
-    const { orderId } = body;
-
-    if (!orderId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "orderId required",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const order = await Order.findOne({
-      orderId,
-    });
+    const order =
+      await Order.findOne({
+        orderId,
+      });
 
     if (!order) {
       return NextResponse.json(
         {
           success: false,
-          message: "Order not found",
         },
-        {
-          status: 404,
-        }
+        { status: 404 }
       );
     }
 
-    /* =========================================
-       MOCK COURIERS
-       LATER SHIPROCKET / DELHIVERY
-    ========================================= */
+    const pincode =
+      order.address?.pincode;
 
-    const couriers = [
-      {
-        courierId: "DTDC_AIR",
+    const pkg =
+      order.packageDetails;
 
-        courierName: "DTDC Air",
+    if (
+      !pkg?.weight ||
+      !pkg?.length ||
+      !pkg?.breadth ||
+      !pkg?.height
+    ) {
+      return NextResponse.json({
+        success: false,
+        message:
+          "Package details missing",
+      });
+    }
 
-        rate: 120,
-
-        etd: "2-4 Days",
-      },
-
-      {
-        courierId: "BLUEDART",
-
-        courierName: "BlueDart",
-
-        rate: 180,
-
-        etd: "1-2 Days",
-      },
-
-      {
-        courierId: "DELHIVERY",
-
-        courierName: "Delhivery",
-
-        rate: 95,
-
-        etd: "3-5 Days",
-      },
-
-      {
-        courierId: "XPRESSBEES",
-
-        courierName: "XpressBees",
-
-        rate: 90,
-
-        etd: "3-6 Days",
-      },
-    ];
+    const result =
+      await shiprocketRequest(
+        `/courier/serviceability/?pickup_postcode=500001&delivery_postcode=${pincode}&cod=0&weight=${pkg.weight}`
+      );
 
     return NextResponse.json({
       success: true,
-
-      couriers,
+      couriers:
+        result?.data?.available_courier_companies ||
+        [],
     });
   } catch (error: any) {
-    console.log(error);
-
     return NextResponse.json(
       {
         success: false,
-        message:
-          error.message ||
-          "Failed to fetch rates",
+        message: error.message,
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
