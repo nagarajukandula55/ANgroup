@@ -45,7 +45,8 @@ console.log(
   count
 );
 
-const sample = await Order.findOne().lean();
+const sample: any =
+  await Order.findOne().lean();
 
 console.log(
   "SAMPLE ORDER ID:",
