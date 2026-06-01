@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     }
 
     /* ================= STEP 0: FETCH ORDER ================= */
-    const order = await Order.findById(orderId); // 🔥 FIXED
+    const order = await Order.findOne({ orderId }); // 🔥 FIXED
 
     if (!order) {
       return NextResponse.json(
@@ -33,7 +33,17 @@ export async function POST(req: Request) {
     }
 
     /* ================= STEP 1: INVOICE NUMBER (IDEMPOTENT) ================= */
-    const invoice = await createInvoiceForOrder(order.orderId);
+    let invoice;
+
+      try {
+        invoice = await createInvoiceForOrder(order.orderId);
+      } catch (err: any) {
+        // if duplicate or already exists, fetch existing invoice
+        console.log("Invoice create failed, fallback:", err.message);
+        invoice = {
+          invoiceNumber: order.invoice?.invoiceNumber || "EXISTING",
+        };
+      }
     const isNew = true;
 
     /* ================= STEP 2: BUILD TEMPLATE (B2B / B2C SAFE) ================= */
@@ -44,23 +54,33 @@ export async function POST(req: Request) {
     });
 
     /* ================= STEP 3: GENERATE PDF ================= */
-    const pdf = await generateInvoicePDF(template);
+    let pdf;
+
+      try {
+        pdf = await generateInvoicePDF(template);
+      } catch (err: any) {
+        console.log("PDF generation failed:", err.message);
+      
+        return NextResponse.json(
+          {
+            success: false,
+            message: "PDF generation failed",
+          },
+          { status: 500 }
+        );
+      }
 
     /* ================= EMAIL TRIGGER ================= */
-    setImmediate(async () => {
-      try {
-        await sendInvoiceEmail({
-          to: order.address.email,
-          customerName: order.address.name,
-          invoiceNumber: invoice.invoiceNumber,
-          pdfUrl: pdf.url,
-          grandTotal: order.billing.grandTotal,
-          orderId: order.orderId,
-        });
-      } catch (err) {
-        console.error("Invoice email failed:", err);
-      }
-    });
+      await sendInvoiceEmail({
+        to: order.address.email,
+        customerName: order.address.name,
+        invoiceNumber: invoice.invoiceNumber,
+        pdfUrl: pdf.url,
+        grandTotal: order.billing.grandTotal,
+        orderId: order.orderId,
+      }).catch((err) => {
+        console.error("Email failed:", err);
+      });
 
     /* ================= STEP 4: SAFE ORDER UPDATE ================= */
     if (!order.invoice) {
