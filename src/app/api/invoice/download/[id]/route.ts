@@ -5,51 +5,44 @@ import { connectDB } from "@/lib/mongodb";
 import Invoice from "@/models/Invoice";
 import fs from "fs";
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+type Params = {
+  params: {
+    id: string;
+  };
+};
+
+export async function GET(req: Request, context: Params) {
   try {
     await connectDB();
 
-    const invoiceId = params.id;
+    const id = context.params.id;
 
-    if (!invoiceId) {
+    if (!id) {
       return NextResponse.json(
-        { success: false, message: "Invoice ID required" },
+        { success: false, message: "Invoice ID missing" },
         { status: 400 }
       );
     }
 
-    /* ================= FETCH INVOICE ================= */
-    const invoice = await Invoice.findById(invoiceId);
+    const invoice = await Invoice.findById(id);
 
-    if (!invoice) {
+    if (!invoice || !invoice.pdfUrl) {
       return NextResponse.json(
         { success: false, message: "Invoice not found" },
         { status: 404 }
       );
     }
 
-    if (!invoice.pdfUrl) {
-      return NextResponse.json(
-        { success: false, message: "PDF not generated yet" },
-        { status: 404 }
-      );
-    }
+    const filePath =
+      process.cwd() + "/public" + invoice.pdfUrl;
 
-    /* ================= BUILD FILE PATH ================= */
-    const filePath = process.cwd() + "/public" + invoice.pdfUrl;
-
-    /* ================= VALIDATE FILE ================= */
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(
-        { success: false, message: "File missing on server" },
+        { success: false, message: "PDF missing on server" },
         { status: 404 }
       );
     }
 
-    /* ================= STREAM FILE ================= */
     const fileBuffer = fs.readFileSync(filePath);
 
     return new NextResponse(fileBuffer, {
