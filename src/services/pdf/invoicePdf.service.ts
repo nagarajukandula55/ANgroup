@@ -17,7 +17,9 @@ export async function generateInvoicePDF(template: any) {
     const browser = await pwChromium.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+
+      // ✅ FIX: normalize headless type issue
+      headless: true,
     });
 
     const page = await browser.newPage();
@@ -64,100 +66,64 @@ function buildHTML(t: any) {
     body {
       font-family: Arial, sans-serif;
       padding: 30px;
-      color: #111;
     }
-
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .box {
-      margin-bottom: 20px;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
     }
-
     th, td {
       border: 1px solid #ddd;
       padding: 8px;
-      font-size: 12px;
     }
-
     th {
       background: #f4f4f4;
-      text-align: left;
     }
-
     .total {
       margin-top: 20px;
       font-size: 18px;
       font-weight: bold;
       text-align: right;
     }
-
-    .muted {
-      color: #666;
-      font-size: 12px;
-    }
   </style>
 </head>
 
 <body>
 
-  <div class="header">
-    <h2>${t.business?.name || "AN Group"}</h2>
-    <div class="muted">GST Invoice</div>
-  </div>
+  <h2 style="text-align:center">
+    ${t.business?.name || "AN Group"}
+  </h2>
 
-  <div class="box">
-    <p><b>Invoice No:</b> ${t.invoiceNumber}</p>
-    <p><b>Order ID:</b> ${t.orderId}</p>
-    <p><b>Date:</b> ${new Date().toLocaleDateString()}</p>
-  </div>
+  <p><b>Invoice:</b> ${t.invoiceNumber}</p>
+  <p><b>Order:</b> ${t.orderId}</p>
 
-  <div class="box">
-    <h3>Customer Details</h3>
-    <p>${t.customer?.name || ""}</p>
-    <p>${t.customer?.address || ""}</p>
-    <p>${t.customer?.phone || ""}</p>
-  </div>
+  <h3>Customer</h3>
+  <p>${t.customer?.name || ""}</p>
+  <p>${t.customer?.address || ""}</p>
+  <p>${t.customer?.phone || ""}</p>
 
-  <div class="box">
-    <h3>Items</h3>
+  <h3>Items</h3>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Qty</th>
-          <th>Price</th>
-          <th>GST%</th>
-          <th>Total</th>
-        </tr>
-      </thead>
+  <table>
+    <tr>
+      <th>Item</th>
+      <th>Qty</th>
+      <th>Price</th>
+      <th>Total</th>
+    </tr>
 
-      <tbody>
-        ${items
-          .map(
-            (i: any) => `
-          <tr>
-            <td>${i.name || ""}</td>
-            <td>${i.qty || 0}</td>
-            <td>₹${i.price || 0}</td>
-            <td>${i.gstPercent || 0}%</td>
-            <td>₹${i.total || 0}</td>
-          </tr>
-        `
-          )
-          .join("")}
-      </tbody>
-    </table>
-  </div>
+    ${items
+      .map(
+        (i: any) => `
+      <tr>
+        <td>${i.name}</td>
+        <td>${i.qty}</td>
+        <td>₹${i.price}</td>
+        <td>₹${i.total}</td>
+      </tr>
+    `
+      )
+      .join("")}
+  </table>
 
   <div class="total">
     GRAND TOTAL: ₹${t.totals?.grandTotal || 0}
