@@ -5,17 +5,26 @@ import os from "os";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: any
 ) {
   try {
-    const fileName = `invoice_${params.id}.pdf`;
+    const id = context?.params?.id;
 
-    const filePath = path.join(
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "Missing invoice id" },
+        { status: 400 }
+      );
+    }
+
+    const fileName = `invoice_${id}.pdf`;
+
+    const basePath =
       process.env.NODE_ENV === "production"
         ? path.join(os.tmpdir(), "invoices")
-        : path.join(process.cwd(), "public", "invoices"),
-      fileName
-    );
+        : path.join(process.cwd(), "public", "invoices");
+
+    const filePath = path.join(basePath, fileName);
 
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(
