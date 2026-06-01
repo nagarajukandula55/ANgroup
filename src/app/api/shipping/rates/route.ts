@@ -36,11 +36,40 @@ export async function POST(req: Request) {
     console.log("REQUEST BODY:", body);
     console.log("ORDER ID RECEIVED:", orderId);
 
-    const order = await Order.findOne({
-      orderId: orderId,
-    });
+console.log("DB NAME:", Order.db.name);
 
-    console.log("ORDER FOUND:", order);
+const count = await Order.countDocuments();
+
+console.log(
+  "TOTAL ORDERS IN DB:",
+  count
+);
+
+const sample = await Order.findOne().lean();
+
+console.log(
+  "SAMPLE ORDER ID:",
+  sample?.orderId
+);
+
+console.log(
+  "SEARCHING ORDER:",
+  orderId
+);
+
+const order = await Order.findOne({
+  orderId: String(orderId).trim(),
+});
+
+console.log(
+  "ORDER FOUND:",
+  order ? "YES" : "NO"
+);
+
+console.log(
+  "ORDER DATA:",
+  order
+);
 
     if (!order) {
       return NextResponse.json(
