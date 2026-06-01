@@ -2,7 +2,9 @@ import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
 
-export async function generateInvoicePDF(template: any) {
+export async function generateInvoicePDF(
+  template: any
+): Promise<{ url: string; path: string }> {
   return new Promise((resolve, reject) => {
     try {
       if (!template?.invoiceNumber) {
@@ -25,13 +27,16 @@ export async function generateInvoicePDF(template: any) {
       doc.pipe(stream);
 
       /* ================= HEADER ================= */
-      doc.fontSize(18).text(template.business?.name || "AN Group", {
-        align: "center",
-      });
+      doc
+        .fontSize(18)
+        .text(template.business?.name || "AN Group", {
+          align: "center",
+        });
 
       doc.moveDown();
 
-      doc.fontSize(10).text(`Invoice No: ${template.invoiceNumber}`);
+      doc.fontSize(10);
+      doc.text(`Invoice No: ${template.invoiceNumber}`);
       doc.text(`Order ID: ${template.orderId}`);
       doc.text(`Date: ${new Date().toLocaleDateString()}`);
 
@@ -39,36 +44,50 @@ export async function generateInvoicePDF(template: any) {
 
       /* ================= CUSTOMER ================= */
       doc.fontSize(12).text("BILL TO");
-      doc.fontSize(10).text(template.customer?.name || "");
-      doc.text(template.customer?.address || "");
-      doc.text(template.customer?.phone || "");
+      doc.fontSize(10);
+
+      doc.text(template.customer?.name || "N/A");
+      doc.text(template.customer?.address || "N/A");
+      doc.text(template.customer?.phone || "N/A");
 
       doc.moveDown();
 
       /* ================= ITEMS ================= */
       doc.fontSize(12).text("ITEMS");
+      doc.fontSize(10);
 
-      template.items?.forEach((item: any) => {
-        doc
-          .fontSize(10)
-          .text(
-            `${item.name} | Qty: ${item.qty} | ₹${item.price} | GST: ${item.gstPercent}% | Total: ₹${item.total}`
-          );
+      const items = Array.isArray(template?.items)
+        ? template.items
+        : [];
+
+      items.forEach((item: any) => {
+        doc.text(
+          `${item.name || "Item"} | Qty: ${
+            item.qty || 0
+          } | ₹${item.price || 0} | GST: ${
+            item.gstPercent || 0
+          }% | Total: ₹${item.total || 0}`
+        );
       });
 
       doc.moveDown();
 
-      /* ================= TOTAL ================= */
+      /* ================= SUMMARY ================= */
       doc.fontSize(12).text("SUMMARY");
+      doc.fontSize(10);
 
-      doc.text(`Subtotal: ₹${template.totals?.subtotal || 0}`);
-      doc.text(`CGST: ₹${template.totals?.cgst || 0}`);
-      doc.text(`SGST: ₹${template.totals?.sgst || 0}`);
-      doc.text(`IGST: ₹${template.totals?.igst || 0}`);
+      const totals = template?.totals || {};
 
-      doc.fontSize(14).text(
-        `GRAND TOTAL: ₹${template.totals?.grandTotal || 0}`
-      );
+      doc.text(`Subtotal: ₹${totals.subtotal || 0}`);
+      doc.text(`CGST: ₹${totals.cgst || 0}`);
+      doc.text(`SGST: ₹${totals.sgst || 0}`);
+      doc.text(`IGST: ₹${totals.igst || 0}`);
+
+      doc.moveDown();
+
+      doc
+        .fontSize(14)
+        .text(`GRAND TOTAL: ₹${totals.grandTotal || 0}`);
 
       doc.end();
 
@@ -79,7 +98,9 @@ export async function generateInvoicePDF(template: any) {
         });
       });
 
-      stream.on("error", (err) => reject(err));
+      stream.on("error", (err) => {
+        reject(err);
+      });
     } catch (err) {
       reject(err);
     }
