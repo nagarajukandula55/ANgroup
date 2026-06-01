@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
@@ -11,7 +13,15 @@ export async function POST(req: Request) {
 
     const { orderId } = await req.json();
 
-    const order = await Order.findOne({ orderId });
+    if (!orderId) {
+      return NextResponse.json(
+        { success: false, message: "orderId required" },
+        { status: 400 }
+      );
+    }
+
+    /* ================= STEP 0: FETCH ORDER ================= */
+    const order = await Order.findById(orderId); // 🔥 FIXED
 
     if (!order) {
       return NextResponse.json(
@@ -20,18 +30,27 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= STEP 1: ENSURE INVOICE NUMBER ================= */
-    const invoice = await createInvoiceForOrder(orderId);
+    /* ================= STEP 1: INVOICE NUMBER (IDEMPOTENT) ================= */
+    const invoice = await createInvoiceForOrder(order._id.toString());
 
-    /* ================= STEP 2: BUILD TEMPLATE ================= */
-    const template = buildInvoiceTemplate(order);
+    /* ================= STEP 2: BUILD TEMPLATE (B2B / B2C SAFE) ================= */
+    const template = buildInvoiceTemplate({
+      ...order.toObject(),
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceType: order.customerType || "B2C",
+    });
 
     /* ================= STEP 3: GENERATE PDF ================= */
     const pdf = await generateInvoicePDF(template);
 
-    /* ================= STEP 4: SAVE BACK ================= */
+    /* ================= STEP 4: SAFE ORDER UPDATE ================= */
+    if (!order.invoice) {
+      order.invoice = {};
+    }
+
     order.invoice.invoiceUrl = pdf.url;
     order.invoice.pdfUrl = pdf.url;
+    order.invoice.invoiceNumber = invoice.invoiceNumber;
 
     await order.save();
 
@@ -40,7 +59,6 @@ export async function POST(req: Request) {
       invoiceNumber: invoice.invoiceNumber,
       invoiceUrl: pdf.url,
     });
-
   } catch (err: any) {
     return NextResponse.json(
       { success: false, message: err.message },
