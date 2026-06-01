@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
+
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoicePDF } from "@/services/pdf/invoicePdf.service";
@@ -23,18 +24,20 @@ export async function POST(req: Request) {
     }
 
     /* ================= FETCH ORDER ================= */
-    const order = await Order.findOne({ orderId }).lean();
+    const orderDoc: any = await Order.findOne({ orderId }).lean();
 
-    if (!order) {
+    if (!orderDoc) {
       return NextResponse.json(
         { success: false, message: "Order not found" },
         { status: 404 }
       );
     }
 
+    const order = orderDoc;
+
     const safeOrderId = order.orderId || order._id?.toString();
 
-    /* ================= INVOICE ================= */
+    /* ================= INVOICE GENERATION ================= */
     let invoiceNumber = "N/A";
 
     try {
@@ -62,22 +65,21 @@ export async function POST(req: Request) {
       },
     };
 
-    /* ================= TEMPLATE ================= */
+    /* ================= BUILD TEMPLATE ================= */
     const template = buildInvoiceTemplate(normalizedOrder);
 
-    /* ================= PDF GENERATION ================= */
+    /* ================= GENERATE PDF ================= */
     let pdfResult: any;
 
     try {
       pdfResult = await generateInvoicePDF(template);
     } catch (err: any) {
-      console.error("PDF generation failed:", err?.message);
+      console.error("PDF generation failed:", err);
 
       return NextResponse.json(
         {
           success: false,
           message: "PDF generation failed",
-          error: err?.message,
         },
         { status: 500 }
       );
@@ -85,7 +87,7 @@ export async function POST(req: Request) {
 
     const pdfUrl = (pdfResult as any)?.url;
 
-    /* ================= EMAIL ================= */
+    /* ================= SEND EMAIL ================= */
     try {
       await sendInvoiceEmail({
         to: order?.address?.email,
@@ -99,7 +101,7 @@ export async function POST(req: Request) {
       console.error("Email failed:", err);
     }
 
-    /* ================= SAVE ORDER ================= */
+    /* ================= UPDATE ORDER ================= */
     await Order.updateOne(
       { orderId },
       {
@@ -117,12 +119,10 @@ export async function POST(req: Request) {
       invoiceUrl: pdfUrl,
     });
   } catch (err: any) {
-    console.error("INVOICE ERROR:", err);
-
     return NextResponse.json(
       {
         success: false,
-        message: err?.message || "Internal error",
+        message: err?.message || "Internal Server Error",
       },
       { status: 500 }
     );
