@@ -171,6 +171,20 @@ export async function createInvoiceForOrder(
        CREATE INVOICE
     ========================================= */
 
+    const mapPaymentStatus = (status: string) => {
+    switch (status) {
+      case "SUCCESS":
+      case "PAID":
+        return "PAID";
+      case "FAILED":
+        return "FAILED";
+      case "PARTIAL":
+        return "PARTIAL";
+      default:
+        return "PENDING";
+    }
+  };
+    
     const invoice =
       await Invoice.create({
         businessId:
@@ -237,14 +251,7 @@ export async function createInvoiceForOrder(
 
         grandTotal,
 
-        paymentStatus:
-          order.payment?.status === "SUCCESS"
-            ? "PAID"
-            : order.payment?.status === "FAILED"
-            ? "FAILED"
-            : order.payment?.status === "PARTIAL"
-            ? "PARTIAL"
-            : "PENDING",
+        paymentStatus: mapPaymentStatus(order.payment?.status),
 
         status: "GENERATED",
 
@@ -307,19 +314,16 @@ export async function createInvoiceForOrder(
  * SIMPLE INVOICE NUMBER
  */
 async function generateInvoiceNumber() {
-  const fy = getFinancialYear(); // 2026-27
+  const fy = getFinancialYear(); // "2026-27"
 
-  const fyCode = fy
-    .replace("20", "")
-    .replace("-", "");
+  // convert 2026-27 → 2627
+  const fyCode = fy.replace("20", "").replace("-", "");
 
-  const count =
-    await Invoice.countDocuments({
-      financialYear: fy,
-    });
+  const count = await Invoice.countDocuments({
+    financialYear: fy,
+  });
 
-  const sequence =
-    String(count + 1).padStart(5, "0");
+  const sequence = String(count + 1).padStart(5, "0");
 
   return `NA-${fyCode}-${sequence}`;
 }
