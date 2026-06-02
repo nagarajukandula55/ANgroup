@@ -8,22 +8,22 @@ import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
  */
 
 export async function generateInvoiceNumber(businessId: string) {
-  const business = await Business.findById(businessId)
+  const business = (await Business.findById(businessId)
     .lean()
-    .exec();
+    .exec()) as any;
 
   if (!business) {
     throw new Error("BUSINESS_NOT_FOUND");
   }
 
   const prefix =
-    business?.documents?.invoices?.numbering?.prefix || "NA";
+    business?.documents?.invoices?.numbering?.prefix ?? "NA";
 
   // Financial year: 2026-27 → 2627
   const fy = getFinancialYear(); // "2026-27"
   const fyCode = fy.replace("-", "").slice(2); // "2627"
 
-  // 🔥 IMPORTANT: sequence MUST be yearly, not daily
+  // yearly sequence (ERP-safe)
   const count = await Invoice.countDocuments({
     businessId,
     financialYear: fy,
