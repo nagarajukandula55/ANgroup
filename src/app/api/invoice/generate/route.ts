@@ -6,7 +6,6 @@ import Order from "@/models/Order";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
-import cloudinary from "@/lib/cloudinary";
 
 /* =========================================
    GET
@@ -49,10 +48,6 @@ export async function POST(req: Request) {
       );
     }
 
-    /* =========================================
-       FETCH ORDER
-    ========================================= */
-
     console.log("STEP 1 - Finding Order");
 
     const order = await Order.findOne({ orderId });
@@ -81,14 +76,17 @@ export async function POST(req: Request) {
     try {
       console.log("STEP 3 - Creating Invoice");
 
-      const invoice = await createInvoiceForOrder(
-        orderObj.orderId
-      );
+      const createdInvoice =
+        await createInvoiceForOrder(
+          orderObj.orderId
+        );
 
       console.log("STEP 4 - Invoice Created");
-      console.log(invoice);
+      console.log(createdInvoice);
 
-      invoiceNumber = invoice.invoiceNumber;
+      invoiceNumber =
+        createdInvoice?.invoiceNumber ||
+        invoiceNumber;
     } catch (err: any) {
       console.log(
         "Invoice already exists or creation failed:",
@@ -132,91 +130,66 @@ export async function POST(req: Request) {
       },
     };
 
-    /* =========================================
-       TEMPLATE
-    ========================================= */
-
     console.log("STEP 6 - Building Template");
 
     const template =
-      buildInvoiceTemplate(normalizedOrder);
+      buildInvoiceTemplate(
+        normalizedOrder
+      );
 
     console.log("STEP 7 - Template Built");
-
-    /* =========================================
-       HTML
-    ========================================= */
 
     console.log("STEP 8 - Generating HTML");
 
     const html =
-      generateInvoiceHTML(template);
-
-    console.log("STEP 9 - HTML Generated");
-    console.log("HTML LENGTH:", html?.length);
-
-    /* =========================================
-       CLOUDINARY UPLOAD
-    ========================================= */
-
-    console.log("STEP 10 - Uploading To Cloudinary");
-
-    console.log({
-      invoiceNumber,
-      htmlLength: html?.length,
-    });
-
-    const upload =
-      await cloudinary.uploader.upload(
-        `data:text/html;charset=utf-8,${encodeURIComponent(
-          html
-        )}`,
-        {
-          folder: "an-group/invoices",
-          resource_type: "raw",
-          public_id: `invoice_${invoiceNumber}`,
-          overwrite: true,
-        }
+      generateInvoiceHTML(
+        template
       );
 
-    console.log("STEP 11 - Cloudinary Upload Success");
-    console.log(upload);
+    console.log("STEP 9 - HTML Generated");
+    console.log(
+      "HTML LENGTH:",
+      html?.length
+    );
 
-    const invoiceUrl =
-      upload.secure_url;
+    /* =========================================
+       TEMPORARILY SKIP CLOUDINARY
+    ========================================= */
+
+    console.log(
+      "STEP 10 - SKIPPING CLOUDINARY UPLOAD"
+    );
+
+    const invoiceUrl = "";
 
     /* =========================================
        SAVE ORDER
     ========================================= */
 
-    console.log("STEP 12 - Saving Order");
+    console.log("STEP 11 - Saving Order");
 
     order.invoice = {
       ...(order.invoice || {}),
       invoiceNumber,
       invoiceUrl,
-      pdfGenerated: true,
+      pdfGenerated: false,
       generatedAt: new Date(),
+      htmlGenerated: true,
     };
 
     await order.save();
 
-    console.log("STEP 13 - Order Saved");
+    console.log("STEP 12 - Order Saved");
 
-    /* =========================================
-       RESPONSE
-    ========================================= */
-
-    console.log("STEP 14 - Returning Response");
+    console.log("STEP 13 - Returning Response");
 
     return NextResponse.json({
       success: true,
       invoiceNumber,
       invoiceUrl,
+      htmlLength: html?.length,
     });
-
   } catch (err: any) {
-
     console.error("================================");
     console.error("INVOICE API ERROR");
     console.error(err);
