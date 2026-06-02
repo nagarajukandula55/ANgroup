@@ -18,7 +18,7 @@ export async function createInvoiceForOrder(
     );
     console.log(
       "SCHEMA TYPE:",
-      Invoice.schema.path("orderId").instance
+      Invoice.schema.path("orderId")?.instance
     );
     console.log("================================");
 
@@ -26,7 +26,9 @@ export async function createInvoiceForOrder(
       throw new Error("orderId is required");
     }
 
-    /* ================= FETCH ORDER ================= */
+    /* =========================================
+       FETCH ORDER
+    ========================================= */
 
     const order = await Order.findOne({
       orderId: orderNumber,
@@ -37,13 +39,16 @@ export async function createInvoiceForOrder(
     }
 
     console.log("ORDER FOUND");
-    console.log(order.orderId);
+    console.log("ORDER NUMBER:", order.orderId);
+    console.log("ORDER MONGO ID:", order._id);
 
-    /* ================= CHECK EXISTING ================= */
+    /* =========================================
+       CHECK EXISTING INVOICE
+    ========================================= */
 
     const existingInvoice =
       await Invoice.findOne({
-        orderId: order.orderId,
+        orderId: order._id,
       });
 
     if (existingInvoice) {
@@ -58,7 +63,9 @@ export async function createInvoiceForOrder(
     const isB2B =
       order.customerType === "B2B";
 
-    /* ================= BUILD ITEMS ================= */
+    /* =========================================
+       BUILD ITEMS
+    ========================================= */
 
     const items = Array.isArray(order.items)
       ? order.items
@@ -71,14 +78,11 @@ export async function createInvoiceForOrder(
 
     const invoiceItems = items.map(
       (item: any) => {
-        const qty =
-          Number(item.qty || 1);
-
-        const price =
-          Number(item.price || 0);
-
-        const gstPercent =
-          Number(item.gstPercent || 0);
+        const qty = Number(item.qty || 1);
+        const price = Number(item.price || 0);
+        const gstPercent = Number(
+          item.gstPercent || 0
+        );
 
         const taxableValue =
           qty * price;
@@ -152,11 +156,18 @@ export async function createInvoiceForOrder(
       sgst +
       igst;
 
-    console.log(
-      "ABOUT TO CREATE INVOICE"
-    );
+    console.log("ABOUT TO CREATE INVOICE");
+    console.log({
+      mongoOrderId: order._id,
+      orderNumber: order.orderId,
+      businessId: order.businessId,
+      subtotal,
+      grandTotal,
+    });
 
-    /* ================= CREATE INVOICE ================= */
+    /* =========================================
+       CREATE INVOICE
+    ========================================= */
 
     const invoice =
       await Invoice.create({
@@ -164,8 +175,8 @@ export async function createInvoiceForOrder(
           order.businessId ||
           "DEFAULT",
 
-        orderId:
-          order.orderId,
+        // IMPORTANT FIX
+        orderId: order._id,
 
         invoiceNumber:
           generateInvoiceNumber(),
@@ -234,21 +245,52 @@ export async function createInvoiceForOrder(
           new Date(),
 
         locked: true,
+
+        audit: {
+          source:
+            "AUTO_ORDER_SUCCESS",
+        },
       });
 
     console.log(
       "INVOICE CREATED SUCCESSFULLY"
     );
+
     console.log(
+      "INVOICE NUMBER:",
       invoice.invoiceNumber
+    );
+
+    console.log(
+      "INVOICE ID:",
+      invoice._id
     );
 
     return invoice;
   } catch (err: any) {
     console.error(
-      "createInvoiceForOrder error:"
+      "================================"
     );
+
+    console.error(
+      "CREATE INVOICE ERROR"
+    );
+
     console.error(err);
+
+    console.error(
+      "MESSAGE:",
+      err?.message
+    );
+
+    console.error(
+      "STACK:",
+      err?.stack
+    );
+
+    console.error(
+      "================================"
+    );
 
     throw err;
   }
@@ -264,7 +306,7 @@ function generateInvoiceNumber() {
   const random =
     Math.floor(
       100000 +
-        Math.random() * 900000
+      Math.random() * 900000
     );
 
   return `INV-${year}-${random}`;
