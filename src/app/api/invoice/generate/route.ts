@@ -73,6 +73,18 @@ export async function POST(req: Request) {
           orderObj.orderId
         );
 
+      console.log("STEP 1 - Order Found");
+      console.log(orderObj.orderId);
+      
+      console.log("STEP 2 - Creating Invoice");
+      
+      const invoice = await createInvoiceForOrder(
+        orderObj.orderId
+      );
+      
+      console.log("STEP 3 - Invoice Created");
+      console.log(invoice);
+
       invoiceNumber =
         invoice.invoiceNumber;
     } catch (err: any) {
@@ -121,26 +133,38 @@ export async function POST(req: Request) {
        TEMPLATE
     ========================================= */
 
-    const template =
-      buildInvoiceTemplate(
-        normalizedOrder
-      );
+    console.log("STEP 4 - Building Template");
+
+   const template =
+     buildInvoiceTemplate(normalizedOrder);
+   
+   console.log("STEP 5 - Template Built");
 
     /* =========================================
        HTML
     ========================================= */
 
-    const html =
-      generateInvoiceHTML(
-        template
-      );
+    console.log("STEP 6 - Generating HTML");
+
+const html =
+  generateInvoiceHTML(template);
+
+console.log("STEP 7 - HTML Generated");
+console.log(html?.length);
 
     /* =========================================
        CLOUDINARY UPLOAD
     ========================================= */
 
-    const upload =
-      await cloudinary.uploader.upload(
+    console.log("STEP 8 - Uploading");
+
+   console.log({
+     invoiceNumber,
+     htmlLength: html.length,
+   });
+   
+   const upload =
+     await cloudinary.uploader.upload(
         `data:text/html;charset=utf-8,${encodeURIComponent(
           html
         )}`,
