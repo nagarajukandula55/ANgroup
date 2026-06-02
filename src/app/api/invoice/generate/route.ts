@@ -3,18 +3,17 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
-
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
-import { generateInvoicePDF } from "@/services/pdf/invoicePdf.service";
-import { sendInvoiceEmail } from "@/services/email/resend.service";
+import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
+import fs from "fs";
+import path from "path";
 
 export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const body = await req.json().catch(() => ({}));
-    const orderId = body?.orderId;
+    const { orderId } = await req.json();
 
     if (!orderId) {
       return NextResponse.json(
@@ -24,106 +23,75 @@ export async function POST(req: Request) {
     }
 
     /* ================= FETCH ORDER ================= */
-    const orderDoc: any = await Order.findOne({ orderId }).lean();
+    const order = await Order.findOne({ orderId });
 
-    if (!orderDoc) {
+    if (!order) {
       return NextResponse.json(
         { success: false, message: "Order not found" },
         { status: 404 }
       );
     }
 
-    const order = orderDoc;
-
-    const safeOrderId = order.orderId || order._id?.toString();
-
-    /* ================= INVOICE GENERATION ================= */
+    /* ================= INVOICE ================= */
     let invoiceNumber = "N/A";
 
     try {
-      const invoice = await createInvoiceForOrder(safeOrderId);
-      invoiceNumber = invoice?.invoiceNumber || "N/A";
+      const invoice = await createInvoiceForOrder(order.orderId);
+      invoiceNumber = invoice.invoiceNumber;
     } catch (err: any) {
-      console.log("Invoice fallback:", err?.message);
-      invoiceNumber = order?.invoice?.invoiceNumber || "N/A";
+      invoiceNumber = order.invoice?.invoiceNumber || "EXISTING";
     }
 
-    /* ================= NORMALIZE ORDER ================= */
+    /* ================= NORMALIZE ================= */
     const normalizedOrder = {
-      ...order,
+      ...order.toObject(),
       invoice: {
-        ...order.invoice,
         invoiceNumber,
       },
       billing: {
-        subtotal: order?.subtotal || order?.taxableAmount || 0,
-        cgst: order?.cgst || 0,
-        sgst: order?.sgst || 0,
-        igst: order?.igst || 0,
-        grandTotal: order?.amount || order?.subtotal || 0,
-        currency: "INR",
+        subtotal: order.subtotal || 0,
+        cgst: order.cgst || 0,
+        sgst: order.sgst || 0,
+        igst: order.igst || 0,
+        grandTotal: order.amount || 0,
       },
     };
 
-    /* ================= BUILD TEMPLATE ================= */
+    /* ================= TEMPLATE ================= */
     const template = buildInvoiceTemplate(normalizedOrder);
 
-    /* ================= GENERATE PDF ================= */
-    let pdfResult: any;
+    /* ================= HTML INVOICE ================= */
+    const html = generateInvoiceHTML(template);
 
-    try {
-      pdfResult = await generateInvoicePDF(template);
-    } catch (err: any) {
-      console.error("PDF generation failed:", err);
+    /* ================= SAVE FILE ================= */
+    const dir = path.join(process.cwd(), "public", "invoices");
+    fs.mkdirSync(dir, { recursive: true });
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: "PDF generation failed",
-        },
-        { status: 500 }
-      );
-    }
+    const fileName = `invoice_${invoiceNumber}.html`;
+    const filePath = path.join(dir, fileName);
 
-    const pdfUrl = (pdfResult as any)?.url;
+    fs.writeFileSync(filePath, html, "utf-8");
 
-    /* ================= SEND EMAIL ================= */
-    try {
-      await sendInvoiceEmail({
-        to: order?.address?.email,
-        customerName: order?.address?.name,
-        invoiceNumber,
-        pdfUrl,
-        grandTotal: order?.amount,
-        orderId: safeOrderId,
-      });
-    } catch (err) {
-      console.error("Email failed:", err);
-    }
+    const url = `/invoices/${fileName}`;
 
     /* ================= UPDATE ORDER ================= */
-    await Order.updateOne(
-      { orderId },
-      {
-        $set: {
-          "invoice.invoiceNumber": invoiceNumber,
-          "invoice.pdfUrl": pdfUrl,
-          "invoice.invoiceGenerated": true,
-        },
-      }
-    );
+    order.invoice = {
+      ...order.invoice,
+      invoiceNumber,
+      invoiceUrl: url,
+      pdfGenerated: true,
+    };
+
+    await order.save();
 
     return NextResponse.json({
       success: true,
       invoiceNumber,
-      invoiceUrl: pdfUrl,
+      invoiceUrl: url,
     });
   } catch (err: any) {
     return NextResponse.json(
-      {
-        success: false,
-        message: err?.message || "Internal Server Error",
-      },
+      { success: false, message: err.message },
       { status: 500 }
     );
   }
