@@ -8,6 +8,8 @@ import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
 import cloudinary from "@/lib/cloudinary";
 
+console.log("TEMPLATE VERSION: GST-V2");
+
 /* =========================================
    POST - GENERATE INVOICE
 ========================================= */
