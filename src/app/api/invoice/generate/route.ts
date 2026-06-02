@@ -68,7 +68,9 @@ export async function POST(req: Request) {
         }
       );
 
-    const invoiceUrl = `https://www.angroup.in/api/invoice/${invoice.invoiceNumber}`;
+    const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.angroup.in";
+
+    const invoiceUrl = `${BASE_URL}/api/invoice/${invoiceNumber}`;
 
       order.invoice = {
         invoiceNumber,
