@@ -5,27 +5,14 @@ import { connectDB } from "@/lib/mongodb";
 import Invoice from "@/models/Invoice";
 
 /* =========================================
-   TYPE FIX (IMPORTANT FOR NEXT.JS BUILD)
-========================================= */
-
-type RouteContext = {
-  params: {
-    invoiceNumber: string;
-  };
-};
-
-/* =========================================
    GET INVOICE HTML
 ========================================= */
 
-export async function GET(
-  req: Request,
-  context: RouteContext
-) {
+export async function GET(req: Request, context: any) {
   try {
     await connectDB();
 
-    const { invoiceNumber } = context.params;
+    const invoiceNumber = context?.params?.invoiceNumber;
 
     if (!invoiceNumber) {
       return NextResponse.json(
@@ -51,7 +38,7 @@ export async function GET(
   <title>Invoice ${invoice.invoiceNumber}</title>
   <style>
     body { font-family: Arial; padding: 30px; }
-    .box { border: 1px solid #ddd; padding: 20px; }
+    .box { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ddd; padding: 8px; }
     th { background: #f5f5f5; }
@@ -60,40 +47,40 @@ export async function GET(
 </head>
 <body>
 
-<h2>Invoice: ${invoice.invoiceNumber}</h2>
+  <h2>Invoice: ${invoice.invoiceNumber}</h2>
 
-<div class="box">
-  <p><b>Name:</b> ${invoice.customer?.name || ""}</p>
-  <p><b>Phone:</b> ${invoice.customer?.phone || ""}</p>
-  <p><b>State:</b> ${invoice.customer?.state || ""}</p>
-</div>
+  <div class="box">
+    <p><b>Name:</b> ${invoice.customer?.name || ""}</p>
+    <p><b>Phone:</b> ${invoice.customer?.phone || ""}</p>
+    <p><b>State:</b> ${invoice.customer?.state || ""}</p>
+  </div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Item</th>
-      <th>Qty</th>
-      <th>Price</th>
-      <th>Total</th>
-    </tr>
-  </thead>
-  <tbody>
-    ${(invoice.items || [])
-      .map(
-        (i: any) => `
+  <table>
+    <thead>
       <tr>
-        <td>${i.name}</td>
-        <td>${i.qty}</td>
-        <td>${i.price}</td>
-        <td>${i.total}</td>
+        <th>Item</th>
+        <th>Qty</th>
+        <th>Price</th>
+        <th>Total</th>
       </tr>
-    `
-      )
-      .join("")}
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      ${(invoice.items || [])
+        .map(
+          (i: any) => `
+        <tr>
+          <td>${i.name}</td>
+          <td>${i.qty}</td>
+          <td>${i.price}</td>
+          <td>${i.total}</td>
+        </tr>
+      `
+        )
+        .join("")}
+    </tbody>
+  </table>
 
-<h3>Grand Total: ₹${invoice.grandTotal}</h3>
+  <h3>Grand Total: ₹${invoice.grandTotal}</h3>
 
 </body>
 </html>
@@ -104,14 +91,12 @@ export async function GET(
         "Content-Type": "text/html",
       },
     });
-  } catch (err: any) {
-    console.error("INVOICE API ERROR:", err);
+
+  } catch (err) {
+    console.error("INVOICE ERROR:", err);
 
     return NextResponse.json(
-      {
-        success: false,
-        message: "Server error",
-      },
+      { success: false, message: "Server error" },
       { status: 500 }
     );
   }
