@@ -3,13 +3,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
+import Invoice from "@/models/Invoice";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
 
-/* =========================================
-   GET
-========================================= */
 export async function GET() {
   return NextResponse.json(
     {
@@ -20,23 +18,19 @@ export async function GET() {
   );
 }
 
-/* =========================================
-   POST
-========================================= */
 export async function POST(req: Request) {
   try {
     console.log("================================");
     console.log("INVOICE GENERATION STARTED");
     console.log("================================");
 
-    console.log("STEP 0 - Connecting DB");
     await connectDB();
 
     const body = await req.json().catch(() => null);
 
-    console.log("REQUEST BODY:", body);
-
     const orderId = body?.orderId;
+
+    console.log("ORDER ID:", orderId);
 
     if (!orderId) {
       return NextResponse.json(
@@ -47,8 +41,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    console.log("STEP 1 - Finding Order");
 
     const order = await Order.findOne({ orderId });
 
@@ -62,43 +54,44 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("STEP 2 - Order Found");
+    console.log("ORDER FOUND");
 
     const orderObj = order.toObject();
 
-    /* =========================================
-       INVOICE NUMBER
-    ========================================= */
-
     let invoiceNumber =
-      orderObj?.invoice?.invoiceNumber || "N/A";
+      orderObj?.invoice?.invoiceNumber || "";
+
+    let invoiceDoc;
 
     try {
-      console.log("STEP 3 - Creating Invoice");
-
-      const createdInvoice =
+      invoiceDoc =
         await createInvoiceForOrder(
           orderObj.orderId
         );
 
-      console.log("STEP 4 - Invoice Created");
-      console.log(createdInvoice);
-
       invoiceNumber =
-        createdInvoice?.invoiceNumber ||
-        invoiceNumber;
+        invoiceDoc.invoiceNumber;
+
+      console.log(
+        "INVOICE CREATED:",
+        invoiceNumber
+      );
     } catch (err: any) {
       console.log(
-        "Invoice already exists or creation failed:",
+        "CREATE INVOICE ERROR:",
         err?.message
       );
+
+      invoiceDoc =
+        await Invoice.findOne({
+          orderId: orderObj.orderId,
+        });
+
+      if (invoiceDoc) {
+        invoiceNumber =
+          invoiceDoc.invoiceNumber;
+      }
     }
-
-    /* =========================================
-       NORMALIZE ORDER
-    ========================================= */
-
-    console.log("STEP 5 - Normalizing Order");
 
     const normalizedOrder = {
       ...orderObj,
@@ -130,48 +123,26 @@ export async function POST(req: Request) {
       },
     };
 
-    console.log("STEP 6 - Building Template");
+    console.log("BUILD TEMPLATE");
 
     const template =
       buildInvoiceTemplate(
         normalizedOrder
       );
 
-    console.log("STEP 7 - Template Built");
-
-    console.log("STEP 8 - Generating HTML");
+    console.log("GENERATE HTML");
 
     const html =
-      generateInvoiceHTML(
-        template
-      );
-
-    console.log("STEP 9 - HTML Generated");
-    console.log(
-      "HTML LENGTH:",
-      html?.length
-    );
-
-    /* =========================================
-       TEMPORARILY SKIP CLOUDINARY
-    ========================================= */
+      generateInvoiceHTML(template);
 
     console.log(
-      "STEP 10 - SKIPPING CLOUDINARY UPLOAD"
+      "HTML GENERATED:",
+      html.length
     );
-
-    const invoiceUrl = "";
-
-    /* =========================================
-       SAVE ORDER
-    ========================================= */
-
-    console.log("STEP 11 - Saving Order");
 
     order.invoice = {
       ...(order.invoice || {}),
       invoiceNumber,
-      invoiceUrl,
       pdfGenerated: false,
       generatedAt: new Date(),
       htmlGenerated: true,
@@ -179,23 +150,20 @@ export async function POST(req: Request) {
 
     await order.save();
 
-    console.log("STEP 12 - Order Saved");
-
-    console.log("STEP 13 - Returning Response");
+    console.log("ORDER UPDATED");
 
     return NextResponse.json({
       success: true,
       invoiceNumber,
-      invoiceUrl,
-      htmlLength: html?.length,
+      htmlLength: html.length,
+      preview: html.substring(0, 500),
     });
   } catch (err: any) {
-    console.error("================================");
-    console.error("INVOICE API ERROR");
+    console.error(
+      "INVOICE GENERATION ERROR"
+    );
+
     console.error(err);
-    console.error("MESSAGE:", err?.message);
-    console.error("STACK:", err?.stack);
-    console.error("================================");
 
     return NextResponse.json(
       {
@@ -203,10 +171,6 @@ export async function POST(req: Request) {
         message:
           err?.message ||
           "Internal Server Error",
-        stack:
-          process.env.NODE_ENV === "development"
-            ? err?.stack
-            : undefined,
       },
       { status: 500 }
     );
