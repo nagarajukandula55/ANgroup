@@ -9,6 +9,13 @@ import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
 export async function createInvoiceForOrder(
   orderNumber: string
 ) {
+
+  console.log("ORDER ID RECEIVED:", orderId);
+  console.log(
+    "SCHEMA TYPE:",
+    Invoice.schema.path("orderId").instance
+  );
+  
   try {
     if (!orderNumber) {
       throw new Error("orderId is required");
