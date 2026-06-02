@@ -1,52 +1,34 @@
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
 import Invoice from "@/models/Invoice";
-import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
-import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
+import { connectDB } from "@/lib/mongodb";
 
-export async function GET(req: Request, context: any) {
+export async function GET(
+  req: Request,
+  { params }: { params: { invoiceNumber: string } }
+) {
   try {
     await connectDB();
 
-    const invoiceNumber = context?.params?.invoiceNumber;
-
-    if (!invoiceNumber) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invoice number required",
-        },
-        { status: 400 }
-      );
-    }
-
-    const invoice = await Invoice.findOne({ invoiceNumber });
+    const invoice = await Invoice.findOne({
+      invoiceNumber: params.invoiceNumber,
+    });
 
     if (!invoice) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Invoice not found",
-        },
+        { success: false, message: "Not found" },
         { status: 404 }
       );
     }
 
-    const template = buildInvoiceTemplate(invoice.toObject());
-    const html = generateInvoiceHTML(template);
-
-    return new NextResponse(html, {
-      headers: {
-        "Content-Type": "text/html",
-      },
+    return NextResponse.json({
+      success: true,
+      invoice,
     });
   } catch (err: any) {
     return NextResponse.json(
       {
         success: false,
-        message: err?.message || "Internal Server Error",
+        message: err.message,
       },
       { status: 500 }
     );
