@@ -54,15 +54,19 @@ export async function POST(req: Request) {
     /* =========================================
        UPLOAD TO CLOUDINARY (IMPORTANT FIX)
     ========================================= */
-    const upload = await cloudinary.uploader.upload(
-      `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
-      {
-        folder: "an-group/invoices",
-        resource_type: "raw",
-        public_id: `invoice_${invoiceNumber}`,
-        overwrite: true,
-      }
-    );
+      const buffer = Buffer.from(html, "utf-8");
+
+     console.log("HTML SIZE:", html.length);
+      
+      const upload = await cloudinary.uploader.upload(
+        `data:text/html;base64,${buffer.toString("base64")}`,
+        {
+          folder: "an-group/invoices",
+          resource_type: "raw",
+          public_id: `invoice_${invoiceNumber}`,
+          overwrite: true,
+        }
+      );
 
     const invoiceUrl = upload.secure_url;
 
@@ -85,15 +89,22 @@ export async function POST(req: Request) {
       invoiceUrl,
       htmlLength: html.length,
     });
-  } catch (err: any) {
-    console.error("INVOICE GENERATION ERROR:", err);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: err.message,
-      },
-      { status: 500 }
-    );
-  }
+     } catch (err: any) {
+     console.error("🔥 INVOICE ERROR:");
+     console.error(err);
+     console.error(err?.message);
+     console.error(err?.stack);
+   
+     return NextResponse.json(
+       {
+         success: false,
+         message: err?.message || "Internal Server Error",
+         stack:
+           process.env.NODE_ENV === "development"
+             ? err?.stack
+             : undefined,
+       },
+       { status: 500 }
+     );
+   }
 }
