@@ -6,21 +6,18 @@ import Invoice from "@/models/Invoice";
 import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 
-/* =========================
-   GET INVOICE (HTML VIEW)
-========================= */
-export async function GET(
-  req: Request,
-  { params }: { params: { invoiceNumber: string } }
-) {
+export async function GET(req: Request, context: any) {
   try {
     await connectDB();
 
-    const { invoiceNumber } = params;
+    const invoiceNumber = context?.params?.invoiceNumber;
 
     if (!invoiceNumber) {
       return NextResponse.json(
-        { success: false, message: "Invoice number required" },
+        {
+          success: false,
+          message: "Invoice number required",
+        },
         { status: 400 }
       );
     }
@@ -29,7 +26,10 @@ export async function GET(
 
     if (!invoice) {
       return NextResponse.json(
-        { success: false, message: "Invoice not found" },
+        {
+          success: false,
+          message: "Invoice not found",
+        },
         { status: 404 }
       );
     }
@@ -42,7 +42,6 @@ export async function GET(
         "Content-Type": "text/html",
       },
     });
-
   } catch (err: any) {
     return NextResponse.json(
       {
