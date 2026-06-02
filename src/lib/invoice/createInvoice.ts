@@ -181,7 +181,7 @@ export async function createInvoiceForOrder(
         orderId: order._id,
 
         invoiceNumber:
-          generateInvoiceNumber(),
+          await generateInvoiceNumber(),
 
         financialYear:
           getFinancialYear(),
@@ -306,15 +306,20 @@ export async function createInvoiceForOrder(
 /**
  * SIMPLE INVOICE NUMBER
  */
-function generateInvoiceNumber() {
-  const year =
-    new Date().getFullYear();
+async function generateInvoiceNumber() {
+  const fy = getFinancialYear(); // 2026-27
 
-  const random =
-    Math.floor(
-      100000 +
-      Math.random() * 900000
-    );
+  const fyCode = fy
+    .replace("20", "")
+    .replace("-", "");
 
-  return `INV-${year}-${random}`;
+  const count =
+    await Invoice.countDocuments({
+      financialYear: fy,
+    });
+
+  const sequence =
+    String(count + 1).padStart(5, "0");
+
+  return `NA-${fyCode}-${sequence}`;
 }
