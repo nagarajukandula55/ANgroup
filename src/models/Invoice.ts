@@ -26,7 +26,7 @@ const InvoiceSchema = new mongoose.Schema(
     },
 
     orderId: {
-      type: mongoose.Schema.Types.ObjectId, // 🔥 FIXED
+      type: String, // 🔥 FIXED
       index: true,
       required: true,
     },
