@@ -9,11 +9,24 @@ import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
 import fs from "fs";
 import path from "path";
 
+/* ================= GET BLOCK (FIX 405 ISSUE) ================= */
+export async function GET() {
+  return NextResponse.json(
+    {
+      success: false,
+      message: "Use POST method only for invoice generation",
+    },
+    { status: 405 }
+  );
+}
+
+/* ================= POST ================= */
 export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const { orderId } = await req.json();
+    const body = await req.json().catch(() => null);
+    const orderId = body?.orderId;
 
     if (!orderId) {
       return NextResponse.json(
@@ -32,36 +45,52 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ================= INVOICE ================= */
-    let invoiceNumber = "N/A";
+    const orderObj = order.toObject();
+
+    /* ================= INVOICE GENERATION ================= */
+    let invoiceNumber = orderObj?.invoice?.invoiceNumber || "N/A";
 
     try {
-      const invoice = await createInvoiceForOrder(order.orderId);
+      const invoice = await createInvoiceForOrder(orderObj.orderId);
       invoiceNumber = invoice.invoiceNumber;
-    } catch (err: any) {
-      invoiceNumber = order.invoice?.invoiceNumber || "EXISTING";
+    } catch (err) {
+      console.log("Invoice fallback:", err);
     }
 
-    /* ================= NORMALIZE ================= */
+    /* ================= SAFE NORMALIZATION ================= */
     const normalizedOrder = {
-      ...order.toObject(),
+      ...orderObj,
+
       invoice: {
+        ...(orderObj.invoice || {}),
         invoiceNumber,
       },
+
       billing: {
-        subtotal: order.subtotal || 0,
-        cgst: order.cgst || 0,
-        sgst: order.sgst || 0,
-        igst: order.igst || 0,
-        grandTotal: order.amount || 0,
+        subtotal: orderObj.subtotal || orderObj.taxableAmount || 0,
+        cgst: orderObj.cgst || 0,
+        sgst: orderObj.sgst || 0,
+        igst: orderObj.igst || 0,
+        grandTotal: orderObj.amount || orderObj.billing?.grandTotal || 0,
+        currency: "INR",
       },
     };
 
     /* ================= TEMPLATE ================= */
     const template = buildInvoiceTemplate(normalizedOrder);
 
-    /* ================= HTML INVOICE ================= */
-    const html = generateInvoiceHTML(template);
+    /* ================= HTML GENERATION (SAFE WRAP) ================= */
+    let html = "";
+
+    try {
+      html = generateInvoiceHTML(template);
+    } catch (err: any) {
+      console.error("HTML generation failed:", err);
+      return NextResponse.json(
+        { success: false, message: "HTML generation failed" },
+        { status: 500 }
+      );
+    }
 
     /* ================= SAVE FILE ================= */
     const dir = path.join(process.cwd(), "public", "invoices");
@@ -74,9 +103,9 @@ export async function POST(req: Request) {
 
     const url = `/invoices/${fileName}`;
 
-    /* ================= UPDATE ORDER ================= */
+    /* ================= ORDER UPDATE ================= */
     order.invoice = {
-      ...order.invoice,
+      ...(order.invoice || {}),
       invoiceNumber,
       invoiceUrl: url,
       pdfGenerated: true,
@@ -90,8 +119,13 @@ export async function POST(req: Request) {
       invoiceUrl: url,
     });
   } catch (err: any) {
+    console.error("INVOICE API ERROR:", err);
+
     return NextResponse.json(
-      { success: false, message: err.message },
+      {
+        success: false,
+        message: err.message || "Internal Server Error",
+      },
       { status: 500 }
     );
   }
