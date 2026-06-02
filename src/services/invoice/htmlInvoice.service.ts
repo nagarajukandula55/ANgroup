@@ -1,6 +1,4 @@
-export function generateInvoiceHTML(data: any) {
-  const inv = data;
-
+export function generateInvoiceHTML(inv: any) {
   return `
 <!DOCTYPE html>
 <html>
@@ -9,66 +7,58 @@ export function generateInvoiceHTML(data: any) {
 <title>GST Invoice ${inv.invoiceNumber}</title>
 
 <style>
-  body { font-family: Arial; padding: 30px; color: #111; }
+body {
+  font-family: Arial;
+  padding: 30px;
+  color: #111;
+}
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 2px solid #000;
-    padding-bottom: 15px;
-  }
+.header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid #000;
+  padding-bottom: 15px;
+}
 
-  .title {
-    font-size: 22px;
-    font-weight: bold;
-  }
+.box {
+  margin-top: 15px;
+  padding: 10px;
+  border: 1px solid #ddd;
+}
 
-  .section {
-    margin-top: 20px;
-    border: 1px solid #ddd;
-    padding: 15px;
-  }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-  }
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  font-size: 12px;
+}
 
-  th, td {
-    border: 1px solid #ccc;
-    padding: 8px;
-    font-size: 12px;
-  }
+th {
+  background: #f4f4f4;
+}
 
-  th {
-    background: #f5f5f5;
-  }
+.totals {
+  margin-top: 20px;
+  width: 300px;
+  float: right;
+  border: 2px solid #000;
+  padding: 10px;
+}
 
-  .right {
-    text-align: right;
-  }
-
-  .totals {
-    margin-top: 20px;
-    float: right;
-    width: 300px;
-    border: 1px solid #000;
-    padding: 10px;
-  }
-
-  .footer {
-    margin-top: 40px;
-    font-size: 11px;
-    text-align: center;
-    border-top: 1px solid #ddd;
-    padding-top: 10px;
-  }
-
-  .bold {
-    font-weight: bold;
-  }
+.footer {
+  margin-top: 80px;
+  font-size: 11px;
+  text-align: center;
+  border-top: 1px solid #ddd;
+  padding-top: 10px;
+}
 </style>
+
 </head>
 
 <body>
@@ -76,56 +66,55 @@ export function generateInvoiceHTML(data: any) {
 <!-- HEADER -->
 <div class="header">
   <div>
-    <div class="title">${inv.business?.name || "BUSINESS NAME"}</div>
+    <h2>${inv.business?.name || "BUSINESS NAME"}</h2>
     <div>${inv.business?.address || ""}</div>
     <div>GSTIN: ${inv.business?.gstin || "N/A"}</div>
   </div>
 
-  <div class="right">
-    <div><b>INVOICE</b></div>
-    <div>No: ${inv.invoiceNumber}</div>
-    <div>Date: ${new Date().toLocaleDateString()}</div>
+  <div>
+    <h3>INVOICE</h3>
+    <div><b>${inv.invoiceNumber}</b></div>
     <div>FY: ${inv.financialYear}</div>
   </div>
 </div>
 
-<!-- BUYER -->
-<div class="section">
-  <b>Bill To:</b><br/>
-  ${inv.customer.name}<br/>
-  ${inv.customer.address}<br/>
-  GSTIN: ${inv.customer.gstNumber || "N/A"}
+<!-- CUSTOMER -->
+<div class="box">
+  <b>BILL TO:</b><br/>
+  ${inv.customer?.name}<br/>
+  ${inv.customer?.address}<br/>
+  GSTIN: ${inv.customer?.gstNumber || "N/A"}
 </div>
 
 <!-- ITEMS -->
 <table>
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>Item</th>
-      <th>HSN</th>
-      <th>Qty</th>
-      <th>Rate</th>
-      <th>Taxable</th>
-      <th>GST</th>
-      <th>Total</th>
-    </tr>
-  </thead>
+<thead>
+<tr>
+  <th>#</th>
+  <th>Item</th>
+  <th>HSN</th>
+  <th>Qty</th>
+  <th>Rate</th>
+  <th>Taxable</th>
+  <th>GST</th>
+  <th>Total</th>
+</tr>
+</thead>
 
-  <tbody>
-    ${inv.items.map((i: any, idx: number) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td>${i.name}</td>
-        <td>${i.hsn || "-"}</td>
-        <td>${i.qty}</td>
-        <td>${i.price}</td>
-        <td>${i.taxableValue}</td>
-        <td>${(i.cgst + i.sgst + i.igst).toFixed(2)}</td>
-        <td>${i.total.toFixed(2)}</td>
-      </tr>
-    `).join("")}
-  </tbody>
+<tbody>
+  ${inv.items.map((i: any, idx: number) => `
+    <tr>
+      <td>${idx + 1}</td>
+      <td>${i.name}</td>
+      <td>${i.hsn || "-"}</td>
+      <td>${i.qty}</td>
+      <td>${i.price}</td>
+      <td>${i.taxableValue}</td>
+      <td>${(i.cgst + i.sgst + i.igst).toFixed(2)}</td>
+      <td>${i.total.toFixed(2)}</td>
+    </tr>
+  `).join("")}
+</tbody>
 </table>
 
 <!-- TOTALS -->
@@ -135,16 +124,16 @@ export function generateInvoiceHTML(data: any) {
   <div>SGST: ₹${inv.sgst}</div>
   <div>IGST: ₹${inv.igst}</div>
   <hr/>
-  <div class="bold">Grand Total: ₹${inv.grandTotal}</div>
+  <b>Grand Total: ₹${inv.grandTotal}</b>
 </div>
 
 <div style="clear: both;"></div>
 
-<!-- GST FOOTER -->
+<!-- FOOTER -->
 <div class="footer">
   This is a computer generated GST compliant invoice.<br/>
-  Goods once sold will not be taken back or exchanged.<br/>
-  Subject to jurisdiction only.
+  No signature required.<br/>
+  Subject to jurisdiction.
 </div>
 
 </body>
