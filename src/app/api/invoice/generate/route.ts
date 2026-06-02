@@ -6,58 +6,86 @@ import Order from "@/models/Order";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
 import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
-import fs from "fs";
-import path from "path";
+import cloudinary from "@/lib/cloudinary";
 
-/* ================= GET BLOCK (FIX 405 ISSUE) ================= */
+/* =========================================
+   GET
+========================================= */
 export async function GET() {
   return NextResponse.json(
     {
       success: false,
-      message: "Use POST method only for invoice generation",
+      message: "Use POST method",
     },
     { status: 405 }
   );
 }
 
-/* ================= POST ================= */
+/* =========================================
+   POST
+========================================= */
 export async function POST(req: Request) {
   try {
     await connectDB();
 
     const body = await req.json().catch(() => null);
+
     const orderId = body?.orderId;
 
     if (!orderId) {
       return NextResponse.json(
-        { success: false, message: "orderId required" },
+        {
+          success: false,
+          message: "orderId required",
+        },
         { status: 400 }
       );
     }
 
-    /* ================= FETCH ORDER ================= */
+    /* =========================================
+       FETCH ORDER
+    ========================================= */
+
     const order = await Order.findOne({ orderId });
 
     if (!order) {
       return NextResponse.json(
-        { success: false, message: "Order not found" },
+        {
+          success: false,
+          message: "Order not found",
+        },
         { status: 404 }
       );
     }
 
     const orderObj = order.toObject();
 
-    /* ================= INVOICE GENERATION ================= */
-    let invoiceNumber = orderObj?.invoice?.invoiceNumber || "N/A";
+    /* =========================================
+       INVOICE NUMBER
+    ========================================= */
+
+    let invoiceNumber =
+      orderObj?.invoice?.invoiceNumber || "N/A";
 
     try {
-      const invoice = await createInvoiceForOrder(orderObj.orderId);
-      invoiceNumber = invoice.invoiceNumber;
-    } catch (err) {
-      console.log("Invoice fallback:", err);
+      const invoice =
+        await createInvoiceForOrder(
+          orderObj.orderId
+        );
+
+      invoiceNumber =
+        invoice.invoiceNumber;
+    } catch (err: any) {
+      console.log(
+        "Invoice already exists:",
+        err?.message
+      );
     }
 
-    /* ================= SAFE NORMALIZATION ================= */
+    /* =========================================
+       NORMALIZE ORDER
+    ========================================= */
+
     const normalizedOrder = {
       ...orderObj,
 
@@ -67,64 +95,101 @@ export async function POST(req: Request) {
       },
 
       billing: {
-        subtotal: orderObj.subtotal || orderObj.taxableAmount || 0,
-        cgst: orderObj.cgst || 0,
-        sgst: orderObj.sgst || 0,
-        igst: orderObj.igst || 0,
-        grandTotal: orderObj.amount || orderObj.billing?.grandTotal || 0,
+        subtotal:
+          orderObj.subtotal ||
+          orderObj.taxableAmount ||
+          0,
+
+        cgst:
+          orderObj.cgst || 0,
+
+        sgst:
+          orderObj.sgst || 0,
+
+        igst:
+          orderObj.igst || 0,
+
+        grandTotal:
+          orderObj.amount ||
+          0,
+
         currency: "INR",
       },
     };
 
-    /* ================= TEMPLATE ================= */
-    const template = buildInvoiceTemplate(normalizedOrder);
+    /* =========================================
+       TEMPLATE
+    ========================================= */
 
-    /* ================= HTML GENERATION (SAFE WRAP) ================= */
-    let html = "";
-
-    try {
-      html = generateInvoiceHTML(template);
-    } catch (err: any) {
-      console.error("HTML generation failed:", err);
-      return NextResponse.json(
-        { success: false, message: "HTML generation failed" },
-        { status: 500 }
+    const template =
+      buildInvoiceTemplate(
+        normalizedOrder
       );
-    }
 
-    /* ================= SAVE FILE ================= */
-    const dir = path.join(process.cwd(), "public", "invoices");
-    fs.mkdirSync(dir, { recursive: true });
+    /* =========================================
+       HTML
+    ========================================= */
 
-    const fileName = `invoice_${invoiceNumber}.html`;
-    const filePath = path.join(dir, fileName);
+    const html =
+      generateInvoiceHTML(
+        template
+      );
 
-    fs.writeFileSync(filePath, html, "utf-8");
+    /* =========================================
+       CLOUDINARY UPLOAD
+    ========================================= */
 
-    const url = `/invoices/${fileName}`;
+    const upload =
+      await cloudinary.uploader.upload(
+        `data:text/html;charset=utf-8,${encodeURIComponent(
+          html
+        )}`,
+        {
+          folder: "an-group/invoices",
+          resource_type: "raw",
+          public_id: `invoice_${invoiceNumber}`,
+          overwrite: true,
+        }
+      );
 
-    /* ================= ORDER UPDATE ================= */
+    const invoiceUrl =
+      upload.secure_url;
+
+    /* =========================================
+       SAVE ORDER
+    ========================================= */
+
     order.invoice = {
       ...(order.invoice || {}),
       invoiceNumber,
-      invoiceUrl: url,
+      invoiceUrl,
       pdfGenerated: true,
+      generatedAt: new Date(),
     };
 
     await order.save();
 
+    /* =========================================
+       RESPONSE
+    ========================================= */
+
     return NextResponse.json({
       success: true,
       invoiceNumber,
-      invoiceUrl: url,
+      invoiceUrl,
     });
   } catch (err: any) {
-    console.error("INVOICE API ERROR:", err);
+    console.error(
+      "INVOICE API ERROR:",
+      err
+    );
 
     return NextResponse.json(
       {
         success: false,
-        message: err.message || "Internal Server Error",
+        message:
+          err?.message ||
+          "Internal Server Error",
       },
       { status: 500 }
     );
