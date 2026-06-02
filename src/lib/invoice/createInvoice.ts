@@ -69,6 +69,8 @@ export async function createInvoiceForOrder(
 
     const items = Array.isArray(order.items)
       ? order.items
+      : Array.isArray(order.cart)
+      ? order.cart
       : [];
 
     let subtotal = 0;
@@ -236,8 +238,13 @@ export async function createInvoiceForOrder(
         grandTotal,
 
         paymentStatus:
-          order.payment?.status ||
-          "PENDING",
+          order.payment?.status === "SUCCESS"
+            ? "PAID"
+            : order.payment?.status === "FAILED"
+            ? "FAILED"
+            : order.payment?.status === "PARTIAL"
+            ? "PARTIAL"
+            : "PENDING",
 
         status: "GENERATED",
 
