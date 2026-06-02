@@ -68,7 +68,12 @@ export async function POST(req: Request) {
         }
       );
 
-    const invoiceUrl = upload.secure_url;
+    const invoiceUrl = `https://www.angroup.in/api/invoice/${invoice.invoiceNumber}`;
+
+      order.invoice = {
+        invoiceNumber,
+        invoiceUrl,
+      };
 
     /* =========================================
        SAVE IN ORDER
