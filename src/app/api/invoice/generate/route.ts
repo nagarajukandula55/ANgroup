@@ -179,19 +179,24 @@ export async function POST(req: Request) {
       invoiceUrl,
     });
   } catch (err: any) {
-    console.error(
-      "INVOICE API ERROR:",
-      err
-    );
 
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          err?.message ||
-          "Internal Server Error",
-      },
-      { status: 500 }
-    );
-  }
+     console.error("================================");
+     console.error("INVOICE API ERROR");
+     console.error(err);
+     console.error(err?.message);
+     console.error(err?.stack);
+     console.error("================================");
+   
+     return NextResponse.json(
+       {
+         success: false,
+         message: err?.message || "Internal Server Error",
+         stack:
+           process.env.NODE_ENV === "development"
+             ? err?.stack
+             : undefined,
+       },
+       { status: 500 }
+     );
+   }
 }
