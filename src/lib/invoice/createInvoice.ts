@@ -9,15 +9,19 @@ import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
 export async function createInvoiceForOrder(
   orderNumber: string
 ) {
-  
   try {
+    console.log("================================");
+    console.log("CREATE INVOICE START");
+    console.log(
+      "ORDER NUMBER RECEIVED:",
+      orderNumber
+    );
+    console.log(
+      "SCHEMA TYPE:",
+      Invoice.schema.path("orderId").instance
+    );
+    console.log("================================");
 
-      console.log("ORDER ID RECEIVED:", orderId);
-      console.log(
-        "SCHEMA TYPE:",
-        Invoice.schema.path("orderId").instance
-      );
-    
     if (!orderNumber) {
       throw new Error("orderId is required");
     }
@@ -32,14 +36,22 @@ export async function createInvoiceForOrder(
       throw new Error("Order not found");
     }
 
+    console.log("ORDER FOUND");
+    console.log(order.orderId);
+
     /* ================= CHECK EXISTING ================= */
 
     const existingInvoice =
       await Invoice.findOne({
-        orderId: order._id,
+        orderId: order.orderId,
       });
 
     if (existingInvoice) {
+      console.log(
+        "EXISTING INVOICE FOUND:",
+        existingInvoice.invoiceNumber
+      );
+
       return existingInvoice;
     }
 
@@ -66,9 +78,7 @@ export async function createInvoiceForOrder(
           Number(item.price || 0);
 
         const gstPercent =
-          Number(
-            item.gstPercent || 0
-          );
+          Number(item.gstPercent || 0);
 
         const taxableValue =
           qty * price;
@@ -81,8 +91,7 @@ export async function createInvoiceForOrder(
 
         if (isB2B) {
           const gstAmount =
-            (taxableValue *
-              gstPercent) /
+            (taxableValue * gstPercent) /
             100;
 
           const sameState =
@@ -143,6 +152,10 @@ export async function createInvoiceForOrder(
       sgst +
       igst;
 
+    console.log(
+      "ABOUT TO CREATE INVOICE"
+    );
+
     /* ================= CREATE INVOICE ================= */
 
     const invoice =
@@ -151,8 +164,8 @@ export async function createInvoiceForOrder(
           order.businessId ||
           "DEFAULT",
 
-        // IMPORTANT FIX
-        orderId: order._id,
+        orderId:
+          order.orderId,
 
         invoiceNumber:
           generateInvoiceNumber(),
@@ -178,24 +191,24 @@ export async function createInvoiceForOrder(
             "",
 
           gstNumber:
-            order.address
-              ?.gstNumber || "",
+            order.address?.gstNumber ||
+            "",
 
           address:
-            order.address
-              ?.address || "",
+            order.address?.address ||
+            "",
 
           city:
             order.address?.city ||
             "",
 
           state:
-            order.address
-              ?.state || "",
+            order.address?.state ||
+            "",
 
           pincode:
-            order.address
-              ?.pincode || "",
+            order.address?.pincode ||
+            "",
         },
 
         items: invoiceItems,
@@ -223,12 +236,19 @@ export async function createInvoiceForOrder(
         locked: true,
       });
 
+    console.log(
+      "INVOICE CREATED SUCCESSFULLY"
+    );
+    console.log(
+      invoice.invoiceNumber
+    );
+
     return invoice;
   } catch (err: any) {
     console.error(
-      "createInvoiceForOrder error:",
-      err?.message
+      "createInvoiceForOrder error:"
     );
+    console.error(err);
 
     throw err;
   }
