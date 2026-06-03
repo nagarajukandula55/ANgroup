@@ -27,11 +27,17 @@ export default function InvoicePage() {
 
     const [qr, setQr] = useState("");
 
-  const verifyUrl =
-  `${window.location.origin}/api/invoice/verify/${invoiceNumber}`;
-
-  QRCode.toDataURL(verifyUrl)
-    .then(setQr);
+      useEffect(() => {
+        if (!invoiceNumber) return;
+      
+        const verifyUrl =
+          `${window.location.origin}/api/invoice/verify/${invoiceNumber}`;
+      
+        QRCode.toDataURL(verifyUrl)
+          .then((url) => setQr(url))
+          .catch(console.error);
+      
+      }, [invoiceNumber]);
 
   const isB2B = data?.type === "B2B";
 
@@ -92,13 +98,15 @@ export default function InvoicePage() {
     <div>
       <b>Invoice Date:</b>
       {" "}
-      {safe(data?.invoiceDate)}
+      {new Date(data?.invoiceDate)
+        .toLocaleDateString("en-IN")}
     </div>
 
     <div>
       <b>Order Date:</b>
       {" "}
-      {safe(data?.orderDate)}
+      {new Date(data?.orderDate)
+        .toLocaleDateString("en-IN")}
     </div>
 
     <div>
@@ -220,21 +228,20 @@ export default function InvoicePage() {
 <table className="table">
 
   <thead>
-
-    <tr key={idx}>
-    <td>{idx + 1}</td>
-    <td>{safe(i?.name)}</td>
-    <td>{safe(i?.hsn)}</td>
-    <td>{safe(i?.qty)}</td>
-    <td>₹{safe(i?.rate)}</td>
-    <td>₹{safe(i?.taxable)}</td>
-    <td>{safe(i?.gstPercent)}%</td>
-    <td>₹{safe(i?.cgst || 0)}</td>
-    <td>₹{safe(i?.sgst || 0)}</td>
-    <td>₹{safe(i?.igst || 0)}</td>
-    <td>₹{safe(i?.total)}</td>
-  </tr>
-
+      <tr>
+        <th>#</th>
+        <th>Product</th>
+        <th>HSN</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Discount</th>
+        <th>Taxable</th>
+        <th>GST%</th>
+        <th>CGST</th>
+        <th>SGST</th>
+        <th>IGST</th>
+        <th>Total</th>
+      </tr>
   </thead>
 
   <tbody>
@@ -261,43 +268,43 @@ export default function InvoicePage() {
 
   </tbody>
 
+  {/* Total Row */}      
+  
+  <tfoot>
+  
+  <tr>
+  
+    <td colSpan={6}>
+      Total
+    </td>
+  
+    <td>
+      ₹{safe(data?.summary?.taxable)}
+    </td>
+  
+    <td></td>
+  
+    <td>
+      ₹{safe(data?.summary?.cgst)}
+    </td>
+  
+    <td>
+      ₹{safe(data?.summary?.sgst)}
+    </td>
+  
+    <td>
+      ₹{safe(data?.summary?.igst)}
+    </td>
+  
+    <td>
+      ₹{safe(data?.summary?.grandTotal)}
+    </td>
+  
+  </tr>
+  
+  </tfoot>
+
 </table>
-
-{/* Total Row */}      
-
-<tfoot>
-
-<tr>
-
-  <td colSpan={6}>
-    Total
-  </td>
-
-  <td>
-    ₹{safe(data?.summary?.taxable)}
-  </td>
-
-  <td></td>
-
-  <td>
-    ₹{safe(data?.summary?.cgst)}
-  </td>
-
-  <td>
-    ₹{safe(data?.summary?.sgst)}
-  </td>
-
-  <td>
-    ₹{safe(data?.summary?.igst)}
-  </td>
-
-  <td>
-    ₹{safe(data?.summary?.grandTotal)}
-  </td>
-
-</tr>
-
-</tfoot>
 
 {/* HSN Summary TABLE */}
       
@@ -646,7 +653,6 @@ const styles = `
 .qrSection{
   width:40%;
   border:1px solid #000;
-  border-radius:10px;
   padding:15px;
 }
 
