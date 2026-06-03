@@ -70,12 +70,6 @@ export default function InvoicePage() {
       {safe(data?.company?.phone)}
     </div>
 
-    <div>
-      Email:
-      {" "}
-      {safe(data?.company?.email)}
-    </div>
-
   </div>
 
   <div className="invoiceBox">
@@ -210,9 +204,7 @@ export default function InvoicePage() {
 
 {/* PRODUCT TABLE */}
 
-<div className="productTitle">
-  PRODUCT DETAILS
-</div>
+<hr />
 
 <table className="table">
 
@@ -317,7 +309,7 @@ export default function InvoicePage() {
     className="signatureImage"
   />
 
-  <div className="authorized">
+  <div className="signatoryText">
     Authorized Signatory
   </div>
 
@@ -414,12 +406,49 @@ const styles = `
 .table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 10px;
 }
 
-.table th, .table td {
+.table th {
+  background: #000;
+  color: #fff;
+  border: 1px solid #000;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.table td {
   border: 1px solid #000;
   padding: 6px;
-  font-size: 12px;
+  font-size: 11px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.table tbody tr:hover {
+  background: #f3f4f6;
+}
+
+.table td:nth-child(2) {
+  text-align: left;
+  padding-left: 10px;
+}
+
+.table th {
+  font-size: 11px;
+  padding: 7px;
+}
+
+.table td {
+  font-size: 10px;
+  padding: 5px;
 }
 
 .summary {
@@ -520,16 +549,19 @@ const styles = `
 
 .signatureArea{
   text-align:right;
-  margin-top:30px;
+  margin-top:15px;
 }
 
 .signatureImage{
-  height:70px;
+  height:60px;
   object-fit:contain;
+  display:block;
+  margin-left:auto;
 }
 
-.authorized{
-  font-weight:700;
+.signatoryText{
+  margin-top:5px;
+  font-weight:600;
 }
 
 .declaration{
