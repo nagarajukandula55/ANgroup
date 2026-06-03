@@ -178,41 +178,37 @@ const stateCode =
       },
 
       items:
-          invoice.items.map(
-            (item: any) => ({
-              name: item.name,
+        invoice.items.map((item:any)=>({
         
-              hsn:
-                item.hsn || "",
+          name: item.name,
         
-              qty:
-                item.qty || 0,
+          hsn: item.hsn,
         
-              rate:
-                item.price || 0,
+          qty: item.qty,
         
-              discount:
-                item.discount || 0,
+          rate: item.price,
         
-              taxable:
-                item.taxableValue || 0,
+          discount:
+            item.discount || 0,
         
-              gstPercent:
-                item.gstPercent || 0,
+          taxable:
+            item.taxableValue || 0,
         
-              cgst:
-                item.cgst || 0,
+          gstPercent:
+            item.gstPercent || 0,
         
-              sgst:
-                item.sgst || 0,
+          cgst:
+            item.cgst || 0,
         
-              igst:
-                item.igst || 0,
+          sgst:
+            item.sgst || 0,
         
-              total:
-                item.total || 0,
-            })
-          ),
+          igst:
+            item.igst || 0,
+        
+          total:
+            item.total || 0,
+        })),
 
       summary: {
         subtotal:
