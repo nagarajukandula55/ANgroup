@@ -56,9 +56,9 @@ export async function GET(
         invoice.invoiceType,
 
       company: {
-        name: "AN Group",
+        name: "Native",
         tagline:
-          "Premium Retail & Services",
+          "Eat Healthy, Stay Healthy",
 
         address1:
           process.env.COMPANY_ADDRESS1 || "",
