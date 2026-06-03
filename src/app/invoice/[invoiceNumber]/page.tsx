@@ -1,20 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 
-export default function InvoicePage({ params }: any) {
-  const { invoiceNumber } = params;
+export default function InvoicePage() {
+  const { invoiceNumber } = useParams();
+
   const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!invoiceNumber) return;
+
     fetch(`/api/invoice/view/${invoiceNumber}`)
       .then((r) => r.json())
-      .then(setData);
+      .then((res) => {
+        setData(res || null);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [invoiceNumber]);
 
-  if (!data) return <div>Loading...</div>;
+  if (loading) return <div style={{ padding: 20 }}>Loading invoice...</div>;
+  if (!data) return <div>Invoice not found</div>;
 
-  const isB2B = data.type === "B2B";
+  const isB2B = data?.type === "B2B";
+
+  const safe = (v: any) => v ?? "N/A";
 
   return (
     <div className="page">
@@ -23,64 +35,66 @@ export default function InvoicePage({ params }: any) {
       {/* HEADER */}
       <div className="header">
         <div>
-          <div className="title">INVOICE</div>
+          <div className="title">TAX INVOICE</div>
 
           <div className="company">
-            <b>{data.company.name}</b><br />
-            {data.company.tagline}<br />
-            {data.company.address1}<br />
-            {data.company.address2}<br />
-            {data.company.city}, {data.company.state}<br />
-            GSTIN: {data.company.gstin}<br />
-            Phone: {data.company.phone}<br />
-            Email: {data.company.email}
+            <b>{safe(data?.company?.name)}</b><br />
+            {safe(data?.company?.tagline)}<br />
+            {safe(data?.company?.address1)}<br />
+            {safe(data?.company?.address2)}<br />
+            {safe(data?.company?.city)}, {safe(data?.company?.state)}<br />
+            GSTIN: {safe(data?.company?.gstin)}<br />
+            Phone: {safe(data?.company?.phone)}<br />
+            Email: {safe(data?.company?.email)}
           </div>
         </div>
 
         <div className="invoiceBox">
-          <div>Invoice No: {data.invoiceNumber}</div>
-          <div>Date: {data.invoiceDate}</div>
-          <div>Order ID: {data.orderId}</div>
+          <div><b>Invoice No:</b> {safe(data?.invoiceNumber)}</div>
+          <div><b>Date:</b> {safe(data?.invoiceDate)}</div>
+          <div><b>Order ID:</b> {safe(data?.orderId)}</div>
+          <div><b>Type:</b> {isB2B ? "B2B" : "B2C"}</div>
         </div>
       </div>
 
-      {/* CUSTOMER + SHIPPING + PAYMENT */}
+      {/* CUSTOMER / SHIPPING / PAYMENT */}
       <div className="grid3">
 
         <div className="box">
           <h4>BILL TO</h4>
-          <div>{data.customer.name}</div>
-          <div>{data.customer.phone}</div>
-          <div>{data.customer.address}</div>
-          <div>{data.customer.city}, {data.customer.state}</div>
-          <div>{data.customer.pincode}</div>
+          <div>{safe(data?.customer?.name)}</div>
+          <div>{safe(data?.customer?.phone)}</div>
+          <div>{safe(data?.customer?.address)}</div>
+          <div>{safe(data?.customer?.city)}, {safe(data?.customer?.state)}</div>
+          <div>{safe(data?.customer?.pincode)}</div>
 
           {isB2B && (
-            <div>
-              GSTIN: {data.customer.gstin}<br />
-              State: {data.customer.state}
-            </div>
+            <>
+              <hr />
+              <div><b>GSTIN:</b> {safe(data?.customer?.gstin)}</div>
+              <div><b>State Code:</b> {safe(data?.customer?.stateCode)}</div>
+            </>
           )}
         </div>
 
         <div className="box">
           <h4>SHIP TO</h4>
-          <div>{data.shipping.name}</div>
-          <div>{data.shipping.phone}</div>
-          <div>{data.shipping.address}</div>
-          <div>{data.shipping.city}, {data.shipping.state}</div>
-          <div>{data.shipping.pincode}</div>
+          <div>{safe(data?.shipping?.name)}</div>
+          <div>{safe(data?.shipping?.phone)}</div>
+          <div>{safe(data?.shipping?.address)}</div>
+          <div>{safe(data?.shipping?.city)}, {safe(data?.shipping?.state)}</div>
+          <div>{safe(data?.shipping?.pincode)}</div>
         </div>
 
         <div className="box">
           <h4>PAYMENT</h4>
-          <div>Method: {data.payment.method}</div>
-          <div>Status: {data.payment.status}</div>
-          <div>Txn ID: {data.payment.transactionId}</div>
+          <div><b>Method:</b> {safe(data?.payment?.method)}</div>
+          <div><b>Status:</b> {safe(data?.payment?.status)}</div>
+          <div><b>Txn ID:</b> {safe(data?.payment?.transactionId)}</div>
         </div>
       </div>
 
-      {/* ITEMS + SUMMARY */}
+      {/* ITEMS */}
       <div className="main">
 
         <table className="table">
@@ -98,16 +112,16 @@ export default function InvoicePage({ params }: any) {
           </thead>
 
           <tbody>
-            {data.items.map((i: any, idx: number) => (
+            {(data?.items || []).map((i: any, idx: number) => (
               <tr key={idx}>
                 <td>{idx + 1}</td>
-                <td>{i.name}</td>
-                <td>{i.hsn}</td>
-                <td>{i.qty}</td>
-                <td>{i.rate}</td>
-                <td>{i.gstPercent}%</td>
-                <td>{i.taxable}</td>
-                <td>{i.total}</td>
+                <td>{safe(i?.name)}</td>
+                <td>{safe(i?.hsn)}</td>
+                <td>{safe(i?.qty)}</td>
+                <td>{safe(i?.rate)}</td>
+                <td>{safe(i?.gstPercent)}</td>
+                <td>{safe(i?.taxable)}</td>
+                <td>{safe(i?.total)}</td>
               </tr>
             ))}
           </tbody>
@@ -115,33 +129,30 @@ export default function InvoicePage({ params }: any) {
 
         {/* SUMMARY */}
         <div className="summary">
-          <div>Taxable: ₹{data.summary.taxable}</div>
-          <div>Discount: ₹{data.summary.discount}</div>
-          <div>CGST: ₹{data.summary.cgst}</div>
-          <div>SGST: ₹{data.summary.sgst}</div>
-          <div>IGST: ₹{data.summary.igst}</div>
+          <div>Taxable: ₹{safe(data?.summary?.taxable)}</div>
+          <div>Discount: ₹{safe(data?.summary?.discount)}</div>
+          <div>CGST: ₹{safe(data?.summary?.cgst)}</div>
+          <div>SGST: ₹{safe(data?.summary?.sgst)}</div>
+          <div>IGST: ₹{safe(data?.summary?.igst)}</div>
 
           <div className="grand">
-            Grand Total: ₹{data.summary.grandTotal}
+            Grand Total: ₹{safe(data?.summary?.grandTotal)}
           </div>
         </div>
       </div>
 
-      {/* QR SECTION */}
+      {/* QR */}
       <div className="qrBox">
-        <div>QR (Invoice Verification)</div>
+        <div>QR Verification</div>
         <div className="qrPlaceholder">QR COMING</div>
       </div>
 
-      {/* SIGNATURE */}
-      <div className="sign">
-        Authorized Signatory
-      </div>
+      {/* SIGN */}
+      <div className="sign">Authorized Signatory</div>
 
       {/* FOOTER */}
       <div className="footer">
-        Thanks for Shopping with Native ❤️
-        <br />
+        Thanks for Shopping with Native ❤️<br />
         This is a computer generated GST invoice
       </div>
 
