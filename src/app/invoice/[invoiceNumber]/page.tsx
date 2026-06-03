@@ -29,7 +29,7 @@ export default function InvoicePage() {
       if (!invoiceNumber) return;
     
       const verifyUrl =
-        `${window.location.origin}/api/invoice/verify/${invoiceNumber}`;
+        `${window.location.origin}/invoice/verify/${invoiceNumber}`;
     
       QRCode.toDataURL(verifyUrl)
         .then((url) => setQr(url))
