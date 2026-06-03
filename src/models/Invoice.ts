@@ -7,6 +7,7 @@ const InvoiceItemSchema = new mongoose.Schema(
     hsn: String,
     qty: Number,
     price: Number,
+    discount: Number,
     taxableValue: Number,
     gstPercent: Number,
     cgst: Number,
