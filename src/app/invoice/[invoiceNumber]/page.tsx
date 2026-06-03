@@ -163,7 +163,7 @@ export default function InvoicePage() {
     <div>{safe(data?.shipping?.address || data?.customer?.address)}</div>
 
     <div>
-      {{safe(data?.shipping?.city || data?.customer?.city)},
+      {safe(data?.shipping?.city || data?.customer?.city)},
       {" "}
       {safe(data?.shipping?.state || data?.customer?.state)}
     </div>
