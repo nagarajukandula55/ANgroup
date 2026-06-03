@@ -261,7 +261,7 @@ export default function InvoicePage() {
 
 <tr>
 
-  <td colSpan="6">
+  <td colSpan={6}>
     Total
   </td>
 
