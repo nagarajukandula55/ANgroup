@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import QRCode from "qrcode";
 
 export default function InvoicePage() {
   const { invoiceNumber } = useParams();
@@ -19,10 +20,18 @@ export default function InvoicePage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [invoiceNumber]);
+  }, [invoiceNumber]);  
 
   if (loading) return <div style={{ padding: 20 }}>Loading invoice...</div>;
   if (!data) return <div>Invoice not found</div>;
+
+    const [qr, setQr] = useState("");
+
+  const verifyUrl =
+  `${window.location.origin}/api/invoice/verify/${invoiceNumber}`;
+
+  QRCode.toDataURL(verifyUrl)
+    .then(setQr);
 
   const isB2B = data?.type === "B2B";
 
@@ -317,9 +326,12 @@ export default function InvoicePage() {
   <div className="qrSection">
 
     <img
-      src={data?.qrCodeUrl}
-      alt="Invoice QR"
-      className="qrImage"
+      src={qr}
+      alt="QR"
+      style={{
+        width: 120,
+        height: 120
+      }}
     />
 
     <div className="gstMeta">
