@@ -1,43 +1,33 @@
-export async function sendOrderNotification(
-  order: any
-) {
+export async function sendOrderNotification(order: any) {
   try {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_GROUP_ID;
+
+    if (!token || !chatId) return;
+
     const message = `
 🛒 NEW ORDER RECEIVED
 
-Order ID:
-${order.orderId}
+Order ID: ${order.orderId}
 
-Customer:
-${order.address?.name}
+Customer: ${order.address?.name}
 
-Phone:
-${order.address?.phone}
+Phone: ${order.address?.phone}
 
-Amount:
-₹${order.amount}
+Amount: ₹${order.amount}
 
-Payment:
-${order.payment?.status}
-
-Items:
-${order.cart?.map(
-  (i:any)=>
-    `• ${i.name} x ${i.qty}`
-).join("\n")}
+Status: ${order.status}
 `;
 
     await fetch(
-      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      `https://api.telegram.org/bot${token}/sendMessage`,
       {
         method: "POST",
         headers: {
-          "Content-Type":
-            "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          chat_id:
-            process.env.TELEGRAM_GROUP_ID,
+          chat_id: chatId,
           text: message,
           parse_mode: "HTML",
         }),
@@ -45,7 +35,7 @@ ${order.cart?.map(
     );
   } catch (err) {
     console.error(
-      "Telegram Error",
+      "Telegram notification failed",
       err
     );
   }
