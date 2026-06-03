@@ -26,7 +26,8 @@
     "iconv-lite": "^0.6.3",
     "@sparticuz/chromium": "^123.0.0",
     "puppeteer": "^22.0.0",
-    "cloudinary": "^2.7.0"
+    "cloudinary": "^2.7.0",
+    "qrcode": "^1.5.4"
 
   },
 
@@ -43,6 +44,7 @@
     "typescript": "^5.8.3",
     "pdf-lib": "^1.17.1",
     "fontkit": "^2.0.2",
-    "razorpay": "^2.9.4"
+    "razorpay": "^2.9.4",
+    "@types/qrcode": "^1.5.5"
   }
 }
