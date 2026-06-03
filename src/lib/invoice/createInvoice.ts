@@ -81,46 +81,49 @@ export async function createInvoiceForOrder(
     const invoiceItems = items.map(
       (item: any) => {
         const qty = Number(item.qty || 1);
-        const price = Number(item.price || 0);
-        const gstPercent = Number(
-          item.gstPercent || 0
+
+        console.log(
+          "ITEM DATA =>",
+          JSON.stringify(item, null, 2)
         );
 
-        const taxableValue =
-          qty * price;
-
+        const price = Number(
+          item.price ||
+          item.sellingPrice ||
+          item.snapshot?.price ||
+          0
+        );
+        
+        const taxableValue = Number(
+          item.taxableValue ||
+          item.taxable ||
+          qty * price
+        );
+        
+        const gstPercent = Number(
+          item.gstPercent ||
+          item.gst ||
+          item.snapshot?.gstPercent ||
+          0
+        );
+        
+        const itemCgst = Number(
+          item.cgst || 0
+        );
+        
+        const itemSgst = Number(
+          item.sgst || 0
+        );
+        
+        const itemIgst = Number(
+          item.igst || 0
+        );
+        
         subtotal += taxableValue;
-
-        let itemCgst = 0;
-        let itemSgst = 0;
-        let itemIgst = 0;
-
-        if (isB2B) {
-          const gstAmount =
-            (taxableValue * gstPercent) /
-            100;
-
-          const sameState =
-            order.address?.state &&
-            order.business?.state &&
-            order.address.state ===
-              order.business.state;
-
-          if (sameState) {
-            itemCgst =
-              gstAmount / 2;
-
-            itemSgst =
-              gstAmount / 2;
-          } else {
-            itemIgst =
-              gstAmount;
-          }
-
-          cgst += itemCgst;
-          sgst += itemSgst;
-          igst += itemIgst;
-        }
+        
+        cgst += itemCgst;
+        sgst += itemSgst;
+        igst += itemIgst;
 
         return {
           productId:
@@ -130,9 +133,10 @@ export async function createInvoiceForOrder(
             item.name || "",
 
           hsn:
-            item.snapshot?.hsn ||
-            item.hsn ||
-            "",
+          item.hsn ||
+          item.snapshot?.hsn ||
+          item.product?.hsn ||
+          "",
 
           qty,
           price,
@@ -144,19 +148,22 @@ export async function createInvoiceForOrder(
           igst: itemIgst,
 
           total:
-            taxableValue +
-            itemCgst +
-            itemSgst +
-            itemIgst,
+          item.total ||
+          item.finalAmount ||
+          taxableValue +
+          itemCgst +
+          itemSgst +
+          itemIgst,
         };
       }
     );
 
     const grandTotal =
-      subtotal +
-      cgst +
-      sgst +
-      igst;
+      Number(
+        order.amount ||
+        order.finalAmount ||
+        subtotal + cgst + sgst + igst
+      );
 
     console.log("ABOUT TO CREATE INVOICE");
     console.log({
