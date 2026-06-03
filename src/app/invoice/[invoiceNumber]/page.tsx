@@ -177,7 +177,7 @@ export default function InvoicePage() {
   <div className="box">
 
     <div className="sectionTitle">
-      PAYMENT DETAILS
+      PAYMENT
     </div>
 
     <div>
@@ -245,21 +245,39 @@ export default function InvoicePage() {
 
 </table>
 
+{/* HSN Summary TABLE */}
+      
+{isB2B && (
+<div className="hsnSummary">
+
+  <div className="sectionTitle">
+    HSN SUMMARY
+  </div>
+
+  {(data?.hsnSummary || []).map((row:any,index:number)=>(
+    <div key={index}>
+      HSN {row.hsn}
+      {" - "}
+      ₹{row.taxable}
+    </div>
+  ))}
+
+</div>
+)}
+
 {/* QR + GST SUMMARY */}
 
 <div className="summaryRow">
 
-  <div className="qrSection">
+<div className="qrSection">
 
-    <div className="sectionTitle">
-      QR VERIFICATION
-    </div>
+  <img
+    src={data?.qrCodeUrl}
+    alt="Invoice QR"
+    className="qrImage"
+  />
 
-    <div className="qrPlaceholder">
-      QR CODE
-    </div>
-
-  </div>
+</div>
 
   <div className="summary">
 
@@ -315,6 +333,18 @@ export default function InvoicePage() {
 
 </div>
 
+{/* FOOTER */}
+
+<div className="footer">
+
+  Thanks for Shopping with Native ❤️
+
+  <br />
+
+  This is a computer generated GST invoice.
+
+</div>
+
 {/* DECLARATION */}
 
 <div className="declaration">
@@ -332,18 +362,6 @@ export default function InvoicePage() {
   </p>
 
 </div>
-
-{/* FOOTER */}
-
-<div className="footer">
-
-  Thanks for Shopping with Native ❤️
-
-  <br />
-
-  This is a computer generated GST invoice.
-
-</div>
       
       <button onClick={() => window.print()} className="printBtn">
         Print / Download PDF
@@ -358,7 +376,7 @@ const styles = `
 .page {
   max-width: 900px;
   margin: auto;
-  padding: 20px;
+  padding: 12px;
   font-family: Arial;
   color: #000;
 }
@@ -387,13 +405,13 @@ const styles = `
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
-  margin-top: 15px;
+  margin-top: 8px;
 }
 
-.box {
-  border: 1px solid #000;
-  padding: 10px;
-  border-radius: 10px;
+.box{
+  border:1px solid #000;
+  padding:8px;
+  border-radius:0;
 }
 
 .main {
@@ -438,7 +456,8 @@ const styles = `
 
 .table td:nth-child(2) {
   text-align: left;
-  padding-left: 10px;
+  padding-left: 8px;
+  width:35%;
 }
 
 .table th {
@@ -463,15 +482,12 @@ const styles = `
   margin-top: 10px;
 }
 
-.qrBox {
-  margin-top: 15px;
-  border: 1px dashed #000;
-  padding: 10px;
-  text-align: center;
-}
-
-.qrPlaceholder {
-  height: 80px;
+.qrImage{
+  width:120px;
+  height:120px;
+  object-fit:contain;
+  display:block;
+  margin:auto;
 }
 
 .sign {
@@ -503,7 +519,7 @@ const styles = `
 .companyCard{
   flex:1;
   font-size:13px;
-  line-height:1.7;
+  line-height:1.3;
 }
 
 .companyName{
@@ -519,7 +535,7 @@ const styles = `
 }
 
 .productTitle{
-  margin-top:20px;
+  margin-top:10px;
   margin-bottom:10px;
   font-weight:700;
   text-decoration:underline;
@@ -539,6 +555,13 @@ const styles = `
   padding:15px;
 }
 
+.hsnSummary{
+  margin-top:10px;
+  border-top:1px solid #ccc;
+  padding-top:10px;
+  font-size:11px;
+}
+
 .summary{
   width:60%;
   border:1px solid #000;
@@ -548,8 +571,10 @@ const styles = `
 }
 
 .signatureArea{
+  width:60%;
+  margin-left:auto;
   text-align:right;
-  margin-top:15px;
+  margin-top:10px;
 }
 
 .signatureImage{
@@ -560,8 +585,9 @@ const styles = `
 }
 
 .signatoryText{
-  margin-top:5px;
-  font-weight:600;
+  margin-top:3px;
+  font-size:11px;
+  font-weight:500;
 }
 
 .declaration{
