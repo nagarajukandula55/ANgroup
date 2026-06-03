@@ -9,6 +9,9 @@ export default function InvoicePage() {
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [qr, setQr] = useState("");
+  const isB2B = data?.type === "B2B";
+  const safe = (v: any) => v ?? "N/A";
 
   useEffect(() => {
     if (!invoiceNumber) return;
@@ -22,26 +25,20 @@ export default function InvoicePage() {
       .catch(() => setLoading(false));
   }, [invoiceNumber]);  
 
+    useEffect(() => {
+      if (!invoiceNumber) return;
+    
+      const verifyUrl =
+        `${window.location.origin}/api/invoice/verify/${invoiceNumber}`;
+    
+      QRCode.toDataURL(verifyUrl)
+        .then((url) => setQr(url))
+        .catch(console.error);
+    
+    }, [invoiceNumber]);
+
   if (loading) return <div style={{ padding: 20 }}>Loading invoice...</div>;
   if (!data) return <div>Invoice not found</div>;
-
-    const [qr, setQr] = useState("");
-
-      useEffect(() => {
-        if (!invoiceNumber) return;
-      
-        const verifyUrl =
-          `${window.location.origin}/api/invoice/verify/${invoiceNumber}`;
-      
-        QRCode.toDataURL(verifyUrl)
-          .then((url) => setQr(url))
-          .catch(console.error);
-      
-      }, [invoiceNumber]);
-
-  const isB2B = data?.type === "B2B";
-
-  const safe = (v: any) => v ?? "N/A";
 
   return (
     <div className="page">
