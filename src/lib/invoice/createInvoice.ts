@@ -122,42 +122,46 @@ export async function createInvoiceForOrder(
     cgst += itemCgst;
     sgst += itemSgst;
     igst += itemIgst;
-  
-    return {
-      productId: item.productId || "",
-  
-      name: item.name || "",
-  
-      hsn:
-        item.hsn ||
-        item.snapshot?.hsn ||
-        item.product?.hsn ||
-        "1101",
-  
-      qty,
-  
-      price,
-  
-      taxableValue,
-  
-      gstPercent,
-  
-      cgst: itemCgst,
-  
-      sgst: itemSgst,
-  
-      igst: itemIgst,
-  
-      total:
-        Number(
-          item.lineTotal ||
-          item.total ||
-          taxableValue +
-          itemCgst +
-          itemSgst +
-          itemIgst
+        
+      return {
+        productId: item.productId || "",
+      
+        name: item.name || "",
+      
+        hsn:
+          item.hsn ||
+          item.snapshot?.hsn ||
+          item.product?.hsn ||
+          "1101",
+      
+        qty,
+      
+        price,
+      
+        discount: Number(
+          item.discount || 0
         ),
-    };
+      
+        taxableValue,
+      
+        gstPercent,
+      
+        cgst: itemCgst,
+      
+        sgst: itemSgst,
+      
+        igst: itemIgst,
+      
+        total:
+          Number(
+            item.lineTotal ||
+            item.total ||
+            taxableValue +
+            itemCgst +
+            itemSgst +
+            itemIgst
+          ),
+      };
   });
 
     const subtotalValue =
