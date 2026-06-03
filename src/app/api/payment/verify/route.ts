@@ -278,6 +278,8 @@ export async function POST(req: Request) {
 
     await order.save();
 
+     await sendOrderNotification(order);
+
     console.log(
       "PAYMENT VERIFIED:",
       orderId
