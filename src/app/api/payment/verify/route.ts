@@ -5,6 +5,8 @@ import crypto from "crypto";
 
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
+import { sendOrderNotification }
+from "@/lib/telegram/sendOrderNotification";
 
 /* =========================================================
    CORS
