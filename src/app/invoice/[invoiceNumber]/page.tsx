@@ -271,7 +271,13 @@ export default function InvoicePage() {
   
   <tr>
   
-    <td colSpan={6}>
+    <td
+      colSpan={6}
+      style={{
+        textAlign: "center",
+        fontWeight: 700,
+      }}
+    >
       Total
     </td>
   
