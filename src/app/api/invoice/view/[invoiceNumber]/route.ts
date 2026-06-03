@@ -173,8 +173,11 @@ const stateCode =
           invoice.paymentStatus,
 
         transactionId:
-          order?.payment
-            ?.transactionId || "",
+          order?.payment?.razorpayPaymentId ||
+          order?.payment?.paymentId ||
+          order?.payment?.transactionId ||
+          order?.razorpayPaymentId ||
+          "",
       },
 
       items:
