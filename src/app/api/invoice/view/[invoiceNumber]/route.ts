@@ -20,6 +20,43 @@ export async function GET(
         invoiceNumber,
       });
 
+const STATE_CODES: Record<string, string> = {
+      "Andhra Pradesh": "37",
+      "Arunachal Pradesh": "12",
+      "Assam": "18",
+      "Bihar": "10",
+      "Chhattisgarh": "22",
+      "Goa": "30",
+      "Gujarat": "24",
+      "Haryana": "06",
+      "Himachal Pradesh": "02",
+      "Jharkhand": "20",
+      "Karnataka": "29",
+      "Kerala": "32",
+      "Madhya Pradesh": "23",
+      "Maharashtra": "27",
+      "Manipur": "14",
+      "Meghalaya": "17",
+      "Mizoram": "15",
+      "Nagaland": "13",
+      "Odisha": "21",
+      "Punjab": "03",
+      "Rajasthan": "08",
+      "Sikkim": "11",
+      "Tamil Nadu": "33",
+      "Telangana": "36",
+      "Tripura": "16",
+      "Uttar Pradesh": "09",
+      "Uttarakhand": "05",
+      "West Bengal": "19",
+      "Delhi": "07",
+    };
+    
+const stateCode =
+  STATE_CODES[
+    invoice.customer?.state || ""
+  ] || "";
+    
     if (!invoice) {
       return NextResponse.json(
         {
@@ -104,8 +141,7 @@ export async function GET(
         gstin:
           invoice.customer?.gstNumber,
 
-        stateCode:
-          "",
+        stateCode: stateCode,
       },
 
       shipping: {
@@ -142,51 +178,69 @@ export async function GET(
       },
 
       items:
-        invoice.items.map(
-          (item: any) => ({
-            name: item.name,
-
-            hsn: item.hsn,
-
-            qty: item.qty,
-
-            rate:
-              item.price,
-
-            gstPercent:
-              item.gstPercent,
-
-            taxable:
-              item.taxableValue,
-
-            total:
-              item.total,
-          })
-        ),
+          invoice.items.map(
+            (item: any) => ({
+              name: item.name,
+        
+              hsn:
+                item.hsn || "",
+        
+              qty:
+                item.qty || 0,
+        
+              rate:
+                item.price || 0,
+        
+              discount:
+                item.discount || 0,
+        
+              taxable:
+                item.taxableValue || 0,
+        
+              gstPercent:
+                item.gstPercent || 0,
+        
+              cgst:
+                item.cgst || 0,
+        
+              sgst:
+                item.sgst || 0,
+        
+              igst:
+                item.igst || 0,
+        
+              total:
+                item.total || 0,
+            })
+          ),
 
       summary: {
+        subtotal:
+          invoice.subtotal || 0,
+      
+        discount:
+          invoice.discount || 0,
+      
         taxable:
-          invoice.taxableAmount,
-
-        discount: 0,
-
+          invoice.taxableAmount || 0,
+      
         cgst:
-          invoice.cgst,
-
+          invoice.cgst || 0,
+      
         sgst:
-          invoice.sgst,
-
+          invoice.sgst || 0,
+      
         igst:
-          invoice.igst,
-
+          invoice.igst || 0,
+      
         grandTotal:
-          invoice.grandTotal,
+          invoice.grandTotal || 0,
       },
 
       placeOfSupply:
         invoice.customer?.state,
 
-      stateCode: "",
+      stateCode,
 
       supplyType:
         invoice.invoiceType ===
