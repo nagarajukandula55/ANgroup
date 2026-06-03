@@ -32,130 +32,327 @@ export default function InvoicePage() {
     <div className="page">
       <style>{styles}</style>
 
-      {/* HEADER */}
-      <div className="header">
+{/* TAX INVOICE TITLE */}
+<div className="invoiceTitle">
+  TAX INVOICE
+</div>
+
+{/* COMPANY + INVOICE DETAILS */}
+<div className="header">
+
+  <div className="companyCard">
+
+    <div className="companyName">
+      {safe(data?.company?.name)}
+    </div>
+
+    <div>{safe(data?.company?.tagline)}</div>
+
+    <div>{safe(data?.company?.address1)}</div>
+
+    <div>{safe(data?.company?.address2)}</div>
+
+    <div>
+      {safe(data?.company?.city)},
+      {" "}
+      {safe(data?.company?.state)}
+    </div>
+
+    <div>
+      GSTIN:
+      {" "}
+      {safe(data?.company?.gstin)}
+    </div>
+
+    <div>
+      Phone:
+      {" "}
+      {safe(data?.company?.phone)}
+    </div>
+
+    <div>
+      Email:
+      {" "}
+      {safe(data?.company?.email)}
+    </div>
+
+  </div>
+
+  <div className="invoiceBox">
+
+    <div>
+      <b>Invoice No:</b>
+      {" "}
+      {safe(data?.invoiceNumber)}
+    </div>
+
+    <div>
+      <b>Invoice Date:</b>
+      {" "}
+      {safe(data?.invoiceDate)}
+    </div>
+
+    <div>
+      <b>Order Date:</b>
+      {" "}
+      {safe(data?.orderDate)}
+    </div>
+
+    <div>
+      <b>Order ID:</b>
+      {" "}
+      {safe(data?.orderId)}
+    </div>
+
+    <div>
+      <b>Invoice Type:</b>
+      {" "}
+      {isB2B ? "B2B" : "B2C"}
+    </div>
+
+  </div>
+
+</div>
+
+{/* BILL TO / SHIP TO / PAYMENT */}
+
+<div className="grid3">
+
+  <div className="box">
+
+    <div className="sectionTitle">
+      BILL TO
+    </div>
+
+    <div>{safe(data?.customer?.name)}</div>
+    <div>{safe(data?.customer?.phone)}</div>
+    <div>{safe(data?.customer?.address)}</div>
+
+    <div>
+      {safe(data?.customer?.city)},
+      {" "}
+      {safe(data?.customer?.state)}
+    </div>
+
+    <div>
+      {safe(data?.customer?.pincode)}
+    </div>
+
+    {isB2B && (
+      <>
+        <br />
+
         <div>
-          <div className="title">TAX INVOICE</div>
-
-          <div className="company">
-            <b>{safe(data?.company?.name)}</b><br />
-            {safe(data?.company?.tagline)}<br />
-            {safe(data?.company?.address1)}<br />
-            {safe(data?.company?.address2)}<br />
-            {safe(data?.company?.city)}, {safe(data?.company?.state)}<br />
-            GSTIN: {safe(data?.company?.gstin)}<br />
-            Phone: {safe(data?.company?.phone)}<br />
-            Email: {safe(data?.company?.email)}
-          </div>
+          GSTIN:
+          {" "}
+          {safe(data?.customer?.gstin)}
         </div>
 
-        <div className="invoiceBox">
-          <div><b>Invoice No:</b> {safe(data?.invoiceNumber)}</div>
-          <div><b>Date:</b> {safe(data?.invoiceDate)}</div>
-          <div><b>Order ID:</b> {safe(data?.orderId)}</div>
-          <div><b>Type:</b> {isB2B ? "B2B" : "B2C"}</div>
+        <div>
+          State Code:
+          {" "}
+          {safe(data?.customer?.stateCode)}
         </div>
-      </div>
+      </>
+    )}
 
-      {/* CUSTOMER / SHIPPING / PAYMENT */}
-      <div className="grid3">
+  </div>
 
-        <div className="box">
-          <h4>BILL TO</h4>
-          <div>{safe(data?.customer?.name)}</div>
-          <div>{safe(data?.customer?.phone)}</div>
-          <div>{safe(data?.customer?.address)}</div>
-          <div>{safe(data?.customer?.city)}, {safe(data?.customer?.state)}</div>
-          <div>{safe(data?.customer?.pincode)}</div>
+  <div className="box">
 
-          {isB2B && (
-            <>
-              <hr />
-              <div><b>GSTIN:</b> {safe(data?.customer?.gstin)}</div>
-              <div><b>State Code:</b> {safe(data?.customer?.stateCode)}</div>
-            </>
-          )}
-        </div>
+    <div className="sectionTitle">
+      SHIP TO
+    </div>
 
-        <div className="box">
-          <h4>SHIP TO</h4>
-          <div>{safe(data?.shipping?.name)}</div>
-          <div>{safe(data?.shipping?.phone)}</div>
-          <div>{safe(data?.shipping?.address)}</div>
-          <div>{safe(data?.shipping?.city)}, {safe(data?.shipping?.state)}</div>
-          <div>{safe(data?.shipping?.pincode)}</div>
-        </div>
+    <div>{safe(data?.shipping?.name)}</div>
+    <div>{safe(data?.shipping?.phone)}</div>
+    <div>{safe(data?.shipping?.address)}</div>
 
-        <div className="box">
-          <h4>PAYMENT</h4>
-          <div><b>Method:</b> {safe(data?.payment?.method)}</div>
-          <div><b>Status:</b> {safe(data?.payment?.status)}</div>
-          <div><b>Txn ID:</b> {safe(data?.payment?.transactionId)}</div>
-        </div>
-      </div>
+    <div>
+      {safe(data?.shipping?.city)},
+      {" "}
+      {safe(data?.shipping?.state)}
+    </div>
 
-      {/* ITEMS */}
-      <div className="main">
+    <div>
+      {safe(data?.shipping?.pincode)}
+    </div>
 
-        <table className="table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Product</th>
-              <th>HSN</th>
-              <th>Qty</th>
-              <th>Rate</th>
-              <th>GST%</th>
-              <th>Taxable</th>
-              <th>Total</th>
-            </tr>
-          </thead>
+  </div>
 
-          <tbody>
-            {(data?.items || []).map((i: any, idx: number) => (
-              <tr key={idx}>
-                <td>{idx + 1}</td>
-                <td>{safe(i?.name)}</td>
-                <td>{safe(i?.hsn)}</td>
-                <td>{safe(i?.qty)}</td>
-                <td>{safe(i?.rate)}</td>
-                <td>{safe(i?.gstPercent)}</td>
-                <td>{safe(i?.taxable)}</td>
-                <td>{safe(i?.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  <div className="box">
 
-        {/* SUMMARY */}
-        <div className="summary">
-          <div>Taxable: ₹{safe(data?.summary?.taxable)}</div>
-          <div>Discount: ₹{safe(data?.summary?.discount)}</div>
-          <div>CGST: ₹{safe(data?.summary?.cgst)}</div>
-          <div>SGST: ₹{safe(data?.summary?.sgst)}</div>
-          <div>IGST: ₹{safe(data?.summary?.igst)}</div>
+    <div className="sectionTitle">
+      PAYMENT DETAILS
+    </div>
 
-          <div className="grand">
-            Grand Total: ₹{safe(data?.summary?.grandTotal)}
-          </div>
-        </div>
-      </div>
+    <div>
+      Method:
+      {" "}
+      {safe(data?.payment?.method)}
+    </div>
 
-      {/* QR */}
-      <div className="qrBox">
-        <div>QR Verification</div>
-        <div className="qrPlaceholder">QR COMING</div>
-      </div>
+    <div>
+      Status:
+      {" "}
+      {safe(data?.payment?.status)}
+    </div>
 
-      {/* SIGN */}
-      <div className="sign">Authorized Signatory</div>
+    <div>
+      Transaction:
+      {" "}
+      {safe(data?.payment?.transactionId)}
+    </div>
 
-      {/* FOOTER */}
-      <div className="footer">
-        Thanks for Shopping with Native ❤️<br />
-        This is a computer generated GST invoice
-      </div>
+  </div>
 
+</div>
+
+{/* PRODUCT TABLE */}
+
+<div className="productTitle">
+  PRODUCT DETAILS
+</div>
+
+<table className="table">
+
+  <thead>
+
+    <tr>
+      <th>#</th>
+      <th>Product</th>
+      <th>HSN</th>
+      <th>Qty</th>
+      <th>Rate</th>
+      <th>GST%</th>
+      <th>Taxable</th>
+      <th>Total</th>
+    </tr>
+
+  </thead>
+
+  <tbody>
+
+    {(data?.items || []).map(
+      (i: any, idx: number) => (
+
+      <tr key={idx}>
+        <td>{idx + 1}</td>
+        <td>{safe(i?.name)}</td>
+        <td>{safe(i?.hsn)}</td>
+        <td>{safe(i?.qty)}</td>
+        <td>{safe(i?.rate)}</td>
+        <td>{safe(i?.gstPercent)}</td>
+        <td>{safe(i?.taxable)}</td>
+        <td>{safe(i?.total)}</td>
+      </tr>
+
+    ))}
+
+  </tbody>
+
+</table>
+
+{/* QR + GST SUMMARY */}
+
+<div className="summaryRow">
+
+  <div className="qrSection">
+
+    <div className="sectionTitle">
+      QR VERIFICATION
+    </div>
+
+    <div className="qrPlaceholder">
+      QR CODE
+    </div>
+
+  </div>
+
+  <div className="summary">
+
+    <div>
+      Taxable Amount :
+      ₹ {safe(data?.summary?.taxable)}
+    </div>
+
+    <div>
+      Discount :
+      ₹ {safe(data?.summary?.discount)}
+    </div>
+
+    <div>
+      CGST :
+      ₹ {safe(data?.summary?.cgst)}
+    </div>
+
+    <div>
+      SGST :
+      ₹ {safe(data?.summary?.sgst)}
+    </div>
+
+    <div>
+      IGST :
+      ₹ {safe(data?.summary?.igst)}
+    </div>
+
+    <div className="grand">
+
+      Grand Total :
+      ₹ {safe(data?.summary?.grandTotal)}
+
+    </div>
+
+  </div>
+
+</div>
+
+{/* SIGNATURE */}
+
+<div className="signatureArea">
+
+  <img
+    src="/signature.png"
+    alt="signature"
+    className="signatureImage"
+  />
+
+  <div className="authorized">
+    Authorized Signatory
+  </div>
+
+</div>
+
+{/* DECLARATION */}
+
+<div className="declaration">
+
+  <b>Declaration</b>
+
+  <p>
+
+    Certified that the particulars
+    given above are true and correct.
+    This invoice is generated
+    electronically and does not
+    require a physical signature.
+
+  </p>
+
+</div>
+
+{/* FOOTER */}
+
+<div className="footer">
+
+  Thanks for Shopping with Native ❤️
+
+  <br />
+
+  This is a computer generated GST invoice.
+
+</div>
+      
       <button onClick={() => window.print()} className="printBtn">
         Print / Download PDF
       </button>
@@ -264,6 +461,82 @@ const styles = `
   padding: 10px;
   background: black;
   color: white;
+}
+
+.invoiceTitle{
+  text-align:center;
+  font-size:28px;
+  font-weight:700;
+  text-decoration:underline;
+  margin-bottom:20px;
+}
+
+.companyCard{
+  flex:1;
+  font-size:13px;
+  line-height:1.7;
+}
+
+.companyName{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.sectionTitle{
+  font-weight:700;
+  text-decoration:underline;
+  margin-bottom:10px;
+}
+
+.productTitle{
+  margin-top:20px;
+  margin-bottom:10px;
+  font-weight:700;
+  text-decoration:underline;
+}
+
+.summaryRow{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  margin-top:20px;
+}
+
+.qrSection{
+  width:40%;
+  border:1px solid #000;
+  border-radius:10px;
+  padding:15px;
+}
+
+.summary{
+  width:60%;
+  border:1px solid #000;
+  border-radius:10px;
+  padding:15px;
+  line-height:2;
+}
+
+.signatureArea{
+  text-align:right;
+  margin-top:30px;
+}
+
+.signatureImage{
+  height:70px;
+  object-fit:contain;
+}
+
+.authorized{
+  font-weight:700;
+}
+
+.declaration{
+  margin-top:20px;
+  border-top:1px solid #ddd;
+  padding-top:15px;
+  font-size:12px;
 }
 
 @media print {
