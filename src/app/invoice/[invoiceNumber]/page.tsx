@@ -212,20 +212,19 @@ export default function InvoicePage() {
 
   <thead>
 
-    <tr>
-      <th>S.No</th>
-      <th>Description</th>
-      <th>HSN/SAC</th>
-      <th>Qty</th>
-      <th>Unit Price</th>
-      <th>Discount</th>
-      <th>Taxable Value</th>
-      <th>GST %</th>
-      <th>CGST</th>
-      <th>SGST</th>
-      <th>IGST</th>
-      <th>Total</th>
-    </tr>
+    <tr key={idx}>
+    <td>{idx + 1}</td>
+    <td>{safe(i?.name)}</td>
+    <td>{safe(i?.hsn)}</td>
+    <td>{safe(i?.qty)}</td>
+    <td>₹{safe(i?.rate)}</td>
+    <td>₹{safe(i?.taxable)}</td>
+    <td>{safe(i?.gstPercent)}%</td>
+    <td>₹{safe(i?.cgst || 0)}</td>
+    <td>₹{safe(i?.sgst || 0)}</td>
+    <td>₹{safe(i?.igst || 0)}</td>
+    <td>₹{safe(i?.total)}</td>
+  </tr>
 
   </thead>
 
