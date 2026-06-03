@@ -158,18 +158,18 @@ export default function InvoicePage() {
       SHIP TO
     </div>
 
-    <div>{safe(data?.shipping?.name)}</div>
-    <div>{safe(data?.shipping?.phone)}</div>
-    <div>{safe(data?.shipping?.address)}</div>
+    <div>{safe(data?.shipping?.name || data?.customer?.name)}</div>
+    <div>{safe(data?.shipping?.phone || data?.customer?.phone)}</div>
+    <div>{safe(data?.shipping?.address || data?.customer?.address)}</div>
 
     <div>
-      {safe(data?.shipping?.city)},
+      {{safe(data?.shipping?.city || data?.customer?.city)},
       {" "}
-      {safe(data?.shipping?.state)}
+      {safe(data?.shipping?.state || data?.customer?.state)}
     </div>
 
     <div>
-      {safe(data?.shipping?.pincode)}
+      {safe(data?.shipping?.pincode || data?.customer?.pincode)}
     </div>
 
   </div>
@@ -204,20 +204,26 @@ export default function InvoicePage() {
 
 {/* PRODUCT TABLE */}
 
-<hr />
+<div className="productHeader">
+  PRODUCT DETAILS
+</div>
 
 <table className="table">
 
   <thead>
 
     <tr>
-      <th>#</th>
-      <th>Product</th>
-      <th>HSN</th>
+      <th>S.No</th>
+      <th>Description</th>
+      <th>HSN/SAC</th>
       <th>Qty</th>
-      <th>Rate</th>
-      <th>GST%</th>
-      <th>Taxable</th>
+      <th>Unit Price</th>
+      <th>Discount</th>
+      <th>Taxable Value</th>
+      <th>GST %</th>
+      <th>CGST</th>
+      <th>SGST</th>
+      <th>IGST</th>
       <th>Total</th>
     </tr>
 
@@ -233,10 +239,14 @@ export default function InvoicePage() {
         <td>{safe(i?.name)}</td>
         <td>{safe(i?.hsn)}</td>
         <td>{safe(i?.qty)}</td>
-        <td>{safe(i?.rate)}</td>
-        <td>{safe(i?.gstPercent)}</td>
-        <td>{safe(i?.taxable)}</td>
-        <td>{safe(i?.total)}</td>
+        <td>₹{safe(i?.rate)}</td>
+        <td>₹{safe(i?.discount || 0)}</td>
+        <td>₹{safe(i?.taxable)}</td>
+        <td>{safe(i?.gstPercent)}%</td>
+        <td>₹{safe(i?.cgst)}</td>
+        <td>₹{safe(i?.sgst)}</td>
+        <td>₹{safe(i?.igst)}</td>
+        <td>₹{safe(i?.total)}</td>
       </tr>
 
     ))}
@@ -244,6 +254,42 @@ export default function InvoicePage() {
   </tbody>
 
 </table>
+
+{/* Total Row */}      
+
+<tfoot>
+
+<tr>
+
+  <td colSpan="6">
+    Total
+  </td>
+
+  <td>
+    ₹{safe(data?.summary?.taxable)}
+  </td>
+
+  <td></td>
+
+  <td>
+    ₹{safe(data?.summary?.cgst)}
+  </td>
+
+  <td>
+    ₹{safe(data?.summary?.sgst)}
+  </td>
+
+  <td>
+    ₹{safe(data?.summary?.igst)}
+  </td>
+
+  <td>
+    ₹{safe(data?.summary?.grandTotal)}
+  </td>
+
+</tr>
+
+</tfoot>
 
 {/* HSN Summary TABLE */}
       
@@ -269,15 +315,42 @@ export default function InvoicePage() {
 
 <div className="summaryRow">
 
-<div className="qrSection">
+  <div className="qrSection">
 
-  <img
-    src={data?.qrCodeUrl}
-    alt="Invoice QR"
-    className="qrImage"
-  />
+    <img
+      src={data?.qrCodeUrl}
+      alt="Invoice QR"
+      className="qrImage"
+    />
 
-</div>
+    <div className="gstMeta">
+
+      <div>
+        <b>Place of Supply:</b>
+        {" "}
+        {safe(data?.placeOfSupply)}
+      </div>
+
+      <div>
+        <b>State Code:</b>
+        {" "}
+        {safe(data?.stateCode)}
+      </div>
+
+      <div>
+        <b>Supply Type:</b>
+        {" "}
+        {isB2B ? "B2B" : "B2C"}
+      </div>
+
+      <div>
+        <b>Reverse Charge:</b>
+        No
+      </div>
+
+    </div>
+
+  </div>
 
   <div className="summary">
 
@@ -404,14 +477,15 @@ const styles = `
 .grid3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 20px;
+  margin-top: 10px;
+  padding-bottom:12px;
+  border-bottom:1px solid #000;
 }
 
 .box{
-  border:1px solid #000;
-  padding:8px;
-  border-radius:0;
+    padding:8px 12px;
+    border:none;
 }
 
 .main {
@@ -480,6 +554,16 @@ const styles = `
   font-size: 16px;
   font-weight: bold;
   margin-top: 10px;
+}
+
+.productHeader{
+  margin-top:12px;
+  padding-top:8px;
+  border-top:1px solid #000;
+  font-size:14px;
+  font-weight:700;
+  text-decoration:underline;
+  margin-bottom:8px;
 }
 
 .qrImage{
@@ -588,6 +672,19 @@ const styles = `
   margin-top:3px;
   font-size:11px;
   font-weight:500;
+}
+
+.gstMeta{
+  margin-top:10px;
+  font-size:11px;
+  line-height:1.6;
+  border-top:1px solid #ddd;
+  padding-top:8px;
+}
+
+.gstMeta b{
+  display:inline-block;
+  min-width:110px;
 }
 
 .declaration{
