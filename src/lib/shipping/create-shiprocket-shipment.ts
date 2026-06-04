@@ -174,23 +174,22 @@ export async function createShiprocketShipment(
       "/orders/create/adhoc",
       {
         method: "POST",
-        body: JSON.stringify(
-          payload
-        ),
+        body: JSON.stringify(payload),
       }
     );
+  
+  console.log(
+    "SHIPROCKET CREATE ORDER RESPONSE:",
+    JSON.stringify(createOrder, null, 2)
+  );
 
-console.log(
-  "SHIPROCKET CREATE ORDER RESPONSE:"
-);
-
-console.log(
-  JSON.stringify(
-    createOrder,
-    null,
-    2
-  )
-);
+  console.log(
+    JSON.stringify(
+      createOrder,
+      null,
+      2
+    )
+  );
 
   const shipmentId =
     createOrder?.shipment_id;
