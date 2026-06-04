@@ -17,13 +17,23 @@ export async function createShiprocketShipment(
   console.log("SHIPROCKET ORDER:", orderId);
   console.log("================================");
 
-  const orderItems =
-  Array.isArray(order?.items) &&
-  order.items.length > 0
+  const orderItemsRaw =
+  Array.isArray(order.items)
     ? order.items
-    : Array.isArray(order?.cart)
+    : Array.isArray(order.cart)
     ? order.cart
     : [];
+
+const orderItems = orderItemsRaw
+  .filter(Boolean)
+  .map((item: any) => ({
+    name: item.name || "Product",
+    sku: item.snapshot?.sku || item.sku || item.productKey || "SKU",
+    units: Number(item.qty || 1),
+    selling_price: Number(item.price || 0),
+    discount: 0,
+    tax: Number(item.cgst || 0) + Number(item.sgst || 0) + Number(item.igst || 0),
+  }));
 
   if (!orderItems.length) {
     console.log(
