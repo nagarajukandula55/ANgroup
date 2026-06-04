@@ -83,7 +83,7 @@ export async function createShiprocketShipment(
       .toISOString()
       .split("T")[0],
 
-    pickup_location: "Primary",
+    pickup_location: "Home-1",
 
     billing_customer_name:
       order.address?.name,
