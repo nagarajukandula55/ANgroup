@@ -309,6 +309,11 @@ const ShippingSchema = new mongoose.Schema(
 
     deliveredAt: Date,
 
+   shipmentCreated: {
+     type: Boolean,
+     default: false,
+   },
+
    manifestId: String,
 
    shipmentId: String,
