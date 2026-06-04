@@ -437,6 +437,10 @@ export class OrderService {
           subtotal,
       
           discount,
+
+          couponCode: coupon || null,
+
+          couponDiscount: discount || 0,
       
           taxableAmount,
       
