@@ -5,9 +5,9 @@ export async function createShiprocketShipment(
   orderId: string,
   courierId: string
 ) {
-  const order = await Order.findOne({
-    orderId,
-  }).lean();
+  const order: any = await Order.findOne({
+  orderId,
+}).lean();
 
   if (!order) {
     throw new Error("Order not found");
@@ -18,12 +18,12 @@ export async function createShiprocketShipment(
   console.log("================================");
 
   const orderItems =
-    Array.isArray(order.items) &&
-    order.items.length > 0
-      ? order.items
-      : Array.isArray((order as any).cart)
-      ? (order as any).cart
-      : [];
+  Array.isArray(order?.items) &&
+  order.items.length > 0
+    ? order.items
+    : Array.isArray(order?.cart)
+    ? order.cart
+    : [];
 
   if (!orderItems.length) {
     console.log(
