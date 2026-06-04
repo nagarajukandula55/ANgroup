@@ -81,29 +81,30 @@ export async function createShipment({
   
   order.shipping = {
     ...order.shipping,
-
+  
     dispatchType,
-
+  
     courierPartner,
-
+  
     courierId,
-
-    awbNumber,
-
+  
     trackingUrl,
-
-    trackingStatus: "CREATED",
-
+  
     shipmentId:
-    shiprocketData?.shipmentId,
+      shiprocketData?.shipmentId,
   
-  awbNumber:
-    shiprocketData?.awb,
+    awbNumber:
+      shiprocketData?.awb ||
+      awbNumber,
   
-  labelUrl:
-    shiprocketData?.labelUrl,
-
-    shippedAt: new Date(),
+    labelUrl:
+      shiprocketData?.labelUrl,
+  
+    trackingStatus:
+      "CREATED",
+  
+    shippedAt:
+      new Date(),
   };
 
   order.shipmentCreated = true;
