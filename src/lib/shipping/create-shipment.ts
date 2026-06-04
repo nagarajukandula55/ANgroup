@@ -16,6 +16,14 @@ interface ShipmentPayload {
   trackingUrl?: string;
 
   by?: string;
+
+  weight?: number;
+
+  length?: number;
+
+  width?: number;
+
+  height?: number;
 }
 
 export async function createShipment({
@@ -26,6 +34,11 @@ export async function createShipment({
   awbNumber,
   trackingUrl,
   by = "ADMIN",
+
+  weight,
+  length,
+  width,
+  height,
 }: ShipmentPayload) {
   const order = await Order.findOne({
     orderId,
@@ -47,6 +60,24 @@ export async function createShipment({
         courierId
       );
   }
+
+  if (!order.shipping) {
+    order.shipping = {};
+  }
+  
+  order.shipping.packageWeight =
+    Number(weight || 0.5);
+  
+  order.shipping.dimensions = {
+    length:
+      Number(length || 10),
+  
+    breadth:
+      Number(width || 10),
+  
+    height:
+      Number(height || 10),
+  };
   
   order.shipping = {
     ...order.shipping,
