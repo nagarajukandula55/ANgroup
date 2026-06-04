@@ -1,30 +1,19 @@
 import { NextResponse } from "next/server";
-
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
 
 /* ================= CORS ================= */
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin":
-    "*",
-
-  "Access-Control-Allow-Methods":
-    "GET, OPTIONS",
-
-  "Access-Control-Allow-Headers":
-    "Content-Type, Authorization",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 /* ================= OPTIONS ================= */
 
 export async function OPTIONS() {
-  return NextResponse.json(
-    {},
-    {
-      headers: corsHeaders,
-    }
-  );
+  return NextResponse.json({}, { headers: corsHeaders });
 }
 
 /* ================= GET ORDER ================= */
@@ -33,128 +22,113 @@ export async function GET(req: Request) {
   try {
     await connectDB();
 
-    const { searchParams } =
-      new URL(req.url);
+    const { searchParams } = new URL(req.url);
 
-    const orderId =
-      searchParams.get("orderId");
+    const orderId = searchParams.get("orderId");
 
     if (!orderId) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Order ID missing",
+          message: "Order ID missing",
         },
-        {
-          status: 400,
-          headers: corsHeaders,
-        }
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    console.log(
-      "SEARCHING ORDER:",
-      orderId
-    );
+    console.log("SEARCHING ORDER:", orderId);
 
-    /* ================= FIND ================= */
+    /* ================= FIND ORDER ================= */
 
-    const order =
-      await Order.findOne({
-        $or: [
-          {
-            orderId,
-          },
-          {
-            "address.phone": orderId,
-          },
-          {
-            "shipping.awbNumber": orderId,
-          },
-        ],
-      }).lean();
+    const order: any = await Order.findOne({
+      $or: [
+        { orderId },
+        { "shipping.awbNumber": orderId },
+      ],
+    }).lean();
 
     if (!order) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Order not found",
+          message: "Order not found",
         },
-        {
-          status: 404,
-          headers: corsHeaders,
-        }
+        { status: 404, headers: corsHeaders }
       );
     }
+
+    /* ================= NORMALIZE ITEMS ================= */
+
+    const items =
+      order.items?.length
+        ? order.items
+        : order.cart?.length
+        ? order.cart
+        : [];
 
     /* ================= RESPONSE ================= */
 
     return NextResponse.json(
       {
         success: true,
-    
+
         order: {
           orderId: order.orderId,
-    
           status: order.status,
-    
           amount: order.amount,
-    
           createdAt: order.createdAt,
-    
+
           address: {
-            name: order.address?.name,
-            phone: order.address?.phone,
-            city: order.address?.city,
-            state: order.address?.state,
+            name: order.address?.name || "",
+            phone: order.address?.phone || "",
+            city: order.address?.city || "",
+            state: order.address?.state || "",
+            addressLine1:
+              order.address?.addressLine1 || "",
           },
-    
+
           payment: {
-            status: order.payment?.status,
+            status:
+              order.payment?.status || "PENDING",
+            method: order.payment?.method || "",
+            utr: order.payment?.utr || "",
           },
-    
+
           shipping: {
             awbNumber:
-              order.shipping?.awbNumber,
-    
+              order.shipping?.awbNumber || "",
+
             trackingStatus:
-              order.shipping?.trackingStatus,
-    
+              order.shipping?.trackingStatus ||
+              "PENDING",
+
+            courierPartner:
+              order.shipping?.courierPartner ||
+              "",
+
             labelUrl:
-              order.shipping?.labelUrl,
+              order.shipping?.labelUrl || "",
           },
-    
+
           invoice: {
             pdfUrl:
-              order.invoice?.pdfUrl,
+              order.invoice?.pdfUrl || "",
           },
-    
-          items: order.items,
+
+          items,
         },
       },
-      {
-        headers: corsHeaders,
-      }
+      { headers: corsHeaders }
     );
   } catch (err: any) {
-    console.error(
-      "GET ORDER ERROR",
-      err
-    );
+    console.error("GET ORDER ERROR", err);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          err.message ||
-          "Internal error",
+        message: err.message || "Internal error",
       },
-      {
-        status: 500,
-        headers: corsHeaders,
-      }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
