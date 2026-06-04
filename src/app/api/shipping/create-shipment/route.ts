@@ -20,18 +20,28 @@ export async function POST(req: Request) {
       awbNumber,
       trackingUrl,
       by,
+    
+      weight,
+      length,
+      width,
+      height,
     } = body;
 
     const result =
       await createShipment({
-        orderId,
-        dispatchType,
-        courierPartner,
-        courierId,
-        awbNumber,
-        trackingUrl,
-        by,
-      });
+      orderId,
+      dispatchType,
+      courierPartner,
+      courierId,
+      awbNumber,
+      trackingUrl,
+      by,
+    
+      weight,
+      length,
+      width,
+      height,
+    });
 
     return NextResponse.json(result);
   } catch (error: any) {
