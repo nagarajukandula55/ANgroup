@@ -1,4 +1,6 @@
 import Order from "@/models/Order";
+import { createShiprocketShipment }
+from "./create-shiprocket-shipment";
 
 interface ShipmentPayload {
   orderId: string;
@@ -33,6 +35,19 @@ export async function createShipment({
     throw new Error("Order not found");
   }
 
+  let shiprocketData = null;
+
+  if (
+    dispatchType === "COURIER" &&
+    courierId
+  ) {
+    shiprocketData =
+      await createShiprocketShipment(
+        orderId,
+        courierId
+      );
+  }
+  
   order.shipping = {
     ...order.shipping,
 
@@ -47,6 +62,15 @@ export async function createShipment({
     trackingUrl,
 
     trackingStatus: "CREATED",
+
+    shipmentId:
+    shiprocketData?.shipmentId,
+  
+  awbNumber:
+    shiprocketData?.awb,
+  
+  labelUrl:
+    shiprocketData?.labelUrl,
 
     shippedAt: new Date(),
   };
