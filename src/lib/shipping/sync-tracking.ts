@@ -1,9 +1,7 @@
 import Order from "@/models/Order";
 import { shiprocketRequest } from "./shiprocket";
 
-export async function syncTracking(
-  awbNumber: string
-) {
+export async function syncTracking(awbNumber: string) {
   const order = await Order.findOne({
     "shipping.awbNumber": awbNumber,
   });
@@ -12,86 +10,77 @@ export async function syncTracking(
     throw new Error("Order not found");
   }
 
-  const response =
-    await shiprocketRequest(
-      `/courier/track/awb/${awbNumber}`
-    );
+  const response = await shiprocketRequest(
+    `/courier/track/awb/${awbNumber}`
+  );
 
-  const trackingData =
-  response?.tracking_data;
+  const trackingData = response?.tracking_data;
 
-if (!trackingData) {
-  return {
-    success: true,
-
-    awb: awbNumber,
-
-    orderId:
-      order.orderId,
-
-    trackingStatus:
-      "NOT_AVAILABLE",
-
-    tracking:
-      response,
-  };
-}
+  // =========================
+  // SAFE DEFAULT RESPONSE
+  // =========================
+  if (!trackingData) {
+    return {
+      success: true,
+      awb: awbNumber,
+      orderId: order.orderId,
+      trackingStatus: "NOT_AVAILABLE",
+      tracking: response,
+    };
+  }
 
   const shipmentStatus =
     trackingData?.shipment_status ||
     trackingData?.current_status ||
     "UNKNOWN";
 
-  order.shipping.trackingStatus =
-    shipmentStatus;
+  order.shipping = {
+    ...order.shipping,
+    trackingStatus: shipmentStatus,
+  };
 
-  const statusText =
-    String(shipmentStatus).toUpperCase();
+  const statusText = String(shipmentStatus).toUpperCase();
 
-  if (
-    statusText.includes(
-      "OUT FOR DELIVERY"
-    )
-  ) {
-    order.status =
-      "OUT_FOR_DELIVERY";
+  // =========================
+  // SAFE INIT BLOCKS
+  // =========================
+  if (!order.statusTimeline) {
+    order.statusTimeline = {};
+  }
 
-    if (!order.statusTimeline) {
-      order.statusTimeline = {};
-    }
-    order.statusTimeline.outForDeliveryAt =
-      new Date();
+  if (!order.events) {
+    order.events = [];
+  }
+
+  // =========================
+  // STATUS MAPPING
+  // =========================
+
+  if (statusText.includes("OUT FOR DELIVERY")) {
+    order.status = "OUT_FOR_DELIVERY";
+    order.statusTimeline.outForDeliveryAt = new Date();
+  }
+
+  if (statusText.includes("DELIVERED")) {
+    order.status = "DELIVERED";
+    order.statusTimeline.deliveredAt = new Date();
   }
 
   if (
-    statusText.includes(
-      "DELIVERED"
-    )
+    statusText.includes("IN TRANSIT") ||
+    statusText.includes("SHIPPED") ||
+    statusText.includes("PICKED")
   ) {
-    order.status =
-      "DELIVERED";
-
-    order.statusTimeline.deliveredAt =
-      new Date();
+    order.status = "DISPATCHED";
   }
 
-  if (
-    statusText.includes(
-      "IN TRANSIT"
-    ) ||
-    statusText.includes(
-      "SHIPPED"
-    )
-  ) {
-    order.status =
-      "DISPATCHED";
-  }
-
+  // =========================
+  // SAFE EVENT PUSH
+  // =========================
   order.events.push({
     type: "STATUS_CHANGED",
     data: {
-      trackingStatus:
-        shipmentStatus,
+      trackingStatus: shipmentStatus,
     },
     at: new Date(),
   });
@@ -100,15 +89,9 @@ if (!trackingData) {
 
   return {
     success: true,
-  
     awb: awbNumber,
-  
-    orderId:
-      order.orderId,
-  
-    trackingStatus:
-      shipmentStatus,
-  
+    orderId: order.orderId,
+    trackingStatus: shipmentStatus,
     tracking: response,
   };
 }
