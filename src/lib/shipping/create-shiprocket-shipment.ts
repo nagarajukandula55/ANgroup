@@ -7,128 +7,146 @@ export async function createShiprocketShipment(
 ) {
   const order = await Order.findOne({
     orderId,
-  });
+  }).lean();
 
   if (!order) {
-    throw new Error(
-      "Order not found"
-    );
+    throw new Error("Order not found");
   }
 
-  console.log(
-    "ORDER:",
-    order.orderId
-  );
+  console.log("================================");
+  console.log("SHIPROCKET ORDER:", orderId);
+  console.log("================================");
 
   const orderItems =
     Array.isArray(order.items) &&
-    order.items.length
+    order.items.length > 0
       ? order.items
-      : Array.isArray(order.cart)
-      ? order.cart
+      : Array.isArray((order as any).cart)
+      ? (order as any).cart
       : [];
-  
-  console.log(
-    "ORDER ITEMS COUNT:",
-    orderItems.length
-  );
-  
+
   if (!orderItems.length) {
     console.log(
       "FULL ORDER:",
       JSON.stringify(order, null, 2)
     );
-  
+
     throw new Error(
       "No order items found"
     );
   }
 
+  /* ============================
+     VALIDATIONS
+  ============================ */
+
+  if (!order.address?.name) {
+    throw new Error(
+      "Customer name missing"
+    );
+  }
+
+  if (!order.address?.phone) {
+    throw new Error(
+      "Customer phone missing"
+    );
+  }
+
+  if (!order.address?.address) {
+    throw new Error(
+      "Customer address missing"
+    );
+  }
+
+  if (!order.address?.city) {
+    throw new Error(
+      "Customer city missing"
+    );
+  }
+
+  if (!order.address?.state) {
+    throw new Error(
+      "Customer state missing"
+    );
+  }
+
+  if (!order.address?.pincode) {
+    throw new Error(
+      "Customer pincode missing"
+    );
+  }
+
   const payload = {
-    order_id:
-      order.orderId,
+    order_id: order.orderId,
 
-    order_date:
-      new Date()
-        .toISOString()
-        .split("T")[0],
+    order_date: new Date()
+      .toISOString()
+      .split("T")[0],
 
-    pickup_location:
-      "Primary",
+    pickup_location: "Primary",
 
     billing_customer_name:
-      order.address?.name ||
-      "Customer",
+      order.address?.name,
 
     billing_last_name: "",
 
     billing_address:
-      order.address?.address ||
-      "",
+      order.address?.address,
 
     billing_city:
-      order.address?.city ||
-      "",
+      order.address?.city,
 
     billing_pincode:
-      order.address?.pincode ||
-      "",
+      String(
+        order.address?.pincode
+      ),
 
     billing_state:
-      order.address?.state ||
-      "",
+      order.address?.state,
 
-    billing_country:
-      "India",
+    billing_country: "India",
 
     billing_email:
       order.address?.email ||
       "support@angroup.in",
 
-    billing_phone:
-      order.address?.phone ||
-      "",
+    billing_phone: String(
+      order.address?.phone
+    ),
 
     shipping_is_billing: true,
 
-    order_items:
-      orderItems.map(
-        (item: any) => ({
-          name:
-            item.name ||
-            "Product",
+    order_items: orderItems.map(
+      (item: any) => ({
+        name:
+          item.name ||
+          "Product",
 
-          sku:
-            item.snapshot
-              ?.sku ||
-            item.sku ||
-            item.productKey ||
-            "SKU",
+        sku:
+          item?.snapshot?.sku ||
+          item?.sku ||
+          item?.productKey ||
+          `SKU-${Date.now()}`,
 
-          units:
-            Number(
-              item.qty || 1
-            ),
+        units: Number(
+          item.qty || 1
+        ),
 
-          selling_price:
-            Number(
-              item.price || 0
-            ),
+        selling_price: Number(
+          item.price ||
+            item.sellingPrice ||
+            0
+        ),
 
-          discount: 0,
+        discount: Number(
+          item.discount || 0
+        ),
 
-          tax:
-            Number(
-              item.cgst || 0
-            ) +
-            Number(
-              item.sgst || 0
-            ) +
-            Number(
-              item.igst || 0
-            ),
-        })
-      ),
+        tax: Number(
+          item.gstAmount || 0
+        ),
+      })
+    ),
 
     payment_method:
       order.payment?.status ===
@@ -137,31 +155,38 @@ export async function createShiprocketShipment(
         : "COD",
 
     sub_total:
-      order.amount,
+      Number(order.amount) || 0,
 
     length:
-      order.shipping
-        ?.dimensions
-        ?.length || 10,
+      Number(
+        order.shipping
+          ?.dimensions?.length
+      ) || 10,
 
     breadth:
-      order.shipping
-        ?.dimensions
-        ?.breadth || 10,
+      Number(
+        order.shipping
+          ?.dimensions?.breadth
+      ) || 10,
 
     height:
-      order.shipping
-        ?.dimensions
-        ?.height || 10,
+      Number(
+        order.shipping
+          ?.dimensions?.height
+      ) || 10,
 
     weight:
-      order.shipping
-        ?.packageWeight ||
-      0.5,
+      Number(
+        order.shipping
+          ?.packageWeight
+      ) || 0.5,
   };
 
   console.log(
-    "SHIPROCKET PAYLOAD:",
+    "SHIPROCKET PAYLOAD:"
+  );
+
+  console.log(
     JSON.stringify(
       payload,
       null,
@@ -169,18 +194,23 @@ export async function createShiprocketShipment(
     )
   );
 
+  /* ============================
+     CREATE SHIPMENT
+  ============================ */
+
   const createOrder =
     await shiprocketRequest(
       "/orders/create/adhoc",
       {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(
+          payload
+        ),
       }
     );
-  
+
   console.log(
-    "SHIPROCKET CREATE ORDER RESPONSE:",
-    JSON.stringify(createOrder, null, 2)
+    "SHIPROCKET CREATE ORDER RESPONSE:"
   );
 
   console.log(
@@ -192,13 +222,24 @@ export async function createShiprocketShipment(
   );
 
   const shipmentId =
-    createOrder?.shipment_id;
+    createOrder?.shipment_id ||
+    createOrder?.shipmentId ||
+    createOrder?.shipment_details
+      ?.shipment_id ||
+    createOrder?.data
+      ?.shipment_id;
 
   if (!shipmentId) {
     throw new Error(
-      "Shiprocket shipment creation failed"
+      JSON.stringify(
+        createOrder
+      )
     );
   }
+
+  /* ============================
+     ASSIGN AWB
+  ============================ */
 
   const awbResponse =
     await shiprocketRequest(
@@ -218,19 +259,35 @@ export async function createShiprocketShipment(
     );
 
   console.log(
-    "AWB RESPONSE:",
-    awbResponse
+    "AWB RESPONSE:"
+  );
+
+  console.log(
+    JSON.stringify(
+      awbResponse,
+      null,
+      2
+    )
   );
 
   const awb =
     awbResponse?.response
-      ?.data?.awb_code;
+      ?.data?.awb_code ||
+    awbResponse?.awb_code ||
+    awbResponse?.data
+      ?.awb_code;
 
   if (!awb) {
     throw new Error(
-      "AWB generation failed"
+      JSON.stringify(
+        awbResponse
+      )
     );
   }
+
+  /* ============================
+     LABEL
+  ============================ */
 
   const labelResponse =
     await shiprocketRequest(
@@ -246,17 +303,28 @@ export async function createShiprocketShipment(
     );
 
   console.log(
-    "LABEL RESPONSE:",
-    labelResponse
+    "LABEL RESPONSE:"
+  );
+
+  console.log(
+    JSON.stringify(
+      labelResponse,
+      null,
+      2
+    )
   );
 
   return {
+    success: true,
+
     shipmentId,
 
     awb,
 
     labelUrl:
       labelResponse
+        ?.label_url ||
+      labelResponse?.data
         ?.label_url ||
       "",
   };
