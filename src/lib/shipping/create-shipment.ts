@@ -126,16 +126,14 @@ export async function createShipment({
     createdAt: new Date(),
   });
 
-  order.timeline.push({
-    status: "DISPATCHED",
-
-    note:
-      "Shipment created and dispatched",
-
-    by,
-
-    role: "ADMIN",
-
+  order.events.push({
+    type: "STATUS_CHANGED",
+    data: {
+      from: order.status,
+      to: "DISPATCHED",
+      reason: "Shipment Created",
+      by,
+    },
     at: new Date(),
   });
 
