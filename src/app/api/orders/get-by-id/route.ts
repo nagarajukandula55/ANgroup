@@ -62,7 +62,17 @@ export async function GET(req: Request) {
 
     const order =
       await Order.findOne({
-        orderId: orderId,
+        $or: [
+          {
+            orderId,
+          },
+          {
+            "address.phone": orderId,
+          },
+          {
+            "shipping.awbNumber": orderId,
+          },
+        ],
       }).lean();
 
     if (!order) {
@@ -84,8 +94,45 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         success: true,
-
-        order,
+    
+        order: {
+          orderId: order.orderId,
+    
+          status: order.status,
+    
+          amount: order.amount,
+    
+          createdAt: order.createdAt,
+    
+          address: {
+            name: order.address?.name,
+            phone: order.address?.phone,
+            city: order.address?.city,
+            state: order.address?.state,
+          },
+    
+          payment: {
+            status: order.payment?.status,
+          },
+    
+          shipping: {
+            awbNumber:
+              order.shipping?.awbNumber,
+    
+            trackingStatus:
+              order.shipping?.trackingStatus,
+    
+            labelUrl:
+              order.shipping?.labelUrl,
+          },
+    
+          invoice: {
+            pdfUrl:
+              order.invoice?.pdfUrl,
+          },
+    
+          items: order.items,
+        },
       },
       {
         headers: corsHeaders,
