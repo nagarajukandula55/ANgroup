@@ -10,84 +10,113 @@ export async function createShiprocketShipment(
   });
 
   if (!order) {
-    throw new Error("Order not found");
+    throw new Error(
+      "Order not found"
+    );
   }
 
-  /* =====================================
-     CREATE SHIPROCKET ORDER
-  ===================================== */
-
   console.log(
-      "ORDER DATA:",
-      JSON.stringify(order, null, 2)
+    "ORDER:",
+    order.orderId
+  );
+
+  const orderItems = Array.isArray(
+    order.items
+  )
+    ? order.items
+    : [];
+
+  if (!orderItems.length) {
+    throw new Error(
+      "No order items found"
     );
-    
-    console.log(
-      "ORDER ITEMS:",
-      order.items
-    );
-    
-    console.log(
-      "ORDER CART:",
-      order.cart
-    );
+  }
+
   const payload = {
-    order_id: order.orderId,
+    order_id:
+      order.orderId,
 
-    order_date: new Date()
-      .toISOString()
-      .split("T")[0],
+    order_date:
+      new Date()
+        .toISOString()
+        .split("T")[0],
 
-    pickup_location: "Primary",
+    pickup_location:
+      "Primary",
 
     billing_customer_name:
-      order.address?.name || "",
+      order.address?.name ||
+      "Customer",
 
     billing_last_name: "",
 
     billing_address:
-      order.address?.address || "",
+      order.address?.address ||
+      "",
 
     billing_city:
-      order.address?.city || "",
+      order.address?.city ||
+      "",
 
     billing_pincode:
-      order.address?.pincode || "",
+      order.address?.pincode ||
+      "",
 
     billing_state:
-      order.address?.state || "",
+      order.address?.state ||
+      "",
 
-    billing_country: "India",
+    billing_country:
+      "India",
 
     billing_email:
       order.address?.email ||
       "support@angroup.in",
 
     billing_phone:
-      order.address?.phone || "",
+      order.address?.phone ||
+      "",
 
     shipping_is_billing: true,
 
     order_items:
-      order.items.map((item: any) => ({
-        name: item.name,
+      orderItems.map(
+        (item: any) => ({
+          name:
+            item.name ||
+            "Product",
 
-        sku:
-          item.snapshot?.sku ||
-          item.sku ||
-          item.productKey,
+          sku:
+            item.snapshot
+              ?.sku ||
+            item.sku ||
+            item.productKey ||
+            "SKU",
 
-        units: item.qty,
+          units:
+            Number(
+              item.qty || 1
+            ),
 
-        selling_price:
-          item.price,
+          selling_price:
+            Number(
+              item.price || 0
+            ),
 
-        discount: 0,
+          discount: 0,
 
-        tax: item.cgst +
-          item.sgst +
-          item.igst,
-      })),
+          tax:
+            Number(
+              item.cgst || 0
+            ) +
+            Number(
+              item.sgst || 0
+            ) +
+            Number(
+              item.igst || 0
+            ),
+        })
+      ),
 
     payment_method:
       order.payment?.status ===
@@ -96,47 +125,62 @@ export async function createShiprocketShipment(
         : "COD",
 
     sub_total:
-      order.billing?.grandTotal ||
       order.amount,
 
     length:
-      order.shipping?.dimensions
+      order.shipping
+        ?.dimensions
         ?.length || 10,
 
     breadth:
-      order.shipping?.dimensions
+      order.shipping
+        ?.dimensions
         ?.breadth || 10,
 
     height:
-      order.shipping?.dimensions
+      order.shipping
+        ?.dimensions
         ?.height || 10,
 
     weight:
       order.shipping
-        ?.packageWeight || 0.5,
+        ?.packageWeight ||
+      0.5,
   };
+
+  console.log(
+    "SHIPROCKET PAYLOAD:",
+    JSON.stringify(
+      payload,
+      null,
+      2
+    )
+  );
 
   const createOrder =
     await shiprocketRequest(
       "/orders/create/adhoc",
       {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(
+          payload
+        ),
       }
     );
 
+  console.log(
+    "SHIPROCKET CREATE ORDER:",
+    createOrder
+  );
+
   const shipmentId =
-    createOrder.shipment_id;
+    createOrder?.shipment_id;
 
   if (!shipmentId) {
     throw new Error(
-      "Shipment creation failed"
+      "Shiprocket shipment creation failed"
     );
   }
-
-  /* =====================================
-     ASSIGN COURIER
-  ===================================== */
 
   const awbResponse =
     await shiprocketRequest(
@@ -144,17 +188,25 @@ export async function createShiprocketShipment(
       {
         method: "POST",
         body: JSON.stringify({
-          shipment_id: shipmentId,
-          courier_id: Number(
-            courierId
-          ),
+          shipment_id:
+            shipmentId,
+
+          courier_id:
+            Number(
+              courierId
+            ),
         }),
       }
     );
 
+  console.log(
+    "AWB RESPONSE:",
+    awbResponse
+  );
+
   const awb =
-    awbResponse.response?.data
-      ?.awb_code;
+    awbResponse?.response
+      ?.data?.awb_code;
 
   if (!awb) {
     throw new Error(
@@ -162,28 +214,32 @@ export async function createShiprocketShipment(
     );
   }
 
-  /* =====================================
-     GENERATE LABEL
-  ===================================== */
-
   const labelResponse =
     await shiprocketRequest(
       "/courier/generate/label",
       {
         method: "POST",
         body: JSON.stringify({
-          shipment_id: [shipmentId],
+          shipment_id: [
+            shipmentId,
+          ],
         }),
       }
     );
 
-  const labelUrl =
-    labelResponse.label_url ||
-    "";
+  console.log(
+    "LABEL RESPONSE:",
+    labelResponse
+  );
 
   return {
     shipmentId,
+
     awb,
-    labelUrl,
+
+    labelUrl:
+      labelResponse
+        ?.label_url ||
+      "",
   };
 }
