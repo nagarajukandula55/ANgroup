@@ -20,13 +20,25 @@ export async function createShiprocketShipment(
     order.orderId
   );
 
-  const orderItems = Array.isArray(
-    order.items
-  )
-    ? order.items
-    : [];
-
+  const orderItems =
+    Array.isArray(order.items) &&
+    order.items.length
+      ? order.items
+      : Array.isArray(order.cart)
+      ? order.cart
+      : [];
+  
+  console.log(
+    "ORDER ITEMS COUNT:",
+    orderItems.length
+  );
+  
   if (!orderItems.length) {
+    console.log(
+      "FULL ORDER:",
+      JSON.stringify(order, null, 2)
+    );
+  
     throw new Error(
       "No order items found"
     );
