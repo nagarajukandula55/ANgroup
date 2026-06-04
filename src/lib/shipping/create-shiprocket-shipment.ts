@@ -180,10 +180,17 @@ export async function createShiprocketShipment(
       }
     );
 
-  console.log(
-    "SHIPROCKET CREATE ORDER:",
-    createOrder
-  );
+console.log(
+  "SHIPROCKET CREATE ORDER RESPONSE:"
+);
+
+console.log(
+  JSON.stringify(
+    createOrder,
+    null,
+    2
+  )
+);
 
   const shipmentId =
     createOrder?.shipment_id;
