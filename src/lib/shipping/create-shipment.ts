@@ -110,7 +110,7 @@ export async function createShipment({
   order.shipmentCreated = true;
 
   order.events.push({
-    type: "SHIPMENT_CREATED",
+    type: "SHIPPED",
 
     message:
       "Shipment created successfully",
