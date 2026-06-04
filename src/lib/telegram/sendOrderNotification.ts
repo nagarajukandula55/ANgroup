@@ -3,22 +3,80 @@ export async function sendOrderNotification(order: any) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_GROUP_ID;
 
-    if (!token || !chatId) return;
+    if (!token || !chatId) {
+      console.log("Telegram config missing");
+      return;
+    }
 
+    // =========================
+    // ITEMS FORMAT
+    // =========================
+    const itemsText =
+      order.items?.length
+        ? order.items
+            .map(
+              (item: any, i: number) =>
+                `${i + 1}. ${item.name} x ${item.qty} (₹${item.price})`
+            )
+            .join("\n")
+        : "No items";
+
+    // =========================
+    // ADDRESS FORMAT
+    // =========================
+    const address = order.address
+      ? `
+🏠 Address:
+${order.address.addressLine1 || ""}
+${order.address.city || ""}, ${order.address.state || ""}
+Pincode: ${order.address.pincode || ""}
+`
+      : "";
+
+    // =========================
+    // SHIPPING INFO
+    // =========================
+    const shipping = order.shipping
+      ? `
+🚚 Shipping:
+Courier: ${order.shipping.courierPartner || "-"}
+AWB: ${order.shipping.awbNumber || "-"}
+Status: ${order.shipping.trackingStatus || "PENDING"}
+Weight: ${order.shipping.packageWeight || "-"} kg
+`
+      : "";
+
+    // =========================
+    // FINAL MESSAGE
+    // =========================
     const message = `
-🛒 NEW ORDER RECEIVED
+<b>🛒 NEW ORDER RECEIVED</b>
 
-Order ID: ${order.orderId}
+<b>Order ID:</b> ${order.orderId}
+<b>Status:</b> ${order.status}
 
-Customer: ${order.address?.name}
+<b>👤 Customer</b>
+Name: ${order.address?.name || "-"}
+Phone: ${order.address?.phone || "-"}
 
-Phone: ${order.address?.phone}
+💰 Amount: ₹${order.amount}
 
-Amount: ₹${order.amount}
+<b>🛍 Items</b>
+${itemsText}
 
-Status: ${order.status}
+${address}
+
+${shipping}
+
+⚠️ <b>Action Required:</b>
+- Verify payment
+- Start packing
+- Prepare shipment
 `;
 
+    // =========================
+    // SEND TO TELEGRAM
+    // =========================
     await fetch(
       `https://api.telegram.org/bot${token}/sendMessage`,
       {
@@ -34,9 +92,6 @@ Status: ${order.status}
       }
     );
   } catch (err) {
-    console.error(
-      "Telegram notification failed",
-      err
-    );
+    console.error("Telegram notification failed", err);
   }
 }
