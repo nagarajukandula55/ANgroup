@@ -2,9 +2,9 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
+import Coupon from "@/models/Coupon";
 import { sendOrderNotification }
 from "@/lib/telegram/sendOrderNotification";
 
@@ -280,7 +280,41 @@ export async function POST(req: Request) {
 
     await order.save();
 
-     await sendOrderNotification(order);
+   /* ==========================================
+      UPDATE COUPON USAGE
+   ========================================== */
+      
+      if (order.couponCode) {
+        try {
+          await Coupon.updateOne(
+            {
+              code:
+                order.couponCode.toUpperCase(),
+            },
+            {
+              $inc: {
+                usedCount: 1,
+              },
+      
+              $push: {
+                usedBy: order.orderId,
+              },
+            }
+          );
+      
+          console.log(
+            "COUPON USAGE UPDATED:",
+            order.couponCode
+          );
+        } catch (couponErr) {
+          console.error(
+            "COUPON UPDATE FAILED:",
+            couponErr
+          );
+        }
+      }
+      
+      await sendOrderNotification(order);
 
     console.log(
       "PAYMENT VERIFIED:",
