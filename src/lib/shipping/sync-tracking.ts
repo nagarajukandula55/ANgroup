@@ -18,13 +18,24 @@ export async function syncTracking(
     );
 
   const trackingData =
-    response?.tracking_data;
+  response?.tracking_data;
 
-  if (!trackingData) {
-    throw new Error(
-      "Tracking data not found"
-    );
-  }
+if (!trackingData) {
+  return {
+    success: true,
+
+    awb: awbNumber,
+
+    orderId:
+      order.orderId,
+
+    trackingStatus:
+      "NOT_AVAILABLE",
+
+    tracking:
+      response,
+  };
+}
 
   const shipmentStatus =
     trackingData?.shipment_status ||
@@ -45,6 +56,9 @@ export async function syncTracking(
     order.status =
       "OUT_FOR_DELIVERY";
 
+    if (!order.statusTimeline) {
+      order.statusTimeline = {};
+    }
     order.statusTimeline.outForDeliveryAt =
       new Date();
   }
@@ -86,8 +100,15 @@ export async function syncTracking(
 
   return {
     success: true,
-    orderId: order.orderId,
+  
+    awb: awbNumber,
+  
+    orderId:
+      order.orderId,
+  
     trackingStatus:
       shipmentStatus,
+  
+    tracking: response,
   };
 }
