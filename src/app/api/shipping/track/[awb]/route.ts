@@ -1,33 +1,44 @@
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongodb";
+import { syncTracking } from "@/lib/shipping/sync-tracking";
+
+/* =========================
+   GET TRACKING BY AWB
+========================= */
+
 export async function GET(
-  request: Request,
-  context: {
-    params: Promise<{
-      awb: string;
-    }>;
-  }
+  req: Request,
+  context: { params: { awb: string } }
 ) {
   try {
     await connectDB();
 
-    const { awb } =
-      await context.params;
+    const awb = context.params.awb;
 
-    const result =
-      await syncTracking(awb);
+    if (!awb) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "AWB missing",
+        },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(
-      result
-    );
+    const result = await syncTracking(awb);
+
+    return NextResponse.json(result);
   } catch (error: any) {
+    console.error("TRACK API ERROR:", error);
+
     return NextResponse.json(
       {
         success: false,
-        message:
-          error.message,
+        message: error.message || "Tracking failed",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
