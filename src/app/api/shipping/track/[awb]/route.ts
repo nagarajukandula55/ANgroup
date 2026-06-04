@@ -5,17 +5,17 @@ import { connectDB } from "@/lib/mongodb";
 import { syncTracking } from "@/lib/shipping/sync-tracking";
 
 /* =========================
-   GET TRACKING BY AWB
+   GET TRACKING
 ========================= */
 
 export async function GET(
   req: Request,
-  context: { params: { awb: string } }
+  context: any
 ) {
   try {
     await connectDB();
 
-    const awb = context.params.awb;
+    const awb = context?.params?.awb;
 
     if (!awb) {
       return NextResponse.json(
@@ -31,7 +31,7 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error("TRACK API ERROR:", error);
+    console.error("TRACK ERROR:", error);
 
     return NextResponse.json(
       {
