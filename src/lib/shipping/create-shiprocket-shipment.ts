@@ -17,6 +17,20 @@ export async function createShiprocketShipment(
      CREATE SHIPROCKET ORDER
   ===================================== */
 
+  console.log(
+      "ORDER DATA:",
+      JSON.stringify(order, null, 2)
+    );
+    
+    console.log(
+      "ORDER ITEMS:",
+      order.items
+    );
+    
+    console.log(
+      "ORDER CART:",
+      order.cart
+    );
   const payload = {
     order_id: order.orderId,
 
