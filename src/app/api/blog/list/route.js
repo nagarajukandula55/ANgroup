@@ -6,18 +6,13 @@ export async function GET() {
   try {
     await connectDB();
 
-    const blogs = await Blog.find({})
-      .sort({ createdAt: -1 })
-      .lean();
+    const blogs = await Blog.find().sort({ createdAt: -1 });
 
-    return NextResponse.json({
-      success: true,
-      blogs,
-    });
+    return NextResponse.json({ success: true, blogs });
   } catch (err) {
-    return NextResponse.json({
-      success: false,
-      message: err.message,
-    });
+    return NextResponse.json(
+      { success: false, message: err.message },
+      { status: 500 }
+    );
   }
 }
