@@ -10,8 +10,8 @@ export async function POST(req) {
 
     const slug = body.title
       .toLowerCase()
-      .replace(/ /g, "-")
-      .replace(/[^\w-]+/g, "");
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
 
     const blog = await Blog.create({
       title: body.title,
@@ -22,16 +22,10 @@ export async function POST(req) {
       category: body.category || "General",
     });
 
-    return NextResponse.json({
-      success: true,
-      blog,
-    });
+    return NextResponse.json({ success: true, blog });
   } catch (err) {
     return NextResponse.json(
-      {
-        success: false,
-        message: err.message,
-      },
+      { success: false, message: err.message },
       { status: 500 }
     );
   }
