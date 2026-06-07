@@ -289,20 +289,18 @@ export async function POST(req: Request) {
       if (order.coupon) {
         try {
           await Coupon.updateOne(
-            {
-              code:
-                code: order.coupon.toUpperCase(),
-            },
-            {
-              $inc: {
-                usedCount: 1,
-              },
-      
-              $push: {
-                usedBy: order.orderId,
-              },
-            }
-          );
+           {
+             code: order.coupon.toUpperCase(),
+           },
+           {
+             $inc: {
+               usedCount: 1,
+             },
+             $push: {
+               usedBy: order.orderId,
+             },
+           }
+         );
       
           console.log(
             "COUPON USAGE UPDATED:",
