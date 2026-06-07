@@ -138,7 +138,7 @@ export default function InvoicePage() {
 
     <div className="sectionTitle">BILL TO</div>
 
-    <<div className="sectionTitle">BILL TO</div>
+    <div className="sectionTitle">BILL TO</div>
 
     <div>{safe(data?.customer?.name)}</div>
     <div>{safe(data?.customer?.phone)}</div>
