@@ -32,7 +32,7 @@ export default function SettingsPage() {
 
           <p className="mt-6 max-w-3xl text-lg text-slate-300">
             Configure enterprise infrastructure, permissions,
-            integrations, AI systems, and operational controls also.
+            integrations, AI systems, and operational controls.
           </p>
         </section>
 
