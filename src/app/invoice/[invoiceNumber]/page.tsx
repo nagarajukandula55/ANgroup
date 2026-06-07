@@ -41,8 +41,32 @@ export default function InvoicePage() {
   if (!data) return <div>Invoice not found</div>;
 
   return (
-    <div className="page">
+    <div
+      className="page"
+      style={{
+        background: "#ffffff",
+        color: "#000000",
+        minHeight: "100vh",
+      }}
+    >
       <style>{styles}</style>
+
+<div
+  style={{
+    textAlign:"center",
+    marginBottom:"15px"
+  }}
+>
+  <img
+    src="/logo.png"
+    alt="Native"
+    style={{
+      height:"60px",
+      objectFit:"contain"
+    }}
+  />
+</div>
+      
 
 {/* TAX INVOICE TITLE */}
 <div className="invoiceTitle">
@@ -468,11 +492,14 @@ export default function InvoicePage() {
 
 const styles = `
 .page {
-  max-width: 900px;
-  margin: auto;
-  padding: 12px;
-  font-family: Arial;
+  max-width: 1000px;
+  margin: 30px auto;
+  padding: 30px;
+  font-family: Arial, sans-serif;
   color: #000;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.08);
 }
 
 .title {
@@ -490,9 +517,11 @@ const styles = `
 }
 
 .invoiceBox {
-  border: 1px solid #000;
-  padding: 10px;
-  border-radius: 10px;
+  min-width:260px;
+  background:#111827;
+  color:white;
+  padding:20px;
+  border-radius:12px;
 }
 
 .grid3 {
@@ -523,8 +552,8 @@ const styles = `
 }
 
 .table th {
-  background: #000;
-  color: #fff;
+  background:#111827;
+  color:#fff;
   border: 1px solid #000;
   padding: 8px;
   font-size: 12px;
@@ -566,9 +595,12 @@ const styles = `
 }
 
 .summary {
-  border: 1px solid #000;
-  padding: 10px;
-  border-radius: 10px;
+  width:60%;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:20px;
+  line-height:2;
 }
 
 .grand {
@@ -607,24 +639,32 @@ const styles = `
 }
 
 .printBtn {
-  margin-top: 20px;
-  padding: 10px;
-  background: black;
-  color: white;
+  margin-top:25px;
+  padding:14px 24px;
+  background:#111827;
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-weight:600;
+  cursor:pointer;
 }
 
-.invoiceTitle{
+.invoiceTitle {
   text-align:center;
-  font-size:28px;
-  font-weight:700;
-  text-decoration:underline;
-  margin-bottom:20px;
+  font-size:32px;
+  font-weight:800;
+  color:#111827;
+  margin-bottom:25px;
+  letter-spacing:1px;
 }
 
 .companyCard{
   flex:1;
-  font-size:13px;
-  line-height:1.3;
+  background:#f8fafc;
+  padding:20px;
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  line-height:1.8;
 }
 
 .companyName{
@@ -715,6 +755,20 @@ const styles = `
 }
 
 @media print {
-  .printBtn { display: none; }
+
+  body {
+    background:white !important;
+  }
+
+  .page {
+    box-shadow:none !important;
+    border:none !important;
+    margin:0 !important;
+    max-width:100% !important;
+  }
+
+  .printBtn {
+    display:none !important;
+  }
 }
 `;
