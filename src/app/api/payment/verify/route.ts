@@ -335,39 +335,66 @@ export async function POST(req: Request) {
            )
          );
 
-     try {
-        const emailResult =
-           await sendInvoiceEmail({
-             to:
-               order?.customer?.email ||
-               order?.address?.email,
+        try {
          
-             customerName:
-               order?.address?.name ||
-               order?.customer?.name ||
-               "Customer",
+           const emailAddress =
+             order?.customer?.email ||
+             order?.address?.email;
          
-             invoiceNumber:
-               order?.invoice?.invoiceNumber ||
-               order.orderId,
-         
-             pdfUrl:
-               order?.invoice?.invoiceUrl ||
-               "",
-         
-             grandTotal:
-               order.amount,
-         
-             orderId:
-               order.orderId,
+           console.log("EMAIL DEBUG:", {
+             emailAddress,
+             customer: order?.customer,
+             address: order?.address,
            });
          
-         console.log(
-           "EMAIL RESULT:",
-           emailResult
-         );      
-      } catch (emailErr) {
-      
+           if (emailAddress) {
+         
+             const emailResult =
+               await sendInvoiceEmail({
+                 to: emailAddress,
+         
+                 customerName:
+                   order?.address?.name ||
+                   order?.customer?.name ||
+                   "Customer",
+         
+                 invoiceNumber:
+                   order?.invoice?.invoiceNumber ||
+                   order.orderId,
+         
+                 pdfUrl:
+                   order?.invoice?.invoiceUrl ||
+                   "",
+         
+                 grandTotal:
+                   order.amount || 0,
+         
+                 orderId:
+                   order.orderId,
+               });
+         
+             console.log(
+               "EMAIL RESULT:",
+               JSON.stringify(emailResult, null, 2)
+             );
+         
+           } else {
+         
+             console.error(
+               "NO CUSTOMER EMAIL FOUND"
+             );
+         
+           }
+         
+         } catch (emailErr) {
+         
+           console.error(
+             "EMAIL FAILED:",
+             emailErr
+           );
+         
+         } catch (emailErr) {
+               
         console.error(
           "EMAIL FAILED:",
           emailErr
