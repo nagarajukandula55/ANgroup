@@ -81,6 +81,7 @@ export async function GET(req: Request) {
           address: {
             name: order.address?.name || "",
             phone: order.address?.phone || "",
+            email: order.address?.email || "",
             city: order.address?.city || "",
             state: order.address?.state || "",
             addressLine1:
@@ -111,9 +112,15 @@ export async function GET(req: Request) {
           },
 
           invoice: {
-            pdfUrl:
-              order.invoice?.pdfUrl || "",
-          },
+              invoiceNumber:
+                order.invoice?.invoiceNumber || "",
+            
+              invoiceUrl:
+                order.invoice?.invoiceUrl || "",
+            
+              pdfGenerated:
+                order.invoice?.pdfGenerated || false,
+            },
 
           items,
         },
