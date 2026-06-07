@@ -161,7 +161,9 @@ export default function InvoicePage() {
     </div>
 
     <div>
-      {safe(data?.customer?.pincode)}
+      <b>Pincode:</b>
+      {" "}
+      {safe(data?.shipping?.pincode || data?.customer?.pincode)}
     </div>
 
     {isB2B && (
@@ -217,10 +219,6 @@ export default function InvoicePage() {
     <div>
       <b>Pincode:</b>
       {" "}
-      {safe(data?.shipping?.pincode || data?.customer?.pincode)}
-    </div>
-
-    <div>
       {safe(data?.shipping?.pincode || data?.customer?.pincode)}
     </div>
 
