@@ -238,8 +238,6 @@ export default function InvoicePage() {
       float:"right",
       fontWeight:500
     }}
-  >
-    Total Items: {data?.items?.length || 0}
   </span>
 </div>
 
@@ -526,7 +524,8 @@ const styles = `
   display: flex;
   justify-content: space-between;
   border-bottom: 2px solid #000;
-  padding-bottom: 15px;
+  padding-bottom: 10px;
+  gap: 12px;
 }
 
 .invoiceBox {
@@ -676,14 +675,14 @@ const styles = `
 }
 
 .companyCard{
-  flex:1;
+  flex:0.6;
   align-self:flex-start;
   background:#f8fafc;
   padding:14px;
   border-radius:10px;
   border:1px solid #e5e7eb;
   line-height:1.4;
-  font-size:12px;
+  font-size:11px;
 }
 
 .companyName{
@@ -779,18 +778,29 @@ const styles = `
 @media print {
 
   body {
-    background:white !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .page {
-    box-shadow:none !important;
-    border:none !important;
-    margin:0 !important;
-    max-width:100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    max-width: 100% !important;
   }
 
   .printBtn {
-    display:none !important;
+    display: none !important;
   }
+
+  /* IMPORTANT FIX: force table header color */
+  .table th {
+    background: #111827 !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
 }
 `;
