@@ -250,18 +250,33 @@ export default function InvoicePage() {
       </tr>
     ))}
 
-    <tr>
-      <td colSpan={6} style={{ textAlign: "center", fontWeight: 700 }}>
-        Total
-      </td>
-
-      <td>₹{safe(data?.summary?.taxable)}</td>
-      <td></td>
-      <td>₹{safe(data?.summary?.cgst)}</td>
-      <td>₹{safe(data?.summary?.sgst)}</td>
-      <td>₹{safe(data?.summary?.igst)}</td>
-      <td>₹{safe(data?.summary?.grandTotal)}</td>
-    </tr>
+      <tr>
+        <td colSpan={6} style={{ textAlign: "center", fontWeight: 700 }}>
+          Total
+        </td>
+      
+        <td style={{ textAlign: "center", fontWeight: 700 }}>
+          ₹{safe(data?.summary?.taxable)}
+        </td>
+      
+        <td></td>
+      
+        <td style={{ textAlign: "center" }}>
+          ₹{safe(data?.summary?.cgst)}
+        </td>
+      
+        <td style={{ textAlign: "center" }}>
+          ₹{safe(data?.summary?.sgst)}
+        </td>
+      
+        <td style={{ textAlign: "center" }}>
+          ₹{safe(data?.summary?.igst)}
+        </td>
+      
+        <td style={{ textAlign: "center", fontWeight: 700 }}>
+          ₹{safe(data?.summary?.grandTotal)}
+        </td>
+      </tr>
   </tbody>
 </table>
       
