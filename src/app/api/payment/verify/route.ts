@@ -7,6 +7,8 @@ import Order from "@/models/Order";
 import Coupon from "@/models/Coupon";
 import { sendOrderNotification }
 from "@/lib/telegram/sendOrderNotification";
+import { sendInvoiceEmail }
+from "@/services/email/resend.service";
 
 /* =========================================================
    CORS
@@ -315,6 +317,46 @@ export async function POST(req: Request) {
       }
       
       await sendOrderNotification(order);
+
+           try {
+        await sendInvoiceEmail({
+          to: order?.customer?.email ||
+              order?.email ||
+              order?.address?.email,
+      
+          customerName:
+            order?.address?.name ||
+            order?.customer?.name ||
+            "Customer",
+      
+          invoiceNumber:
+            order?.invoice?.invoiceNumber ||
+            order.orderId,
+      
+          pdfUrl:
+            order?.invoice?.invoiceUrl ||
+            "",
+      
+          grandTotal:
+            order.amount || 0,
+      
+          orderId:
+            order.orderId,
+        });
+      
+        console.log(
+          "CUSTOMER EMAIL SENT:",
+          order.orderId
+        );
+      
+      } catch (emailErr) {
+      
+        console.error(
+          "EMAIL FAILED:",
+          emailErr
+        );
+      
+      }
 
     console.log(
       "PAYMENT VERIFIED:",
