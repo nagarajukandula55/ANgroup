@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/an-db";
+import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
 
 export async function POST(req) {
@@ -22,11 +22,19 @@ export async function POST(req) {
       category: body.category || "General",
     });
 
-    return NextResponse.json({ success: true, blog });
+    return NextResponse.json({
+      success: true,
+      blog,
+    });
   } catch (err) {
     return NextResponse.json(
-      { success: false, message: err.message },
-      { status: 500 }
+      {
+        success: false,
+        message: err.message,
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
