@@ -153,17 +153,15 @@ export default function InvoicePage() {
     />
 
     <div>
-      <b>City:</b> {safe(data?.customer?.city)}
+      City: {safe(data?.customer?.city)}
     </div>
     
     <div>
-      <b>State:</b> {safe(data?.customer?.state)}
+      State: {safe(data?.customer?.state)}
     </div>
-
+    
     <div>
-      <b>Pincode:</b>
-      {" "}
-      {safe(data?.shipping?.pincode || data?.customer?.pincode)}
+      PIN: {safe(data?.customer?.pincode)}
     </div>
 
     {isB2B && (
@@ -205,21 +203,15 @@ export default function InvoicePage() {
     />
     
     <div>
-      <b>City:</b>
-      {" "}
-      {safe(data?.shipping?.city || data?.customer?.city)}
+      City: {safe(data?.shipping?.city || data?.customer?.city)}
     </div>
     
     <div>
-      <b>State:</b>
-      {" "}
-      {safe(data?.shipping?.state || data?.customer?.state)}
+      State: {safe(data?.shipping?.state || data?.customer?.state)}
     </div>
     
     <div>
-      <b>Pincode:</b>
-      {" "}
-      {safe(data?.shipping?.pincode || data?.customer?.pincode)}
+      PIN: {safe(data?.shipping?.pincode || data?.customer?.pincode)}
     </div>
 
   </div>
@@ -232,8 +224,7 @@ export default function InvoicePage() {
 
     <div><b>Method:</b> {safe(data?.payment?.method)}</div>
     <div><b>Status:</b> {safe(data?.payment?.status)}</div>
-    <div><b>Txn ID:</b> {safe(data?.payment?.transactionId)}</div>
-
+    <div>Transaction:{" "} {safe(data?.payment?.transactionId || data?.payment?.utr || data?.payment?.razorpayPaymentId)}</div>
   </div>
 
 </div>
@@ -343,6 +334,17 @@ export default function InvoicePage() {
   </tfoot>
 
 </table>
+
+<div
+  style={{
+    marginTop: "6px",
+    fontSize: "11px",
+    fontWeight: 600,
+  }}
+>
+  Total Items: {data?.items?.length || 0}
+</div>
+      
 
 {/* HSN Summary TABLE */}
       
@@ -505,7 +507,7 @@ const styles = `
 .page {
   max-width: 950px;
   margin: 10px auto;
-  padding: 16px;
+  padding: 18px;
   font-family: Arial, sans-serif;
   color: #000;
   background: #fff;
@@ -548,9 +550,9 @@ const styles = `
 }
 
 .box{
-  padding:6px 8px;
+  padding:6px 10px;
   font-size:11px;
-  line-height:1.35;
+  line-height:1.4;
 }
 
 .main {
@@ -580,7 +582,7 @@ const styles = `
 .table td {
   border: 1px solid #000;
   padding: 6px;
-  font-size: 9px;
+  font-size: 10px;
   text-align: center;
   vertical-align: middle;
 }
@@ -675,9 +677,10 @@ const styles = `
 
 .companyCard{
   flex:1;
+  align-self:flex-start;
   background:#f8fafc;
-  padding:12px;
-  border-radius:12px;
+  padding:14px;
+  border-radius:10px;
   border:1px solid #e5e7eb;
   line-height:1.4;
   font-size:12px;
@@ -741,7 +744,7 @@ const styles = `
 }
 
 .signatureImage{
-  height:90px;
+  height:85px;
   object-fit:contain;
   display:block;
   margin-left:auto;
