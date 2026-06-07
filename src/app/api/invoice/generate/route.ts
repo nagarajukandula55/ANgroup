@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
     const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.angroup.in";
 
-    const invoiceUrl = `${BASE_URL}/api/invoice/${invoiceNumber}`;
+    const invoiceUrl = `${BASE_URL}/invoice/${invoiceNumber}`;
 
       order.invoice = {
         invoiceNumber,
