@@ -368,45 +368,37 @@ export default function InvoicePage() {
 
 <div className="summaryRow">
 
-  <div className="qrSection">
+<div style={{ marginTop: 20, display: "flex", justifyContent: "space-between" }}>
 
+  <div style={{ width: "40%" }}>
     <img
       src={qr}
       alt="QR"
-      style={{
-        width: 120,
-        height: 120
-      }}
+      style={{ width: 120, height: 120 }}
     />
+  </div>
 
-    <div className="gstMeta">
+  <div style={{ width: "60%", fontSize: 12 }}>
 
-      <div>
-        <b>Place of Supply:</b>
-        {" "}
-        {safe(data?.placeOfSupply)}
-      </div>
+    <div>
+      <b>Place of Supply:</b> {safe(data?.placeOfSupply)}
+    </div>
 
-      <div>
-        <b>State Code:</b>
-        {" "}
-        {safe(data?.stateCode)}
-      </div>
+    <div>
+      <b>State Code:</b> {safe(data?.stateCode)}
+    </div>
 
-      <div>
-        <b>Supply Type:</b>
-        {" "}
-        {isB2B ? "B2B" : "B2C"}
-      </div>
+    <div>
+      <b>Supply Type:</b> {isB2B ? "B2B" : "B2C"}
+    </div>
 
-      <div>
-        <b>Reverse Charge:</b>
-        No
-      </div>
-
+    <div>
+      <b>Reverse Charge:</b> No
     </div>
 
   </div>
+
+</div>
 
   <div className="summary">
 
