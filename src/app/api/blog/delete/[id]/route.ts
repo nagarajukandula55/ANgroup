@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
 
-export async function DELETE(req, { params }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     await connectDB();
 
@@ -11,11 +14,12 @@ export async function DELETE(req, { params }) {
     return NextResponse.json({
       success: true,
     });
-  } catch (err) {
+  } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: err.message,
+        message:
+          error?.message || "Internal Server Error",
       },
       {
         status: 500,
