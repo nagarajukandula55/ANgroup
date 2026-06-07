@@ -194,10 +194,30 @@ export default function InvoicePage() {
     <div>{safe(data?.shipping?.phone || data?.customer?.phone)}</div>
     <div>{safe(data?.shipping?.address || data?.customer?.address)}</div>
 
+    <hr
+      style={{
+        margin:"8px 0",
+        border:"none",
+        borderTop:"1px solid #ddd"
+      }}
+    />
+    
     <div>
-      {safe(data?.shipping?.city || data?.customer?.city)},
+      <b>City:</b>
+      {" "}
+      {safe(data?.shipping?.city || data?.customer?.city)}
+    </div>
+    
+    <div>
+      <b>State:</b>
       {" "}
       {safe(data?.shipping?.state || data?.customer?.state)}
+    </div>
+    
+    <div>
+      <b>Pincode:</b>
+      {" "}
+      {safe(data?.shipping?.pincode || data?.customer?.pincode)}
     </div>
 
     <div>
