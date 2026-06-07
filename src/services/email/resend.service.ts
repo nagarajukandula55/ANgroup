@@ -3,9 +3,6 @@ import { buildInvoiceEmailTemplate } from "./invoiceEmail.template";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
-/**
- * PRODUCTION INVOICE EMAIL SERVICE
- */
 export async function sendInvoiceEmail({
   to,
   customerName,
@@ -15,6 +12,13 @@ export async function sendInvoiceEmail({
   orderId,
 }: any) {
   try {
+
+    console.log("RESEND EMAIL START", {
+      to,
+      invoiceNumber,
+      orderId,
+    });
+
     const html = buildInvoiceEmailTemplate({
       customerName,
       invoiceNumber,
@@ -30,9 +34,28 @@ export async function sendInvoiceEmail({
       html,
     });
 
-    return { success: true, result };
+    console.log(
+      "RESEND SUCCESS",
+      JSON.stringify(result, null, 2)
+    );
+
+    return {
+      success: true,
+      result,
+    };
+
   } catch (err: any) {
-    console.error("Resend Email Error:", err.message);
-    return { success: false, error: err.message };
+
+    console.error(
+      "RESEND ERROR",
+      err
+    );
+
+    return {
+      success: false,
+      error:
+        err?.message ||
+        "Unknown email error",
+    };
   }
 }
