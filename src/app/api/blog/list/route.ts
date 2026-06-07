@@ -14,11 +14,12 @@ export async function GET() {
       success: true,
       blogs,
     });
-  } catch (err) {
+  } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: err.message,
+        message:
+          error?.message || "Internal Server Error",
       },
       {
         status: 500,
