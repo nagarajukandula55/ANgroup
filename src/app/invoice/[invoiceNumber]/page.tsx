@@ -146,7 +146,7 @@ export default function InvoicePage() {
 
     <hr
       style={{
-        margin:"8px 0",
+        margin:"4px 0",
         border:"none",
         borderTop:"1px solid #ddd"
       }}
@@ -196,7 +196,7 @@ export default function InvoicePage() {
 
     <hr
       style={{
-        margin:"8px 0",
+        margin:"4px 0",
         border:"none",
         borderTop:"1px solid #ddd"
       }}
@@ -232,27 +232,9 @@ export default function InvoicePage() {
       PAYMENT
     </div>
 
-    <div>
-      Method:
-      {" "}
-      {safe(data?.payment?.method)}
-    </div>
-
-    <div>
-      Status:
-      {" "}
-      {safe(data?.payment?.status)}
-    </div>
-
-    <div>
-      Transaction:
-      {" "}
-      {safe(
-        data?.payment?.transactionId ||
-        data?.payment?.razorpayPaymentId ||
-        data?.payment?.utr
-      )}
-    </div>
+    <div><b>Method:</b> {safe(data?.payment?.method)}</div>
+    <div><b>Status:</b> {safe(data?.payment?.status)}</div>
+    <div><b>Txn ID:</b> {safe(data?.payment?.transactionId)}</div>
 
   </div>
 
@@ -549,27 +531,28 @@ const styles = `
 
 .invoiceBox {
   border: 1px solid #000;
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
   background: #fff;
   color: #000;
   min-width: 260px;
-  line-height: 1.5;
+  line-height: 1.35;
   font-size:12px;
 }
 
 .grid3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 20px;
-  margin-top: 10px;
-  padding-bottom:12px;
+  gap: 10px;
+  margin-top: 8px;
+  padding-bottom:8px;
   border-bottom:1px solid #000;
 }
 
 .box{
-    padding:8px 12px;
-    border:none;
+  padding:6px 8px;
+  font-size:11px;
+  line-height:1.35;
 }
 
 .main {
@@ -685,20 +668,20 @@ const styles = `
 
 .invoiceTitle {
   text-align:center;
-  font-size:32px;
+  font-size:24px;
   font-weight:800;
   color:#111827;
-  margin-bottom:25px;
+  margin-bottom:12px;
   letter-spacing:1px;
 }
 
 .companyCard{
   flex:1;
   background:#f8fafc;
-  padding:20px;
+  padding:12px;
   border-radius:12px;
   border:1px solid #e5e7eb;
-  line-height:1.5;
+  line-height:1.4;
   font-size:12px;
 }
 
@@ -709,9 +692,12 @@ const styles = `
 }
 
 .sectionTitle{
+  font-size:12px;
   font-weight:700;
-  text-decoration:underline;
-  margin-bottom:10px;
+  margin-bottom:6px;
+  text-decoration:none;
+  border-bottom:1px solid #ddd;
+  padding-bottom:3px;
 }
 
 .productTitle{
