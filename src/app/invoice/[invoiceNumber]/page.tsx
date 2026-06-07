@@ -50,22 +50,6 @@ export default function InvoicePage() {
       }}
     >
       <style>{styles}</style>
-
-<div
-  style={{
-    textAlign:"center",
-    marginBottom:"15px"
-  }}
->
-  <img
-    src="/logo.png"
-    alt="Native"
-    style={{
-      height:"60px",
-      objectFit:"contain"
-    }}
-  />
-</div>
       
 
 {/* TAX INVOICE TITLE */}
@@ -160,10 +144,20 @@ export default function InvoicePage() {
     <div>{safe(data?.customer?.phone)}</div>
     <div>{safe(data?.customer?.address)}</div>
 
+    <hr
+      style={{
+        margin:"8px 0",
+        border:"none",
+        borderTop:"1px solid #ddd"
+      }}
+    />
+
     <div>
-      {safe(data?.customer?.city)},
-      {" "}
-      {safe(data?.customer?.state)}
+      <b>City:</b> {safe(data?.customer?.city)}
+    </div>
+    
+    <div>
+      <b>State:</b> {safe(data?.customer?.state)}
     </div>
 
     <div>
@@ -233,7 +227,11 @@ export default function InvoicePage() {
     <div>
       Transaction:
       {" "}
-      {safe(data?.payment?.transactionId)}
+      {safe(
+        data?.payment?.transactionId ||
+        data?.payment?.razorpayPaymentId ||
+        data?.payment?.utr
+      )}
     </div>
 
   </div>
@@ -244,6 +242,14 @@ export default function InvoicePage() {
 
 <div className="productHeader">
   PRODUCT DETAILS
+  <span
+    style={{
+      float:"right",
+      fontWeight:500
+    }}
+  >
+    Total Items: {data?.items?.length || 0}
+  </span>
 </div>
 
 <table className="table">
@@ -275,14 +281,14 @@ export default function InvoicePage() {
         <td>{safe(i?.name)}</td>
         <td>{safe(i?.hsn)}</td>
         <td>{safe(i?.qty)}</td>
-        <td>₹{safe(i?.rate)}</td>
+        <td>₹{safe(i?.rate || i?.price)}</td>
         <td>₹{safe(i?.discount || 0)}</td>
-        <td>₹{safe(i?.taxable)}</td>
+        <td>₹{safe(i?.taxable || i?.taxableValue)}</td>
         <td>{safe(i?.gstPercent)}%</td>
         <td>₹{safe(i?.cgst)}</td>
         <td>₹{safe(i?.sgst)}</td>
         <td>₹{safe(i?.igst)}</td>
-        <td>₹{safe(i?.total)}</td>
+        <td>₹{safe(i?.total || i?.lineTotal)}</td>
       </tr>
 
     ))}
@@ -305,7 +311,12 @@ export default function InvoicePage() {
       Total
     </td>
   
-    <td>
+    <td
+      style={{
+        textAlign:"center",
+        fontWeight:700
+      }}
+    >
       ₹{safe(data?.summary?.taxable)}
     </td>
   
@@ -492,9 +503,9 @@ export default function InvoicePage() {
 
 const styles = `
 .page {
-  max-width: 1000px;
-  margin: 30px auto;
-  padding: 30px;
+  max-width: 950px;
+  margin: 10px auto;
+  padding: 16px;
   font-family: Arial, sans-serif;
   color: #000;
   background: #fff;
@@ -517,11 +528,14 @@ const styles = `
 }
 
 .invoiceBox {
-  min-width:260px;
-  background:#111827;
-  color:white;
-  padding:20px;
-  border-radius:12px;
+  border: 1px solid #000;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  min-width: 260px;
+  line-height: 1.5;
+  font-size:12px;
 }
 
 .grid3 {
@@ -556,7 +570,7 @@ const styles = `
   color:#fff;
   border: 1px solid #000;
   padding: 8px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   text-align: center;
   white-space: nowrap;
@@ -565,7 +579,7 @@ const styles = `
 .table td {
   border: 1px solid #000;
   padding: 6px;
-  font-size: 11px;
+  font-size: 9px;
   text-align: center;
   vertical-align: middle;
 }
@@ -664,7 +678,8 @@ const styles = `
   padding:20px;
   border-radius:12px;
   border:1px solid #e5e7eb;
-  line-height:1.8;
+  line-height:1.5;
+  font-size:12px;
 }
 
 .companyName{
@@ -722,7 +737,7 @@ const styles = `
 }
 
 .signatureImage{
-  height:60px;
+  height:90px;
   object-fit:contain;
   display:block;
   margin-left:auto;
@@ -730,8 +745,8 @@ const styles = `
 
 .signatoryText{
   margin-top:3px;
-  font-size:11px;
-  font-weight:500;
+  font-size:12px;
+  font-weight:600;
 }
 
 .gstMeta{
