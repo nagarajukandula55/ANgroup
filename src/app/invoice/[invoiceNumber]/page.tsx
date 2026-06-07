@@ -136,33 +136,18 @@ export default function InvoicePage() {
 
   <div className="box">
 
-    <div className="sectionTitle">
-      BILL TO
-    </div>
+    <div className="sectionTitle">BILL TO</div>
+
+    <<div className="sectionTitle">BILL TO</div>
 
     <div>{safe(data?.customer?.name)}</div>
     <div>{safe(data?.customer?.phone)}</div>
     <div>{safe(data?.customer?.address)}</div>
-
-    <hr
-      style={{
-        margin:"4px 0",
-        border:"none",
-        borderTop:"1px solid #ddd"
-      }}
-    />
-
-    <div>
-      City: {safe(data?.customer?.city)}
-    </div>
     
-    <div>
-      State: {safe(data?.customer?.state)}
-    </div>
+    <div>City: {safe(data?.customer?.city)}</div>
+    <div>State: {safe(data?.customer?.state)}</div>
     
-    <div>
-      PIN: {safe(data?.customer?.pincode)}
-    </div>
+    <div>PIN: {safe(data?.customer?.pincode)}</div>
 
     {isB2B && (
       <>
@@ -186,33 +171,16 @@ export default function InvoicePage() {
 
   <div className="box">
 
-    <div className="sectionTitle">
-      SHIP TO
-    </div>
+    <div className="sectionTitle">SHIP TO</div>
 
     <div>{safe(data?.shipping?.name || data?.customer?.name)}</div>
     <div>{safe(data?.shipping?.phone || data?.customer?.phone)}</div>
     <div>{safe(data?.shipping?.address || data?.customer?.address)}</div>
-
-    <hr
-      style={{
-        margin:"4px 0",
-        border:"none",
-        borderTop:"1px solid #ddd"
-      }}
-    />
     
-    <div>
-      City: {safe(data?.shipping?.city || data?.customer?.city)}
-    </div>
+    <div>City: {safe(data?.shipping?.city || data?.customer?.city)}</div>
+    <div>State: {safe(data?.shipping?.state || data?.customer?.state)}</div>
     
-    <div>
-      State: {safe(data?.shipping?.state || data?.customer?.state)}
-    </div>
-    
-    <div>
-      PIN: {safe(data?.shipping?.pincode || data?.customer?.pincode)}
-    </div>
+    <div>PIN: {safe(data?.shipping?.pincode || data?.customer?.pincode)}</div>
 
   </div>
 
@@ -224,7 +192,7 @@ export default function InvoicePage() {
 
     <div><b>Method:</b> {safe(data?.payment?.method)}</div>
     <div><b>Status:</b> {safe(data?.payment?.status)}</div>
-    <div>Transaction:{" "} {safe(data?.payment?.transactionId || data?.payment?.utr || data?.payment?.razorpayPaymentId)}</div>
+    <div>Transaction: {safe(data?.payment?.transactionId || data?.payment?.utr || data?.payment?.razorpayPaymentId)}</div>
   </div>
 
 </div>
@@ -497,12 +465,13 @@ const styles = `
 .page {
   max-width: 950px;
   margin: 10px auto;
-  padding: 18px;
+  padding: 12px;
   font-family: Arial, sans-serif;
   color: #000;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 8px 30px rgba(0,0,0,.08);
+  font-size: 11px;
 }
 
 .title {
@@ -667,7 +636,7 @@ const styles = `
 }
 
 .companyCard{
-  flex:0.6;
+  flex:0.45;
   align-self:flex-start;
   background:#f8fafc;
   padding:14px;
@@ -675,6 +644,7 @@ const styles = `
   border:1px solid #e5e7eb;
   line-height:1.4;
   font-size:11px;
+  max-width: 320px;
 }
 
 .companyName{
@@ -784,6 +754,10 @@ const styles = `
 
   .printBtn {
     display: none !important;
+  }
+
+  .box div {
+    margin-bottom: 2px;
   }
 
   /* IMPORTANT FIX: force table header color */
