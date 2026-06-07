@@ -213,64 +213,56 @@ export default function InvoicePage() {
 </div>
 
 <table className="table">
-
   <thead>
-      <tr>
-        <th>#</th>
-        <th>Product</th>
-        <th>HSN</th>
-        <th>Qty</th>
-        <th>Rate</th>
-        <th>Discount</th>
-        <th>Taxable</th>
-        <th>GST%</th>
-        <th>CGST</th>
-        <th>SGST</th>
-        <th>IGST</th>
-        <th>Total</th>
-      </tr>
+    <tr>
+      <th>#</th>
+      <th>Product</th>
+      <th>HSN</th>
+      <th>Qty</th>
+      <th>Rate</th>
+      <th>Discount</th>
+      <th>Taxable</th>
+      <th>GST%</th>
+      <th>CGST</th>
+      <th>SGST</th>
+      <th>IGST</th>
+      <th>Total</th>
+    </tr>
   </thead>
 
   <tbody>
-  {(data?.items || []).map((i: any, idx: number) => (
-    <tr key={idx}>
-      <td>{idx + 1}</td>
-      <td>{safe(i?.name)}</td>
-      <td>{safe(i?.hsn)}</td>
-      <td>{safe(i?.qty)}</td>
-      <td>₹{safe(i?.rate || i?.price)}</td>
-      <td>₹{safe(i?.discount || 0)}</td>
-      <td>₹{safe(i?.taxable || i?.taxableValue)}</td>
-      <td>{safe(i?.gstPercent)}%</td>
-      <td>₹{safe(i?.cgst)}</td>
-      <td>₹{safe(i?.sgst)}</td>
-      <td>₹{safe(i?.igst)}</td>
-      <td>₹{safe(i?.total || i?.lineTotal)}</td>
+    {(data?.items || []).map((i: any, idx: number) => (
+      <tr key={idx}>
+        <td>{idx + 1}</td>
+        <td>{safe(i?.name)}</td>
+        <td>{safe(i?.hsn)}</td>
+        <td>{safe(i?.qty)}</td>
+        <td>₹{safe(i?.rate || i?.price)}</td>
+        <td>₹{safe(i?.discount || 0)}</td>
+        <td>₹{safe(i?.taxable || i?.taxableValue)}</td>
+        <td>{safe(i?.gstPercent)}%</td>
+        <td>₹{safe(i?.cgst)}</td>
+        <td>₹{safe(i?.sgst)}</td>
+        <td>₹{safe(i?.igst)}</td>
+        <td>₹{safe(i?.total || i?.lineTotal)}</td>
+      </tr>
+    ))}
+
+    <tr>
+      <td colSpan={6} style={{ textAlign: "center", fontWeight: 700 }}>
+        Total
+      </td>
+
+      <td>₹{safe(data?.summary?.taxable)}</td>
+      <td></td>
+      <td>₹{safe(data?.summary?.cgst)}</td>
+      <td>₹{safe(data?.summary?.sgst)}</td>
+      <td>₹{safe(data?.summary?.igst)}</td>
+      <td>₹{safe(data?.summary?.grandTotal)}</td>
     </tr>
-  ))}
-</tbody>
-
-  {/* Total Row */}      
-  
-  <tfoot>
-  
-  <tr>
-  <td colSpan={6} style={{ textAlign: "center", fontWeight: 700 }}>
-    Total
-  </td>
-
-  <td>₹{safe(data?.summary?.taxable)}</td>
-  <td></td>
-  <td>₹{safe(data?.summary?.cgst)}</td>
-  <td>₹{safe(data?.summary?.sgst)}</td>
-  <td>₹{safe(data?.summary?.igst)}</td>
-  <td>₹{safe(data?.summary?.grandTotal)}</td>
-</tr>
-  
-  </tfoot>
-
+  </tbody>
 </table>
-
+      
 <div
   style={{
     marginTop: "6px",
