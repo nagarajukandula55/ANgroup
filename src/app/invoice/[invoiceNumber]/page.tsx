@@ -37,8 +37,13 @@ export default function InvoicePage() {
     
     }, [invoiceNumber]);
 
-  if (loading) return <div style={{ padding: 20 }}>Loading invoice...</div>;
-  if (!data) return <div>Invoice not found</div>;
+  if (loading) {
+    return <div style={{ padding: 20 }}>Loading invoice...</div>;
+  }
+  
+  if (!data) {
+    return <div>Invoice not found</div>;
+  }
 
   return (
     <div
@@ -315,21 +320,15 @@ export default function InvoicePage() {
 {/* HSN Summary TABLE */}
       
 {isB2B && (
-<div className="hsnSummary">
+  <div className="hsnSummary">
+    <div className="sectionTitle">HSN SUMMARY</div>
 
-  <div className="sectionTitle">
-    HSN SUMMARY
+    {(data?.hsnSummary || []).map((row: any, index: number) => (
+      <div key={index}>
+        HSN {row.hsn} - ₹{row.taxable}
+      </div>
+    ))}
   </div>
-
-  {(data?.hsnSummary || []).map((row:any,index:number)=>(
-    <div key={index}>
-      HSN {row.hsn}
-      {" - "}
-      ₹{row.taxable}
-    </div>
-  ))}
-
-</div>
 )}
 
 {/* QR + GST SUMMARY */}
