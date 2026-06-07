@@ -206,9 +206,11 @@ export default function InvoicePage() {
   PRODUCT DETAILS
   <span
     style={{
-      float:"right",
-      fontWeight:500
+      float: "right",
+      fontWeight: 500,
     }}
+  >
+    {safe(data?.something)}
   </span>
 </div>
 
