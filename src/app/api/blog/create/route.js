@@ -2,23 +2,36 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
     await connectDB();
 
-    const body = await req.json();
+    const body = await request.json();
+
+    if (!body?.title) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Title is required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
     const slug = body.title
       .toLowerCase()
+      .trim()
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "");
 
     const blog = await Blog.create({
       title: body.title,
       slug,
-      excerpt: body.excerpt,
-      content: body.content,
-      image: body.image,
+      excerpt: body.excerpt || "",
+      content: body.content || "",
+      image: body.image || "",
       category: body.category || "General",
     });
 
@@ -26,11 +39,16 @@ export async function POST(req) {
       success: true,
       blog,
     });
-  } catch (err) {
+  } catch (error) {
+    console.error("BLOG CREATE ERROR:", error);
+
     return NextResponse.json(
       {
         success: false,
-        message: err.message,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Internal Server Error",
       },
       {
         status: 500,
