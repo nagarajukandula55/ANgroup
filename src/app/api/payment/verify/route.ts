@@ -286,12 +286,12 @@ export async function POST(req: Request) {
       UPDATE COUPON USAGE
    ========================================== */
       
-      if (order.couponCode) {
+      if (order.coupon) {
         try {
           await Coupon.updateOne(
             {
               code:
-                order.couponCode.toUpperCase(),
+                code: order.coupon.toUpperCase(),
             },
             {
               $inc: {
@@ -315,40 +315,57 @@ export async function POST(req: Request) {
           );
         }
       }
+
+     console.log("EMAIL DEBUG", {
+     customerEmail: order?.customer?.email,
+     addressEmail: order?.address?.email,
+   });
       
       await sendOrderNotification(order);
 
-           try {
-        await sendInvoiceEmail({
-          to: order?.customer?.email ||
-              order?.email ||
-              order?.address?.email,
-      
-          customerName:
-            order?.address?.name ||
-            order?.customer?.name ||
-            "Customer",
-      
-          invoiceNumber:
-            order?.invoice?.invoiceNumber ||
-            order.orderId,
-      
-          pdfUrl:
-            order?.invoice?.invoiceUrl ||
-            "",
-      
-          grandTotal:
-            order.amount || 0,
-      
-          orderId:
-            order.orderId,
-        });
-      
-        console.log(
-          "CUSTOMER EMAIL SENT:",
-          order.orderId
-        );
-      
+          console.log(
+           "ORDER EMAIL DATA",
+           JSON.stringify(
+             {
+               customer: order.customer,
+               address: order.address,
+             },
+             null,
+             2
+           )
+         );
+
+     try {
+        const emailResult =
+           await sendInvoiceEmail({
+             to:
+               order?.customer?.email ||
+               order?.address?.email,
+         
+             customerName:
+               order?.address?.name ||
+               order?.customer?.name ||
+               "Customer",
+         
+             invoiceNumber:
+               order?.invoice?.invoiceNumber ||
+               order.orderId,
+         
+             pdfUrl:
+               order?.invoice?.invoiceUrl ||
+               "",
+         
+             grandTotal:
+               order.amount,
+         
+             orderId:
+               order.orderId,
+           });
+         
+         console.log(
+           "EMAIL RESULT:",
+           emailResult
+         );      
       } catch (emailErr) {
       
         console.error(
