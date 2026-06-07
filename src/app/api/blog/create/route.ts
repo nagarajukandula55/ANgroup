@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
@@ -39,16 +39,14 @@ export async function POST(request) {
       success: true,
       blog,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("BLOG CREATE ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : "Internal Server Error",
+          error?.message || "Internal Server Error",
       },
       {
         status: 500,
