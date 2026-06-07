@@ -89,10 +89,17 @@ export async function GET(req: Request) {
           },
 
           payment: {
-            status:
-              order.payment?.status || "PENDING",
+            status: order.payment?.status || "PENDING",
             method: order.payment?.method || "",
             utr: order.payment?.utr || "",
+          
+            transactionId:
+              order.payment?.transactionId ||
+              order.payment?.razorpayPaymentId ||
+              "",
+          
+            razorpayOrderId:
+              order.payment?.razorpayOrderId || "",
           },
 
           shipping: {
