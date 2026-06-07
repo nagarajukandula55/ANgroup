@@ -143,8 +143,6 @@ export default function InvoicePage() {
 
     <div className="sectionTitle">BILL TO</div>
 
-    <div className="sectionTitle">BILL TO</div>
-
     <div>{safe(data?.customer?.name)}</div>
     <div>{safe(data?.customer?.phone)}</div>
     <div>{safe(data?.customer?.address)}</div>
@@ -197,7 +195,7 @@ export default function InvoicePage() {
 
     <div><b>Method:</b> {safe(data?.payment?.method)}</div>
     <div><b>Status:</b> {safe(data?.payment?.status)}</div>
-    <div>Transaction: {safe(data?.payment?.transactionId || data?.payment?.utr || data?.payment?.razorpayPaymentId)}</div>
+    <div>Transaction: {safe(data?.payment?.transactionId || data?.payment?.utr || data?.payment?.razorpayPaymentId || data?.payment?.paymentId)}</div>
   </div>
 
 </div>
@@ -234,73 +232,40 @@ export default function InvoicePage() {
   </thead>
 
   <tbody>
-
-    {(data?.items || []).map(
-      (i: any, idx: number) => (
-
-      <tr key={idx}>
-        <td>{idx + 1}</td>
-        <td>{safe(i?.name)}</td>
-        <td>{safe(i?.hsn)}</td>
-        <td>{safe(i?.qty)}</td>
-        <td>₹{safe(i?.rate || i?.price)}</td>
-        <td>₹{safe(i?.discount || 0)}</td>
-        <td>₹{safe(i?.taxable || i?.taxableValue)}</td>
-        <td>{safe(i?.gstPercent)}%</td>
-        <td>₹{safe(i?.cgst)}</td>
-        <td>₹{safe(i?.sgst)}</td>
-        <td>₹{safe(i?.igst)}</td>
-        <td>₹{safe(i?.total || i?.lineTotal)}</td>
-      </tr>
-
-    ))}
-
-  </tbody>
+  {(data?.items || []).map((i: any, idx: number) => (
+    <tr key={idx}>
+      <td>{idx + 1}</td>
+      <td>{safe(i?.name)}</td>
+      <td>{safe(i?.hsn)}</td>
+      <td>{safe(i?.qty)}</td>
+      <td>₹{safe(i?.rate || i?.price)}</td>
+      <td>₹{safe(i?.discount || 0)}</td>
+      <td>₹{safe(i?.taxable || i?.taxableValue)}</td>
+      <td>{safe(i?.gstPercent)}%</td>
+      <td>₹{safe(i?.cgst)}</td>
+      <td>₹{safe(i?.sgst)}</td>
+      <td>₹{safe(i?.igst)}</td>
+      <td>₹{safe(i?.total || i?.lineTotal)}</td>
+    </tr>
+  ))}
+</tbody>
 
   {/* Total Row */}      
   
   <tfoot>
   
   <tr>
-  
-    <td
-      colSpan={6}
-      style={{
-        textAlign: "center",
-        fontWeight: 700,
-      }}
-    >
-      Total
-    </td>
-  
-    <td
-      style={{
-        textAlign:"center",
-        fontWeight:700
-      }}
-    >
-      ₹{safe(data?.summary?.taxable)}
-    </td>
-  
-    <td></td>
-  
-    <td>
-      ₹{safe(data?.summary?.cgst)}
-    </td>
-  
-    <td>
-      ₹{safe(data?.summary?.sgst)}
-    </td>
-  
-    <td>
-      ₹{safe(data?.summary?.igst)}
-    </td>
-  
-    <td>
-      ₹{safe(data?.summary?.grandTotal)}
-    </td>
-  
-  </tr>
+  <td colSpan={6} style={{ textAlign: "center", fontWeight: 700 }}>
+    Total
+  </td>
+
+  <td>₹{safe(data?.summary?.taxable)}</td>
+  <td></td>
+  <td>₹{safe(data?.summary?.cgst)}</td>
+  <td>₹{safe(data?.summary?.sgst)}</td>
+  <td>₹{safe(data?.summary?.igst)}</td>
+  <td>₹{safe(data?.summary?.grandTotal)}</td>
+</tr>
   
   </tfoot>
 
@@ -321,8 +286,6 @@ export default function InvoicePage() {
       
 {isB2B && (
   <div className="hsnSummary">
-    <div className="sectionTitle">HSN SUMMARY</div>
-
     {(data?.hsnSummary || []).map((row: any, index: number) => (
       <div key={index}>
         HSN {row.hsn} - ₹{row.taxable}
