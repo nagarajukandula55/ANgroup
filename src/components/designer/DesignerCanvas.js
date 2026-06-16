@@ -1,16 +1,20 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { Canvas } from "fabric";
+
 export default function DesignerCanvas() {
-  return (
-    <div
-      style={{
-        width: "1000px",
-        height: "600px",
-        border: "1px solid #ccc",
-        background: "#fff",
-      }}
-    >
-      Canvas Loaded
-    </div>
-  );
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const canvas = new Canvas(ref.current, {
+      width: 800,
+      height: 500,
+      backgroundColor: "#fff",
+    });
+
+    return () => canvas.dispose();
+  }, []);
+
+  return <canvas ref={ref} />;
 }
