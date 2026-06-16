@@ -1,26 +1,56 @@
 import mongoose from "mongoose";
 
 const DesignSchema = new mongoose.Schema(
-{
+  {
     name: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
 
-    width: Number,
-    height: Number,
+    width: {
+      type: Number,
+      default: 100,
+    },
 
-    canvasJson: Object,
+    height: {
+      type: Number,
+      default: 50,
+    },
+
+    canvasJson: {
+      type: Object,
+      default: {},
+    },
+
+    thumbnail: {
+      type: String,
+      default: "",
+    },
+
+    category: {
+      type: String,
+      default: "label",
+    },
+
+    tags: {
+      type: [String],
+      default: [],
+    },
+
+    version: {
+      type: Number,
+      default: 1,
+    },
 
     status: {
-        type: String,
-        default: "Draft"
-    }
-},
-{
-    timestamps: true
-}
+      type: String,
+      default: "Draft",
+    },
+  },
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.models.Design ||
-mongoose.model("Design", DesignSchema);
+  mongoose.model("Design", DesignSchema);
