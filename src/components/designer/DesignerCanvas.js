@@ -1,29 +1,35 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { fabric } from "fabric";
+import { Canvas, Textbox } from "fabric";
 
 export default function DesignerCanvas() {
+  const canvasRef = useRef(null);
 
-const canvasRef = useRef();
+  useEffect(() => {
+    const fabricCanvas = new Canvas(canvasRef.current, {
+      width: 900,
+      height: 500,
+      backgroundColor: "#ffffff",
+    });
 
-useEffect(() => {
+    const title = new Textbox("Double click to edit text", {
+      left: 100,
+      top: 100,
+      fontSize: 24,
+    });
 
-const canvas = new fabric.Canvas("label-canvas",{
-backgroundColor:"#fff"
-});
+    fabricCanvas.add(title);
 
-return ()=>{
-canvas.dispose();
-};
+    return () => {
+      fabricCanvas.dispose();
+    };
+  }, []);
 
-},[]);
-
-return (
-<canvas
-id="label-canvas"
-width={800}
-height={500}
-/>
-);
+  return (
+    <canvas
+      ref={canvasRef}
+      className="border border-gray-300"
+    />
+  );
 }
