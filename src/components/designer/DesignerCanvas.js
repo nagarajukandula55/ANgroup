@@ -7,6 +7,10 @@ export default function DesignerCanvas() {
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
 
+  const [textValue, setTextValue] = useState("");
+  const [fontSize, setFontSize] = useState(24);
+  const [fillColor, setFillColor] = useState("#000000");
+
   const [selectedObject, setSelectedObject] = useState(null);
 
   useEffect(() => {
@@ -20,14 +24,26 @@ export default function DesignerCanvas() {
 
     fabricCanvasRef.current = canvas;
 
+    const updateSelectedObject = (obj) => {
+      setSelectedObject(obj);
+    
+      if (!obj) return;
+    
+      if (obj.type === "textbox") {
+        setTextValue(obj.text || "");
+        setFontSize(obj.fontSize || 24);
+        setFillColor(obj.fill || "#000000");
+      }
+    };
+    
     canvas.on("selection:created", (e) => {
-      setSelectedObject(e.selected?.[0] || null);
+      updateSelectedObject(e.selected?.[0] || null);
     });
-
+    
     canvas.on("selection:updated", (e) => {
-      setSelectedObject(e.selected?.[0] || null);
+      updateSelectedObject(e.selected?.[0] || null);
     });
-
+    
     canvas.on("selection:cleared", () => {
       setSelectedObject(null);
     });
@@ -104,6 +120,33 @@ export default function DesignerCanvas() {
     }
   };
 
+  const updateText = (value) => {
+    setTextValue(value);
+  
+    if (!selectedObject) return;
+  
+    selectedObject.set("text", value);
+    fabricCanvasRef.current.requestRenderAll();
+  };
+  
+  const updateFontSize = (value) => {
+    setFontSize(value);
+  
+    if (!selectedObject) return;
+  
+    selectedObject.set("fontSize", Number(value));
+    fabricCanvasRef.current.requestRenderAll();
+  };
+  
+  const updateColor = (value) => {
+    setFillColor(value);
+  
+    if (!selectedObject) return;
+  
+    selectedObject.set("fill", value);
+    fabricCanvasRef.current.requestRenderAll();
+  };
+
   return (
     <div
       className="grid gap-4"
@@ -161,29 +204,60 @@ export default function DesignerCanvas() {
       </div>
 
       {/* Properties */}
-      <div className="border rounded p-3 bg-white">
-        <h3 className="font-bold mb-3">
-          Properties
-        </h3>
-
-        {selectedObject ? (
-          <>
-            <p>Type: {selectedObject.type}</p>
-
-            <p>
-              X: {Math.round(selectedObject.left || 0)}
+        <div className="border rounded p-3 bg-white">
+          <h3 className="font-bold mb-3">
+            Properties
+          </h3>
+        
+          {selectedObject ? (
+            <>
+              <p className="mb-3">
+                Type: {selectedObject.type}
+              </p>
+        
+              {selectedObject.type === "textbox" && (
+                <>
+                  <label className="block text-sm mb-1">
+                    Text
+                  </label>
+        
+                  <input
+                    type="text"
+                    value={textValue}
+                    onChange={(e) => updateText(e.target.value)}
+                    className="w-full border rounded px-2 py-1 mb-3"
+                  />
+        
+                  <label className="block text-sm mb-1">
+                    Font Size
+                  </label>
+        
+                  <input
+                    type="number"
+                    value={fontSize}
+                    onChange={(e) => updateFontSize(e.target.value)}
+                    className="w-full border rounded px-2 py-1 mb-3"
+                  />
+        
+                  <label className="block text-sm mb-1">
+                    Color
+                  </label>
+        
+                  <input
+                    type="color"
+                    value={fillColor}
+                    onChange={(e) => updateColor(e.target.value)}
+                    className="w-full h-10"
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-500">
+              Select an object
             </p>
-
-            <p>
-              Y: {Math.round(selectedObject.top || 0)}
-            </p>
-          </>
-        ) : (
-          <p className="text-gray-500">
-            Select an object
-          </p>
-        )}
-      </div>
+          )}
+        </div>
     </div>
   );
 }
