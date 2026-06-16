@@ -10,18 +10,18 @@ export default function NewDesign() {
   const [showCanvas, setShowCanvas] = useState(false);
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-6 max-w-6xl">
       <h1 className="text-2xl font-bold mb-6">
         Create New Design
       </h1>
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
           <div>
             <label className="block mb-2 font-medium">
               Design Name
             </label>
+
             <input
               type="text"
               placeholder="e.g. Shampoo Front Label"
@@ -35,6 +35,7 @@ export default function NewDesign() {
             <label className="block mb-2 font-medium">
               Width (mm)
             </label>
+
             <input
               type="number"
               value={width}
@@ -47,6 +48,7 @@ export default function NewDesign() {
             <label className="block mb-2 font-medium">
               Height (mm)
             </label>
+
             <input
               type="number"
               value={height}
@@ -54,7 +56,6 @@ export default function NewDesign() {
               className="w-full border rounded px-3 py-2"
             />
           </div>
-
         </div>
 
         <button
@@ -72,7 +73,6 @@ export default function NewDesign() {
           </h2>
 
           <DesignerCanvas />
-          </div>
         </div>
       )}
     </div>
