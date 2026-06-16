@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
 export default function AssetsPage() {
   const [assets, setAssets] = useState([]);
 
@@ -21,6 +23,12 @@ export default function AssetsPage() {
       <h1 className="text-2xl font-bold mb-6">
         Assets Library
       </h1>
+
+      <Link href="/admin/assets/new">
+          <button className="bg-blue-600 text-white px-4 py-2 rounded mb-4">
+            Add Asset
+          </button>
+        </Link>
 
       <div className="grid grid-cols-4 gap-4">
         {assets.map((asset) => (
