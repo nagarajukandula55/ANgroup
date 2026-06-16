@@ -20,6 +20,10 @@ const AssetSchema = new mongoose.Schema(
 
     thumbnailUrl: String,
 
+    fileType: String,
+
+    size: Number,
+
     tags: [String],
   },
   {
