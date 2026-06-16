@@ -32,11 +32,14 @@ export default function NewAssetPage() {
     );
 
     const data = await res.json();
-
+    
+    console.log("UPLOAD RESPONSE", data);
+    
     if (data.success) {
+      alert("Upload Successful");
       router.push("/admin/assets");
     } else {
-      alert(data.error);
+      alert(data.error || "Upload Failed");
     }
   };
 
