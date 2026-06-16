@@ -59,7 +59,11 @@ export default function NewDesign() {
         </div>
 
         <button
-          onClick={() => setShowCanvas(true)}
+          onClick={() => {
+            if (!showCanvas) {
+              setShowCanvas(true);
+            }
+          }}
           className="mt-6 bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700"
         >
           Create Canvas
