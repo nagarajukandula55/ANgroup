@@ -151,18 +151,51 @@ export default function DesignerCanvas({
   };
 
   const deleteSelected = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    const activeObject = canvas.getActiveObject();
-
-    if (activeObject) {
-      canvas.remove(activeObject);
-      canvas.discardActiveObject();
-      canvas.requestRenderAll();
-      setSelectedObject(null);
-    }
-  };
+      const canvas = fabricCanvasRef.current;
+    
+      if (!canvas) return;
+    
+      const activeObject = canvas.getActiveObject();
+    
+      if (activeObject) {
+        canvas.remove(activeObject);
+        canvas.discardActiveObject();
+        canvas.requestRenderAll();
+        setSelectedObject(null);
+      }
+    };
+    
+    const saveDesign = async () => {
+      const canvas = fabricCanvasRef.current;
+    
+      if (!canvas) return;
+    
+      const json = canvas.toJSON();
+    
+      const thumbnail = canvas.toDataURL({
+        format: "png",
+        multiplier: 0.5,
+      });
+    
+      const res = await fetch("/api/designs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "My Design",
+          width: labelWidth,
+          height: labelHeight,
+          canvasJson: json,
+          thumbnail,
+        }),
+      });
+    
+      const data = await res.json();
+    
+      console.log(data);
+      alert("Design Saved");
+    };
 
 const addAssetImage = async (asset) => {
       const canvas = fabricCanvasRef.current;
@@ -250,6 +283,13 @@ const addAssetImage = async (asset) => {
           className="w-full bg-red-600 text-white py-2 rounded"
         >
           Delete
+        </button>
+
+        <button
+          onClick={saveDesign}
+          className="w-full mt-2 bg-blue-600 text-white py-2 rounded"
+        >
+          Save Design
         </button>
       </div>
 
