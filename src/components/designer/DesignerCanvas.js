@@ -21,6 +21,16 @@ export default function DesignerCanvas({
 
   const [selectedObject, setSelectedObject] = useState(null);
 
+useEffect(() => {
+      if (!fabricCanvasRef.current) return;
+    
+      if (!designJson) return;
+    
+      fabricCanvasRef.current.loadFromJSON(designJson, () => {
+        fabricCanvasRef.current.requestRenderAll();
+      });
+    }, [designJson]);
+
   useEffect(() => {
     if (!canvasRef.current) return;
 
