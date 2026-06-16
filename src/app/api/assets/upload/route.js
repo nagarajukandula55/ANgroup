@@ -20,34 +20,56 @@ export async function POST(req) {
       );
     }
 
+    // 🔒 basic validation
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json(
+        { error: "Only image files allowed" },
+        { status: 400 }
+      );
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
+    const base64 = `data:${file.type};base64,${buffer.toString(
+      "base64"
+    )}`;
 
+    // 🚀 MAIN UPLOAD (optimized)
     const uploadResult = await cloudinary.uploader.upload(base64, {
       folder: "an-assets",
+      resource_type: "image",
+      quality: "auto",
+      fetch_format: "auto",
+    });
+
+    // 🖼️ thumbnail (true optimized version)
+    const thumbnailUrl = cloudinary.url(uploadResult.public_id, {
+      width: 300,
+      crop: "scale",
+      quality: "auto",
+      fetch_format: "auto",
     });
 
     const asset = await Asset.create({
-      name,
-      category,
+      name: name || "Untitled Asset",
+      category: category || "logo",
       fileUrl: uploadResult.secure_url,
-      thumbnailUrl: uploadResult.secure_url,
+      thumbnailUrl,
+      fileType: file.type,
+      size: buffer.length,
+      tags: [],
     });
 
     return NextResponse.json({
       success: true,
       asset,
     });
-
   } catch (error) {
     console.error(error);
 
     return NextResponse.json(
-      {
-        error: error.message,
-      },
+      { error: error.message },
       { status: 500 }
     );
   }
