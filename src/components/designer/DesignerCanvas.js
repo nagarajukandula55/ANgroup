@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
+
+const [selectedObject, setSelectedObject] = useState(null);
 
 export default function DesignerCanvas() {
   const canvasRef = useRef(null);
@@ -19,11 +21,15 @@ export default function DesignerCanvas() {
     fabricCanvasRef.current = canvas;
 
     canvas.on("selection:created", (e) => {
-      console.log("Selected", e.selected?.[0]);
+      setSelectedObject(e.selected?.[0] || null);
     });
     
     canvas.on("selection:updated", (e) => {
-      console.log("Selected", e.selected?.[0]);
+      setSelectedObject(e.selected?.[0] || null);
+    });
+    
+    canvas.on("selection:cleared", () => {
+      setSelectedObject(null);
     });
 
     console.log("Canvas Initialized");
@@ -112,7 +118,12 @@ export default function DesignerCanvas() {
   };
 
   return (
-    <div className="grid grid-cols-12 gap-4">
+    <div
+        className="grid gap-4"
+        style={{
+          gridTemplateColumns: "250px 1fr 300px",
+        }}
+      >
   
       {/* Components */}
       <div className="col-span-2 border rounded p-3 bg-white">
@@ -148,21 +159,46 @@ export default function DesignerCanvas() {
       </div>
   
       {/* Canvas */}
-      <div className="col-span-8 border rounded p-4 bg-gray-50">
-        <canvas
-          ref={canvasRef}
-          width={1000}
-          height={600}
-        />
+      <div className="col-span-8 border rounded p-4 bg-gray-50 overflow-auto">
+        <div
+          style={{
+            width: "1000px",
+            minWidth: "1000px",
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            width={1000}
+            height={600}
+          />
+        </div>
       </div>
   
       {/* Properties */}
       <div className="col-span-2 border rounded p-3 bg-white">
-        <h3 className="font-bold mb-3">Properties</h3>
-  
-        <p className="text-sm text-gray-500">
-          Select an object to edit properties
-        </p>
+        <h3 className="font-bold mb-3">
+          Properties
+        </h3>
+      
+        {selectedObject ? (
+          <>
+            <p>
+              Type: {selectedObject.type}
+            </p>
+      
+            <p>
+              X: {Math.round(selectedObject.left)}
+            </p>
+      
+            <p>
+              Y: {Math.round(selectedObject.top)}
+            </p>
+          </>
+        ) : (
+          <p className="text-gray-500">
+            Select an object
+          </p>
+        )}
       </div>
   
     </div>
