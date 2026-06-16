@@ -60,9 +60,11 @@ export default function NewDesign() {
 
         <button
           onClick={() => {
-            if (!showCanvas) {
+            setShowCanvas(false);
+          
+            setTimeout(() => {
               setShowCanvas(true);
-            }
+            }, 50);
           }}
           className="mt-6 bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700"
         >
