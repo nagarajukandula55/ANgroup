@@ -5,3 +5,9 @@ export default function DesignsPage() {
     </div>
   );
 }
+
+<Link href="/admin/designs/new">
+    <button>
+        New Design
+    </button>
+</Link>
