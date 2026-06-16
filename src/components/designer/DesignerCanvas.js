@@ -1,20 +1,100 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Canvas } from "fabric";
+import { Canvas, Textbox, Rect, Circle } from "fabric";
 
 export default function DesignerCanvas() {
-  const ref = useRef(null);
+  const canvasRef = useRef(null);
+  const fabricCanvas = useRef(null);
 
   useEffect(() => {
-    const canvas = new Canvas(ref.current, {
-      width: 800,
-      height: 500,
-      backgroundColor: "#fff",
+    if (!canvasRef.current) return;
+
+    const canvas = new Canvas(canvasRef.current, {
+      width: 1000,
+      height: 600,
+      backgroundColor: "#ffffff",
     });
 
-    return () => canvas.dispose();
+    fabricCanvas.current = canvas;
+
+    return () => {
+      canvas.dispose();
+      fabricCanvas.current = null;
+    };
   }, []);
 
-  return <canvas ref={ref} />;
+  const addText = () => {
+    if (!fabricCanvas.current) return;
+
+    const text = new Textbox("New Text", {
+      left: 100,
+      top: 100,
+      fontSize: 24,
+    });
+
+    fabricCanvas.current.add(text);
+    fabricCanvas.current.renderAll();
+  };
+
+  const addRect = () => {
+    if (!fabricCanvas.current) return;
+
+    const rect = new Rect({
+      left: 100,
+      top: 100,
+      width: 200,
+      height: 100,
+    });
+
+    fabricCanvas.current.add(rect);
+    fabricCanvas.current.renderAll();
+  };
+
+  const addCircle = () => {
+    if (!fabricCanvas.current) return;
+
+    const circle = new Circle({
+      left: 100,
+      top: 100,
+      radius: 50,
+    });
+
+    fabricCanvas.current.add(circle);
+    fabricCanvas.current.renderAll();
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={addText}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Add Text
+        </button>
+
+        <button
+          onClick={addRect}
+          className="px-4 py-2 bg-green-600 text-white rounded"
+        >
+          Rectangle
+        </button>
+
+        <button
+          onClick={addCircle}
+          className="px-4 py-2 bg-purple-600 text-white rounded"
+        >
+          Circle
+        </button>
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        width={1000}
+        height={600}
+        className="border border-gray-300"
+      />
+    </div>
+  );
 }
