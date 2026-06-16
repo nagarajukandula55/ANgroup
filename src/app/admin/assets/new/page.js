@@ -13,6 +13,11 @@ export default function NewAssetPage() {
 
   const uploadAsset = async () => {
     try {
+      if (!file) {
+        alert("Please select a file");
+        return;
+      }
+  
       const formData = new FormData();
   
       formData.append("file", file);
@@ -26,27 +31,19 @@ export default function NewAssetPage() {
   
       const data = await res.json();
   
-      console.log(data);
+      console.log("UPLOAD RESPONSE:", data);
   
       if (!res.ok) {
         throw new Error(data.error || "Upload failed");
       }
   
-      router.push("/admin/assets");
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
-    const data = await res.json();
-    
-    console.log("UPLOAD RESPONSE", data);
-    
-    if (data.success) {
       alert("Upload Successful");
-      router.push("/admin/assets");
-    } else {
-      alert(data.error || "Upload Failed");
+  
+      window.location.href = "/admin/assets";
+  
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
     }
   };
 
