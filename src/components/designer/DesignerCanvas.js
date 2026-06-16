@@ -6,9 +6,11 @@ import AssetLibrary from "./AssetLibrary";
 
 
 export default function DesignerCanvas({
-    labelWidth,
-    labelHeight,
-  }) {
+  labelWidth,
+  labelHeight,
+  designId,
+  initialCanvas,
+}) {
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
 
@@ -20,6 +22,18 @@ export default function DesignerCanvas({
   const [posY, setPosY] = useState(0);
 
   const [selectedObject, setSelectedObject] = useState(null);
+
+    useEffect(() => {
+      if (!fabricCanvasRef.current) return;
+    
+      const canvas = fabricCanvasRef.current;
+    
+      if (initialCanvas) {
+        canvas.loadFromJSON(initialCanvas, () => {
+          canvas.requestRenderAll();
+        });
+      }
+    }, [initialCanvas]);
 
 useEffect(() => {
       if (!fabricCanvasRef.current) return;
@@ -178,8 +192,6 @@ useEffect(() => {
     const saveDesign = async () => {
       const canvas = fabricCanvasRef.current;
     
-      if (!canvas) return;
-    
       const json = canvas.toJSON();
     
       const thumbnail = canvas.toDataURL({
@@ -187,19 +199,21 @@ useEffect(() => {
         multiplier: 0.5,
       });
     
-      const res = await fetch("/api/designs", {
-        method: "POST",
+      const res = await fetch(`/api/designs/${designId}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: "My Design",
-          width: labelWidth,
-          height: labelHeight,
           canvasJson: json,
           thumbnail,
         }),
       });
+    
+      const data = await res.json();
+    
+      alert("Design Updated Successfully");
+    };
     
       const data = await res.json();
     
