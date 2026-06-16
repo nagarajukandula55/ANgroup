@@ -18,6 +18,14 @@ export default function DesignerCanvas() {
 
     fabricCanvasRef.current = canvas;
 
+    canvas.on("selection:created", (e) => {
+      console.log("Selected", e.selected?.[0]);
+    });
+    
+    canvas.on("selection:updated", (e) => {
+      console.log("Selected", e.selected?.[0]);
+    });
+
     console.log("Canvas Initialized");
 
     return () => {
