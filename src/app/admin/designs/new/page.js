@@ -76,7 +76,10 @@ export default function NewDesign() {
             Canvas Preview ({width}mm × {height}mm)
           </h2>
 
-          <DesignerCanvas />
+          <DesignerCanvas
+            labelWidth={Number(width)}
+            labelHeight={Number(height)}
+          />
         </div>
       )}
     </div>
