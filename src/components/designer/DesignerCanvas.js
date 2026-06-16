@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
+import AssetLibrary from "./AssetLibrary";
+
 
 export default function DesignerCanvas({
     labelWidth,
@@ -162,6 +164,28 @@ export default function DesignerCanvas({
     }
   };
 
+const addAssetImage = async (asset) => {
+      const canvas = fabricCanvasRef.current;
+    
+      if (!canvas) return;
+    
+      fabric.Image.fromURL(
+        asset.fileUrl,
+        (img) => {
+          img.scaleToWidth(150);
+    
+          canvas.add(img);
+    
+          canvas.setActiveObject(img);
+    
+          canvas.requestRenderAll();
+        },
+        {
+          crossOrigin: "anonymous",
+        }
+      );
+    };
+
   const updateText = (value) => {
     setTextValue(value);
   
@@ -228,6 +252,12 @@ export default function DesignerCanvas({
           Delete
         </button>
       </div>
+
+    <div className="border rounded p-3 bg-white">
+      <AssetLibrary
+        onSelect={addAssetImage}
+      />
+    </div>
 
       {/* Canvas */}
       <div className="border rounded p-4 bg-gray-50 overflow-auto">
