@@ -7,46 +7,61 @@ export default function NewAssetPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
-  const [category, setCategory] =
-    useState("logo");
+  const [category, setCategory] = useState("logo");
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
 
-  const saveAsset = async () => {
-    await fetch("/api/assets", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name,
-        category,
-        fileUrl: "",
-      }),
-    });
+  const uploadAsset = async () => {
+    if (!file) {
+      alert("Select a file");
+      return;
+    }
 
-    router.push("/admin/assets");
+    const formData = new FormData();
+
+    formData.append("file", file);
+    formData.append("name", name);
+    formData.append("category", category);
+
+    const res = await fetch(
+      "/api/assets/upload",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await res.json();
+
+    if (data.success) {
+      router.push("/admin/assets");
+    } else {
+      alert(data.error);
+    }
   };
 
   return (
-    <div className="p-6 max-w-xl">
+    <div className="max-w-xl p-6">
       <h1 className="text-2xl font-bold mb-6">
-        New Asset
+        Upload Asset
       </h1>
 
       <input
-        className="w-full border p-2 mb-3"
+        type="text"
         placeholder="Asset Name"
         value={name}
         onChange={(e) =>
           setName(e.target.value)
         }
+        className="w-full border rounded p-2 mb-4"
       />
 
       <select
-        className="w-full border p-2 mb-3"
         value={category}
         onChange={(e) =>
           setCategory(e.target.value)
         }
+        className="w-full border rounded p-2 mb-4"
       >
         <option value="logo">Logo</option>
         <option value="icon">Icon</option>
@@ -61,11 +76,37 @@ export default function NewAssetPage() {
         </option>
       </select>
 
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const selected =
+            e.target.files?.[0];
+
+          setFile(selected);
+
+          if (selected) {
+            setPreview(
+              URL.createObjectURL(selected)
+            );
+          }
+        }}
+        className="mb-4"
+      />
+
+      {preview && (
+        <img
+          src={preview}
+          alt="Preview"
+          className="w-48 border rounded mb-4"
+        />
+      )}
+
       <button
-        onClick={saveAsset}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
+        onClick={uploadAsset}
+        className="bg-blue-600 text-white px-5 py-2 rounded"
       >
-        Save Asset
+        Upload Asset
       </button>
     </div>
   );
