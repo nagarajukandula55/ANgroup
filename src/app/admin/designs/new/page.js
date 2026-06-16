@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import DesignerCanvas from "@/components/designer/DesignerCanvas";
 
 export default function NewDesign() {
   const [name, setName] = useState("");
@@ -70,13 +71,7 @@ export default function NewDesign() {
             Canvas Preview ({width}mm × {height}mm)
           </h2>
 
-          <div
-            className="border-2 border-dashed border-gray-400 bg-gray-50"
-            style={{
-              width: "800px",
-              height: "500px",
-            }}
-          >
+          <DesignerCanvas />
           </div>
         </div>
       )}
