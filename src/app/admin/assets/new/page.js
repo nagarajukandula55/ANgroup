@@ -12,24 +12,31 @@ export default function NewAssetPage() {
   const [preview, setPreview] = useState("");
 
   const uploadAsset = async () => {
-    if (!file) {
-      alert("Select a file");
-      return;
-    }
-
-    const formData = new FormData();
-
-    formData.append("file", file);
-    formData.append("name", name);
-    formData.append("category", category);
-
-    const res = await fetch(
-      "/api/assets/upload",
-      {
+    try {
+      const formData = new FormData();
+  
+      formData.append("file", file);
+      formData.append("name", name);
+      formData.append("category", category);
+  
+      const res = await fetch("/api/assets/upload", {
         method: "POST",
         body: formData,
+      });
+  
+      const data = await res.json();
+  
+      console.log(data);
+  
+      if (!res.ok) {
+        throw new Error(data.error || "Upload failed");
       }
-    );
+  
+      router.push("/admin/assets");
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
     const data = await res.json();
     
