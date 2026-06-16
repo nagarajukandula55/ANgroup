@@ -4,15 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
 import AssetLibrary from "./AssetLibrary";
 
-
 export default function DesignerCanvas({
   labelWidth,
   labelHeight,
-  designId,
-  initialCanvas,
+  designId = null,
+  initialCanvas = null,
 }) {
   const canvasRef = useRef(null);
-  const fabricCanvasRef = useRef(null);
+  const fabricRef = useRef(null);
+
+  const [selectedObject, setSelectedObject] = useState(null);
 
   const [textValue, setTextValue] = useState("");
   const [fontSize, setFontSize] = useState(24);
@@ -21,401 +22,256 @@ export default function DesignerCanvas({
   const [posX, setPosX] = useState(0);
   const [posY, setPosY] = useState(0);
 
-  const [selectedObject, setSelectedObject] = useState(null);
-
-    useEffect(() => {
-      if (!fabricCanvasRef.current) return;
-    
-      const canvas = fabricCanvasRef.current;
-    
-      if (initialCanvas) {
-        canvas.loadFromJSON(initialCanvas, () => {
-          canvas.requestRenderAll();
-        });
-      }
-    }, [initialCanvas]);
-
-useEffect(() => {
-      if (!fabricCanvasRef.current) return;
-    
-      if (!designJson) return;
-    
-      fabricCanvasRef.current.loadFromJSON(designJson, () => {
-        fabricCanvasRef.current.requestRenderAll();
-      });
-    }, [designJson]);
-
+  /* ================= INIT CANVAS ================= */
   useEffect(() => {
     if (!canvasRef.current) return;
 
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: 1000,
       height: 600,
-      backgroundColor: "#d1d5db",
+      backgroundColor: "#e5e7eb",
     });
 
-    fabricCanvasRef.current = canvas;
+    fabricRef.current = canvas;
 
+    // Label boundary
     const labelRect = new fabric.Rect({
       left: 50,
       top: 50,
       width: labelWidth * 4,
       height: labelHeight * 4,
       fill: "#ffffff",
-      stroke: "#000000",
+      stroke: "#000",
       strokeWidth: 2,
       selectable: false,
       evented: false,
     });
-    
+
     canvas.add(labelRect);
     canvas.sendObjectToBack(labelRect);
 
-    const updateSelectedObject = (obj) => {
+    /* selection handler */
+    const onSelect = (obj) => {
+      if (!obj) return;
+
       setSelectedObject(obj);
 
       setPosX(Math.round(obj.left || 0));
       setPosY(Math.round(obj.top || 0));
-    
-      if (!obj) return;
-    
+
       if (obj.type === "textbox") {
         setTextValue(obj.text || "");
         setFontSize(obj.fontSize || 24);
-        setFillColor(obj.fill || "#000000");
+        setFillColor(obj.fill || "#000");
       }
     };
-    
-    canvas.on("selection:created", (e) => {
-      updateSelectedObject(e.selected?.[0] || null);
-    });
-    
-    canvas.on("selection:updated", (e) => {
-      updateSelectedObject(e.selected?.[0] || null);
-    });
-    
-    canvas.on("selection:cleared", () => {
-      setSelectedObject(null);
-    });
 
-    return () => {
-      canvas.dispose();
-    };
-  }, []);
+    canvas.on("selection:created", (e) => onSelect(e.selected?.[0]));
+    canvas.on("selection:updated", (e) => onSelect(e.selected?.[0]));
+    canvas.on("selection:cleared", () => setSelectedObject(null));
 
-  const updateX = (value) => {
-    setPosX(value);
-  
+    return () => canvas.dispose();
+  }, [labelWidth, labelHeight]);
+
+  /* ================= LOAD EXISTING DESIGN ================= */
+  useEffect(() => {
+    if (!fabricRef.current || !initialCanvas) return;
+
+    fabricRef.current.loadFromJSON(initialCanvas, () => {
+      fabricRef.current.requestRenderAll();
+    });
+  }, [initialCanvas]);
+
+  /* ================= HELPERS ================= */
+  const canvas = () => fabricRef.current;
+
+  /* ================= OBJECT CONTROLS ================= */
+  const updateX = (v) => {
+    setPosX(v);
     if (!selectedObject) return;
-  
-    selectedObject.set("left", Number(value));
-    fabricCanvasRef.current.requestRenderAll();
-  };
-  
-  const updateY = (value) => {
-    setPosY(value);
-  
-    if (!selectedObject) return;
-  
-    selectedObject.set("top", Number(value));
-    fabricCanvasRef.current.requestRenderAll();
+    selectedObject.set("left", Number(v));
+    canvas().requestRenderAll();
   };
 
+  const updateY = (v) => {
+    setPosY(v);
+    if (!selectedObject) return;
+    selectedObject.set("top", Number(v));
+    canvas().requestRenderAll();
+  };
+
+  const updateText = (v) => {
+    setTextValue(v);
+    if (!selectedObject) return;
+    selectedObject.set("text", v);
+    canvas().requestRenderAll();
+  };
+
+  const updateFont = (v) => {
+    setFontSize(v);
+    if (!selectedObject) return;
+    selectedObject.set("fontSize", Number(v));
+    canvas().requestRenderAll();
+  };
+
+  const updateColor = (v) => {
+    setFillColor(v);
+    if (!selectedObject) return;
+    selectedObject.set("fill", v);
+    canvas().requestRenderAll();
+  };
+
+  /* ================= ADD ELEMENTS ================= */
   const addText = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    const text = new fabric.Textbox("New Text", {
+    const obj = new fabric.Textbox("Text", {
       left: 100,
       top: 100,
       fontSize: 24,
-      fill: "black",
+      fill: "#000",
     });
 
-    canvas.add(text);
-    canvas.setActiveObject(text);
-    canvas.requestRenderAll();
+    canvas().add(obj);
+    canvas().setActiveObject(obj);
+    canvas().requestRenderAll();
   };
 
   const addRect = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    const rect = new fabric.Rect({
-      left: 150,
-      top: 150,
+    const obj = new fabric.Rect({
+      left: 120,
+      top: 120,
       width: 200,
       height: 100,
       fill: "#dbeafe",
-      stroke: "#000",
-      strokeWidth: 1,
     });
 
-    canvas.add(rect);
-    canvas.setActiveObject(rect);
-    canvas.requestRenderAll();
+    canvas().add(obj);
+    canvas().setActiveObject(obj);
+    canvas().requestRenderAll();
   };
 
   const addCircle = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    const circle = new fabric.Circle({
-      left: 200,
-      top: 200,
+    const obj = new fabric.Circle({
+      left: 150,
+      top: 150,
       radius: 50,
       fill: "#dcfce7",
-      stroke: "#000",
-      strokeWidth: 1,
     });
 
-    canvas.add(circle);
-    canvas.setActiveObject(circle);
-    canvas.requestRenderAll();
+    canvas().add(obj);
+    canvas().setActiveObject(obj);
+    canvas().requestRenderAll();
   };
 
   const deleteSelected = () => {
-      const canvas = fabricCanvasRef.current;
-    
-      if (!canvas) return;
-    
-      const activeObject = canvas.getActiveObject();
-    
-      if (activeObject) {
-        canvas.remove(activeObject);
-        canvas.discardActiveObject();
-        canvas.requestRenderAll();
-        setSelectedObject(null);
-      }
-    };
-    
-    const saveDesign = async () => {
-      const canvas = fabricCanvasRef.current;
-    
-      const json = canvas.toJSON();
-    
-      const thumbnail = canvas.toDataURL({
-        format: "png",
-        multiplier: 0.5,
-      });
-    
-      const res = await fetch(`/api/designs/${designId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          canvasJson: json,
-          thumbnail,
-        }),
-      });
-    
-      const data = await res.json();
-    
-      alert("Design Updated Successfully");
-    };
-    
-      const data = await res.json();
-    
-      console.log(data);
-      alert("Design Saved");
-    };
+    const c = canvas();
+    const active = c.getActiveObject();
 
-const addAssetImage = async (asset) => {
-      const canvas = fabricCanvasRef.current;
-    
-      if (!canvas) return;
-    
-      fabric.Image.fromURL(
-        asset.fileUrl,
-        (img) => {
-          img.scaleToWidth(150);
-    
-          canvas.add(img);
-    
-          canvas.setActiveObject(img);
-    
-          canvas.requestRenderAll();
-        },
-        {
-          crossOrigin: "anonymous",
-        }
-      );
-    };
-
-  const updateText = (value) => {
-    setTextValue(value);
-  
-    if (!selectedObject) return;
-  
-    selectedObject.set("text", value);
-    fabricCanvasRef.current.requestRenderAll();
-  };
-  
-  const updateFontSize = (value) => {
-    setFontSize(value);
-  
-    if (!selectedObject) return;
-  
-    selectedObject.set("fontSize", Number(value));
-    fabricCanvasRef.current.requestRenderAll();
-  };
-  
-  const updateColor = (value) => {
-    setFillColor(value);
-  
-    if (!selectedObject) return;
-  
-    selectedObject.set("fill", value);
-    fabricCanvasRef.current.requestRenderAll();
+    if (active) {
+      c.remove(active);
+      c.discardActiveObject();
+      c.requestRenderAll();
+      setSelectedObject(null);
+    }
   };
 
+  /* ================= ASSETS ================= */
+  const addAssetImage = async (asset) => {
+    const c = canvas();
+    if (!c) return;
+
+    const img = await fabric.Image.fromURL(asset.fileUrl);
+
+    img.scaleToWidth(150);
+    c.add(img);
+    c.setActiveObject(img);
+    c.requestRenderAll();
+  };
+
+  /* ================= SAVE / UPDATE ================= */
+  const saveDesign = async () => {
+    const c = canvas();
+    if (!c) return;
+
+    const payload = {
+      name: "Untitled Design",
+      width: labelWidth,
+      height: labelHeight,
+      canvasJson: c.toJSON(),
+      thumbnail: c.toDataURL({ multiplier: 0.5 }),
+    };
+
+    const url = designId
+      ? `/api/designs/${designId}`
+      : "/api/designs";
+
+    const method = designId ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Save failed");
+      return;
+    }
+
+    alert("Design saved successfully");
+  };
+
+  /* ================= UI ================= */
   return (
     <div
       className="grid gap-4"
-      style={{
-        gridTemplateColumns: "250px 1fr 300px",
-      }}
+      style={{ gridTemplateColumns: "250px 1fr 300px" }}
     >
-      {/* Components */}
-      <div className="border rounded p-3 bg-white">
-        <h3 className="font-bold mb-3">Components</h3>
-
-        <button
-          onClick={addText}
-          className="w-full mb-2 bg-blue-600 text-white py-2 rounded"
-        >
-          Text
-        </button>
-
-        <button
-          onClick={addRect}
-          className="w-full mb-2 bg-green-600 text-white py-2 rounded"
-        >
-          Rectangle
-        </button>
-
-        <button
-          onClick={addCircle}
-          className="w-full mb-2 bg-purple-600 text-white py-2 rounded"
-        >
-          Circle
-        </button>
-
-        <button
-          onClick={deleteSelected}
-          className="w-full bg-red-600 text-white py-2 rounded"
-        >
-          Delete
-        </button>
-
-        <button
-          onClick={saveDesign}
-          className="w-full mt-2 bg-blue-600 text-white py-2 rounded"
-        >
-          Save Design
+      {/* LEFT PANEL */}
+      <div className="border p-3 bg-white rounded">
+        <button onClick={addText} className="btn">Text</button>
+        <button onClick={addRect} className="btn">Rect</button>
+        <button onClick={addCircle} className="btn">Circle</button>
+        <button onClick={deleteSelected} className="btn-red">Delete</button>
+        <button onClick={saveDesign} className="btn-blue mt-2">
+          Save
         </button>
       </div>
 
-    <div className="border rounded p-3 bg-white">
-      <AssetLibrary
-        onSelect={addAssetImage}
-      />
-    </div>
-
-      {/* Canvas */}
-      <div className="border rounded p-4 bg-gray-50 overflow-auto">
-        <div
-          style={{
-            width: "1000px",
-            minWidth: "1000px",
-          }}
-        >
-          <canvas
-            ref={canvasRef}
-            width={1000}
-            height={600}
-          />
-        </div>
+      {/* ASSETS */}
+      <div className="border p-3 bg-white rounded">
+        <AssetLibrary onSelect={addAssetImage} />
       </div>
 
-      {/* Properties */}
-        <div className="border rounded p-3 bg-white">
-          <h3 className="font-bold mb-3">
-            Properties
-          </h3>
-        
-          {selectedObject ? (
-            <>
-              <p className="mb-3">
-                Type: {selectedObject.type}
-              </p>
-        
-              {selectedObject.type === "textbox" && (
-                <>
-                  <label className="block text-sm mb-1">
-                    Text
-                  </label>
-        
-                  <input
-                    type="text"
-                    value={textValue}
-                    onChange={(e) => updateText(e.target.value)}
-                    className="w-full border rounded px-2 py-1 mb-3"
-                  />
-        
-                  <label className="block text-sm mb-1">
-                    Font Size
-                  </label>
-        
-                  <input
-                    type="number"
-                    value={fontSize}
-                    onChange={(e) => updateFontSize(e.target.value)}
-                    className="w-full border rounded px-2 py-1 mb-3"
-                  />
-        
-                  <label className="block text-sm mb-1">
-                    Color
-                  </label>
-        
-                  <input
-                    type="color"
-                    value={fillColor}
-                    onChange={(e) => updateColor(e.target.value)}
-                    className="w-full h-10"
-                  />
+      {/* CANVAS */}
+      <div className="border p-4 bg-gray-50 rounded overflow-auto">
+        <canvas ref={canvasRef} width={1000} height={600} />
+      </div>
 
-                  <label className="block text-sm mt-3 mb-1">
-                    X Position
-                  </label>
-                  
-                  <input
-                    type="number"
-                    value={posX}
-                    onChange={(e) => updateX(e.target.value)}
-                    className="w-full border rounded px-2 py-1 mb-3"
-                  />
-                  
-                  <label className="block text-sm mb-1">
-                    Y Position
-                  </label>
-                  
-                  <input
-                    type="number"
-                    value={posY}
-                    onChange={(e) => updateY(e.target.value)}
-                    className="w-full border rounded px-2 py-1"
-                  />
-                </>
-              )}
-            </>
-          ) : (
-            <p className="text-gray-500">
-              Select an object
-            </p>
-          )}
-        </div>
+      {/* PROPERTIES */}
+      <div className="border p-3 bg-white rounded">
+        <h3 className="font-bold mb-3">Properties</h3>
+
+        {!selectedObject ? (
+          <p className="text-gray-500">Select object</p>
+        ) : (
+          <>
+            <p>Type: {selectedObject.type}</p>
+
+            {selectedObject.type === "textbox" && (
+              <>
+                <input value={textValue} onChange={(e) => updateText(e.target.value)} />
+                <input type="number" value={fontSize} onChange={(e) => updateFont(e.target.value)} />
+                <input type="color" value={fillColor} onChange={(e) => updateColor(e.target.value)} />
+              </>
+            )}
+
+            <input type="number" value={posX} onChange={(e) => updateX(e.target.value)} />
+            <input type="number" value={posY} onChange={(e) => updateY(e.target.value)} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
