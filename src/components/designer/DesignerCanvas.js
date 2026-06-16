@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
 
-export default function DesignerCanvas() {
+export default function DesignerCanvas({
+    labelWidth,
+    labelHeight,
+  }) {
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
 
@@ -22,10 +25,25 @@ export default function DesignerCanvas() {
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: 1000,
       height: 600,
-      backgroundColor: "#ffffff",
+      backgroundColor: "#d1d5db",
     });
 
     fabricCanvasRef.current = canvas;
+
+    const labelRect = new fabric.Rect({
+      left: 50,
+      top: 50,
+      width: labelWidth * 4,
+      height: labelHeight * 4,
+      fill: "#ffffff",
+      stroke: "#000000",
+      strokeWidth: 2,
+      selectable: false,
+      evented: false,
+    });
+    
+    canvas.add(labelRect);
+    canvas.sendObjectToBack(labelRect);
 
     const updateSelectedObject = (obj) => {
       setSelectedObject(obj);
