@@ -45,6 +45,9 @@ export default function DesignerCanvas() {
       top: 100,
       width: 200,
       height: 100,
+      fill: "#e5e7eb",
+      stroke: "#000",
+      strokeWidth: 1,
     });
 
     fabricCanvas.current.add(rect);
@@ -58,15 +61,30 @@ export default function DesignerCanvas() {
       left: 100,
       top: 100,
       radius: 50,
+      fill: "#dbeafe",
+      stroke: "#000",
+      strokeWidth: 1,
     });
 
     fabricCanvas.current.add(circle);
     fabricCanvas.current.renderAll();
   };
 
+  const deleteSelected = () => {
+    if (!fabricCanvas.current) return;
+
+    const activeObject = fabricCanvas.current.getActiveObject();
+
+    if (activeObject) {
+      fabricCanvas.current.remove(activeObject);
+      fabricCanvas.current.discardActiveObject();
+      fabricCanvas.current.renderAll();
+    }
+  };
+
   return (
     <div>
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         <button
           onClick={addText}
           className="px-4 py-2 bg-blue-600 text-white rounded"
@@ -87,13 +105,20 @@ export default function DesignerCanvas() {
         >
           Circle
         </button>
+
+        <button
+          onClick={deleteSelected}
+          className="px-4 py-2 bg-red-600 text-white rounded"
+        >
+          Delete
+        </button>
       </div>
 
       <canvas
         ref={canvasRef}
         width={1000}
         height={600}
-        className="border border-gray-300"
+        className="border border-gray-300 bg-white"
       />
     </div>
   );
