@@ -1,84 +1,105 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Canvas, Textbox, Rect, Circle } from "fabric";
+import * as fabric from "fabric";
 
 export default function DesignerCanvas() {
   const canvasRef = useRef(null);
-  const fabricCanvas = useRef(null);
+  const fabricCanvasRef = useRef(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = new Canvas(canvasRef.current, {
+    const canvas = new fabric.Canvas(canvasRef.current, {
       width: 1000,
       height: 600,
       backgroundColor: "#ffffff",
     });
 
-    fabricCanvas.current = canvas;
+    fabricCanvasRef.current = canvas;
+
+    console.log("Canvas Initialized");
 
     return () => {
       canvas.dispose();
-      fabricCanvas.current = null;
     };
   }, []);
 
   const addText = () => {
-    if (!fabricCanvas.current) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
 
-    const text = new Textbox("New Text", {
+    console.log("Add Text");
+
+    const text = new fabric.Textbox("New Text", {
       left: 100,
       top: 100,
       fontSize: 24,
+      fill: "black",
     });
 
-    fabricCanvas.current.add(text);
-    fabricCanvas.current.renderAll();
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    canvas.requestRenderAll();
+
+    console.log(canvas.getObjects());
   };
 
   const addRect = () => {
-    if (!fabricCanvas.current) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
 
-    const rect = new Rect({
-      left: 100,
-      top: 100,
+    console.log("Add Rectangle");
+
+    const rect = new fabric.Rect({
+      left: 150,
+      top: 150,
       width: 200,
       height: 100,
-      fill: "#e5e7eb",
-      stroke: "#000",
-      strokeWidth: 1,
-    });
-
-    fabricCanvas.current.add(rect);
-    fabricCanvas.current.renderAll();
-  };
-
-  const addCircle = () => {
-    if (!fabricCanvas.current) return;
-
-    const circle = new Circle({
-      left: 100,
-      top: 100,
-      radius: 50,
       fill: "#dbeafe",
       stroke: "#000",
       strokeWidth: 1,
     });
 
-    fabricCanvas.current.add(circle);
-    fabricCanvas.current.renderAll();
+    canvas.add(rect);
+    canvas.setActiveObject(rect);
+    canvas.requestRenderAll();
+
+    console.log(canvas.getObjects());
+  };
+
+  const addCircle = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    console.log("Add Circle");
+
+    const circle = new fabric.Circle({
+      left: 200,
+      top: 200,
+      radius: 50,
+      fill: "#dcfce7",
+      stroke: "#000",
+      strokeWidth: 1,
+    });
+
+    canvas.add(circle);
+    canvas.setActiveObject(circle);
+    canvas.requestRenderAll();
+
+    console.log(canvas.getObjects());
   };
 
   const deleteSelected = () => {
-    if (!fabricCanvas.current) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
 
-    const activeObject = fabricCanvas.current.getActiveObject();
+    const activeObject = canvas.getActiveObject();
 
     if (activeObject) {
-      fabricCanvas.current.remove(activeObject);
-      fabricCanvas.current.discardActiveObject();
-      fabricCanvas.current.renderAll();
+      canvas.remove(activeObject);
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
     }
   };
 
@@ -114,12 +135,9 @@ export default function DesignerCanvas() {
         </button>
       </div>
 
-      <canvas
-        ref={canvasRef}
-        width={1000}
-        height={600}
-        className="border border-gray-300 bg-white"
-      />
+      <div className="overflow-auto border rounded bg-gray-100 p-4">
+        <canvas ref={canvasRef} />
+      </div>
     </div>
   );
 }
