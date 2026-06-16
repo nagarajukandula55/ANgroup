@@ -11,6 +11,9 @@ export default function DesignerCanvas() {
   const [fontSize, setFontSize] = useState(24);
   const [fillColor, setFillColor] = useState("#000000");
 
+  const [posX, setPosX] = useState(0);
+  const [posY, setPosY] = useState(0);
+
   const [selectedObject, setSelectedObject] = useState(null);
 
   useEffect(() => {
@@ -26,6 +29,9 @@ export default function DesignerCanvas() {
 
     const updateSelectedObject = (obj) => {
       setSelectedObject(obj);
+
+      setPosX(Math.round(obj.left || 0));
+      setPosY(Math.round(obj.top || 0));
     
       if (!obj) return;
     
@@ -52,6 +58,24 @@ export default function DesignerCanvas() {
       canvas.dispose();
     };
   }, []);
+
+  const updateX = (value) => {
+    setPosX(value);
+  
+    if (!selectedObject) return;
+  
+    selectedObject.set("left", Number(value));
+    fabricCanvasRef.current.requestRenderAll();
+  };
+  
+  const updateY = (value) => {
+    setPosY(value);
+  
+    if (!selectedObject) return;
+  
+    selectedObject.set("top", Number(value));
+    fabricCanvasRef.current.requestRenderAll();
+  };
 
   const addText = () => {
     const canvas = fabricCanvasRef.current;
@@ -248,6 +272,28 @@ export default function DesignerCanvas() {
                     value={fillColor}
                     onChange={(e) => updateColor(e.target.value)}
                     className="w-full h-10"
+                  />
+
+                  <label className="block text-sm mt-3 mb-1">
+                    X Position
+                  </label>
+                  
+                  <input
+                    type="number"
+                    value={posX}
+                    onChange={(e) => updateX(e.target.value)}
+                    className="w-full border rounded px-2 py-1 mb-3"
+                  />
+                  
+                  <label className="block text-sm mb-1">
+                    Y Position
+                  </label>
+                  
+                  <input
+                    type="number"
+                    value={posY}
+                    onChange={(e) => updateY(e.target.value)}
+                    className="w-full border rounded px-2 py-1"
                   />
                 </>
               )}
