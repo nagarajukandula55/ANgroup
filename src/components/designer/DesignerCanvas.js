@@ -104,40 +104,59 @@ export default function DesignerCanvas() {
   };
 
   return (
-    <div>
-      <div className="flex gap-2 mb-4 flex-wrap">
+    <div className="grid grid-cols-12 gap-4">
+  
+      {/* Components */}
+      <div className="col-span-2 border rounded p-3 bg-white">
+        <h3 className="font-bold mb-3">Components</h3>
+  
         <button
           onClick={addText}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
+          className="w-full mb-2 bg-blue-600 text-white py-2 rounded"
         >
-          Add Text
+          Text
         </button>
-
+  
         <button
           onClick={addRect}
-          className="px-4 py-2 bg-green-600 text-white rounded"
+          className="w-full mb-2 bg-green-600 text-white py-2 rounded"
         >
           Rectangle
         </button>
-
+  
         <button
           onClick={addCircle}
-          className="px-4 py-2 bg-purple-600 text-white rounded"
+          className="w-full mb-2 bg-purple-600 text-white py-2 rounded"
         >
           Circle
         </button>
-
+  
         <button
           onClick={deleteSelected}
-          className="px-4 py-2 bg-red-600 text-white rounded"
+          className="w-full bg-red-600 text-white py-2 rounded"
         >
           Delete
         </button>
       </div>
-
-      <div className="overflow-auto border rounded bg-gray-100 p-4">
-        <canvas ref={canvasRef} />
+  
+      {/* Canvas */}
+      <div className="col-span-8 border rounded p-4 bg-gray-50">
+        <canvas
+          ref={canvasRef}
+          width={1000}
+          height={600}
+        />
       </div>
+  
+      {/* Properties */}
+      <div className="col-span-2 border rounded p-3 bg-white">
+        <h3 className="font-bold mb-3">Properties</h3>
+  
+        <p className="text-sm text-gray-500">
+          Select an object to edit properties
+        </p>
+      </div>
+  
     </div>
   );
 }
