@@ -1,44 +1,73 @@
 import mongoose from "mongoose";
 
 const MaterialCategorySchema = new mongoose.Schema(
-{
-  companyId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Company",
-    required: true,
-  },
+  {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+    },
 
-  categoryCode: {
-    type: String,
-    required: true,
-    unique: true,
-    uppercase: true,
-    trim: true,
-  },
+    categoryCode: {
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
+      trim: true,
+    },
 
-  categoryName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
+    categoryName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-  parentCategoryId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "MaterialCategory",
-    default: null,
-  },
+    categoryShortName: {
+      type: String,
+      trim: true,
+    },
 
-  description: String,
+    parentCategoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MaterialCategory",
+      default: null,
+    },
 
-  active: {
-    type: Boolean,
-    default: true,
+    categoryType: {
+      type: String,
+      enum: [
+        "RAW_MATERIAL",
+        "PACKAGING_MATERIAL",
+        "CONSUMABLE",
+        "SEMI_FINISHED",
+        "SERVICE",
+      ],
+      default: "RAW_MATERIAL",
+    },
+
+    sortOrder: {
+      type: Number,
+      default: 0,
+    },
+
+    image: {
+      type: String,
+      default: "",
+    },
+
+    description: {
+      type: String,
+      default: "",
+    },
+
+    active: {
+      type: Boolean,
+      default: true,
+    },
   },
-},
-{
-  timestamps: true,
-}
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.models.MaterialCategory ||
-mongoose.model("MaterialCategory", MaterialCategorySchema);
+  mongoose.model("MaterialCategory", MaterialCategorySchema);
