@@ -1,11 +1,23 @@
 import mongoose from "mongoose";
 
-/* ================= ACCESS SYSTEM (NO ROLES, ONLY ACCESS KEYS) ================= */
+/* ================= ACCESS SYSTEM ================= */
 const AccessSchema = new mongoose.Schema(
   {
-    key: { type: String, required: true }, // e.g. INVOICE_CREATE
-    label: String,
-    description: String,
+    key: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    label: {
+      type: String,
+      trim: true,
+    },
+
+    description: {
+      type: String,
+      trim: true,
+    },
   },
   { _id: false }
 );
@@ -13,13 +25,53 @@ const AccessSchema = new mongoose.Schema(
 /* ================= MODULE ================= */
 const ModuleSchema = new mongoose.Schema(
   {
-    key: { type: String, required: true }, // dashboard, orders, finance
-    label: String,
-    route: String,
-    icon: String,
-    enabled: { type: Boolean, default: true },
+    key: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    access: [AccessSchema], // 🔥 ACCESS BASED CONTROL
+    label: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    route: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    icon: {
+      type: String,
+      default: "",
+    },
+
+    parent: {
+      type: String,
+      default: null,
+    },
+
+    sortOrder: {
+      type: Number,
+      default: 0,
+    },
+
+    badge: {
+      type: String,
+      default: "",
+    },
+
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    access: {
+      type: [AccessSchema],
+      default: [],
+    },
   },
   { _id: false }
 );
@@ -27,18 +79,30 @@ const ModuleSchema = new mongoose.Schema(
 /* ================= NUMBERING ENGINE ================= */
 const NumberingSchema = new mongoose.Schema(
   {
-    prefix: { type: String, default: "NA" }, // NA
+    prefix: {
+      type: String,
+      default: "NA",
+    },
 
     format: {
       type: String,
       default: "PREFIX-DATE-SEQ-RANDOM",
     },
 
-    dateFormat: { type: String, default: "YYMMDD" },
+    dateFormat: {
+      type: String,
+      default: "YYMMDD",
+    },
 
-    padding: { type: Number, default: 6 },
+    padding: {
+      type: Number,
+      default: 6,
+    },
 
-    randomLength: { type: Number, default: 6 },
+    randomLength: {
+      type: Number,
+      default: 6,
+    },
 
     example: {
       type: String,
@@ -58,24 +122,42 @@ const NumberingSchema = new mongoose.Schema(
 const DocumentSchema = new mongoose.Schema(
   {
     invoice: {
-      enabled: { type: Boolean, default: true },
+      enabled: {
+        type: Boolean,
+        default: true,
+      },
+
       templateId: String,
+
       numbering: NumberingSchema,
     },
 
     creditNote: {
-      enabled: { type: Boolean, default: true },
+      enabled: {
+        type: Boolean,
+        default: true,
+      },
+
       templateId: String,
     },
 
     debitNote: {
-      enabled: { type: Boolean, default: true },
+      enabled: {
+        type: Boolean,
+        default: true,
+      },
+
       templateId: String,
     },
 
     receipt: {
-      enabled: { type: Boolean, default: true },
+      enabled: {
+        type: Boolean,
+        default: true,
+      },
+
       templateId: String,
+
       numbering: {
         type: String,
         default: "NA-1778239266354-JRUIUC",
@@ -100,47 +182,123 @@ const ComplianceSchema = new mongoose.Schema(
 /* ================= FINANCIAL ================= */
 const FinancialSchema = new mongoose.Schema(
   {
-    currency: { type: String, default: "INR" },
-    fiscalYearStart: { type: String, default: "04-01" },
-    taxStandard: { type: String, default: "GST" },
+    currency: {
+      type: String,
+      default: "INR",
+    },
+
+    fiscalYearStart: {
+      type: String,
+      default: "04-01",
+    },
+
+    taxStandard: {
+      type: String,
+      default: "GST",
+    },
   },
   { _id: false }
 );
 
-/* ================= MAIN BUSINESS ================= */
+/* ================= BUSINESS ================= */
 const BusinessSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    legalName: String,
-    brandName: String,
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    businessCode: { type: String, unique: true, index: true },
+    legalName: {
+      type: String,
+      trim: true,
+    },
 
-    industry: String,
-    type: String,
+    brandName: {
+      type: String,
+      trim: true,
+    },
 
-    email: String,
-    phone: String,
-    website: String,
+    businessCode: {
+      type: String,
+      unique: true,
+      index: true,
+      uppercase: true,
+      trim: true,
+    },
 
-    isActive: { type: Boolean, default: true },
+    tenantKey: {
+      type: String,
+      unique: true,
+      index: true,
+      trim: true,
+    },
+
+    industry: {
+      type: String,
+      trim: true,
+    },
+
+    type: {
+      type: String,
+      trim: true,
+    },
+
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+
+    phone: {
+      type: String,
+      trim: true,
+    },
+
+    website: {
+      type: String,
+      trim: true,
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
+    aiEnabled: {
+      type: Boolean,
+      default: true,
+    },
 
     modules: {
       type: [ModuleSchema],
       default: [],
     },
 
-    documents: DocumentSchema,
-    compliance: ComplianceSchema,
-    financial: FinancialSchema,
+    documents: {
+      type: DocumentSchema,
+      default: {},
+    },
 
-    aiEnabled: { type: Boolean, default: true },
+    compliance: {
+      type: ComplianceSchema,
+      default: {},
+    },
 
-    // 🔥 MULTI-TENANT KEY
-    tenantKey: { type: String, unique: true, index: true },
+    financial: {
+      type: FinancialSchema,
+      default: {},
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
+
+/* ================= INDEXES ================= */
+BusinessSchema.index({ businessCode: 1 });
+BusinessSchema.index({ tenantKey: 1 });
+BusinessSchema.index({ isActive: 1 });
 
 export default mongoose.models.Business ||
   mongoose.model("Business", BusinessSchema);
