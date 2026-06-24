@@ -6,19 +6,29 @@ export function filterModules({
   accessKeys: string[];
 }) {
   return modules
-    .filter((m) => m.enabled)
-    .filter((m) => {
-      if (!m.permissions || m.permissions.length === 0)
-        return true;
+    .filter((module) => module.enabled)
+    .filter((module) => {
+      const access = module.access || [];
 
-      return m.permissions.some((p: string) =>
-        accessKeys.includes(p)
+      if (access.length === 0) {
+        return true;
+      }
+
+      return access.some((item: any) =>
+        accessKeys.includes(item.key)
       );
     })
-    .map((m) => ({
-      key: m.key,
-      label: m.label,
-      route: m.route,
-      icon: m.icon,
+    .sort(
+      (a, b) =>
+        (a.sortOrder || 0) - (b.sortOrder || 0)
+    )
+    .map((module) => ({
+      key: module.key,
+      label: module.label,
+      route: module.route,
+      icon: module.icon,
+      parent: module.parent || null,
+      badge: module.badge || "",
+      sortOrder: module.sortOrder || 0,
     }));
 }
