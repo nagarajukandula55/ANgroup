@@ -1,15 +1,4 @@
-import { connectNativeDB } from "@/lib/native-mongodb";
-import { getProductModel } from "@/models/Product";
-
-/* =========================================================
-   DB
-========================================================= */
-
-const nativeConn =
-  await connectNativeDB();
-
-const Product =
-  getProductModel(nativeConn);
+import Product from "@/models/Product";
 
 /* =========================================================
    RESERVE STOCK
