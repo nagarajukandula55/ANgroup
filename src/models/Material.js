@@ -2,15 +2,25 @@ import mongoose from "mongoose";
 
 const NutritionSchema = new mongoose.Schema(
 {
+  servingSize: Number,
+
   energy: Number,
   protein: Number,
   carbs: Number,
+
+  sugars: Number,
+  addedSugars: Number,
+
   fat: Number,
+  saturatedFat: Number,
+  transFat: Number,
+
   fiber: Number,
-  sugar: Number,
+
   sodium: Number,
   calcium: Number,
   iron: Number,
+  potassium: Number,
 },
 {
   _id: false,
@@ -30,12 +40,16 @@ const MaterialSchema = new mongoose.Schema(
     required: true,
     unique: true,
     uppercase: true,
+    trim: true,
   },
 
   materialName: {
     type: String,
     required: true,
+    trim: true,
   },
+
+  materialShortName: String,
 
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -43,22 +57,48 @@ const MaterialSchema = new mongoose.Schema(
     required: true,
   },
 
+  subCategoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "MaterialCategory",
+  },
+
   materialType: {
     type: String,
     enum: [
       "RAW_MATERIAL",
-      "PACKAGING",
+      "PACKAGING_MATERIAL",
       "CONSUMABLE",
       "LABEL",
       "BOX",
+      "SEMI_FINISHED",
+      "SERVICE",
     ],
     default: "RAW_MATERIAL",
   },
 
-  unit: {
+  // Units
+
+  purchaseUnit: {
     type: String,
     required: true,
   },
+
+  stockUnit: {
+    type: String,
+    required: true,
+  },
+
+  consumptionUnit: {
+    type: String,
+    required: true,
+  },
+
+  conversionFactor: {
+    type: Number,
+    default: 1,
+  },
+
+  // Tax
 
   hsnCode: String,
 
@@ -67,12 +107,80 @@ const MaterialSchema = new mongoose.Schema(
     default: 0,
   },
 
-  description: String,
+  countryOfOrigin: {
+    type: String,
+    default: "India",
+  },
+
+  // Inventory
+
+  minimumStock: {
+    type: Number,
+    default: 0,
+  },
+
+  maximumStock: {
+    type: Number,
+    default: 0,
+  },
+
+  reorderLevel: {
+    type: Number,
+    default: 0,
+  },
+
+  reorderQuantity: {
+    type: Number,
+    default: 0,
+  },
+
+  shelfLifeDays: {
+    type: Number,
+    default: 0,
+  },
+
+  storageConditions: String,
+
+  // Procurement
+
+  primaryVendorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Vendor",
+  },
+
+  leadTimeDays: {
+    type: Number,
+    default: 0,
+  },
+
+  minimumOrderQty: {
+    type: Number,
+    default: 0,
+  },
+
+  // Nutrition
+
+  isNutritionalMaterial: {
+    type: Boolean,
+    default: true,
+  },
 
   nutrition: {
     type: NutritionSchema,
     default: {},
   },
+
+  // Quality
+
+  qualityGrade: String,
+
+  moisturePercentage: Number,
+
+  purityPercentage: Number,
+
+  description: String,
+
+  notes: String,
 
   active: {
     type: Boolean,
