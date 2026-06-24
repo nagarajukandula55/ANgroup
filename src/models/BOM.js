@@ -25,7 +25,15 @@ const BOMItemSchema = new mongoose.Schema(
       min: 0,
     },
 
-    remarks: String,
+    isOptional: {
+      type: Boolean,
+      default: false,
+    },
+
+    remarks: {
+      type: String,
+      default: "",
+    },
   },
   {
     _id: false,
@@ -38,7 +46,13 @@ const BOMSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
       required: true,
+    },
+
+    bomCode: {
+      type: String,
       unique: true,
+      uppercase: true,
+      trim: true,
     },
 
     version: {
@@ -49,11 +63,33 @@ const BOMSchema = new mongoose.Schema(
     batchSize: {
       type: Number,
       default: 1,
+      min: 0,
     },
 
-    items: [BOMItemSchema],
+    batchUnit: {
+      type: String,
+      default: "KG",
+    },
 
-    notes: String,
+    items: {
+      type: [BOMItemSchema],
+      default: [],
+    },
+
+    notes: {
+      type: String,
+      default: "",
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "DRAFT",
+        "APPROVED",
+        "INACTIVE",
+      ],
+      default: "DRAFT",
+    },
 
     active: {
       type: Boolean,
@@ -64,6 +100,11 @@ const BOMSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+BOMSchema.index({
+  productId: 1,
+  version: -1,
+});
 
 export default mongoose.models.BOM ||
   mongoose.model("BOM", BOMSchema);
