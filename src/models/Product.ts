@@ -21,7 +21,6 @@ const NativeProductSchema = new mongoose.Schema(
     shortDescription: String,
 
     primaryImage: String,
-
     images: [String],
 
     pricing: {
@@ -44,23 +43,10 @@ const NativeProductSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "products", // IMPORTANT
+    collection: "products",
   }
 );
 
-/* =========================================================
-   NATIVE DB MODEL
-========================================================= */
-
-export const getProductModel = (
-  conn: mongoose.Connection
-) => {
-  return (
-    conn.models.Product ||
-    conn.model(
-      "Product",
-      NativeProductSchema,
-      "products"
-    )
-  );
+export const getProductModel = (conn: mongoose.Connection) => {
+  return conn.models.Product || conn.model("Product", NativeProductSchema);
 };
