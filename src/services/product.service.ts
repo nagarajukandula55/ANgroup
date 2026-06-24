@@ -1,4 +1,4 @@
-import { getProductModel } from "@/models/Product";
+import { getProductModel } from "@/models/Native Product";
 import { connectNativeDB } from "@/lib/native-mongodb";
 import mongoose from "mongoose";
 
