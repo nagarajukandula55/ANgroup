@@ -51,44 +51,85 @@ const VendorSchema = new mongoose.Schema(
       uppercase: true,
     },
 
-    contactPerson: String,
+    contactPerson: {
+      type: String,
+      trim: true,
+    },
 
-    mobile: String,
+    mobile: {
+      type: String,
+      trim: true,
+    },
 
-    alternateMobile: String,
+    alternateMobile: {
+      type: String,
+      trim: true,
+    },
 
-    email: String,
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
 
-    website: String,
+    website: {
+      type: String,
+      trim: true,
+    },
 
-    address: String,
+    address: {
+      type: String,
+      trim: true,
+    },
 
-    city: String,
+    city: {
+      type: String,
+      trim: true,
+    },
 
-    district: String,
+    district: {
+      type: String,
+      trim: true,
+    },
 
-    state: String,
+    state: {
+      type: String,
+      trim: true,
+    },
 
-    pincode: String,
+    pincode: {
+      type: String,
+      trim: true,
+    },
 
     country: {
       type: String,
       default: "India",
+      trim: true,
     },
 
     paymentTermsDays: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     leadTimeDays: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     minimumOrderValue: {
       type: Number,
       default: 0,
+      min: 0,
+    },
+
+    creditLimit: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
     rating: {
@@ -98,7 +139,29 @@ const VendorSchema = new mongoose.Schema(
       max: 5,
     },
 
-    notes: String,
+    bankDetails: {
+      accountName: String,
+      accountNumber: String,
+      bankName: String,
+      branchName: String,
+      ifscCode: String,
+      upiId: String,
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "ACTIVE",
+        "INACTIVE",
+        "BLACKLISTED",
+      ],
+      default: "ACTIVE",
+    },
+
+    notes: {
+      type: String,
+      trim: true,
+    },
 
     active: {
       type: Boolean,
@@ -109,6 +172,10 @@ const VendorSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+VendorSchema.index({ vendorCode: 1 });
+VendorSchema.index({ vendorName: 1 });
+VendorSchema.index({ gstin: 1 });
 
 export default mongoose.models.Vendor ||
   mongoose.model("Vendor", VendorSchema);
