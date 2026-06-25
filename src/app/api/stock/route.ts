@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import StockLedger from "@/models/StockLedger";
 
 export async function GET() {
-  await dbConnect();
+  await connectDB();
 
   const data = await StockLedger.find()
     .populate("materialId")
