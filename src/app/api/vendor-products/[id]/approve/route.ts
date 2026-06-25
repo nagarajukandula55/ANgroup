@@ -5,8 +5,8 @@ import VendorProduct from "@/models/VendorProduct";
 import Product from "@/models/Product";
 import ProductVariant from "@/models/ProductVariant";
 
-function generateSKU(productCode: string, variantId: string) {
-  return `SKU-${productCode}-${variantId}`;
+function generateSKU(productCode: string, variantCode: string) {
+  return `${productCode}-${variantCode}`.toUpperCase();
 }
 
 export async function POST(req: Request, context: any) {
@@ -24,27 +24,43 @@ export async function POST(req: Request, context: any) {
       );
     }
 
-    // 🔒 BLOCK if BOM missing or cost invalid
-    if (
-      !vendorProduct.calculatedCurrentCost ||
-      vendorProduct.calculatedCurrentCost <= 0
-    ) {
+    /* =========================================================
+       🔒 VALIDATION: MUST HAVE COST + BOM
+    ========================================================= */
+    const cost = vendorProduct.calculatedCost;
+
+    if (!cost || cost.finalCost <= 0) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "BOM not completed. Please complete BOM before approval.",
+          message: "BOM / Cost not completed properly",
         },
         { status: 400 }
       );
     }
 
-    // 1. CREATE PRODUCT (DRAFT ONLY)
+    /* =========================================================
+       🔒 PREVENT DOUBLE APPROVAL
+    ========================================================= */
+    if (vendorProduct.approvalStatus === "APPROVED") {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Already approved",
+        },
+        { status: 400 }
+      );
+    }
+
+    /* =========================================================
+       🧱 CREATE PRODUCT
+    ========================================================= */
+    const productCode = `PRD-${Date.now()}`;
+
     const product = await Product.create({
       companyId: vendorProduct.businessId,
 
-      productCode: `PRD-${Date.now()}`,
-
+      productCode,
       productName: vendorProduct.productName,
 
       categoryId: vendorProduct.categoryId,
@@ -53,35 +69,29 @@ export async function POST(req: Request, context: any) {
       description: vendorProduct.description,
       images: vendorProduct.images,
 
-      currentCost:
-        vendorProduct.calculatedCurrentCost,
-      safeCost:
-        vendorProduct.calculatedSafeCost,
-      worstCaseCost:
-        vendorProduct.calculatedWorstCost,
+      currentCost: cost.finalCost,
+      safeCost: cost.baseCost,
+      worstCaseCost: cost.wastageCost,
 
-      status: "DRAFT", // 🔒 IMPORTANT CHANGE
+      status: "DRAFT",
       active: false,
     });
 
-    // 2. CREATE VARIANT (INTERNAL SKU)
-    const variantId = new Date().getTime().toString();
+    /* =========================================================
+       🧱 CREATE VARIANT
+    ========================================================= */
+    const variantCode = `VAR-${Date.now()}`;
 
     const variant = await ProductVariant.create({
       companyId: vendorProduct.businessId,
-
       productId: product._id,
 
-      variantCode: `VAR-${Date.now()}`,
-
+      variantCode,
       variantName: vendorProduct.variantName,
 
-      vendorSku: vendorProduct.vendorSku, // optional field if you want to add
+      vendorSku: vendorProduct.vendorSku,
 
-      sku: generateSKU(
-        product.productCode,
-        variantId
-      ),
+      sku: generateSKU(productCode, variantCode),
 
       unit: vendorProduct.unit,
       packSize: vendorProduct.packSize,
@@ -90,17 +100,17 @@ export async function POST(req: Request, context: any) {
       grossWeight: vendorProduct.grossWeight,
 
       mrp: vendorProduct.mrp,
-      sellingPrice:
-        vendorProduct.suggestedSellingPrice,
+      sellingPrice: vendorProduct.suggestedSellingPrice,
 
-      currentCost:
-        vendorProduct.calculatedCurrentCost,
+      currentCost: cost.finalCost,
 
       status: "DRAFT",
       active: false,
     });
 
-    // 3. UPDATE VENDOR PRODUCT
+    /* =========================================================
+       🔒 UPDATE VENDOR PRODUCT
+    ========================================================= */
     vendorProduct.approvalStatus = "APPROVED";
     vendorProduct.productId = product._id;
     vendorProduct.variantId = variant._id;
@@ -112,6 +122,7 @@ export async function POST(req: Request, context: any) {
       success: true,
       data: { product, variant },
     });
+
   } catch (err: any) {
     return NextResponse.json(
       { success: false, message: err.message },
