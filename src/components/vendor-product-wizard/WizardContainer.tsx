@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+
 import Stepper from "./Stepper";
 import StepBasicInfo from "./steps/StepBasicInfo";
 import StepCommercial from "./steps/StepCommercial";
+import StepStructure from "./steps/StepStructure";
 
 export default function WizardContainer({ draftId }) {
   const [step, setStep] = useState(1);
@@ -23,11 +25,11 @@ export default function WizardContainer({ draftId }) {
         )}
 
         {step === 2 && (
-          <StepCommercial
-            draftId={draftId}
-            next={next}
-            back={back}
-          />
+          <StepCommercial draftId={draftId} next={next} back={back} />
+        )}
+
+        {step === 3 && (
+          <StepStructure draftId={draftId} next={next} back={back} />
         )}
 
       </div>
