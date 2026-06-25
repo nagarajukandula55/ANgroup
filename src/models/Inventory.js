@@ -1,65 +1,94 @@
 import mongoose from "mongoose";
 
-const InventorySchema =
-new mongoose.Schema(
-{
-  warehouseId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Warehouse",
-    required: true,
-  },
+const InventorySchema = new mongoose.Schema(
+  {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+    },
 
-  itemType: {
-    type: String,
-    enum: [
-      "MATERIAL",
-      "PRODUCT",
-    ],
-    required: true,
-  },
+    warehouseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Warehouse",
+      required: true,
+    },
 
-  materialId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Material",
-  },
+    itemType: {
+      type: String,
+      enum: [
+        "MATERIAL",
+        "PRODUCT_VARIANT",
+      ],
+      required: true,
+    },
 
-  productVariantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "ProductVariant",
-  },
+    materialId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Material",
+    },
 
-  quantity: {
-    type: Number,
-    default: 0,
-  },
+    productVariantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductVariant",
+    },
 
-  reservedQuantity: {
-    type: Number,
-    default: 0,
-  },
+    quantity: {
+      type: Number,
+      default: 0,
+    },
 
-  availableQuantity: {
-    type: Number,
-    default: 0,
-  },
+    reservedQuantity: {
+      type: Number,
+      default: 0,
+    },
 
-  reorderLevel: {
-    type: Number,
-    default: 0,
-  },
+    availableQuantity: {
+      type: Number,
+      default: 0,
+    },
 
-  reorderQuantity: {
-    type: Number,
-    default: 0,
+    averageCost: {
+      type: Number,
+      default: 0,
+    },
+
+    totalValue: {
+      type: Number,
+      default: 0,
+    },
+
+    reorderLevel: {
+      type: Number,
+      default: 0,
+    },
+
+    reorderQuantity: {
+      type: Number,
+      default: 0,
+    },
+
+    active: {
+      type: Boolean,
+      default: true,
+    },
   },
-},
-{
-  timestamps: true,
-}
+  {
+    timestamps: true,
+  }
 );
+
+InventorySchema.index({
+  warehouseId: 1,
+  materialId: 1,
+});
+
+InventorySchema.index({
+  warehouseId: 1,
+  productVariantId: 1,
+});
 
 export default mongoose.models.Inventory ||
-mongoose.model(
-  "Inventory",
-  InventorySchema
-);
+  mongoose.model(
+    "Inventory",
+    InventorySchema
+  );
