@@ -7,6 +7,10 @@ const VendorSchema = new mongoose.Schema(
       ref: "Business",
     },
 
+    /* ==========================================
+       BASIC DETAILS
+    ========================================== */
+
     vendorCode: {
       type: String,
       required: true,
@@ -26,6 +30,20 @@ const VendorSchema = new mongoose.Schema(
       trim: true,
     },
 
+    /* ==========================================
+       ROLE
+    ========================================== */
+
+    vendorRole: {
+      type: String,
+      enum: [
+        "SUPPLIER",
+        "SELLER",
+        "BOTH",
+      ],
+      default: "SUPPLIER",
+    },
+
     vendorType: {
       type: String,
       enum: [
@@ -39,6 +57,10 @@ const VendorSchema = new mongoose.Schema(
       default: "GENERAL",
     },
 
+    /* ==========================================
+       TAX
+    ========================================== */
+
     gstin: {
       type: String,
       trim: true,
@@ -50,6 +72,10 @@ const VendorSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
+
+    /* ==========================================
+       CONTACT
+    ========================================== */
 
     contactPerson: {
       type: String,
@@ -76,6 +102,10 @@ const VendorSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+
+    /* ==========================================
+       ADDRESS
+    ========================================== */
 
     address: {
       type: String,
@@ -108,28 +138,28 @@ const VendorSchema = new mongoose.Schema(
       trim: true,
     },
 
+    /* ==========================================
+       PROCUREMENT
+    ========================================== */
+
     paymentTermsDays: {
       type: Number,
       default: 0,
-      min: 0,
     },
 
     leadTimeDays: {
       type: Number,
       default: 0,
-      min: 0,
     },
 
     minimumOrderValue: {
       type: Number,
       default: 0,
-      min: 0,
     },
 
     creditLimit: {
       type: Number,
       default: 0,
-      min: 0,
     },
 
     rating: {
@@ -139,6 +169,10 @@ const VendorSchema = new mongoose.Schema(
       max: 5,
     },
 
+    /* ==========================================
+       BANK
+    ========================================== */
+
     bankDetails: {
       accountName: String,
       accountNumber: String,
@@ -147,6 +181,90 @@ const VendorSchema = new mongoose.Schema(
       ifscCode: String,
       upiId: String,
     },
+
+    /* ==========================================
+       MARKETPLACE
+    ========================================== */
+
+    portalAccess: {
+      type: Boolean,
+      default: false,
+    },
+
+    websiteVisible: {
+      type: Boolean,
+      default: true,
+    },
+
+    sellerCommissionType: {
+      type: String,
+      enum: [
+        "PERCENTAGE",
+        "FIXED",
+      ],
+    },
+
+    sellerCommissionValue: {
+      type: Number,
+      default: 0,
+    },
+
+    /* ==========================================
+       APPROVAL
+    ========================================== */
+
+    approvalStatus: {
+      type: String,
+      enum: [
+        "PENDING",
+        "UNDER_REVIEW",
+        "APPROVED",
+        "REJECTED",
+        "SUSPENDED",
+      ],
+      default: "PENDING",
+    },
+
+    approvedAt: Date,
+
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    rejectionReason: String,
+
+    /* ==========================================
+       DOCUMENTS
+    ========================================== */
+
+    documents: [
+      {
+        documentType: {
+          type: String,
+          enum: [
+            "GST",
+            "PAN",
+            "FSSAI",
+            "TRADE_LICENSE",
+            "CANCELLED_CHEQUE",
+            "OTHER",
+          ],
+        },
+
+        fileName: String,
+        fileUrl: String,
+
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    /* ==========================================
+       STATUS
+    ========================================== */
 
     status: {
       type: String,
@@ -176,6 +294,8 @@ const VendorSchema = new mongoose.Schema(
 VendorSchema.index({ vendorCode: 1 });
 VendorSchema.index({ vendorName: 1 });
 VendorSchema.index({ gstin: 1 });
+VendorSchema.index({ vendorRole: 1 });
+VendorSchema.index({ approvalStatus: 1 });
 
 export default mongoose.models.Vendor ||
   mongoose.model("Vendor", VendorSchema);
