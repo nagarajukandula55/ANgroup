@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+
 import Business from "@/models/Business";
 import UserBusinessAccess from "@/models/UserBusinessAccess";
+
 import { filterModules } from "@/services/moduleEngine.service";
 
 export async function POST(req: Request) {
@@ -10,37 +12,94 @@ export async function POST(req: Request) {
 
     const { userId, businessId } = await req.json();
 
-    const business = await Business.findById(businessId)
-      .lean()
-      .exec() as any;
-
-    const access = await UserBusinessAccess.findOne({
-      userId,
-      businessId,
-    })
-      .lean()
-      .exec() as any;
-
-    if (!business || !access) {
+    if (!userId || !businessId) {
       return NextResponse.json(
-        { success: false, message: "Forbidden" },
-        { status: 403 }
+        {
+          success: false,
+          message: "User ID and Business ID are required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const business = await Business.findById(
+      businessId
+    )
+      .lean()
+      .exec();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Business not found",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const access =
+      await UserBusinessAccess.findOne({
+        userId,
+        businessId,
+        isActive: true,
+      })
+        .lean()
+        .exec();
+
+    if (!access) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Access denied",
+        },
+        {
+          status: 403,
+        }
       );
     }
 
     const modules = filterModules({
-      modules: business?.modules ?? [],
-      accessKeys: access?.accessKeys ?? [],
+      modules: business.modules || [],
+      accessKeys: access.accessKeys || [],
     });
 
     return NextResponse.json({
       success: true,
+
+      business: {
+        id: business._id,
+        name: business.name,
+        legalName: business.legalName,
+        brandName: business.brandName,
+        businessCode: business.businessCode,
+      },
+
+      designation:
+        access.designation || "",
+
       modules,
     });
   } catch (err: any) {
+    console.error(
+      "SIDEBAR API ERROR:",
+      err
+    );
+
     return NextResponse.json(
-      { success: false, message: err.message },
-      { status: 500 }
+      {
+        success: false,
+        message:
+          err?.message ||
+          "Internal Server Error",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
