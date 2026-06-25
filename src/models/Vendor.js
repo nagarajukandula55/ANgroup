@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const VendorSchema = new mongoose.Schema(
   {
-    companyId: {
+    businessId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Company",
+      ref: "Business",
     },
 
     vendorCode: {
