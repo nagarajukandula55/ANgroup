@@ -29,9 +29,9 @@ const NutritionSchema = new mongoose.Schema(
 
 const MaterialSchema = new mongoose.Schema(
 {
-  companyId: {
+  businessId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Company",
+    ref: "Business",
     required: true,
   },
 
