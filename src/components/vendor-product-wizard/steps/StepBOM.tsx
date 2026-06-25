@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MaterialSearchSelect from "@/components/shared/MaterialSearchSelect";
 
 export default function StepBOM({ draftId, next, back }) {
-  const [rows, setRows] = useState([]);
-  const [materialId, setMaterialId] = useState("");
+  const [rows, setRows] = useState([
+    {
+      materialId: "",
+      materialName: "",
+      qty: 1,
+      unit: "",
+      wastagePercent: 0,
+    },
+  ]);
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("");
   const [wastagePercent, setWastagePercent] = useState(0);
@@ -26,33 +34,32 @@ export default function StepBOM({ draftId, next, back }) {
 
   /* ================= ADD MATERIAL ================= */
   const addMaterial = async () => {
-    if (!materialId) return;
-
+    if (!rows[0]?.materialId) return;
+  
     setLoading(true);
-
+  
     await fetch(`/api/vendor-products/${draftId}/bom`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        materialId,
+        materialId: rows[0].materialId,
         quantity,
         unit,
         wastagePercent,
         currentRate: 0,
         currentCost: 0,
         remarks: "",
-        businessId: "TEMP", // replace from auth later
-        createdBy: "TEMP",  // replace from auth later
+        businessId: "TEMP",
+        createdBy: "TEMP",
       }),
     });
-
-    setMaterialId("");
+  
     setQuantity(1);
     setUnit("");
     setWastagePercent(0);
-
+  
     await fetchBOM();
     setLoading(false);
   };
@@ -76,14 +83,20 @@ export default function StepBOM({ draftId, next, back }) {
 
       {/* ================= ADD ROW ================= */}
       <div className="grid grid-cols-4 gap-2">
-
-        <input
-          className="border p-2 rounded"
-          placeholder="Material ID"
-          value={materialId}
-          onChange={(e) => setMaterialId(e.target.value)}
+      
+        {/* MATERIAL SEARCH (NEW) */}
+        <MaterialSearchSelect
+          onSelect={(m) => {
+            const updated = [...rows];
+      
+            updated[0].materialId = m._id;
+            updated[0].materialName = m.materialName;
+            updated[0].unit = m.unit;
+      
+            setRows(updated);
+          }}
         />
-
+      
         <input
           type="number"
           className="border p-2 rounded"
@@ -91,14 +104,14 @@ export default function StepBOM({ draftId, next, back }) {
           value={quantity}
           onChange={(e) => setQuantity(Number(e.target.value))}
         />
-
+      
         <input
           className="border p-2 rounded"
           placeholder="Unit"
           value={unit}
           onChange={(e) => setUnit(e.target.value)}
         />
-
+      
         <input
           type="number"
           className="border p-2 rounded"
@@ -108,7 +121,7 @@ export default function StepBOM({ draftId, next, back }) {
             setWastagePercent(Number(e.target.value))
           }
         />
-
+      
       </div>
 
       <button
