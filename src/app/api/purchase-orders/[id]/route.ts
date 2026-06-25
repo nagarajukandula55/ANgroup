@@ -1,29 +1,34 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
-import PurchaseOrder from "@/models/PurchaseOrder";
+import {
+  getPurchaseOrderById,
+  updatePurchaseOrder,
+  approvePurchaseOrder,
+} from "@/services/purchaseOrder.service";
 
-/* ================= GET SINGLE PO ================= */
 export async function GET(_: Request, { params }: any) {
   await dbConnect();
 
-  const po = await PurchaseOrder.findById(params.id)
-    .populate("vendorId")
-    .populate("items.materialId");
+  const data = await getPurchaseOrderById(params.id);
 
-  return NextResponse.json({ success: true, data: po });
+  return NextResponse.json({ success: true, data });
 }
 
-/* ================= UPDATE PO ================= */
 export async function PUT(req: Request, { params }: any) {
   await dbConnect();
 
   const body = await req.json();
 
-  const updated = await PurchaseOrder.findByIdAndUpdate(
-    params.id,
-    body,
-    { new: true }
-  );
+  const data = await updatePurchaseOrder(params.id, body);
 
-  return NextResponse.json({ success: true, data: updated });
+  return NextResponse.json({ success: true, data });
+}
+
+/* OPTIONAL: approve endpoint */
+export async function PATCH(_: Request, { params }: any) {
+  await dbConnect();
+
+  const data = await approvePurchaseOrder(params.id);
+
+  return NextResponse.json({ success: true, data });
 }
