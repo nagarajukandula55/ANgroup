@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import VendorProductBOM from "@/models/VendorProductBOM";
 import Material from "@/models/Material";
 import VendorProduct from "@/models/VendorProduct";
+import { recalcVendorProductCost } from "@/services/costEngine.service";
 
 /* =========================================================
 GET BOM
@@ -68,6 +69,10 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    await recalcVendorProductCost(
+      context.params.id
+    );
 
     const item =
       await VendorProductBOM.create({
