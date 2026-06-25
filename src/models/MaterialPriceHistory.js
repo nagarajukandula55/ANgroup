@@ -1,127 +1,157 @@
 import mongoose from "mongoose";
 
-const MaterialPriceHistorySchema =
-  new mongoose.Schema(
-    {
-      businessId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Business",
-      },
-
-      materialId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Material",
-        required: true,
-        index: true,
-      },
-
-      vendorId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Vendor",
-      },
-
-      warehouseId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Warehouse",
-      },
-
-      price: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-
-      priceUnit: {
-        type: String,
-        default: "KG",
-      },
-
-      currency: {
-        type: String,
-        default: "INR",
-      },
-
-      effectiveDate: {
-        type: Date,
-        required: true,
-      },
-
-      source: {
-        type: String,
-        enum: [
-          "MANUAL",
-          "PURCHASE_ORDER",
-          "GOODS_RECEIPT",
-          "IMPORT",
-          "SYSTEM",
-        ],
-        default: "MANUAL",
-      },
-
-      sourceReferenceId: {
-        type: mongoose.Schema.Types.ObjectId,
-      },
-
-      sourceReferenceType: {
-        type: String,
-        enum: [
-          "PURCHASE_ORDER",
-          "GOODS_RECEIPT",
-          "MANUAL",
-          "IMPORT",
-        ],
-      },
-
-      approved: {
-        type: Boolean,
-        default: true,
-      },
-
-      approvedAt: Date,
-
-      remarks: {
-        type: String,
-        default: "",
-      },
-
-      active: {
-        type: Boolean,
-        default: true,
-      },
-
-      createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
+const MaterialPriceHistorySchema = new mongoose.Schema(
+  {
+    businessId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      index: true,
     },
-    {
-      timestamps: true,
-    }
-  );
+
+    materialId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Material",
+      required: true,
+      index: true,
+    },
+
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+      index: true,
+    },
+
+    warehouseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Warehouse",
+      default: null,
+      index: true,
+    },
+
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    priceUnit: {
+      type: String,
+      enum: ["KG", "GRAM", "LITER", "TON", "METER"],
+      default: "KG",
+    },
+
+    currency: {
+      type: String,
+      default: "INR",
+    },
+
+    effectiveDate: {
+      type: Date,
+      required: true,
+      index: true,
+    },
+
+    source: {
+      type: String,
+      enum: ["MANUAL", "PURCHASE_ORDER", "GOODS_RECEIPT", "IMPORT", "SYSTEM"],
+      default: "MANUAL",
+    },
+
+    sourceReferenceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+
+    sourceReferenceType: {
+      type: String,
+      enum: ["PURCHASE_ORDER", "GOODS_RECEIPT", "MANUAL", "IMPORT"],
+      default: null,
+    },
+
+    approved: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+
+    remarks: {
+      type: String,
+      default: "",
+    },
+
+    active: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
 /* =========================================================
-   INDEXES
+INDEXES (OPTIMIZED FOR REAL QUERIES)
 ========================================================= */
 
+/* Fast history fetch */
 MaterialPriceHistorySchema.index({
   materialId: 1,
   effectiveDate: -1,
 });
 
+/* Vendor-based pricing */
 MaterialPriceHistorySchema.index({
   materialId: 1,
   vendorId: 1,
   effectiveDate: -1,
 });
 
+/* Warehouse-based pricing */
 MaterialPriceHistorySchema.index({
   materialId: 1,
   warehouseId: 1,
   effectiveDate: -1,
 });
 
+/* Multi-tenant + trending queries */
+MaterialPriceHistorySchema.index({
+  businessId: 1,
+  materialId: 1,
+  effectiveDate: -1,
+});
+
+/* Latest active price lookup */
+MaterialPriceHistorySchema.index({
+  materialId: 1,
+  active: 1,
+  effectiveDate: -1,
+});
+
+/* 🚨 Prevent duplicate price entries (VERY IMPORTANT) */
+MaterialPriceHistorySchema.index(
+  {
+    materialId: 1,
+    vendorId: 1,
+    warehouseId: 1,
+    effectiveDate: 1,
+  },
+  { unique: true }
+);
+
+/* =========================================================
+MODEL EXPORT (Next.js safe hot-reload)
+========================================================= */
 export default mongoose.models.MaterialPriceHistory ||
-  mongoose.model(
-    "MaterialPriceHistory",
-    MaterialPriceHistorySchema
-  );
+  mongoose.model("MaterialPriceHistory", MaterialPriceHistorySchema);
