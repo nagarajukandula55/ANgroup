@@ -58,6 +58,17 @@ const VendorProductSchema = new mongoose.Schema(
       default: 0,
     },
 
+    vendorShippingCost: {
+      type: Number,
+      default: 0,
+    },
+
+    shippingCostType: {
+      type: String,
+      enum: ["INCLUDED", "SEPARATE"],
+      default: "SEPARATE",
+    },
+
     suggestedSellingPrice: {
       type: Number,
       default: 0,
