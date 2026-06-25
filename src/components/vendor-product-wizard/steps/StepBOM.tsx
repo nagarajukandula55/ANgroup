@@ -274,6 +274,20 @@ export default function StepBOM({ draftId, next, back }) {
         </button>
 
         <button
+          onClick={async () => {
+            await fetch(`/api/vendor-products/${draftId}/submit`, {
+              method: "POST",
+            });
+        
+            alert("Submitted for approval");
+            next();
+          }}
+          className="bg-purple-600 text-white px-4 py-2 rounded"
+        >
+          Submit for Approval
+        </button>
+
+        <button
           onClick={next}
           className="bg-green-600 text-white px-4 py-2 rounded"
         >
