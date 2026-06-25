@@ -7,6 +7,7 @@ const PurchaseOrderItemSchema =
         type: mongoose.Schema.Types.ObjectId,
         ref: "PurchaseOrder",
         required: true,
+        index: true,
       },
 
       materialId: {
@@ -15,19 +16,17 @@ const PurchaseOrderItemSchema =
         required: true,
       },
 
-      unit: {
-        type: String,
-        required: true,
-      },
-
       quantity: {
         type: Number,
         required: true,
+        min: 0,
       },
+
+      unit: String,
 
       rate: {
         type: Number,
-        required: true,
+        default: 0,
       },
 
       taxPercent: {
@@ -45,12 +44,12 @@ const PurchaseOrderItemSchema =
         default: 0,
       },
 
-      receivedQuantity: {
+      receivedQty: {
         type: Number,
         default: 0,
       },
 
-      pendingQuantity: {
+      pendingQty: {
         type: Number,
         default: 0,
       },
