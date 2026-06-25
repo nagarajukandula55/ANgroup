@@ -109,11 +109,16 @@ const ProductSchema = new mongoose.Schema(
 
   /* SEO */
 
-  tags: [String],
-
-  seoTitle: String,
-
-  seoDescription: String,
+  seo: {
+    title: String,
+    description: String,
+    slug: {
+      type: String,
+      unique: true,
+      index: true,
+    },
+    keywords: [String],
+  },
 
   /* Status */
 
