@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-
 import VendorProduct from "@/models/VendorProduct";
-import VendorProductBOM from "@/models/VendorProductBOM";
 
 export async function POST(
   req: Request,
@@ -11,61 +9,31 @@ export async function POST(
   try {
     await connectDB();
 
-    const product =
+    const vendorProduct =
       await VendorProduct.findById(
         context.params.id
       );
 
-    if (!product) {
+    if (!vendorProduct) {
       return NextResponse.json(
         {
           success: false,
-          message: "Product not found",
+          message: "Not found",
         },
         { status: 404 }
       );
     }
 
-    const bomCount =
-      await VendorProductBOM.countDocuments({
-        vendorProductId: product._id,
-        active: true,
-      });
+    vendorProduct.approvalStatus =
+      "PENDING";
 
-    if (bomCount === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "At least one BOM item required",
-        },
-        { status: 400 }
-      );
-    }
+    vendorProduct.submittedAt =
+      new Date();
 
-    if (!product.categoryId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Category is required",
-        },
-        { status: 400 }
-      );
-    }
-
-    await VendorProduct.findByIdAndUpdate(
-      product._id,
-      {
-        approvalStatus: "PENDING",
-        submittedAt: new Date(),
-      }
-    );
+    await vendorProduct.save();
 
     return NextResponse.json({
       success: true,
-      message:
-        "Submitted for approval",
     });
   } catch (err: any) {
     return NextResponse.json(
