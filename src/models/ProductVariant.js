@@ -1,75 +1,146 @@
 import mongoose from "mongoose";
 
 const ProductVariantSchema =
-new mongoose.Schema(
-{
-  productId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Product",
-    required: true,
-  },
+  new mongoose.Schema(
+    {
+      companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Company",
+      },
 
-  variantCode: {
-    type: String,
-    required: true,
-    unique: true,
-    uppercase: true,
-  },
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+        required: true,
+        index: true,
+      },
 
-  variantName: {
-    type: String,
-    required: true,
-  },
+      variantCode: {
+        type: String,
+        required: true,
+        unique: true,
+        uppercase: true,
+        trim: true,
+      },
 
-  size: String,
+      variantName: {
+        type: String,
+        required: true,
+        trim: true,
+      },
 
-  unit: String,
+      sku: {
+        type: String,
+        required: true,
+        unique: true,
+        uppercase: true,
+        trim: true,
+      },
 
-  sku: {
-    type: String,
-    required: true,
-    unique: true,
-  },
+      barcode: {
+        type: String,
+        trim: true,
+      },
 
-  barcode: String,
+      unit: {
+        type: String,
+        required: true,
+      },
 
-  mrp: {
-    type: Number,
-    default: 0,
-  },
+      packSize: {
+        type: Number,
+        default: 1,
+      },
 
-  sellingPrice: {
-    type: Number,
-    default: 0,
-  },
+      netWeight: {
+        type: Number,
+        default: 0,
+      },
 
-  currentCost: {
-    type: Number,
-    default: 0,
-  },
+      grossWeight: {
+        type: Number,
+        default: 0,
+      },
 
-  safeCost: {
-    type: Number,
-    default: 0,
-  },
+      mrp: {
+        type: Number,
+        default: 0,
+      },
 
-  worstCaseCost: {
-    type: Number,
-    default: 0,
-  },
+      sellingPrice: {
+        type: Number,
+        default: 0,
+      },
 
-  active: {
-    type: Boolean,
-    default: true,
-  },
-},
-{
-  timestamps: true,
-}
-);
+      currentCost: {
+        type: Number,
+        default: 0,
+      },
+
+      safeCost: {
+        type: Number,
+        default: 0,
+      },
+
+      worstCaseCost: {
+        type: Number,
+        default: 0,
+      },
+
+      minimumSellingPrice: {
+        type: Number,
+        default: 0,
+      },
+
+      reorderLevel: {
+        type: Number,
+        default: 0,
+      },
+
+      reorderQuantity: {
+        type: Number,
+        default: 0,
+      },
+
+      shelfLifeDays: {
+        type: Number,
+        default: 0,
+      },
+
+      bomId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "BOM",
+      },
+
+      images: [String],
+
+      active: {
+        type: Boolean,
+        default: true,
+      },
+
+      status: {
+        type: String,
+        enum: [
+          "DRAFT",
+          "ACTIVE",
+          "INACTIVE",
+        ],
+        default: "DRAFT",
+      },
+    },
+    {
+      timestamps: true,
+    }
+  );
+
+ProductVariantSchema.index({
+  productId: 1,
+  variantCode: 1,
+});
 
 export default mongoose.models.ProductVariant ||
-mongoose.model(
-  "ProductVariant",
-  ProductVariantSchema
-);
+  mongoose.model(
+    "ProductVariant",
+    ProductVariantSchema
+  );
