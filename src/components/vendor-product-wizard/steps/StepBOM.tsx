@@ -110,6 +110,30 @@ export default function StepBOM({ draftId, next, back }) {
   calculatePricing();
 }, [rows]);
 
+  <div className="border rounded p-4 mt-4 bg-blue-50">
+
+    <h3 className="font-semibold text-lg mb-2">
+      Pricing Preview
+    </h3>
+  
+    <div className="text-sm space-y-1">
+  
+      <div>
+        Suggested Selling Price:{" "}
+        <span className="font-bold text-blue-700">
+          ₹{pricing.sellingPrice}
+        </span>
+      </div>
+  
+      <div>
+        Margin: ₹{pricing.marginAmount} (
+        {pricing.marginPercent}%)
+      </div>
+  
+    </div>
+  
+  </div>
+
   /* ================= UPDATE ROW ================= */
   const updateRow = (index, field, value) => {
     const updated = [...rows];
