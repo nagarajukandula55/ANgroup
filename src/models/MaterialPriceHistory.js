@@ -1,65 +1,107 @@
 import mongoose from "mongoose";
 
-const MaterialPriceHistorySchema = new mongoose.Schema(
-  {
-    materialId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Material",
-      required: true,
-      index: true,
-    },
+const MaterialPriceHistorySchema =
+  new mongoose.Schema(
+    {
+      companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Company",
+      },
 
-    vendorId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
-    },
+      materialId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Material",
+        required: true,
+        index: true,
+      },
 
-    locationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Location",
-    },
+      vendorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Vendor",
+      },
 
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
+      warehouseId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Warehouse",
+      },
 
-    priceUnit: {
-      type: String,
-      default: "KG",
-    },
+      price: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
 
-    effectiveDate: {
-      type: Date,
-      required: true,
-    },
+      priceUnit: {
+        type: String,
+        default: "KG",
+      },
 
-    source: {
-      type: String,
-      enum: [
-        "MANUAL",
-        "PURCHASE_ORDER",
-        "IMPORT",
-        "SYSTEM",
-      ],
-      default: "MANUAL",
-    },
+      currency: {
+        type: String,
+        default: "INR",
+      },
 
-    remarks: {
-      type: String,
-      default: "",
-    },
+      effectiveDate: {
+        type: Date,
+        required: true,
+      },
 
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      source: {
+        type: String,
+        enum: [
+          "MANUAL",
+          "PURCHASE_ORDER",
+          "GOODS_RECEIPT",
+          "IMPORT",
+          "SYSTEM",
+        ],
+        default: "MANUAL",
+      },
+
+      sourceReferenceId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
+
+      sourceReferenceType: {
+        type: String,
+        enum: [
+          "PURCHASE_ORDER",
+          "GOODS_RECEIPT",
+          "MANUAL",
+          "IMPORT",
+        ],
+      },
+
+      approved: {
+        type: Boolean,
+        default: true,
+      },
+
+      approvedAt: Date,
+
+      remarks: {
+        type: String,
+        default: "",
+      },
+
+      active: {
+        type: Boolean,
+        default: true,
+      },
+
+      createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
     },
-  },
-  {
-    timestamps: true,
-  }
-);
+    {
+      timestamps: true,
+    }
+  );
+
+/* =========================================================
+   INDEXES
+========================================================= */
 
 MaterialPriceHistorySchema.index({
   materialId: 1,
@@ -69,6 +111,12 @@ MaterialPriceHistorySchema.index({
 MaterialPriceHistorySchema.index({
   materialId: 1,
   vendorId: 1,
+  effectiveDate: -1,
+});
+
+MaterialPriceHistorySchema.index({
+  materialId: 1,
+  warehouseId: 1,
   effectiveDate: -1,
 });
 
