@@ -37,6 +37,30 @@ export default function StepBOM({ draftId, next, back }) {
     fetchBOM();
   }, []);
 
+    <div className="border rounded p-4 mt-6 bg-gray-50">
+  
+    <h3 className="font-semibold text-lg mb-2">
+      Cost Summary
+    </h3>
+  
+    <div className="text-sm space-y-1">
+  
+      <div>
+        Material Cost: ₹{costSummary.totalMaterialCost}
+      </div>
+  
+      <div>
+        Wastage Cost: ₹{costSummary.wastageCost}
+      </div>
+  
+      <div className="font-bold text-green-600">
+        Final Production Cost: ₹{costSummary.finalCost}
+      </div>
+  
+    </div>
+  
+  </div>
+
   /* ================= ADD NEW ROW ================= */
   const addRow = () => {
     setRows([
