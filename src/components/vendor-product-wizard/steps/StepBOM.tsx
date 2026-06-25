@@ -14,6 +14,12 @@ export default function StepBOM({ draftId, next, back }) {
     finalCost: 0,
   });
 
+  const [pricing, setPricing] = useState({
+    sellingPrice: 0,
+    marginAmount: 0,
+    marginPercent: 0,
+  });
+
   /* ================= FETCH BOM ================= */
   const fetchBOM = async () => {
     const res = await fetch(`/api/vendor-products/${draftId}/bom`);
@@ -74,10 +80,6 @@ export default function StepBOM({ draftId, next, back }) {
       },
     ]);
   };
-
-  useEffect(() => {
-    calculateCost();
-  }, [rows]);
   
   /* ================= Calculate Cost ================= */
   const calculateCost = async () => {
@@ -88,6 +90,25 @@ export default function StepBOM({ draftId, next, back }) {
       setCostSummary(data.data);
     }
   };
+
+    useEffect(() => {
+      calculateCost();
+    }, [rows]);
+    
+  /* ================= Price Engine ================= */
+  const calculatePricing = async () => {
+  const res = await fetch(`/api/vendor-products/${draftId}/pricing`);
+  const data = await res.json();
+
+    if (data.success) {
+      setPricing(data.data);
+    }
+  };
+
+  useEffect(() => {
+  calculateCost();
+  calculatePricing();
+}, [rows]);
 
   /* ================= UPDATE ROW ================= */
   const updateRow = (index, field, value) => {
