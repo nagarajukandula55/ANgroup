@@ -2,6 +2,7 @@ import Product from "@/models/Product";
 import ProductVariant from "@/models/ProductVariant";
 import VendorProduct from "@/models/VendorProduct";
 import VendorProductBOM from "@/models/VendorProductBOM";
+import VendorCatalog from "@/models/VendorCatalog";
 
 import { calculateVendorProductCost }
   from "./vendorProductCost.service";
@@ -213,6 +214,56 @@ export async function approveVendorProduct(
 
         active: true,
       });
+  }
+
+    const existingCatalog =
+    await VendorCatalog.findOne({
+      vendorId:
+        vendorProduct.vendorId,
+  
+      productId:
+        product._id,
+  
+      variantId:
+        variant._id,
+    });
+  
+  if (!existingCatalog) {
+    await VendorCatalog.create({
+      businessId:
+        vendorProduct.businessId,
+  
+      vendorId:
+        vendorProduct.vendorId,
+  
+      productId:
+        product._id,
+  
+      variantId:
+        variant._id,
+  
+      vendorProductId:
+        vendorProduct._id,
+  
+      vendorSku:
+        vendorProduct.vendorSku,
+  
+      vendorCost:
+        vendorProduct.vendorCost,
+  
+      minimumOrderQty:
+        vendorProduct.minimumOrderQty,
+  
+      leadTimeDays:
+        vendorProduct.leadTimeDays,
+  
+      availableStock:
+        vendorProduct.availableStock,
+  
+      preferredVendor: false,
+  
+      priority: 1,
+    });
   }
 
   /* ==========================================
