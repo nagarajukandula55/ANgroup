@@ -2,16 +2,22 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Vendor from "@/models/Vendor";
 
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
     await connectDB();
 
-    const vendor = await Vendor.findById(
-      params.id
-    );
+    const { id } = await params;
+
+    const vendor = await Vendor.findById(id);
 
     return NextResponse.json({
       success: true,
@@ -30,19 +36,19 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
     await connectDB();
 
+    const { id } = await params;
     const body = await req.json();
 
-    const vendor =
-      await Vendor.findByIdAndUpdate(
-        params.id,
-        body,
-        { new: true }
-      );
+    const vendor = await Vendor.findByIdAndUpdate(
+      id,
+      body,
+      { new: true }
+    );
 
     return NextResponse.json({
       success: true,
@@ -61,17 +67,16 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
     await connectDB();
 
-    await Vendor.findByIdAndUpdate(
-      params.id,
-      {
-        active: false,
-      }
-    );
+    const { id } = await params;
+
+    await Vendor.findByIdAndUpdate(id, {
+      active: false,
+    });
 
     return NextResponse.json({
       success: true,
