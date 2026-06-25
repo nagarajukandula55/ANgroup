@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Stepper from "./Stepper";
 import StepBasicInfo from "./steps/StepBasicInfo";
+import StepCommercial from "./steps/StepCommercial";
 
 export default function WizardContainer({ draftId }) {
   const [step, setStep] = useState(1);
@@ -19,6 +20,14 @@ export default function WizardContainer({ draftId }) {
 
         {step === 1 && (
           <StepBasicInfo draftId={draftId} next={next} />
+        )}
+
+        {step === 2 && (
+          <StepCommercial
+            draftId={draftId}
+            next={next}
+            back={back}
+          />
         )}
 
       </div>
