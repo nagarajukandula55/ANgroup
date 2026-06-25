@@ -22,18 +22,24 @@ const BOMItemSchema = new mongoose.Schema(
     wastagePercent: {
       type: Number,
       default: 0,
-      min: 0,
     },
 
-    isOptional: {
-      type: Boolean,
-      default: false,
+    currentCost: {
+      type: Number,
+      default: 0,
     },
 
-    remarks: {
-      type: String,
-      default: "",
+    safeCost: {
+      type: Number,
+      default: 0,
     },
+
+    worstCaseCost: {
+      type: Number,
+      default: 0,
+    },
+
+    remarks: String,
   },
   {
     _id: false,
@@ -42,20 +48,18 @@ const BOMItemSchema = new mongoose.Schema(
 
 const BOMSchema = new mongoose.Schema(
   {
-    productId: {
+    companyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
+      ref: "Company",
+    },
+
+    productVariantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductVariant",
       required: true,
     },
 
-    bomCode: {
-      type: String,
-      unique: true,
-      uppercase: true,
-      trim: true,
-    },
-
-    version: {
+    versionNumber: {
       type: Number,
       default: 1,
     },
@@ -63,33 +67,31 @@ const BOMSchema = new mongoose.Schema(
     batchSize: {
       type: Number,
       default: 1,
-      min: 0,
     },
 
-    batchUnit: {
-      type: String,
-      default: "KG",
+    yieldPercent: {
+      type: Number,
+      default: 100,
     },
 
-    items: {
-      type: [BOMItemSchema],
-      default: [],
+    items: [BOMItemSchema],
+
+    totalCurrentCost: {
+      type: Number,
+      default: 0,
     },
 
-    notes: {
-      type: String,
-      default: "",
+    totalSafeCost: {
+      type: Number,
+      default: 0,
     },
 
-    status: {
-      type: String,
-      enum: [
-        "DRAFT",
-        "APPROVED",
-        "INACTIVE",
-      ],
-      default: "DRAFT",
+    totalWorstCaseCost: {
+      type: Number,
+      default: 0,
     },
+
+    notes: String,
 
     active: {
       type: Boolean,
@@ -102,8 +104,8 @@ const BOMSchema = new mongoose.Schema(
 );
 
 BOMSchema.index({
-  productId: 1,
-  version: -1,
+  productVariantId: 1,
+  versionNumber: 1,
 });
 
 export default mongoose.models.BOM ||
