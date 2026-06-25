@@ -4,7 +4,7 @@ import { getInventoryValuation } from "@/services/stockValuation.service";
 
 export async function GET(req: Request) {
   try {
-    await dbConnect();
+    await connectDB();
 
     const { searchParams } = new URL(req.url);
 
