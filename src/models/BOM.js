@@ -48,9 +48,9 @@ const BOMItemSchema = new mongoose.Schema(
 
 const BOMSchema = new mongoose.Schema(
   {
-    companyId: {
+    businessId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Company",
+      ref: "Business",
     },
 
     productVariantId: {
