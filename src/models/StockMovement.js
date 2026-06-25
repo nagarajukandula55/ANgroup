@@ -14,22 +14,6 @@ const StockMovementSchema =
         required: true,
       },
 
-      movementType: {
-        type: String,
-        enum: [
-          "PURCHASE",
-          "GRN",
-          "PRODUCTION_IN",
-          "PRODUCTION_OUT",
-          "SALES",
-          "RETURN",
-          "ADJUSTMENT",
-          "TRANSFER_IN",
-          "TRANSFER_OUT",
-        ],
-        required: true,
-      },
-
       itemType: {
         type: String,
         enum: [
@@ -49,9 +33,28 @@ const StockMovementSchema =
         ref: "ProductVariant",
       },
 
+      movementType: {
+        type: String,
+        enum: [
+          "PURCHASE",
+          "PRODUCTION",
+          "SALE",
+          "TRANSFER_IN",
+          "TRANSFER_OUT",
+          "ADJUSTMENT",
+          "RETURN",
+        ],
+        required: true,
+      },
+
       quantity: {
         type: Number,
         required: true,
+      },
+
+      balanceQuantity: {
+        type: Number,
+        default: 0,
       },
 
       unitCost: {
@@ -59,23 +62,16 @@ const StockMovementSchema =
         default: 0,
       },
 
-      totalCost: {
+      totalValue: {
         type: Number,
         default: 0,
       },
 
-      referenceType: {
-        type: String,
-        enum: [
-          "PURCHASE_ORDER",
-          "GOODS_RECEIPT",
-          "PRODUCTION_ORDER",
-          "SALES_ORDER",
-          "MANUAL",
-        ],
-      },
+      referenceType: String,
 
-      referenceId: mongoose.Schema.Types.ObjectId,
+      referenceId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
 
       remarks: String,
     },
@@ -83,6 +79,11 @@ const StockMovementSchema =
       timestamps: true,
     }
   );
+
+StockMovementSchema.index({
+  warehouseId: 1,
+  createdAt: -1,
+});
 
 export default mongoose.models.StockMovement ||
   mongoose.model(
