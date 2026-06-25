@@ -7,17 +7,18 @@ const GoodsReceiptItemSchema =
         type: mongoose.Schema.Types.ObjectId,
         ref: "GoodsReceipt",
         required: true,
+        index: true,
+      },
+
+      purchaseOrderItemId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "PurchaseOrderItem",
       },
 
       materialId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Material",
         required: true,
-      },
-
-      purchaseOrderItemId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "PurchaseOrderItem",
       },
 
       orderedQty: {
@@ -27,7 +28,7 @@ const GoodsReceiptItemSchema =
 
       receivedQty: {
         type: Number,
-        default: 0,
+        required: true,
       },
 
       acceptedQty: {
@@ -40,10 +41,14 @@ const GoodsReceiptItemSchema =
         default: 0,
       },
 
-      rate: {
+      unitCost: {
         type: Number,
         default: 0,
       },
+
+      lotNumber: String,
+
+      expiryDate: Date,
 
       remarks: String,
     },
