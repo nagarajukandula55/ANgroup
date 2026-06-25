@@ -1,27 +1,32 @@
-export class SEOService {
-  static generateTitle(product: any) {
-    return `${product.productName} | ${product.brandName} | Buy Online at Best Price`;
-  }
+export function generateSEO(vendorProduct: any) {
+  const name = vendorProduct.productName;
+  const variant = vendorProduct.variantName;
 
-  static generateDescription(product: any) {
-    return `Buy ${product.productName} from ${product.brandName}. High quality, hygienically packed, available in multiple variants.`;
-  }
-
-  static generateSlug(product: any) {
-    const base = `${product.productName}-${product.variantName}-${product.brandName}`;
-    return base
+  const slug =
+    name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-  }
+      .replace(/(^-|-$)/g, "") +
+    "-" +
+    variant.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-  static generateKeywords(product: any) {
-    return [
-      product.productName,
-      product.brandName,
-      product.categoryName,
-      ...(product.ingredients || []),
-      ...(product.tags || []),
-    ];
-  }
+  const title = `${name} ${variant} | Buy Online at Best Price`;
+
+  const description = `${name} ${variant} available with best quality, fast delivery and verified vendor pricing.`;
+
+  const keywords = [
+    name,
+    variant,
+    vendorProduct.brandId,
+    vendorProduct.categoryId,
+    "buy online",
+    "best price",
+  ];
+
+  return {
+    title,
+    description,
+    slug,
+    keywords,
+  };
 }
