@@ -7,7 +7,7 @@ import {
 } from "@/services/purchaseOrder.service";
 
 export async function GET(_: Request, { params }: any) {
-  await dbConnect();
+  await connectDB();
 
   const data = await getPurchaseOrderById(params.id);
 
@@ -15,7 +15,7 @@ export async function GET(_: Request, { params }: any) {
 }
 
 export async function PUT(req: Request, { params }: any) {
-  await dbConnect();
+  await connectDB();
 
   const body = await req.json();
 
@@ -26,7 +26,7 @@ export async function PUT(req: Request, { params }: any) {
 
 /* OPTIONAL: approve endpoint */
 export async function PATCH(_: Request, { params }: any) {
-  await dbConnect();
+  await connectDB();
 
   const data = await approvePurchaseOrder(params.id);
 
