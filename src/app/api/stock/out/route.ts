@@ -4,7 +4,7 @@ import { stockOut } from "@/services/stock.service";
 
 export async function POST(req: Request) {
   try {
-    await dbConnect();
+    await connectDB();
 
     const body = await req.json();
 
