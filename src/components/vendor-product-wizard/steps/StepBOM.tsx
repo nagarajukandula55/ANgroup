@@ -4,18 +4,8 @@ import { useEffect, useState } from "react";
 import MaterialSearchSelect from "@/components/shared/MaterialSearchSelect";
 
 export default function StepBOM({ draftId, next, back }) {
-  const [rows, setRows] = useState([
-    {
-      materialId: "",
-      materialName: "",
-      qty: 1,
-      unit: "",
-      wastagePercent: 0,
-    },
-  ]);
-  const [quantity, setQuantity] = useState(1);
-  const [unit, setUnit] = useState("");
-  const [wastagePercent, setWastagePercent] = useState(0);
+  const [rows, setRows] = useState([]);
+
   const [loading, setLoading] = useState(false);
 
   /* ================= FETCH BOM ================= */
@@ -24,7 +14,16 @@ export default function StepBOM({ draftId, next, back }) {
     const data = await res.json();
 
     if (data.success) {
-      setRows(data.data);
+      setRows(
+        data.data.map((item: any) => ({
+          bomId: item._id,
+          materialId: item.materialId?._id,
+          materialName: item.materialName,
+          unit: item.unit,
+          quantity: item.quantity,
+          wastagePercent: item.wastagePercent,
+        }))
+      );
     }
   };
 
@@ -32,22 +31,37 @@ export default function StepBOM({ draftId, next, back }) {
     fetchBOM();
   }, []);
 
-  /* ================= ADD MATERIAL ================= */
-  const addMaterial = async () => {
-    if (!rows[0]?.materialId) return;
-  
-    setLoading(true);
-  
+  /* ================= ADD NEW ROW ================= */
+  const addRow = () => {
+    setRows([
+      ...rows,
+      {
+        materialId: "",
+        materialName: "",
+        unit: "",
+        quantity: 1,
+        wastagePercent: 0,
+      },
+    ]);
+  };
+
+  /* ================= UPDATE ROW ================= */
+  const updateRow = (index, field, value) => {
+    const updated = [...rows];
+    updated[index][field] = value;
+    setRows(updated);
+  };
+
+  /* ================= SAVE ROW TO DB ================= */
+  const saveRow = async (row) => {
     await fetch(`/api/vendor-products/${draftId}/bom`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        materialId: rows[0].materialId,
-        quantity,
-        unit,
-        wastagePercent,
+        materialId: row.materialId,
+        quantity: row.quantity,
+        unit: row.unit,
+        wastagePercent: row.wastagePercent,
         currentRate: 0,
         currentCost: 0,
         remarks: "",
@@ -55,13 +69,8 @@ export default function StepBOM({ draftId, next, back }) {
         createdBy: "TEMP",
       }),
     });
-  
-    setQuantity(1);
-    setUnit("");
-    setWastagePercent(0);
-  
+
     await fetchBOM();
-    setLoading(false);
   };
 
   /* ================= DELETE ================= */
@@ -78,91 +87,92 @@ export default function StepBOM({ draftId, next, back }) {
     <div className="space-y-4">
 
       <h2 className="text-xl font-semibold">
-        BOM (Material Composition)
+        BOM (Multi-Material Engine)
       </h2>
 
-      {/* ================= ADD ROW ================= */}
-      <div className="grid grid-cols-4 gap-2">
-      
-        {/* MATERIAL SEARCH (NEW) */}
-        <MaterialSearchSelect
-          onSelect={(m) => {
-            const updated = [...rows];
-      
-            updated[0].materialId = m._id;
-            updated[0].materialName = m.materialName;
-            updated[0].unit = m.unit;
-      
-            setRows(updated);
-          }}
-        />
-      
-        <input
-          type="number"
-          className="border p-2 rounded"
-          placeholder="Qty"
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-        />
-      
-        <input
-          className="border p-2 rounded"
-          placeholder="Unit"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-        />
-      
-        <input
-          type="number"
-          className="border p-2 rounded"
-          placeholder="Wastage %"
-          value={wastagePercent}
-          onChange={(e) =>
-            setWastagePercent(Number(e.target.value))
-          }
-        />
-      
-      </div>
+      {/* ================= ROWS ================= */}
+      <div className="space-y-4">
 
-      <button
-        onClick={addMaterial}
-        disabled={loading}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        {loading ? "Adding..." : "Add Material"}
-      </button>
-
-      {/* ================= LIST ================= */}
-      <div className="mt-6 space-y-2">
-
-        {rows.map((item: any) => (
+        {rows.map((row, index) => (
           <div
-            key={item._id}
-            className="border p-3 rounded flex justify-between"
+            key={index}
+            className="grid grid-cols-5 gap-2 border p-3 rounded"
           >
 
-            <div>
-              <div className="font-medium">
-                {item.materialName}
-              </div>
+            {/* MATERIAL SEARCH */}
+            <MaterialSearchSelect
+              onSelect={(m) => {
+                updateRow(index, "materialId", m._id);
+                updateRow(index, "materialName", m.materialName);
+                updateRow(index, "unit", m.unit);
+              }}
+            />
 
-              <div className="text-sm text-gray-500">
-                Qty: {item.quantity} {item.unit} | Wastage:{" "}
-                {item.wastagePercent}%
-              </div>
+            {/* QTY */}
+            <input
+              type="number"
+              className="border p-2 rounded"
+              placeholder="Qty"
+              value={row.quantity}
+              onChange={(e) =>
+                updateRow(index, "quantity", Number(e.target.value))
+              }
+            />
+
+            {/* UNIT */}
+            <input
+              className="border p-2 rounded"
+              placeholder="Unit"
+              value={row.unit}
+              onChange={(e) =>
+                updateRow(index, "unit", e.target.value)
+              }
+            />
+
+            {/* WASTAGE */}
+            <input
+              type="number"
+              className="border p-2 rounded"
+              placeholder="Wastage %"
+              value={row.wastagePercent}
+              onChange={(e) =>
+                updateRow(index, "wastagePercent", Number(e.target.value))
+              }
+            />
+
+            {/* ACTIONS */}
+            <div className="flex gap-2">
+
+              <button
+                onClick={() => saveRow(row)}
+                className="bg-green-600 text-white px-2 rounded"
+              >
+                Save
+              </button>
+
+              {row.bomId && (
+                <button
+                  onClick={() => deleteItem(row.bomId)}
+                  className="text-red-500"
+                >
+                  Delete
+                </button>
+              )}
+
             </div>
-
-            <button
-              onClick={() => deleteItem(item._id)}
-              className="text-red-500"
-            >
-              Delete
-            </button>
 
           </div>
         ))}
 
       </div>
+
+      {/* ================= ADD ROW ================= */}
+      <button
+        onClick={addRow}
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+      >
+        + Add Material
+      </button>
 
       {/* ================= NAV ================= */}
       <div className="flex justify-between pt-4">
