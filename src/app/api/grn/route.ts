@@ -7,7 +7,7 @@ import {
 
 export async function POST(req: Request) {
   try {
-    await dbConnect();
+    await connectDB();
 
     const body = await req.json();
     const data = await createGRN(body);
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    await dbConnect();
+    await connectDB();
 
     const data = await getAllGRNs();
 
