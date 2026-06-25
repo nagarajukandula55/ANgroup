@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-
 import VendorProduct from "@/models/VendorProduct";
 
 export async function POST(
@@ -10,33 +9,33 @@ export async function POST(
   try {
     await connectDB();
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
-    const product =
-      await VendorProduct.findByIdAndUpdate(
-        context.params.id,
-        {
-          approvalStatus:
-            "REJECTED",
-
-          rejectionReason:
-            body.reason,
-
-          approvedAt:
-            new Date(),
-
-          approvedBy:
-            body.userId,
-        },
-        {
-          new: true,
-        }
+    const vendorProduct =
+      await VendorProduct.findById(
+        context.params.id
       );
+
+    if (!vendorProduct) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    vendorProduct.approvalStatus =
+      "REJECTED";
+
+    vendorProduct.rejectionReason =
+      body.reason || "";
+
+    await vendorProduct.save();
 
     return NextResponse.json({
       success: true,
-      data: product,
     });
   } catch (err: any) {
     return NextResponse.json(
