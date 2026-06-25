@@ -16,7 +16,8 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "User ID and Business ID are required",
+          message:
+            "User ID and Business ID are required",
         },
         {
           status: 400,
@@ -24,11 +25,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const business = await Business.findById(
+    const business = (await Business.findById(
       businessId
     )
       .lean()
-      .exec();
+      .exec()) as any;
 
     if (!business) {
       return NextResponse.json(
@@ -43,13 +44,13 @@ export async function POST(req: Request) {
     }
 
     const access =
-      await UserBusinessAccess.findOne({
+      (await UserBusinessAccess.findOne({
         userId,
         businessId,
         isActive: true,
       })
         .lean()
-        .exec();
+        .exec()) as any;
 
     if (!access) {
       return NextResponse.json(
@@ -64,8 +65,9 @@ export async function POST(req: Request) {
     }
 
     const modules = filterModules({
-      modules: business.modules || [],
-      accessKeys: access.accessKeys || [],
+      modules: business?.modules ?? [],
+      accessKeys:
+        access?.accessKeys ?? [],
     });
 
     return NextResponse.json({
@@ -74,13 +76,16 @@ export async function POST(req: Request) {
       business: {
         id: business._id,
         name: business.name,
-        legalName: business.legalName,
-        brandName: business.brandName,
-        businessCode: business.businessCode,
+        legalName:
+          business.legalName,
+        brandName:
+          business.brandName,
+        businessCode:
+          business.businessCode,
       },
 
       designation:
-        access.designation || "",
+        access?.designation || "",
 
       modules,
     });
