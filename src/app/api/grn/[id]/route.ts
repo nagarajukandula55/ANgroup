@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { getGRNById } from "@/services/grn.service";
 
 export async function GET(_: Request, { params }: any) {
-  await dbConnect();
+  await connectDB();
 
   const data = await getGRNById(params.id);
 
