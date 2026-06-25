@@ -8,6 +8,12 @@ export default function StepBOM({ draftId, next, back }) {
 
   const [loading, setLoading] = useState(false);
 
+  const [costSummary, setCostSummary] = useState({
+    totalMaterialCost: 0,
+    wastageCost: 0,
+    finalCost: 0,
+  });
+
   /* ================= FETCH BOM ================= */
   const fetchBOM = async () => {
     const res = await fetch(`/api/vendor-products/${draftId}/bom`);
@@ -43,6 +49,20 @@ export default function StepBOM({ draftId, next, back }) {
         wastagePercent: 0,
       },
     ]);
+  };
+
+  useEffect(() => {
+    calculateCost();
+  }, [rows]);
+  
+  /* ================= Calculate Cost ================= */
+  const calculateCost = async () => {
+  const res = await fetch(`/api/vendor-products/${draftId}/cost`);
+  const data = await res.json();
+
+    if (data.success) {
+      setCostSummary(data.data);
+    }
   };
 
   /* ================= UPDATE ROW ================= */
