@@ -4,7 +4,7 @@ import StockLedger from "@/models/StockLedger";
 
 export async function GET() {
   try {
-    await dbConnect();
+    await connectDB();
 
     const data = await StockLedger.aggregate([
       {
