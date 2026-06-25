@@ -37,6 +37,13 @@ const ProductVariantSchema =
         trim: true,
       },
 
+      slug: {
+          type: String,
+          unique: true,
+          lowercase: true,
+          trim: true,
+        },
+
       barcode: {
         type: String,
         trim: true,
