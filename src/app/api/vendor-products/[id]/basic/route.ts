@@ -2,13 +2,10 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 
-type Context = {
-  params: {
-    id: string;
-  };
-};
-
-export async function PATCH(req: Request, context: Context) {
+export async function PATCH(
+  req: Request,
+  context: { params: { id: string } }
+) {
   try {
     await connectDB();
 
