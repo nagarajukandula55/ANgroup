@@ -4,7 +4,7 @@ import VendorProductBOM from "@/models/VendorProductBOM";
 
 export async function GET(
   req: Request,
-  context: any
+  context: { params: { id: string } }
 ) {
   try {
     await connectDB();
