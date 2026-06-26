@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 import Product from "@/models/Product";
 import ProductVariant from "@/models/ProductVariant";
+import { generateSEO } from "@/services/seo.service";
 
 function generateSKU(productCode: string, variantCode: string) {
   return `${productCode}-${variantCode}`.toUpperCase();
@@ -76,6 +77,12 @@ export async function POST(req: Request, context: any) {
       status: "DRAFT",
       active: false,
     });
+
+    const seo = generateSEO(vendorProduct);
+
+      product.seo = seo;
+      
+      await product.save();
 
     /* =========================================================
        🧱 CREATE VARIANT
