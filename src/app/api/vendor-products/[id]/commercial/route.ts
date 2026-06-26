@@ -1,27 +1,23 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import VendorProduct from "@/models/VendorProduct";
+import VendorProductBOM from "@/models/VendorProductBOM";
 
-export async function PATCH(
+export async function GET(
   req: Request,
   context: any
 ) {
   try {
     await connectDB();
 
-    const body = await req.json();
-
     const id = context.params.id;
 
-    const updated = await VendorProduct.findByIdAndUpdate(
-      id,
-      body,
-      { new: true }
-    );
+    const data = await VendorProductBOM.find({
+      vendorProductId: id,
+    });
 
     return NextResponse.json({
       success: true,
-      data: updated,
+      data,
     });
   } catch (err: any) {
     return NextResponse.json(
