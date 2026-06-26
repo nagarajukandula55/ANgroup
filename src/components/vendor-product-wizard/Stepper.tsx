@@ -1,29 +1,58 @@
-export default function Stepper({ step }) {
+interface StepperProps {
+  step: number;
+}
+
+export default function Stepper({
+  step,
+}: StepperProps) {
   const steps = [
     "Basic Info",
     "Commercial",
-    "Structure",
     "BOM",
+    "Packaging",
     "Compliance",
-    "Nutrition",
-    "SEO",
     "Review",
+    "Submit",
   ];
 
   return (
-    <div className="flex gap-2 flex-wrap">
-      {steps.map((label, i) => (
-        <div
-          key={i}
-          className={`px-3 py-1 rounded-full text-sm border ${
-            step === i + 1
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100"
-          }`}
-        >
-          {label}
-        </div>
-      ))}
+    <div className="flex items-center justify-between mb-8">
+      {steps.map((title, index) => {
+        const current = index + 1;
+
+        return (
+          <div
+            key={title}
+            className="flex flex-1 items-center"
+          >
+            <div className="flex flex-col items-center">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+                  current <= step
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "border-gray-300 text-gray-500"
+                }`}
+              >
+                {current}
+              </div>
+
+              <span className="mt-2 text-xs text-center">
+                {title}
+              </span>
+            </div>
+
+            {index < steps.length - 1 && (
+              <div
+                className={`mx-2 h-1 flex-1 ${
+                  current < step
+                    ? "bg-blue-600"
+                    : "bg-gray-300"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
