@@ -2,25 +2,53 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 
-export async function PATCH(req, { params }) {
-  await connectDB();
+interface RouteContext {
+  params: Promise<{
+    id: string;
+  }>;
+}
 
-  const body = await req.json();
+export async function PATCH(
+  request: Request,
+  { params }: RouteContext
+) {
+  try {
+    await connectDB();
 
-  const updated = await VendorProduct.findByIdAndUpdate(
-    params.id,
-    {
-      $set: {
-        unit: body.unit,
-        packSize: body.packSize,
-        netWeight: body.netWeight,
-        grossWeight: body.grossWeight,
-        hsnCode: body.hsnCode,
-        gstRate: body.gstRate,
+    const { id } = await params;
+
+    const body = await request.json();
+
+    const updated = await VendorProduct.findByIdAndUpdate(
+      id,
+      body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updated) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor Product not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message,
       },
-    },
-    { new: true }
-  );
-
-  return NextResponse.json(updated);
+      { status: 500 }
+    );
+  }
 }
