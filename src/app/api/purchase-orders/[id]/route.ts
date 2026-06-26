@@ -7,7 +7,7 @@ import {
 } from "@/services/purchaseOrder.service";
 
 /* =========================================================
-   GET PURCHASE ORDER
+GET PURCHASE ORDER
 ========================================================= */
 
 export async function GET(_: Request, { params }: any) {
@@ -32,7 +32,7 @@ export async function GET(_: Request, { params }: any) {
 }
 
 /* =========================================================
-   UPDATE PURCHASE ORDER
+UPDATE PURCHASE ORDER
 ========================================================= */
 
 export async function PUT(req: Request, { params }: any) {
@@ -59,8 +59,7 @@ export async function PUT(req: Request, { params }: any) {
 }
 
 /* =========================================================
-   APPROVE / REJECT PURCHASE ORDER
-   (FIXED VERSION - NO ARGUMENT MISMATCH)
+APPROVAL WORKFLOW
 ========================================================= */
 
 export async function PATCH(req: Request, { params }: any) {
@@ -73,8 +72,8 @@ export async function PATCH(req: Request, { params }: any) {
 
     const data = await approvePurchaseOrder({
       id: params.id,
-      action,   // "APPROVE" | "REJECT"
-      userId,   // ADMIN or logged-in user
+      action,
+      userId: userId || "ADMIN",
     });
 
     return NextResponse.json({
