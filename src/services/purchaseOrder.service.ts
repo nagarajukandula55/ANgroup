@@ -308,10 +308,15 @@ export async function updatePurchaseOrder(
 }
 
 /* ================= APPROVE PO ================= */
-export async function approvePurchaseOrder(
-  id: string,
-  approvedBy: string
-) {
+export async function approvePurchaseOrder({
+  id,
+  action,
+  userId,
+}: {
+  id: string;
+  action: "APPROVE" | "REJECT" | "REVISION";
+  userId: string;
+}) {
   const po = await PurchaseOrder.findById(id);
 
   if (!po) {
@@ -324,8 +329,15 @@ export async function approvePurchaseOrder(
     );
   }
 
-  po.status = "APPROVED";
-  po.approvedBy = approvedBy;
+  if (action === "APPROVE") {
+    po.status = "APPROVED";
+  } else if (action === "REJECT") {
+    po.status = "REJECTED";
+  } else if (action === "REVISION") {
+    po.status = "REVISION_REQUIRED";
+  }
+
+  po.approvedBy = userId;
   po.approvedAt = new Date();
 
   await po.save();
