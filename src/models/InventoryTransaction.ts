@@ -77,6 +77,16 @@ const InventoryTransactionSchema = new mongoose.Schema(
       required: true,
     },
 
+    runningQuantity: {
+        type:Number,
+        default:0
+    },
+
+    runningValue: {
+        type:Number,
+        default:0
+    },
+
     unitCost: {
       type: Number,
       default: 0,
@@ -85,6 +95,21 @@ const InventoryTransactionSchema = new mongoose.Schema(
     totalCost: {
       type: Number,
       default: 0,
+    },
+
+    movementReason: {
+        type:String,
+        enum:[
+            "PURCHASE",
+            "CUSTOMER_ORDER",
+            "MANUFACTURING",
+            "TRANSFER",
+            "RETURN",
+            "ADJUSTMENT",
+            "DAMAGE",
+            "EXPIRED",
+            "SYSTEM"
+        ]
     },
 
     /* =========================================================
