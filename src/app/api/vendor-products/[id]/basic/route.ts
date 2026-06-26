@@ -2,17 +2,16 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 
-export async function PATCH(
-  req: Request,
-  context: { params: { id: string } }
-) {
+export async function PATCH(req: Request, context: any) {
   try {
     await connectDB();
 
     const body = await req.json();
 
+    const id = context.params.id;
+
     const updated = await VendorProduct.findByIdAndUpdate(
-      context.params.id,
+      id,
       body,
       { new: true }
     );
