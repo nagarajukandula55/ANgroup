@@ -4,17 +4,15 @@ import VendorProduct from "@/models/VendorProduct";
 
 export async function PATCH(
   req: Request,
-  context: any
+  context: { params: { id: string } }
 ) {
   try {
     await connectDB();
 
-    const id = context.params.id;
-
     const body = await req.json();
 
     const updated = await VendorProduct.findByIdAndUpdate(
-      id,
+      context.params.id,
       body,
       { new: true }
     );
