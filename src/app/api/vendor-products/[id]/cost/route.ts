@@ -2,12 +2,23 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProductBOM from "@/models/VendorProductBOM";
 
-export async function GET(req, { params }) {
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+export async function GET(
+  request: Request,
+  { params }: RouteContext
+) {
   try {
     await connectDB();
 
+    const { id } = await params;
+
     const items = await VendorProductBOM.find({
-      vendorProductId: params.id,
+      vendorProductId: id,
       active: true,
     });
 
@@ -16,7 +27,6 @@ export async function GET(req, { params }) {
 
     for (const item of items) {
       const base = item.currentCost || 0;
-
       const wastage = (base * item.wastagePercent) / 100;
 
       totalMaterialCost += base;
@@ -35,7 +45,10 @@ export async function GET(req, { params }) {
     });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, message: err.message },
+      {
+        success: false,
+        message: err.message,
+      },
       { status: 500 }
     );
   }
