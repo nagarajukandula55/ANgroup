@@ -312,29 +312,21 @@ export async function approvePurchaseOrder(
   id: string,
   approvedBy: string
 ) {
-  const po =
-    await PurchaseOrder.findById(id);
+  const po = await PurchaseOrder.findById(id);
 
-  if (!po)
-    throw new Error(
-      "Purchase Order not found"
-    );
+  if (!po) {
+    throw new Error("Purchase Order not found");
+  }
 
-  if (
-    po.status !== "DRAFT"
-  ) {
+  if (po.status !== "DRAFT") {
     throw new Error(
       "Only Draft Purchase Orders can be approved."
     );
   }
 
   po.status = "APPROVED";
-
-  po.approvedBy =
-    approvedBy;
-
-  po.approvedAt =
-    new Date();
+  po.approvedBy = approvedBy;
+  po.approvedAt = new Date();
 
   await po.save();
 
