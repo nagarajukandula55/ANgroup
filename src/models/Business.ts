@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
-/* ================= ACCESS SYSTEM ================= */
+/* =========================================================
+   ACCESS
+========================================================= */
+
 const AccessSchema = new mongoose.Schema(
   {
     key: {
@@ -11,18 +14,25 @@ const AccessSchema = new mongoose.Schema(
 
     label: {
       type: String,
+      default: "",
       trim: true,
     },
 
     description: {
       type: String,
+      default: "",
       trim: true,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-/* ================= MODULE ================= */
+/* =========================================================
+   MODULE
+========================================================= */
+
 const ModuleSchema = new mongoose.Schema(
   {
     key: {
@@ -40,7 +50,6 @@ const ModuleSchema = new mongoose.Schema(
     route: {
       type: String,
       default: "",
-      trim: true,
     },
 
     icon: {
@@ -50,17 +59,17 @@ const ModuleSchema = new mongoose.Schema(
 
     parent: {
       type: String,
-      default: null,
-    },
-
-    sortOrder: {
-      type: Number,
-      default: 0,
+      default: "",
     },
 
     badge: {
       type: String,
       default: "",
+    },
+
+    sortOrder: {
+      type: Number,
+      default: 0,
     },
 
     enabled: {
@@ -73,10 +82,15 @@ const ModuleSchema = new mongoose.Schema(
       default: [],
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-/* ================= NUMBERING ENGINE ================= */
+/* =========================================================
+   NUMBERING
+========================================================= */
+
 const NumberingSchema = new mongoose.Schema(
   {
     prefix: {
@@ -104,70 +118,141 @@ const NumberingSchema = new mongoose.Schema(
       default: 6,
     },
 
-    example: {
-      type: String,
-      default: "NA-260430-000002-CWDZYA",
-    },
-
     scope: {
       type: String,
-      enum: ["BUSINESS", "LOCATION"],
+      enum: [
+        "BUSINESS",
+        "WAREHOUSE",
+      ],
       default: "BUSINESS",
     },
+
+    example: {
+      type: String,
+      default: "",
+    },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-/* ================= DOCUMENT ENGINE ================= */
+/* =========================================================
+   DOCUMENT
+========================================================= */
+
+const DocumentItemSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    templateId: {
+      type: String,
+      default: "",
+    },
+
+    numbering: {
+      type: NumberingSchema,
+      default: {},
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/* =========================================================
+   DOCUMENT ENGINE
+========================================================= */
+
 const DocumentSchema = new mongoose.Schema(
   {
     invoice: {
-      enabled: {
-        type: Boolean,
-        default: true,
-      },
-
-      templateId: String,
-
-      numbering: NumberingSchema,
-    },
-
-    creditNote: {
-      enabled: {
-        type: Boolean,
-        default: true,
-      },
-
-      templateId: String,
-    },
-
-    debitNote: {
-      enabled: {
-        type: Boolean,
-        default: true,
-      },
-
-      templateId: String,
+      type: DocumentItemSchema,
+      default: {},
     },
 
     receipt: {
-      enabled: {
-        type: Boolean,
-        default: true,
-      },
+      type: DocumentItemSchema,
+      default: {},
+    },
 
-      templateId: String,
+    purchaseOrder: {
+      type: DocumentItemSchema,
+      default: {},
+    },
 
-      numbering: {
-        type: String,
-        default: "NA-1778239266354-JRUIUC",
-      },
+    goodsReceipt: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    salesOrder: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    customerOrder: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    vendorProduct: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    product: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    productVariant: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    stockAdjustment: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    stockTransfer: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    productionOrder: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    batch: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    creditNote: {
+      type: DocumentItemSchema,
+      default: {},
+    },
+
+    debitNote: {
+      type: DocumentItemSchema,
+      default: {},
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-/* ================= COMPLIANCE ================= */
+/* =========================================================
+   COMPLIANCE
+========================================================= */
+
 const ComplianceSchema = new mongoose.Schema(
   {
     gstNumber: String,
@@ -175,11 +260,18 @@ const ComplianceSchema = new mongoose.Schema(
     cin: String,
     msme: String,
     iec: String,
+    fssai: String,
+    drugLicense: String,
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-/* ================= FINANCIAL ================= */
+/* =========================================================
+   FINANCIAL
+========================================================= */
+
 const FinancialSchema = new mongoose.Schema(
   {
     currency: {
@@ -196,11 +288,93 @@ const FinancialSchema = new mongoose.Schema(
       type: String,
       default: "GST",
     },
+
+    decimalPlaces: {
+      type: Number,
+      default: 2,
+    },
+
+    priceIncludesTax: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
-/* ================= BUSINESS ================= */
+/* =========================================================
+   AI
+========================================================= */
+
+const AISettingsSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    autoGenerateSEO: {
+      type: Boolean,
+      default: true,
+    },
+
+    autoGenerateDescription: {
+      type: Boolean,
+      default: true,
+    },
+
+    autoGenerateTags: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/* =========================================================
+   MARKETPLACE
+========================================================= */
+
+const MarketplaceSchema = new mongoose.Schema(
+  {
+    enableB2B: {
+      type: Boolean,
+      default: true,
+    },
+
+    enableB2C: {
+      type: Boolean,
+      default: true,
+    },
+
+    enableVendorPortal: {
+      type: Boolean,
+      default: true,
+    },
+
+    enableManufacturing: {
+      type: Boolean,
+      default: true,
+    },
+
+    enableWarehouse: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/* =========================================================
+   BUSINESS
+========================================================= */
+
 const BusinessSchema = new mongoose.Schema(
   {
     name: {
@@ -211,58 +385,96 @@ const BusinessSchema = new mongoose.Schema(
 
     legalName: {
       type: String,
+      default: "",
       trim: true,
     },
 
     brandName: {
       type: String,
+      default: "",
       trim: true,
     },
 
     businessCode: {
       type: String,
+      required: true,
       unique: true,
-      index: true,
       uppercase: true,
       trim: true,
+      index: true,
     },
 
     tenantKey: {
       type: String,
+      required: true,
       unique: true,
-      index: true,
       trim: true,
+      index: true,
     },
 
     industry: {
       type: String,
-      trim: true,
+      default: "",
     },
 
     type: {
       type: String,
-      trim: true,
+      default: "",
     },
 
     email: {
       type: String,
-      trim: true,
+      default: "",
       lowercase: true,
+      trim: true,
     },
 
     phone: {
       type: String,
+      default: "",
       trim: true,
     },
 
     website: {
       type: String,
+      default: "",
       trim: true,
+    },
+
+    logo: {
+      type: String,
+      default: "",
+    },
+
+    address: {
+      type: String,
+      default: "",
+    },
+
+    city: {
+      type: String,
+      default: "",
+    },
+
+    state: {
+      type: String,
+      default: "",
+    },
+
+    country: {
+      type: String,
+      default: "India",
+    },
+
+    pincode: {
+      type: String,
+      default: "",
     },
 
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
 
     aiEnabled: {
@@ -289,16 +501,49 @@ const BusinessSchema = new mongoose.Schema(
       type: FinancialSchema,
       default: {},
     },
+
+    marketplace: {
+      type: MarketplaceSchema,
+      default: {},
+    },
+
+    ai: {
+      type: AISettingsSchema,
+      default: {},
+    },
   },
   {
     timestamps: true,
   }
 );
 
-/* ================= INDEXES ================= */
-BusinessSchema.index({ businessCode: 1 });
-BusinessSchema.index({ tenantKey: 1 });
-BusinessSchema.index({ isActive: 1 });
+/* =========================================================
+   INDEXES
+========================================================= */
 
-export default mongoose.models.Business ||
-  mongoose.model("Business", BusinessSchema);
+BusinessSchema.index({
+  businessCode: 1,
+});
+
+BusinessSchema.index({
+  tenantKey: 1,
+});
+
+BusinessSchema.index({
+  isActive: 1,
+});
+
+BusinessSchema.index({
+  email: 1,
+});
+
+/* =========================================================
+   EXPORT
+========================================================= */
+
+export default
+  mongoose.models.Business ||
+  mongoose.model(
+    "Business",
+    BusinessSchema
+  );
