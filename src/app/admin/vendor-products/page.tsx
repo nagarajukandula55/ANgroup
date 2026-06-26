@@ -2,20 +2,30 @@
 
 import { useEffect, useState } from "react";
 
+/* ================= TYPES ================= */
+
+type ApprovalAction = "APPROVE" | "REJECT" | "REVISION";
+
+type VendorProduct = {
+  _id: string;
+  productName: string;
+  approvalStatus: string;
+};
+
 export default function AdminVendorProducts() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<VendorProduct[]>([]);
 
   const fetchData = async () => {
     const res = await fetch("/api/admin/vendor-products/list");
     const data = await res.json();
-    setItems(data.data);
+    setItems(data.data || []);
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const action = async (id, type) => {
+  const action = async (id: string, type: ApprovalAction) => {
     await fetch("/api/admin/vendor-products/approve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -30,17 +40,13 @@ export default function AdminVendorProducts() {
   };
 
   return (
-    <div className="p-6">
-
+    <div>
       <h1 className="text-xl font-bold mb-4">
         Vendor Product Approvals
       </h1>
 
-      {items.map((p: any) => (
-        <div
-          key={p._id}
-          className="border p-3 rounded mb-2"
-        >
+      {items.map((p) => (
+        <div key={p._id} className="border p-3 rounded mb-2">
 
           <div className="font-medium">
             {p.productName}
@@ -77,7 +83,6 @@ export default function AdminVendorProducts() {
 
         </div>
       ))}
-
     </div>
   );
 }
