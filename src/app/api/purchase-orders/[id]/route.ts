@@ -6,29 +6,88 @@ import {
   approvePurchaseOrder,
 } from "@/services/purchaseOrder.service";
 
+/* =========================================================
+   GET PURCHASE ORDER
+========================================================= */
+
 export async function GET(_: Request, { params }: any) {
-  await connectDB();
+  try {
+    await connectDB();
 
-  const data = await getPurchaseOrderById(params.id);
+    const data = await getPurchaseOrderById(params.id);
 
-  return NextResponse.json({ success: true, data });
+    return NextResponse.json({
+      success: true,
+      data,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message,
+      },
+      { status: 500 }
+    );
+  }
 }
+
+/* =========================================================
+   UPDATE PURCHASE ORDER
+========================================================= */
 
 export async function PUT(req: Request, { params }: any) {
-  await connectDB();
+  try {
+    await connectDB();
 
-  const body = await req.json();
+    const body = await req.json();
 
-  const data = await updatePurchaseOrder(params.id, body);
+    const data = await updatePurchaseOrder(params.id, body);
 
-  return NextResponse.json({ success: true, data });
+    return NextResponse.json({
+      success: true,
+      data,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message,
+      },
+      { status: 500 }
+    );
+  }
 }
 
-/* OPTIONAL: approve endpoint */
-export async function PATCH(_: Request, { params }: any) {
-  await connectDB();
+/* =========================================================
+   APPROVE / REJECT PURCHASE ORDER
+   (FIXED VERSION - NO ARGUMENT MISMATCH)
+========================================================= */
 
-  const data = await approvePurchaseOrder(params.id);
+export async function PATCH(req: Request, { params }: any) {
+  try {
+    await connectDB();
 
-  return NextResponse.json({ success: true, data });
+    const body = await req.json();
+
+    const { action, userId } = body;
+
+    const data = await approvePurchaseOrder({
+      id: params.id,
+      action,   // "APPROVE" | "REJECT"
+      userId,   // ADMIN or logged-in user
+    });
+
+    return NextResponse.json({
+      success: true,
+      data,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message,
+      },
+      { status: 500 }
+    );
+  }
 }
