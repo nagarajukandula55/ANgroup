@@ -151,20 +151,54 @@ const PurchaseOrderSchema = new mongoose.Schema(
        STATUS
     ========================================================= */
 
-    status:{
-        type:String,
-        enum:[
-            "DRAFT",
-            "PENDING_APPROVAL",
-            "APPROVED",
-            "ORDERED",
-            "PARTIALLY_RECEIVED",
-            "COMPLETED",
-            "CANCELLED"
-        ],
+    status: {
+      type: String,
+      enum: [
+        "DRAFT",
+        "PENDING_APPROVAL",
+        "APPROVED",
+        "PARTIAL_RECEIVED",
+        "RECEIVED",
+        "REJECTED",
+        "CANCELLED",
+        "CLOSED",
+      ],
         default:"DRAFT",
         index:true
     },
+
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    
+    submittedAt: Date,
+    
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    
+    approvedAt: Date,
+    
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    
+    rejectedAt: Date,
+    
+    rejectionReason: {
+      type: String,
+      default: "",
+    },
+    
+    closedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    
+    closedAt: Date,
 
     approvalRemarks:String,
 
