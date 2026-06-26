@@ -2,22 +2,32 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 
-export async function PATCH(req, { params }) {
-  await connectDB();
+export async function PATCH(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await connectDB();
 
-  const body = await req.json();
+    const body = await req.json();
 
-  const updated = await VendorProduct.findByIdAndUpdate(
-    params.id,
-    {
-      $set: {
-        productName: body.productName,
-        variantName: body.variantName,
-        description: body.description,
+    const updated = await VendorProduct.findByIdAndUpdate(
+      params.id,
+      body,
+      { new: true }
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message,
       },
-    },
-    { new: true }
-  );
-
-  return NextResponse.json(updated);
+      { status: 500 }
+    );
+  }
 }
