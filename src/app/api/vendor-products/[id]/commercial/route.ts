@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import VendorProductBOM from "@/models/VendorProductBOM";
+import VendorProduct from "@/models/VendorProduct";
 
-export async function GET(
-  req: Request,
-  context: { params: { id: string } }
-) {
+export async function GET(req: Request, context: any) {
   try {
     await connectDB();
 
     const id = context.params.id;
 
-    const data = await VendorProductBOM.find({
-      vendorProductId: id,
-    });
+    const data = await VendorProduct.findById(id);
 
     return NextResponse.json({
       success: true,
