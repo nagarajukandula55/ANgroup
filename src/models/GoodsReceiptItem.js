@@ -1,64 +1,70 @@
 import mongoose from "mongoose";
 
-const GoodsReceiptItemSchema =
-  new mongoose.Schema(
-    {
-      goodsReceiptId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "GoodsReceipt",
-        required: true,
-        index: true,
-      },
+const GoodsReceiptItemSchema = new mongoose.Schema(
+{
+  goodsReceiptId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"GoodsReceipt",
+    required:true,
+    index:true
+  },
 
-      purchaseOrderItemId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "PurchaseOrderItem",
-      },
+  materialId:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Material",
+    required:true
+  },
 
-      materialId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Material",
-        required: true,
-      },
+  materialCode:String,
 
-      orderedQty: {
-        type: Number,
-        default: 0,
-      },
+  materialName:String,
 
-      receivedQty: {
-        type: Number,
-        required: true,
-      },
+  unit:String,
 
-      acceptedQty: {
-        type: Number,
-        default: 0,
-      },
+  orderedQuantity:{
+    type:Number,
+    default:0
+  },
 
-      rejectedQty: {
-        type: Number,
-        default: 0,
-      },
+  receivedQuantity:{
+    type:Number,
+    default:0
+  },
 
-      unitCost: {
-        type: Number,
-        default: 0,
-      },
+  acceptedQuantity:{
+    type:Number,
+    default:0
+  },
 
-      lotNumber: String,
+  rejectedQuantity:{
+    type:Number,
+    default:0
+  },
 
-      expiryDate: Date,
+  unitRate:{
+    type:Number,
+    default:0
+  },
 
-      remarks: String,
-    },
-    {
-      timestamps: true,
-    }
-  );
+  lineTotal:{
+    type:Number,
+    default:0
+  },
 
-export default mongoose.models.GoodsReceiptItem ||
-  mongoose.model(
-    "GoodsReceiptItem",
-    GoodsReceiptItemSchema
-  );
+  remarks:String
+
+},
+{
+  timestamps:true
+});
+
+GoodsReceiptItemSchema.index({
+  goodsReceiptId:1
+});
+
+export default
+mongoose.models.GoodsReceiptItem ||
+mongoose.model(
+"GoodsReceiptItem",
+GoodsReceiptItemSchema
+);
