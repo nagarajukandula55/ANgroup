@@ -9,22 +9,26 @@ import StepStructure from "./steps/StepStructure";
 import StepBOM from "./steps/StepBOM";
 
 interface WizardContainerProps {
-  draftId?: string;
+  draftId: string;
 }
 
 export default function WizardContainer({
   draftId,
 }: WizardContainerProps) {
-  const [step, setStep] = useState<number>(1);
+  const [step, setStep] = useState(1);
 
   const next = () => setStep((s) => s + 1);
-  const back = () => setStep((s) => Math.max(1, s - 1));
+
+  const back = () =>
+    setStep((s) => Math.max(1, s - 1));
 
   return (
-    <div className="w-full">
+    <div>
+
       <Stepper step={step} />
 
       <div className="mt-6 rounded-xl border bg-white p-6 shadow-sm">
+
         {step === 1 && (
           <StepBasicInfo
             draftId={draftId}
@@ -55,7 +59,9 @@ export default function WizardContainer({
             back={back}
           />
         )}
+
       </div>
+
     </div>
   );
 }
