@@ -11,7 +11,7 @@ async function getLatestMaterialRate(
   materialId: string
 ): Promise<number> {
   const latestPrice =
-    await MaterialPriceHistory.findOne({
+    (await MaterialPriceHistory.findOne({
       materialId,
       active: true,
     })
@@ -19,9 +19,9 @@ async function getLatestMaterialRate(
         effectiveDate: -1,
         createdAt: -1,
       })
-      .lean();
+      .lean()) as any;
 
-  return latestPrice?.price || 0;
+  return latestPrice?.price ?? 0;
 }
 
 /* =========================================================
