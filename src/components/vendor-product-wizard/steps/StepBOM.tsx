@@ -133,7 +133,7 @@ export default function StepBOM({
   const updateRow = (
     index: number,
     field: keyof BOMItem,
-    value: any
+    value: string | number
   ) => {
     const updated = [...rows];
 
@@ -162,11 +162,9 @@ export default function StepBOM({
           unit: row.unit,
           wastagePercent:
             row.wastagePercent,
-
           currentRate: 0,
           currentCost: 0,
           remarks: "",
-
           businessId: "TEMP",
           createdBy: "TEMP",
         }),
@@ -206,7 +204,6 @@ export default function StepBOM({
 
   return (
     <div className="space-y-6">
-
       <h2 className="text-2xl font-semibold">
         Bill Of Materials
       </h2>
@@ -224,7 +221,7 @@ export default function StepBOM({
 
       <button
         onClick={addRow}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
+        className="rounded bg-blue-600 px-4 py-2 text-white"
       >
         + Add Material
       </button>
@@ -246,34 +243,29 @@ export default function StepBOM({
       />
 
       <div className="flex justify-between">
-
         <button
           onClick={back}
-          className="border px-4 py-2 rounded"
+          className="rounded border px-4 py-2"
         >
           Back
         </button>
 
         <div className="space-x-3">
-
           <button
             onClick={submit}
-            className="bg-purple-600 text-white px-4 py-2 rounded"
+            className="rounded bg-purple-600 px-4 py-2 text-white"
           >
             Submit
           </button>
 
           <button
             onClick={next}
-            className="bg-green-600 text-white px-4 py-2 rounded"
+            className="rounded bg-green-600 px-4 py-2 text-white"
           >
             Continue
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 }
