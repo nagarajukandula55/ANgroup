@@ -1,12 +1,12 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
 /* =========================================================
- * ORGANIZATION DOCUMENT
- * =======================================================*/
+   ORGANIZATION DOCUMENT (FINAL VERSION)
+========================================================= */
 
 export interface IOrganization extends Document {
   name: string;
-  code: string;
+  code: string; // HUMAN CODE (AN0001)
 
   legalName?: string;
 
@@ -29,6 +29,32 @@ export interface IOrganization extends Document {
 
   ownerId?: Types.ObjectId;
 
+  /* ================= NEW SAAS + ERP FIELDS ================= */
+
+  sysCode: string; // INTERNAL UNIQUE ID (org_xxx)
+
+  slug: string; // URL SAFE IDENTIFIER (an-group)
+
+  timezone: string; // ERP TIME CONSISTENCY
+  currency: string; // FINANCIAL MODULE SUPPORT
+
+  plan?: "FREE" | "BASIC" | "PRO" | "ENTERPRISE";
+
+  features?: {
+    inventory?: boolean;
+    purchase?: boolean;
+    sales?: boolean;
+    finance?: boolean;
+    production?: boolean;
+    crm?: boolean;
+  };
+
+  primaryColor?: string;
+  secondaryColor?: string;
+
+  createdBy?: Types.ObjectId;
+  updatedBy?: Types.ObjectId;
+
   isActive: boolean;
   isDeleted: boolean;
 
@@ -40,11 +66,13 @@ export interface IOrganization extends Document {
 }
 
 /* =========================================================
- * SCHEMA
- * =======================================================*/
+   SCHEMA
+========================================================= */
 
 const OrganizationSchema = new Schema<IOrganization>(
   {
+    /* ================= CORE IDENTITY ================= */
+
     name: {
       type: String,
       required: true,
@@ -61,77 +89,43 @@ const OrganizationSchema = new Schema<IOrganization>(
       index: true,
     },
 
-    legalName: {
+    sysCode: {
       type: String,
-      default: null,
-      trim: true,
+      required: true,
+      unique: true,
+      index: true,
     },
 
-    email: {
+    slug: {
       type: String,
-      default: null,
+      required: true,
+      unique: true,
+      index: true,
       lowercase: true,
       trim: true,
     },
 
-    phone: {
-      type: String,
-      default: null,
-      trim: true,
-    },
+    /* ================= LEGAL ================= */
 
-    website: {
-      type: String,
-      default: null,
-      trim: true,
-    },
+    legalName: { type: String, default: null, trim: true },
+    email: { type: String, default: null, lowercase: true, trim: true },
+    phone: { type: String, default: null, trim: true },
+    website: { type: String, default: null, trim: true },
+    logo: { type: String, default: null },
 
-    logo: {
-      type: String,
-      default: null,
-    },
+    gstNumber: { type: String, default: null, trim: true },
+    panNumber: { type: String, default: null, trim: true },
 
-    gstNumber: {
-      type: String,
-      default: null,
-      trim: true,
-    },
+    /* ================= ADDRESS ================= */
 
-    panNumber: {
-      type: String,
-      default: null,
-      trim: true,
-    },
+    addressLine1: { type: String, default: null },
+    addressLine2: { type: String, default: null },
+    city: { type: String, default: null },
+    state: { type: String, default: null },
+    country: { type: String, default: "India" },
+    postalCode: { type: String, default: null },
 
-    addressLine1: {
-      type: String,
-      default: null,
-    },
-
-    addressLine2: {
-      type: String,
-      default: null,
-    },
-
-    city: {
-      type: String,
-      default: null,
-    },
-
-    state: {
-      type: String,
-      default: null,
-    },
-
-    country: {
-      type: String,
-      default: "India",
-    },
-
-    postalCode: {
-      type: String,
-      default: null,
-    },
+    /* ================= OWNERSHIP ================= */
 
     ownerId: {
       type: Schema.Types.ObjectId,
@@ -139,6 +133,54 @@ const OrganizationSchema = new Schema<IOrganization>(
       default: null,
       index: true,
     },
+
+    /* ================= SAAS CONFIG ================= */
+
+    timezone: {
+      type: String,
+      default: "Asia/Kolkata",
+    },
+
+    currency: {
+      type: String,
+      default: "INR",
+    },
+
+    plan: {
+      type: String,
+      enum: ["FREE", "BASIC", "PRO", "ENTERPRISE"],
+      default: "FREE",
+    },
+
+    features: {
+      inventory: { type: Boolean, default: true },
+      purchase: { type: Boolean, default: true },
+      sales: { type: Boolean, default: true },
+      finance: { type: Boolean, default: true },
+      production: { type: Boolean, default: true },
+      crm: { type: Boolean, default: true },
+    },
+
+    /* ================= BRANDING ================= */
+
+    primaryColor: { type: String, default: null },
+    secondaryColor: { type: String, default: null },
+
+    /* ================= AUDIT ================= */
+
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    /* ================= STATUS ================= */
 
     isActive: {
       type: Boolean,
@@ -170,16 +212,18 @@ const OrganizationSchema = new Schema<IOrganization>(
 );
 
 /* =========================================================
- * INDEXES
- * =======================================================*/
+   INDEXES
+========================================================= */
 
 OrganizationSchema.index({ name: 1 });
 OrganizationSchema.index({ code: 1 });
+OrganizationSchema.index({ sysCode: 1 });
+OrganizationSchema.index({ slug: 1 });
 OrganizationSchema.index({ isActive: 1 });
 
 /* =========================================================
- * MODEL
- * =======================================================*/
+   MODEL
+========================================================= */
 
 const Organization: Model<IOrganization> =
   mongoose.models.Organization ||
