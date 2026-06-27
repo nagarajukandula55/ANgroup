@@ -1,41 +1,108 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import MaterialSearchSelect from "@/components/shared/MaterialSearchSelect";
 
-export default function StepBOM({ draftId, next, back }) {
-  const [rows, setRows] = useState([]);
+import BOMRow from "./components/BOMRow";
+import CostSummary from "./components/CostSummary";
+import PricingPreview from "./components/PricingPreview";
 
-  const [loading, setLoading] = useState(false);
+interface BOMItem {
+  bomId?: string;
+  materialId: string;
+  materialName: string;
+  unit: string;
+  quantity: number;
+  wastagePercent: number;
+}
 
-  const [costSummary, setCostSummary] = useState({
-    totalMaterialCost: 0,
-    wastageCost: 0,
-    finalCost: 0,
-  });
+interface CostSummaryType {
+  totalMaterialCost: number;
+  wastageCost: number;
+  finalCost: number;
+}
 
-  const [pricing, setPricing] = useState({
-    sellingPrice: 0,
-    marginAmount: 0,
-    marginPercent: 0,
-  });
+interface PricingType {
+  sellingPrice: number;
+  marginAmount: number;
+  marginPercent: number;
+}
 
-  /* ================= FETCH BOM ================= */
+interface Props {
+  draftId: string;
+  next: () => void;
+  back: () => void;
+}
+
+export default function StepBOM({
+  draftId,
+  next,
+  back,
+}: Props) {
+  const [rows, setRows] = useState<BOMItem[]>([]);
+
+  const [costSummary, setCostSummary] =
+    useState<CostSummaryType>({
+      totalMaterialCost: 0,
+      wastageCost: 0,
+      finalCost: 0,
+    });
+
+  const [pricing, setPricing] =
+    useState<PricingType>({
+      sellingPrice: 0,
+      marginAmount: 0,
+      marginPercent: 0,
+    });
+
+  /* ================= LOAD BOM ================= */
+
   const fetchBOM = async () => {
-    const res = await fetch(`/api/vendor-products/${draftId}/bom`);
+    const res = await fetch(
+      `/api/vendor-products/${draftId}/bom`
+    );
+
+    const data = await res.json();
+
+    if (!data.success) return;
+
+    setRows(
+      data.data.map((item: any) => ({
+        bomId: item._id,
+        materialId: item.materialId?._id || "",
+        materialName: item.materialName || "",
+        unit: item.unit || "",
+        quantity: item.quantity || 1,
+        wastagePercent:
+          item.wastagePercent || 0,
+      }))
+    );
+  };
+
+  /* ================= COST ================= */
+
+  const fetchCost = async () => {
+    const res = await fetch(
+      `/api/vendor-products/${draftId}/cost`
+    );
+
     const data = await res.json();
 
     if (data.success) {
-      setRows(
-        data.data.map((item: any) => ({
-          bomId: item._id,
-          materialId: item.materialId?._id,
-          materialName: item.materialName,
-          unit: item.unit,
-          quantity: item.quantity,
-          wastagePercent: item.wastagePercent,
-        }))
-      );
+      setCostSummary(data.data);
+    }
+  };
+
+  /* ================= PRICING ================= */
+
+  const fetchPricing = async () => {
+    const res = await fetch(
+      `/api/vendor-products/${draftId}/pricing`
+    );
+
+    const data = await res.json();
+
+    if (data.success) {
+      setPricing(data.data);
     }
   };
 
@@ -43,31 +110,13 @@ export default function StepBOM({ draftId, next, back }) {
     fetchBOM();
   }, []);
 
-    <div className="border rounded p-4 mt-6 bg-gray-50">
-  
-    <h3 className="font-semibold text-lg mb-2">
-      Cost Summary
-    </h3>
-  
-    <div className="text-sm space-y-1">
-  
-      <div>
-        Material Cost: ₹{costSummary.totalMaterialCost}
-      </div>
-  
-      <div>
-        Wastage Cost: ₹{costSummary.wastageCost}
-      </div>
-  
-      <div className="font-bold text-green-600">
-        Final Production Cost: ₹{costSummary.finalCost}
-      </div>
-  
-    </div>
-  
-  </div>
+  useEffect(() => {
+    fetchCost();
+    fetchPricing();
+  }, [rows]);
 
-  /* ================= ADD NEW ROW ================= */
+  /* ================= ROW ================= */
+
   const addRow = () => {
     setRows([
       ...rows,
@@ -80,182 +129,99 @@ export default function StepBOM({ draftId, next, back }) {
       },
     ]);
   };
-  
-  /* ================= Calculate Cost ================= */
-  const calculateCost = async () => {
-  const res = await fetch(`/api/vendor-products/${draftId}/cost`);
-  const data = await res.json();
 
-    if (data.success) {
-      setCostSummary(data.data);
-    }
-  };
-
-    useEffect(() => {
-      calculateCost();
-    }, [rows]);
-    
-  /* ================= Price Engine ================= */
-  const calculatePricing = async () => {
-  const res = await fetch(`/api/vendor-products/${draftId}/pricing`);
-  const data = await res.json();
-
-    if (data.success) {
-      setPricing(data.data);
-    }
-  };
-
-  useEffect(() => {
-  calculateCost();
-  calculatePricing();
-}, [rows]);
-
-  <div className="border rounded p-4 mt-4 bg-blue-50">
-
-    <h3 className="font-semibold text-lg mb-2">
-      Pricing Preview
-    </h3>
-  
-    <div className="text-sm space-y-1">
-  
-      <div>
-        Suggested Selling Price:{" "}
-        <span className="font-bold text-blue-700">
-          ₹{pricing.sellingPrice}
-        </span>
-      </div>
-  
-      <div>
-        Margin: ₹{pricing.marginAmount} (
-        {pricing.marginPercent}%)
-      </div>
-  
-    </div>
-  
-  </div>
-
-  /* ================= UPDATE ROW ================= */
-  const updateRow = (index, field, value) => {
+  const updateRow = (
+    index: number,
+    field: keyof BOMItem,
+    value: any
+  ) => {
     const updated = [...rows];
-    updated[index][field] = value;
+
+    updated[index] = {
+      ...updated[index],
+      [field]: value,
+    };
+
     setRows(updated);
   };
 
-  /* ================= SAVE ROW TO DB ================= */
-  const saveRow = async (row) => {
-    await fetch(`/api/vendor-products/${draftId}/bom`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        materialId: row.materialId,
-        quantity: row.quantity,
-        unit: row.unit,
-        wastagePercent: row.wastagePercent,
-        currentRate: 0,
-        currentCost: 0,
-        remarks: "",
-        businessId: "TEMP",
-        createdBy: "TEMP",
-      }),
-    });
+  /* ================= SAVE ================= */
 
-    await fetchBOM();
-  };
-
-  /* ================= DELETE ================= */
-  const deleteItem = async (bomId) => {
+  const saveRow = async (row: BOMItem) => {
     await fetch(
-      `/api/vendor-products/${draftId}/bom?bomId=${bomId}`,
-      { method: "DELETE" }
+      `/api/vendor-products/${draftId}/bom`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          materialId: row.materialId,
+          quantity: row.quantity,
+          unit: row.unit,
+          wastagePercent:
+            row.wastagePercent,
+
+          currentRate: 0,
+          currentCost: 0,
+          remarks: "",
+
+          businessId: "TEMP",
+          createdBy: "TEMP",
+        }),
+      }
     );
 
     await fetchBOM();
   };
 
-  return (
-    <div className="space-y-4">
+  /* ================= DELETE ================= */
 
-      <h2 className="text-xl font-semibold">
-        BOM (Multi-Material Engine)
+  const deleteRow = async (id: string) => {
+    await fetch(
+      `/api/vendor-products/${draftId}/bom?bomId=${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    await fetchBOM();
+  };
+
+  /* ================= SUBMIT ================= */
+
+  const submit = async () => {
+    await fetch(
+      `/api/vendor-products/${draftId}/submit`,
+      {
+        method: "POST",
+      }
+    );
+
+    alert("Submitted Successfully");
+
+    next();
+  };
+
+  return (
+    <div className="space-y-6">
+
+      <h2 className="text-2xl font-semibold">
+        Bill Of Materials
       </h2>
 
-      {/* ================= ROWS ================= */}
-      <div className="space-y-4">
+      {rows.map((row, index) => (
+        <BOMRow
+          key={row.bomId || index}
+          row={row}
+          index={index}
+          updateRow={updateRow}
+          saveRow={saveRow}
+          deleteRow={deleteRow}
+        />
+      ))}
 
-        {rows.map((row, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-5 gap-2 border p-3 rounded"
-          >
-
-            {/* MATERIAL SEARCH */}
-            <MaterialSearchSelect
-              onSelect={(m) => {
-                updateRow(index, "materialId", m._id);
-                updateRow(index, "materialName", m.materialName);
-                updateRow(index, "unit", m.unit);
-              }}
-            />
-
-            {/* QTY */}
-            <input
-              type="number"
-              className="border p-2 rounded"
-              placeholder="Qty"
-              value={row.quantity}
-              onChange={(e) =>
-                updateRow(index, "quantity", Number(e.target.value))
-              }
-            />
-
-            {/* UNIT */}
-            <input
-              className="border p-2 rounded"
-              placeholder="Unit"
-              value={row.unit}
-              onChange={(e) =>
-                updateRow(index, "unit", e.target.value)
-              }
-            />
-
-            {/* WASTAGE */}
-            <input
-              type="number"
-              className="border p-2 rounded"
-              placeholder="Wastage %"
-              value={row.wastagePercent}
-              onChange={(e) =>
-                updateRow(index, "wastagePercent", Number(e.target.value))
-              }
-            />
-
-            {/* ACTIONS */}
-            <div className="flex gap-2">
-
-              <button
-                onClick={() => saveRow(row)}
-                className="bg-green-600 text-white px-2 rounded"
-              >
-                Save
-              </button>
-
-              {row.bomId && (
-                <button
-                  onClick={() => deleteItem(row.bomId)}
-                  className="text-red-500"
-                >
-                  Delete
-                </button>
-              )}
-
-            </div>
-
-          </div>
-        ))}
-
-      </div>
-
-      {/* ================= ADD ROW ================= */}
       <button
         onClick={addRow}
         className="bg-blue-600 text-white px-4 py-2 rounded"
@@ -263,8 +229,23 @@ export default function StepBOM({ draftId, next, back }) {
         + Add Material
       </button>
 
-      {/* ================= NAV ================= */}
-      <div className="flex justify-between pt-4">
+      <CostSummary
+        totalMaterialCost={
+          costSummary.totalMaterialCost
+        }
+        wastageCost={
+          costSummary.wastageCost
+        }
+        finalCost={costSummary.finalCost}
+      />
+
+      <PricingPreview
+        sellingPrice={pricing.sellingPrice}
+        marginAmount={pricing.marginAmount}
+        marginPercent={pricing.marginPercent}
+      />
+
+      <div className="flex justify-between">
 
         <button
           onClick={back}
@@ -273,26 +254,23 @@ export default function StepBOM({ draftId, next, back }) {
           Back
         </button>
 
-        <button
-          onClick={async () => {
-            await fetch(`/api/vendor-products/${draftId}/submit`, {
-              method: "POST",
-            });
-        
-            alert("Submitted for approval");
-            next();
-          }}
-          className="bg-purple-600 text-white px-4 py-2 rounded"
-        >
-          Submit for Approval
-        </button>
+        <div className="space-x-3">
 
-        <button
-          onClick={next}
-          className="bg-green-600 text-white px-4 py-2 rounded"
-        >
-          Continue
-        </button>
+          <button
+            onClick={submit}
+            className="bg-purple-600 text-white px-4 py-2 rounded"
+          >
+            Submit
+          </button>
+
+          <button
+            onClick={next}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            Continue
+          </button>
+
+        </div>
 
       </div>
 
