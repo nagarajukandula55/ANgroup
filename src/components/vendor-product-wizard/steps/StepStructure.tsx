@@ -2,8 +2,27 @@
 
 import { useState } from "react";
 
-export default function StepStructure({ draftId, next, back }) {
-  const [form, setForm] = useState({
+interface StepStructureProps {
+  draftId: string;
+  next: () => void;
+  back: () => void;
+}
+
+interface StructureForm {
+  unit: string;
+  packSize: number;
+  netWeight: number;
+  grossWeight: number;
+  hsnCode: string;
+  gstRate: number;
+}
+
+export default function StepStructure({
+  draftId,
+  next,
+  back,
+}: StepStructureProps) {
+  const [form, setForm] = useState<StructureForm>({
     unit: "",
     packSize: 1,
     netWeight: 0,
@@ -31,7 +50,6 @@ export default function StepStructure({ draftId, next, back }) {
 
   return (
     <div className="space-y-4">
-
       <h2 className="text-xl font-semibold">
         Product Structure & Taxation
       </h2>
@@ -41,7 +59,10 @@ export default function StepStructure({ draftId, next, back }) {
         placeholder="Unit (kg, g, ml, pcs)"
         value={form.unit}
         onChange={(e) =>
-          setForm({ ...form, unit: e.target.value })
+          setForm({
+            ...form,
+            unit: e.target.value,
+          })
         }
       />
 
@@ -89,7 +110,10 @@ export default function StepStructure({ draftId, next, back }) {
         placeholder="HSN Code"
         value={form.hsnCode}
         onChange={(e) =>
-          setForm({ ...form, hsnCode: e.target.value })
+          setForm({
+            ...form,
+            hsnCode: e.target.value,
+          })
         }
       />
 
@@ -107,7 +131,6 @@ export default function StepStructure({ draftId, next, back }) {
       />
 
       <div className="flex justify-between pt-4">
-
         <button
           onClick={back}
           className="px-4 py-2 border rounded"
@@ -122,7 +145,6 @@ export default function StepStructure({ draftId, next, back }) {
         >
           {loading ? "Saving..." : "Save & Continue"}
         </button>
-
       </div>
     </div>
   );
