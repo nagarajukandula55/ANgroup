@@ -1,16 +1,39 @@
-import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth/auth";
+import { requirePermission } from "@/middleware/permission.guard";
 import Vendor from "@/models/Vendor";
+import { Types } from "mongoose";
 
-export async function GET() {
+/* =========================================================
+ * GET VENDORS
+ * =======================================================*/
+export async function GET(req: NextRequest) {
   try {
-    await connectDB();
+    const session = await auth();
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    requirePermission(session, "vendor.view");
+
+    const { searchParams } = new URL(req.url);
+    const businessId = searchParams.get("businessId");
+
+    if (!businessId) {
+      return NextResponse.json(
+        { error: "businessId is required" },
+        { status: 400 }
+      );
+    }
 
     const vendors = await Vendor.find({
-      active: true,
-    })
-      .sort({ vendorName: 1 })
-      .lean();
+      businessId: new Types.ObjectId(businessId),
+      isDeleted: false,
+    }).sort({ createdAt: -1 });
 
     return NextResponse.json({
       success: true,
@@ -20,20 +43,56 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        message: error.message,
+        error: error.message || "Internal Server Error",
       },
       { status: 500 }
     );
   }
 }
 
-export async function POST(req: Request) {
+/* =========================================================
+ * CREATE VENDOR
+ * =======================================================*/
+export async function POST(req: NextRequest) {
   try {
-    await connectDB();
+    const session = await auth();
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    requirePermission(session, "vendor.manage");
 
     const body = await req.json();
 
-    const vendor = await Vendor.create(body);
+    const {
+      businessId,
+      name,
+      email,
+      phone,
+      address,
+      gstNumber,
+    } = body;
+
+    if (!businessId || !name) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    const vendor = await Vendor.create({
+      businessId: new Types.ObjectId(businessId),
+      name,
+      email,
+      phone,
+      address,
+      gstNumber,
+      createdBy: session.user.id,
+    });
 
     return NextResponse.json({
       success: true,
@@ -43,7 +102,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: error.message,
+        error: error.message || "Internal Server Error",
       },
       { status: 500 }
     );
