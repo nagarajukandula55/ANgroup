@@ -6,17 +6,16 @@ import {
 } from "./unitConversion.service";
 
 /* =========================================================
-CALCULATE PRODUCT NUTRITION
+   CALCULATE PRODUCT NUTRITION
 ========================================================= */
 
 export async function calculateProductNutrition(
   vendorProductId: string
 ) {
-  const bomItems =
-    await VendorProductBOM.find({
-      vendorProductId,
-      active: true,
-    });
+  const bomItems = await VendorProductBOM.find({
+    vendorProductId,
+    active: true,
+  });
 
   const nutrition = {
     energy: 0,
@@ -41,16 +40,13 @@ export async function calculateProductNutrition(
   let totalWeight = 0;
 
   for (const item of bomItems) {
-    const material =
-      await Material.findById(
-        item.materialId
-      ).lean();
+    const material: any = await Material.findById(
+      item.materialId
+    ).lean();
 
     if (!material) continue;
 
-    if (
-      !material.isNutritionalMaterial
-    ) {
+    if (!material.isNutritionalMaterial) {
       continue;
     }
 
@@ -58,69 +54,54 @@ export async function calculateProductNutrition(
        Convert Ingredient Qty → GM
     ===================================== */
 
-    const qtyInGM =
-      convertQuantity(
-        item.quantity,
-        item.unit,
-        "GM"
-      );
+    const qtyInGM = convertQuantity(
+      item.quantity,
+      item.unit,
+      "GM"
+    );
 
     totalWeight += qtyInGM;
 
-    const factor =
-      qtyInGM / 100;
+    const factor = qtyInGM / 100;
 
     nutrition.energy +=
-      (material.nutrition?.energy || 0) *
-      factor;
+      (material.nutrition?.energy ?? 0) * factor;
 
     nutrition.protein +=
-      (material.nutrition?.protein || 0) *
-      factor;
+      (material.nutrition?.protein ?? 0) * factor;
 
     nutrition.carbs +=
-      (material.nutrition?.carbs || 0) *
-      factor;
+      (material.nutrition?.carbs ?? 0) * factor;
 
     nutrition.sugars +=
-      (material.nutrition?.sugars || 0) *
-      factor;
+      (material.nutrition?.sugars ?? 0) * factor;
 
     nutrition.addedSugars +=
-      (material.nutrition?.addedSugars || 0) *
-      factor;
+      (material.nutrition?.addedSugars ?? 0) * factor;
 
     nutrition.fat +=
-      (material.nutrition?.fat || 0) *
-      factor;
+      (material.nutrition?.fat ?? 0) * factor;
 
     nutrition.saturatedFat +=
-      (material.nutrition?.saturatedFat || 0) *
-      factor;
+      (material.nutrition?.saturatedFat ?? 0) * factor;
 
     nutrition.transFat +=
-      (material.nutrition?.transFat || 0) *
-      factor;
+      (material.nutrition?.transFat ?? 0) * factor;
 
     nutrition.fiber +=
-      (material.nutrition?.fiber || 0) *
-      factor;
+      (material.nutrition?.fiber ?? 0) * factor;
 
     nutrition.sodium +=
-      (material.nutrition?.sodium || 0) *
-      factor;
+      (material.nutrition?.sodium ?? 0) * factor;
 
     nutrition.calcium +=
-      (material.nutrition?.calcium || 0) *
-      factor;
+      (material.nutrition?.calcium ?? 0) * factor;
 
     nutrition.iron +=
-      (material.nutrition?.iron || 0) *
-      factor;
+      (material.nutrition?.iron ?? 0) * factor;
 
     nutrition.potassium +=
-      (material.nutrition?.potassium || 0) *
-      factor;
+      (material.nutrition?.potassium ?? 0) * factor;
   }
 
   return {
