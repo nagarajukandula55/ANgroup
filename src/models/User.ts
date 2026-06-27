@@ -1,66 +1,250 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
-/* ================= USER INTERFACE ================= */
+/* =========================================================
+ * ENUMS
+ * =======================================================*/
+
+export enum UserRoleLegacy {
+  SUPER_ADMIN = "SUPER_ADMIN",
+  ADMIN = "ADMIN",
+  STAFF = "STAFF",
+  CUSTOMER = "CUSTOMER",
+}
+
+export enum AuthProvider {
+  CREDENTIALS = "credentials",
+  GOOGLE = "google",
+  MICROSOFT = "microsoft",
+}
+
+/* =========================================================
+ * BUSINESS ACCESS (Legacy - Temporary)
+ * =======================================================*/
+
+export interface IUserBusinessAccess {
+  businessId: string;
+  accessKeys: string[];
+  isActive: boolean;
+}
+
+/* =========================================================
+ * USER DOCUMENT
+ * =======================================================*/
+
 export interface IUser extends Document {
+  /* Identity */
   name: string;
   email: string;
   phone?: string;
-
   password?: string;
+
+  avatar?: string;
+
+  authProvider: AuthProvider;
 
   isActive: boolean;
   isEmailVerified: boolean;
 
-  role: "SUPER_ADMIN" | "ADMIN" | "STAFF" | "CUSTOMER";
+  /* Legacy (kept for compatibility) */
+  role: UserRoleLegacy;
 
-  businessAccess: {
-    businessId: string;
-    accessKeys: string[];
-    isActive: boolean;
-  }[];
+  /* Legacy (kept until BusinessMember migration) */
+  businessAccess: IUserBusinessAccess[];
 
+  /* Default Context */
+  defaultOrganizationId?: Types.ObjectId;
+  defaultBusinessId?: Types.ObjectId;
+
+  /* Security */
+  failedLoginAttempts: number;
+  lockUntil?: Date;
+  passwordChangedAt?: Date;
   lastLogin?: Date;
+
+  /* Soft Delete */
+  isDeleted: boolean;
+  deletedAt?: Date;
+  deletedBy?: Types.ObjectId;
 
   createdAt: Date;
   updatedAt: Date;
 }
 
-/* ================= USER SCHEMA ================= */
+/* =========================================================
+ * SCHEMA
+ * =======================================================*/
+
 const UserSchema = new Schema<IUser>(
   {
-    name: { type: String, required: true, index: true },
-    email: { type: String, required: true, unique: true, index: true },
-    phone: { type: String },
+    /* ================= Identity ================= */
 
-    password: { type: String, select: false, required: true },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
 
-    isActive: { type: Boolean, default: true },
-    isEmailVerified: { type: Boolean, default: false },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
+
+    phone: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    password: {
+      type: String,
+      select: false,
+    },
+
+    avatar: {
+      type: String,
+      default: null,
+    },
+
+    authProvider: {
+      type: String,
+      enum: Object.values(AuthProvider),
+      default: AuthProvider.CREDENTIALS,
+      index: true,
+    },
+
+    /* ================= Status ================= */
+
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    /* ================= Legacy Role ================= */
 
     role: {
       type: String,
-      enum: ["SUPER_ADMIN", "ADMIN", "STAFF", "CUSTOMER"],
-      default: "CUSTOMER",
+      enum: Object.values(UserRoleLegacy),
+      default: UserRoleLegacy.CUSTOMER,
     },
+
+    /* ================= Legacy Business Access ================= */
 
     businessAccess: [
       {
-        businessId: { type: String, required: true },
-        accessKeys: [{ type: String }],
-        isActive: { type: Boolean, default: true },
+        businessId: {
+          type: String,
+          required: true,
+        },
+
+        accessKeys: {
+          type: [String],
+          default: [],
+        },
+
+        isActive: {
+          type: Boolean,
+          default: true,
+        },
       },
     ],
 
-    lastLogin: Date,
+    /* ================= Default Context ================= */
+
+    defaultOrganizationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
+      index: true,
+    },
+
+    defaultBusinessId: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      default: null,
+      index: true,
+    },
+
+    /* ================= Security ================= */
+
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
+
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastLogin: {
+      type: Date,
+      default: null,
+    },
+
+    /* ================= Soft Delete ================= */
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+
+    deletedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,
+    versionKey: false,
   }
 );
 
-/* ================= MODEL EXPORT SAFETY ================= */
+/* =========================================================
+ * INDEXES
+ * =======================================================*/
+
+UserSchema.index({ email: 1 });
+UserSchema.index({ phone: 1 });
+UserSchema.index({ isActive: 1 });
+UserSchema.index({ defaultBusinessId: 1 });
+UserSchema.index({ defaultOrganizationId: 1 });
+
+/* =========================================================
+ * VIRTUALS
+ * =======================================================*/
+
+UserSchema.virtual("isLocked").get(function (this: IUser) {
+  return !!(this.lockUntil && this.lockUntil > new Date());
+});
+
+/* =========================================================
+ * MODEL
+ * =======================================================*/
+
 const User: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
 
-export default mongoose.models.User ||
-  mongoose.model("User", UserSchema);
+export default User;
