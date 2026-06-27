@@ -16,8 +16,7 @@ function generatePONumber() {
 
 /* ================= CREATE PO ================= */
 export async function createPurchaseOrder(payload: any) {
-  const session =
-    await mongoose.startSession();
+  const session = await mongoose.startSession();
 
   session.startTransaction();
 
@@ -44,18 +43,16 @@ export async function createPurchaseOrder(payload: any) {
     if (!items?.length)
       throw new Error("Items required");
 
-    const business =
-      await Business.findById(
-        businessId
-      );
+    const business = await Business.findById(
+      businessId
+    );
 
     if (!business)
       throw new Error("Business not found");
 
-    const vendor =
-      await Vendor.findById(
-        vendorId
-      );
+    const vendor = await Vendor.findById(
+      vendorId
+    );
 
     if (!vendor)
       throw new Error("Vendor not found");
@@ -69,37 +66,25 @@ export async function createPurchaseOrder(payload: any) {
     let taxAmount = 0;
     let discountAmount = 0;
 
-    const po =
-      await PurchaseOrder.create(
-        [
-          {
-            businessId,
-
-            poNumber,
-
-            vendorId,
-
-            warehouseId,
-
-            expectedDate,
-
-            remarks,
-
-            status: "DRAFT",
-
-            subtotal: 0,
-
-            taxAmount: 0,
-
-            discountAmount: 0,
-
-            totalAmount: 0,
-
-            createdBy,
-          },
-        ],
-        { session }
-      );
+    const po = await PurchaseOrder.create(
+      [
+        {
+          businessId,
+          poNumber,
+          vendorId,
+          warehouseId,
+          expectedDate,
+          remarks,
+          status: "DRAFT",
+          subtotal: 0,
+          taxAmount: 0,
+          discountAmount: 0,
+          totalAmount: 0,
+          createdBy,
+        },
+      ],
+      { session }
+    );
 
     const purchaseOrder = po[0];
 
@@ -114,24 +99,19 @@ export async function createPurchaseOrder(payload: any) {
           "Material not found"
         );
 
-      const qty =
-        Number(row.quantity);
+      const qty = Number(row.quantity);
 
-      const rate =
-        Number(row.rate);
+      const rate = Number(row.rate);
 
-      const discount =
-        Number(
-          row.discountPercent || 0
-        );
+      const discount = Number(
+        row.discountPercent || 0
+      );
 
-      const tax =
-        Number(
-          row.taxPercent || 0
-        );
+      const tax = Number(
+        row.taxPercent || 0
+      );
 
-      const gross =
-        qty * rate;
+      const gross = qty * rate;
 
       const discountValue =
         (gross * discount) / 100;
@@ -146,11 +126,8 @@ export async function createPurchaseOrder(payload: any) {
         taxable + taxValue;
 
       subtotal += gross;
-
       taxAmount += taxValue;
-
-      discountAmount +=
-        discountValue;
+      discountAmount += discountValue;
 
       await PurchaseOrderItem.create(
         [
@@ -206,30 +183,24 @@ export async function createPurchaseOrder(payload: any) {
     await session.commitTransaction();
 
     return purchaseOrder;
-
   } catch (err) {
-
     await session.abortTransaction();
-
     throw err;
-
   } finally {
-
     session.endSession();
-
   }
 }
 
 /* ================= GET ALL PO ================= */
 export async function getAllPurchaseOrders() {
-  const orders = await PurchaseOrder.find()
+  const orders = (await PurchaseOrder.find()
     .populate("vendorId")
     .populate("warehouseId")
     .sort({ createdAt: -1 })
-    .lean();
+    .lean()) as any[];
 
   const result = await Promise.all(
-    orders.map(async (po: any) => {
+    orders.map(async (po) => {
       const items = await PurchaseOrderItem.find({
         purchaseOrderId: po._id,
       }).populate("materialId");
@@ -248,11 +219,10 @@ export async function getAllPurchaseOrders() {
 export async function getPurchaseOrderById(
   id: string
 ) {
-  const po =
-    await PurchaseOrder.findById(id)
-      .populate("vendorId")
-      .populate("warehouseId")
-      .lean();
+  const po = (await PurchaseOrder.findById(id)
+    .populate("vendorId")
+    .populate("warehouseId")
+    .lean()) as any;
 
   if (!po) {
     throw new Error(
@@ -276,17 +246,16 @@ export async function updatePurchaseOrder(
   id: string,
   payload: any
 ) {
-  const po =
+  const po: any =
     await PurchaseOrder.findById(id);
 
-  if (!po)
+  if (!po) {
     throw new Error(
       "Purchase Order not found"
     );
+  }
 
-  if (
-    po.status !== "DRAFT"
-  ) {
+  if (po.status !== "DRAFT") {
     throw new Error(
       "Only Draft Purchase Orders can be updated."
     );
@@ -297,10 +266,13 @@ export async function updatePurchaseOrder(
     remarks,
   } = payload;
 
-  po.expectedDate =
-    expectedDate;
+  if (expectedDate !== undefined) {
+    po.expectedDate = expectedDate;
+  }
 
-  po.remarks = remarks;
+  if (remarks !== undefined) {
+    po.remarks = remarks;
+  }
 
   await po.save();
 
@@ -317,10 +289,13 @@ export async function approvePurchaseOrder({
   action: "APPROVE" | "REJECT" | "REVISION";
   userId: string;
 }) {
-  const po = await PurchaseOrder.findById(id);
+  const po: any =
+    await PurchaseOrder.findById(id);
 
   if (!po) {
-    throw new Error("Purchase Order not found");
+    throw new Error(
+      "Purchase Order not found"
+    );
   }
 
   if (po.status !== "DRAFT") {
@@ -329,12 +304,18 @@ export async function approvePurchaseOrder({
     );
   }
 
-  if (action === "APPROVE") {
-    po.status = "APPROVED";
-  } else if (action === "REJECT") {
-    po.status = "REJECTED";
-  } else if (action === "REVISION") {
-    po.status = "REVISION_REQUIRED";
+  switch (action) {
+    case "APPROVE":
+      po.status = "APPROVED";
+      break;
+
+    case "REJECT":
+      po.status = "REJECTED";
+      break;
+
+    case "REVISION":
+      po.status = "REVISION_REQUIRED";
+      break;
   }
 
   po.approvedBy = userId;
@@ -345,51 +326,48 @@ export async function approvePurchaseOrder({
   return po;
 }
 
-/* ================= Cancel PO ================= */
+/* ================= CANCEL PO ================= */
 export async function cancelPurchaseOrder(
   id: string
 ) {
-  const po =
+  const po: any =
     await PurchaseOrder.findById(id);
 
-  if (!po)
+  if (!po) {
     throw new Error(
       "Purchase Order not found"
     );
+  }
 
-  if (
-    po.status ===
-    "RECEIVED"
-  ) {
+  if (po.status === "RECEIVED") {
     throw new Error(
       "Received Purchase Order cannot be cancelled."
     );
   }
 
-  po.status =
-    "CANCELLED";
+  po.status = "CANCELLED";
 
   await po.save();
 
   return po;
 }
 
-/* ================= Submit PO ================= */
+/* ================= SUBMIT PO ================= */
 export async function submitPurchaseOrder(
   id: string
 ) {
-  const po =
+  const po: any =
     await PurchaseOrder.findById(id);
 
-  if (!po)
+  if (!po) {
     throw new Error(
       "Purchase Order not found"
     );
+  }
 
   const itemCount =
     await PurchaseOrderItem.countDocuments({
-      purchaseOrderId:
-        po._id,
+      purchaseOrderId: po._id,
     });
 
   if (itemCount === 0) {
@@ -398,8 +376,7 @@ export async function submitPurchaseOrder(
     );
   }
 
-  po.status =
-    "APPROVED";
+  po.status = "APPROVED";
 
   await po.save();
 
