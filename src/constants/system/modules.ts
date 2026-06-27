@@ -1,247 +1,151 @@
-/* ============================================================
-   ERP MODULE REGISTRY
-   ------------------------------------------------------------
-   Central registry used across the platform.
+/**
+ * =========================================================
+ * AN GROUP ERP PLATFORM
+ * ---------------------------------------------------------
+ * System Modules
+ * ---------------------------------------------------------
+ * Defines every functional module available in the ERP.
+ *
+ * These values are used by:
+ * - RBAC Permission Engine
+ * - Navigation
+ * - Dashboard
+ * - Audit Engine
+ * - Notifications
+ * - Workflow Engine
+ *
+ * NOTE:
+ * Number Series must NEVER use modules directly.
+ * Number Series should be attached to business entities
+ * (Purchase Order, Vendor, Invoice, etc.).
+ * =========================================================
+ */
 
-   Used By
-   --------
-   • Number Series
-   • Permissions
-   • Dashboard
-   • Navigation
-   • Search
-   • Reporting
-   • Audit
-   • Workflow
-============================================================ */
-
-export const MODULE_CATEGORIES = {
-  MASTER: "MASTER",
-  INVENTORY: "INVENTORY",
-  PURCHASE: "PURCHASE",
-  SALES: "SALES",
-  FINANCE: "FINANCE",
-  MANUFACTURING: "MANUFACTURING",
-  CRM: "CRM",
-  HR: "HR",
-  SYSTEM: "SYSTEM",
-} as const;
-
-export type ModuleCategory =
-  (typeof MODULE_CATEGORIES)[keyof typeof MODULE_CATEGORIES];
-
-export interface ERPModule {
-  key: string;
-  name: string;
-  category: ModuleCategory;
-
-  icon: string;
-
-  defaultPrefix: string;
-
-  defaultPadding: number;
-
-  supportsReset: boolean;
-
-  supportsScope: boolean;
-
-  enabled: boolean;
-}
-
-export const ERP_MODULES: Record<string, ERPModule> = {
+export enum SystemModule {
   /* ======================================================
-      MASTERS
-  ====================================================== */
+   * PLATFORM
+   * ====================================================== */
 
-  ORGANIZATION: {
-    key: "ORGANIZATION",
-    name: "Organization",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "Building2",
-    defaultPrefix: "AN",
-    defaultPadding: 6,
-    supportsReset: false,
-    supportsScope: false,
-    enabled: true,
-  },
-
-  BUSINESS: {
-    key: "BUSINESS",
-    name: "Business",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "BriefcaseBusiness",
-    defaultPrefix: "BU",
-    defaultPadding: 5,
-    supportsReset: false,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  WAREHOUSE: {
-    key: "WAREHOUSE",
-    name: "Warehouse",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "Warehouse",
-    defaultPrefix: "WH",
-    defaultPadding: 5,
-    supportsReset: false,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  USER: {
-    key: "USER",
-    name: "User",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "Users",
-    defaultPrefix: "USR",
-    defaultPadding: 6,
-    supportsReset: false,
-    supportsScope: false,
-    enabled: true,
-  },
-
-  EMPLOYEE: {
-    key: "EMPLOYEE",
-    name: "Employee",
-    category: MODULE_CATEGORIES.HR,
-    icon: "UserCheck",
-    defaultPrefix: "EMP",
-    defaultPadding: 6,
-    supportsReset: false,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  VENDOR: {
-    key: "VENDOR",
-    name: "Vendor",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "Truck",
-    defaultPrefix: "VEN",
-    defaultPadding: 6,
-    supportsReset: false,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  CUSTOMER: {
-    key: "CUSTOMER",
-    name: "Customer",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "Handshake",
-    defaultPrefix: "CUS",
-    defaultPadding: 6,
-    supportsReset: false,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  MATERIAL: {
-    key: "MATERIAL",
-    name: "Material",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "Package",
-    defaultPrefix: "MAT",
-    defaultPadding: 6,
-    supportsReset: false,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  PRODUCT: {
-    key: "PRODUCT",
-    name: "Product",
-    category: MODULE_CATEGORIES.MASTER,
-    icon: "Box",
-    defaultPrefix: "PRD",
-    defaultPadding: 6,
-    supportsReset: false,
-    supportsScope: true,
-    enabled: true,
-  },
+  PLATFORM = "PLATFORM",
+  ADMINISTRATION = "ADMINISTRATION",
+  SYSTEM_CONFIGURATION = "SYSTEM_CONFIGURATION",
 
   /* ======================================================
-      PURCHASE
-  ====================================================== */
+   * ORGANIZATION
+   * ====================================================== */
 
-  PURCHASE_REQUEST: {
-    key: "PURCHASE_REQUEST",
-    name: "Purchase Request",
-    category: MODULE_CATEGORIES.PURCHASE,
-    icon: "FilePlus",
-    defaultPrefix: "PR",
-    defaultPadding: 6,
-    supportsReset: true,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  PURCHASE_ORDER: {
-    key: "PURCHASE_ORDER",
-    name: "Purchase Order",
-    category: MODULE_CATEGORIES.PURCHASE,
-    icon: "ShoppingCart",
-    defaultPrefix: "PO",
-    defaultPadding: 6,
-    supportsReset: true,
-    supportsScope: true,
-    enabled: true,
-  },
-
-  GOODS_RECEIPT: {
-    key: "GOODS_RECEIPT",
-    name: "Goods Receipt",
-    category: MODULE_CATEGORIES.PURCHASE,
-    icon: "ClipboardCheck",
-    defaultPrefix: "GRN",
-    defaultPadding: 6,
-    supportsReset: true,
-    supportsScope: true,
-    enabled: true,
-  },
+  ORGANIZATION = "ORGANIZATION",
+  BUSINESS = "BUSINESS",
+  WAREHOUSE = "WAREHOUSE",
 
   /* ======================================================
-      SALES
-  ====================================================== */
+   * USER MANAGEMENT
+   * ====================================================== */
 
-  SALES_ORDER: {
-    key: "SALES_ORDER",
-    name: "Sales Order",
-    category: MODULE_CATEGORIES.SALES,
-    icon: "Receipt",
-    defaultPrefix: "SO",
-    defaultPadding: 6,
-    supportsReset: true,
-    supportsScope: true,
-    enabled: true,
-  },
+  USER = "USER",
+  ROLE = "ROLE",
+  PERMISSION = "PERMISSION",
+  AUTHENTICATION = "AUTHENTICATION",
 
-  SALES_INVOICE: {
-    key: "SALES_INVOICE",
-    name: "Sales Invoice",
-    category: MODULE_CATEGORIES.SALES,
-    icon: "FileText",
-    defaultPrefix: "INV",
-    defaultPadding: 6,
-    supportsReset: true,
-    supportsScope: true,
-    enabled: true,
-  },
-};
+  /* ======================================================
+   * MASTERS
+   * ====================================================== */
 
-/* ============================================================
-   HELPERS
-============================================================ */
+  MASTER = "MASTER",
+  MATERIAL = "MATERIAL",
+  PRODUCT = "PRODUCT",
+  BRAND = "BRAND",
+  UNIT = "UNIT",
+  VENDOR = "VENDOR",
+  CUSTOMER = "CUSTOMER",
+  EMPLOYEE = "EMPLOYEE",
+  MACHINE = "MACHINE",
+  ASSET = "ASSET",
 
-export const ERP_MODULE_LIST = Object.values(ERP_MODULES);
+  /* ======================================================
+   * INVENTORY
+   * ====================================================== */
 
-export function getModule(key: string): ERPModule | undefined {
-  return ERP_MODULES[key];
-}
+  INVENTORY = "INVENTORY",
+  STOCK = "STOCK",
+  STOCK_TRANSFER = "STOCK_TRANSFER",
+  STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT",
 
-export function getModulesByCategory(category: ModuleCategory) {
-  return ERP_MODULE_LIST.filter(
-    (module) => module.category === category
-  );
+  /* ======================================================
+   * PURCHASE
+   * ====================================================== */
+
+  PURCHASE = "PURCHASE",
+  PURCHASE_REQUEST = "PURCHASE_REQUEST",
+  REQUEST_FOR_QUOTATION = "REQUEST_FOR_QUOTATION",
+  PURCHASE_QUOTATION = "PURCHASE_QUOTATION",
+  PURCHASE_ORDER = "PURCHASE_ORDER",
+  GOODS_RECEIPT_NOTE = "GOODS_RECEIPT_NOTE",
+  PURCHASE_RETURN = "PURCHASE_RETURN",
+
+  /* ======================================================
+   * SALES
+   * ====================================================== */
+
+  SALES = "SALES",
+  SALES_QUOTATION = "SALES_QUOTATION",
+  SALES_ORDER = "SALES_ORDER",
+  DELIVERY_CHALLAN = "DELIVERY_CHALLAN",
+  SALES_INVOICE = "SALES_INVOICE",
+  SALES_RETURN = "SALES_RETURN",
+
+  /* ======================================================
+   * FINANCE
+   * ====================================================== */
+
+  FINANCE = "FINANCE",
+  JOURNAL = "JOURNAL",
+  RECEIPT = "RECEIPT",
+  PAYMENT = "PAYMENT",
+  EXPENSE = "EXPENSE",
+
+  /* ======================================================
+   * HR
+   * ====================================================== */
+
+  HUMAN_RESOURCES = "HUMAN_RESOURCES",
+  ATTENDANCE = "ATTENDANCE",
+  PAYROLL = "PAYROLL",
+  LEAVE = "LEAVE",
+
+  /* ======================================================
+   * CRM
+   * ====================================================== */
+
+  CRM = "CRM",
+  LEAD = "LEAD",
+  OPPORTUNITY = "OPPORTUNITY",
+
+  /* ======================================================
+   * SERVICES
+   * ====================================================== */
+
+  SERVICE = "SERVICE",
+  SERVICE_REQUEST = "SERVICE_REQUEST",
+  SERVICE_JOB = "SERVICE_JOB",
+
+  /* ======================================================
+   * PLATFORM SERVICES
+   * ====================================================== */
+
+  NUMBER_SERIES = "NUMBER_SERIES",
+  AUDIT = "AUDIT",
+  WORKFLOW = "WORKFLOW",
+  NOTIFICATION = "NOTIFICATION",
+  STORAGE = "STORAGE",
+  REPORTING = "REPORTING",
+  DASHBOARD = "DASHBOARD",
+
+  /* ======================================================
+   * UTILITIES
+   * ====================================================== */
+
+  IMPORT = "IMPORT",
+  EXPORT = "EXPORT",
+  SETTINGS = "SETTINGS",
 }
