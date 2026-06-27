@@ -200,6 +200,19 @@ const VendorProductSchema = new mongoose.Schema(
     default: "DRAFT",
   },
 
+  status: {
+    type: String,
+    enum: [
+      "DRAFT",
+      "PENDING",
+      "UNDER_REVIEW",
+      "APPROVED",
+      "REJECTED",
+      "NEEDS_REVISION",
+    ],
+    default: "DRAFT",
+  },
+
   rejectionReason: String,
   revisionNotes: String,
 
