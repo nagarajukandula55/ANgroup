@@ -1,37 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import PurchaseOrder from "@/models/PurchaseOrder";
 import { Types } from "mongoose";
 
 /* =========================================================
- * GET PURCHASE ORDERS
+ * GET PURCHASE ORDERS (SECURE MULTI-TENANT)
  * =======================================================*/
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getEnrichedSession();
 
-    if (!session?.user) {
+    if (!session?.user || !session.business) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized or missing business context" },
         { status: 401 }
       );
     }
 
-    requirePermission(session, "purchase.view");
-
-    const { searchParams } = new URL(req.url);
-    const businessId = searchParams.get("businessId");
-
-    if (!businessId) {
-      return NextResponse.json(
-        { error: "businessId is required" },
-        { status: 400 }
-      );
-    }
+    requirePermission(session as any, "purchase.view");
 
     const orders = await PurchaseOrder.find({
-      businessId: new Types.ObjectId(businessId),
+      businessId: new Types.ObjectId(session.business.businessId),
       isDeleted: false,
     }).sort({ createdAt: -1 });
 
@@ -51,31 +41,26 @@ export async function GET(req: NextRequest) {
 }
 
 /* =========================================================
- * CREATE PURCHASE ORDER
+ * CREATE PURCHASE ORDER (SECURE MULTI-TENANT)
  * =======================================================*/
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getEnrichedSession();
 
-    if (!session?.user) {
+    if (!session?.user || !session.business) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized or missing business context" },
         { status: 401 }
       );
     }
 
-    requirePermission(session, "purchase.create");
+    requirePermission(session as any, "purchase.create");
 
     const body = await req.json();
 
-    const {
-      businessId,
-      vendorId,
-      items,
-      expectedDate,
-    } = body;
+    const { vendorId, items, expectedDate } = body;
 
-    if (!businessId || !vendorId || !items?.length) {
+    if (!vendorId || !items?.length) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -83,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     const order = await PurchaseOrder.create({
-      businessId: new Types.ObjectId(businessId),
+      businessId: new Types.ObjectId(session.business.businessId),
       vendorId: new Types.ObjectId(vendorId),
       items,
       expectedDate,
