@@ -11,7 +11,7 @@ interface IntegrationConfig {
   userId?: string;
 }
 
-interface Integration {
+interface IntegrationDoc {
   provider: string;
   businessId: mongoose.Types.ObjectId;
   config: IntegrationConfig;
@@ -23,14 +23,14 @@ async function getIntegrationConfig(
   provider: string
 ): Promise<IntegrationConfig | null> {
   try {
-    const Integration = mongoose.models.Integration;
-    if (!Integration) return null;
+    const IntegrationModel = mongoose.models.Integration;
+    if (!IntegrationModel) return null;
 
-    const integration: Integration | null = await Integration.findOne({
+    const integration = await IntegrationModel.findOne({
       businessId: new mongoose.Types.ObjectId(businessId),
       provider: provider.toLowerCase(),
       isActive: true,
-    }).lean();
+    }).lean() as IntegrationDoc | null;
 
     return integration ? integration.config : null;
   } catch {
