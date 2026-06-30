@@ -97,7 +97,7 @@ export async function GET() {
 
     await connectDB()
 
-    const vendor = await VendorProfile.findOne({ userId }).lean()
+    const vendor = await VendorProfile.findOne({ userId }).lean() as any
 
     if (!vendor) {
       return NextResponse.json(
