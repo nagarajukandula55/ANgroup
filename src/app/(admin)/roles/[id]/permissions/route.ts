@@ -53,7 +53,7 @@ export async function POST(
           permissionId: new Types.ObjectId(pid),
           createdBy: session.user.id
             ? new Types.ObjectId(session.user.id)
-            : null,
+            : undefined,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
