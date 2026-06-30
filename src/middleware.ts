@@ -5,6 +5,8 @@ import { verifyToken } from "@/lib/auth/jwt";
 /**
  * AN Group ERP — Route Protection Middleware
  * Uses custom JWT (an_token cookie) — NOT NextAuth
+ *
+ * Super Admin bypass: SUPER_ADMIN role skips all business-level restrictions.
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -54,11 +56,30 @@ export function middleware(req: NextRequest) {
   requestHeaders.set("x-user-name", payload.name);
   requestHeaders.set("x-user-email", payload.email);
   requestHeaders.set("x-user-role", payload.role);
+  requestHeaders.set("x-is-super-admin", payload.isSuperAdmin ? "true" : "false");
+
   if (payload.organizationId) {
     requestHeaders.set("x-organization-id", payload.organizationId);
   }
-  if (payload.businessIds?.length) {
-    requestHeaders.set("x-business-ids", payload.businessIds.join(","));
+
+  // Super admin gets all business IDs available — no restriction
+  if (payload.isSuperAdmin) {
+    requestHeaders.set("x-super-admin-access", "true");
+    // Still pass their business context if set
+    if (payload.activeBusinessId) {
+      requestHeaders.set("x-active-business-id", payload.activeBusinessId);
+    }
+    if (payload.businessIds?.length) {
+      requestHeaders.set("x-business-ids", payload.businessIds.join(","));
+    }
+  } else {
+    // Regular users — restrict to their assigned businesses
+    if (payload.businessIds?.length) {
+      requestHeaders.set("x-business-ids", payload.businessIds.join(","));
+    }
+    if (payload.activeBusinessId) {
+      requestHeaders.set("x-active-business-id", payload.activeBusinessId);
+    }
   }
 
   return NextResponse.next({ request: { headers: requestHeaders } });

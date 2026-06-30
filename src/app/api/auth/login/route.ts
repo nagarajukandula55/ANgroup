@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import BusinessMember from "@/models/BusinessMember";
 import { signToken } from "@/lib/auth/jwt";
 
 export async function POST(req: Request) {
@@ -52,26 +53,53 @@ export async function POST(req: Request) {
       );
     }
 
+    /* ── Load business memberships from BusinessMember collection ────── */
+    const memberships = await BusinessMember.find({
+      userId: user._id,
+      status: "ACTIVE",
+    })
+      .select("businessId isDefaultBusiness memberType")
+      .lean()
+      .exec() as any[];
+
+    const businessIds: string[] = memberships.map((m) => m.businessId.toString());
+
+    // Pick active business: prefer isDefaultBusiness, then legacy defaultBusinessId, then first
+    let activeBusinessId: string | undefined;
+    const defaultMembership = memberships.find((m) => m.isDefaultBusiness);
+    if (defaultMembership) {
+      activeBusinessId = defaultMembership.businessId.toString();
+    } else if (user.defaultBusinessId) {
+      activeBusinessId = user.defaultBusinessId.toString();
+    } else if (businessIds.length > 0) {
+      activeBusinessId = businessIds[0];
+    }
+
+    // Super admin gets all business access — no restriction
+    const isSuperAdmin = user.role === "SUPER_ADMIN";
+
     /* ── Build JWT payload ───────────────────────────────────────────── */
     const token = signToken({
-      id:             user._id.toString(),
-      email:          user.email,
-      name:           user.name || user.username || "User",
-      role:           user.role || "USER",
-      isSuperAdmin:   user.role === "SUPER_ADMIN",
-      businessIds:    user.businessIds ?? (user.businessId ? [user.businessId.toString()] : []),
-      organizationId: user.organizationId?.toString(),
+      id:               user._id.toString(),
+      email:            user.email,
+      name:             user.name || user.username || "User",
+      role:             user.role || "USER",
+      isSuperAdmin,
+      businessIds,
+      activeBusinessId,
+      organizationId:   user.organizationId?.toString(),
     });
 
     const safeUser = {
-      id:             user._id.toString(),
-      email:          user.email,
-      name:           user.name,
-      username:       user.username,
-      role:           user.role,
-      isSuperAdmin:   user.role === "SUPER_ADMIN",
-      businessIds:    user.businessIds ?? [],
-      organizationId: user.organizationId?.toString(),
+      id:               user._id.toString(),
+      email:            user.email,
+      name:             user.name,
+      username:         user.username,
+      role:             user.role,
+      isSuperAdmin,
+      businessIds,
+      activeBusinessId,
+      organizationId:   user.organizationId?.toString(),
     };
 
     /* ── Set httpOnly cookie + return token in JSON ──────────────────── */
