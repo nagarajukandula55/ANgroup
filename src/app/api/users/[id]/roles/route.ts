@@ -7,7 +7,7 @@ import UserService from "@/services/user/user.service";
  * =======================================================*/
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -19,7 +19,7 @@ export async function POST(
       );
     }
 
-    const userId = context.params.id;
+    const { id: userId } = await context.params;
     const body = await req.json();
 
     const { roleId, businessMemberId } = body;

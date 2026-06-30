@@ -20,7 +20,7 @@ export async function GET(
     const items =
       await VendorProductBOM.find({
         vendorProductId:
-          context.params.id,
+          (await context.params).id,
         active: true,
       })
         .populate("materialId")
@@ -71,13 +71,13 @@ export async function POST(
     }
 
     await recalcVendorProductCost(
-      context.params.id
+      (await context.params).id
     );
 
     const item =
       await VendorProductBOM.create({
         vendorProductId:
-          context.params.id,
+          (await context.params).id,
 
         businessId:
           body.businessId,

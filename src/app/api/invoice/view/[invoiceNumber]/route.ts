@@ -12,8 +12,7 @@ export async function GET(
   try {
     await connectDB();
 
-    const invoiceNumber =
-      context.params.invoiceNumber;
+    const { invoiceNumber } = await context.params;
 
     const invoice =
       await Invoice.findOne({

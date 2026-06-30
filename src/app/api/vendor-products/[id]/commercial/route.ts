@@ -9,7 +9,7 @@ export async function GET(
   try {
     await connectDB();
 
-    const id = context.params.id;
+    const { id } = await context.params;
 
     const data = await VendorProductBOM.find({
       vendorProductId: id,

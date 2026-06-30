@@ -11,7 +11,7 @@ export async function GET(
 
     const product =
       await VendorProduct.findById(
-        context.params.id
+        (await context.params).id
       )
         .populate("vendorId")
         .populate("categoryId")
@@ -44,7 +44,7 @@ export async function PUT(
 
     const product =
       await VendorProduct.findByIdAndUpdate(
-        context.params.id,
+        (await context.params).id,
         body,
         { new: true }
       );
@@ -72,7 +72,7 @@ export async function DELETE(
     await connectDB();
 
     await VendorProduct.findByIdAndUpdate(
-      context.params.id,
+      (await context.params).id,
       {
         active: false,
       }

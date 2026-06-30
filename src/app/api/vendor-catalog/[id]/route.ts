@@ -12,7 +12,7 @@ export async function GET(
 
     const record =
       await VendorCatalog.findById(
-        context.params.id
+        (await context.params).id
       )
         .populate("vendorId")
         .populate("productId")
@@ -45,7 +45,7 @@ export async function PUT(
 
     const record =
       await VendorCatalog.findByIdAndUpdate(
-        context.params.id,
+        (await context.params).id,
         body,
         {
           new: true,
@@ -75,7 +75,7 @@ export async function DELETE(
     await connectDB();
 
     await VendorCatalog.findByIdAndUpdate(
-      context.params.id,
+      (await context.params).id,
       {
         active: false,
         status: "INACTIVE",

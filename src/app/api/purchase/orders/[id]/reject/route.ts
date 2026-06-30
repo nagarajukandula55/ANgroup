@@ -9,7 +9,7 @@ import PurchaseOrder from "@/models/PurchaseOrder";
  * =======================================================*/
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getEnrichedSession();
@@ -23,7 +23,7 @@ export async function POST(
 
     requirePermission(session as any, "purchase.approve");
 
-    const orderId = context.params.id;
+    const { id: orderId } = await context.params;
     const body = await req.json();
 
     const { reason } = body;

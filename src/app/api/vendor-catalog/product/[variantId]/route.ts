@@ -13,7 +13,7 @@ export async function GET(
     const vendors =
       await VendorCatalog.find({
         variantId:
-          context.params.variantId,
+          (await context.params).variantId,
 
         active: true,
 

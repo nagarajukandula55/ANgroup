@@ -8,7 +8,7 @@ export async function POST(req: Request, context: any) {
     await connectDB();
 
     const vendorProduct = await VendorProduct.findById(
-      context.params.id
+      (await context.params).id
     );
 
     if (!vendorProduct) {

@@ -8,7 +8,7 @@ export async function PATCH(req: Request, context: any) {
 
     const body = await req.json();
 
-    const id = context.params.id;
+    const { id } = await context.params;
 
     const updated = await VendorProduct.findByIdAndUpdate(
       id,

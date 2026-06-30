@@ -13,7 +13,7 @@ export async function POST(
 
     const vendorProduct =
       await VendorProduct.findById(
-        context.params.id
+        (await context.params).id
       );
 
     if (!vendorProduct) {

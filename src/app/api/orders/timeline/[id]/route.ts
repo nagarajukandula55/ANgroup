@@ -15,7 +15,7 @@ export async function GET(
 
     const order: any =
       await Order.findOne({
-        orderId: context.params.id,
+        orderId: (await context.params).id,
       })
         .select(
           "timeline statusHistory events"
