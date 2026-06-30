@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
+import { headers } from "next/headers";
 import { requirePermission } from "@/middleware/permission.guard";
 import Vendor from "@/models/Vendor";
+import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 
 /* =========================================================
@@ -9,7 +10,12 @@ import { Types } from "mongoose";
  * =======================================================*/
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    const session = userId
+      ? { user: { id: userId, name: h.get("x-user-name") || "", email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
+      : null;
 
     if (!session?.user) {
       return NextResponse.json(
@@ -55,7 +61,12 @@ export async function GET(req: NextRequest) {
  * =======================================================*/
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    const session = userId
+      ? { user: { id: userId, name: h.get("x-user-name") || "", email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
+      : null;
 
     if (!session?.user) {
       return NextResponse.json(
