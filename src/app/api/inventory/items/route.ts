@@ -4,6 +4,7 @@ import { requirePermission } from "@/middleware/permission.guard";
 import InventoryItem from "@/models/InventoryItem";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
+import { notify } from "@/lib/notify";
 
 /* =========================================================
  * GET INVENTORY ITEMS
@@ -102,6 +103,12 @@ export async function POST(req: NextRequest) {
       unit,
       createdBy: session.user.id,
     });
+
+    // Fire notification (non-blocking)
+    notify({
+      event: 'NEW_PRODUCT',
+      message: `📦 New inventory item added.\nMaterial ID: ${materialId}\nWarehouse: ${warehouseId}\nQty: ${quantity || 0} ${unit || ''}`.trim(),
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

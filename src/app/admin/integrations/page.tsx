@@ -25,9 +25,15 @@ interface IntegrationData {
 
 const NOTIFICATION_EVENTS = [
   { key: 'NEW_ORDER', label: 'New Order' },
-  { key: 'LOW_STOCK', label: 'Low Stock' },
-  { key: 'NEW_AGREEMENT', label: 'New Agreement' },
+  { key: 'ORDER_STATUS_CHANGE', label: 'Order Status Change' },
+  { key: 'NEW_INVOICE', label: 'New Invoice' },
   { key: 'INVOICE_OVERDUE', label: 'Invoice Overdue' },
+  { key: 'PAYMENT_RECEIVED', label: 'Payment Received' },
+  { key: 'NEW_PRODUCT', label: 'Product Uploaded' },
+  { key: 'STOCK_CHANGE', label: 'Stock Change' },
+  { key: 'LOW_STOCK', label: 'Low Stock Alert' },
+  { key: 'NEW_AGREEMENT', label: 'New Agreement' },
+  { key: 'AGREEMENT_SIGNED', label: 'Agreement Signed' },
   { key: 'STAFF_ALERT', label: 'Staff Alert' },
 ];
 
@@ -183,7 +189,7 @@ export default function IntegrationsPage() {
       if (!res.ok) return;
       const { integrations } = await res.json();
 
-      for (const integration of integrations as IntegrationData & { type: string }[]) {
+      for (const integration of integrations as (IntegrationData & { type: string })[]) {
         if (integration.type === 'TELEGRAM') {
           setTelegramEnabled(integration.isActive);
           setTelegramConfigured(true);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import mongoose from "mongoose";
+import { notify } from "@/lib/notify";
 
 /* ── Inline schemas (bridge to existing models) ─────────── */
 const InvoiceSchema = new mongoose.Schema(
@@ -165,6 +166,12 @@ export async function POST(req: NextRequest) {
       dueDate: dueDate ? new Date(dueDate) : undefined,
       status: body.status || "DRAFT",
     });
+
+    // Fire notification (non-blocking)
+    notify({
+      event: 'NEW_INVOICE',
+      message: `🧾 New invoice created.\nInvoice: ${invoice.invoiceNumber}\nCustomer: ${customer?.name || 'N/A'}\nAmount: ₹${grandTotal.toLocaleString('en-IN')}\nStatus: ${invoice.status}`,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, invoice }, { status: 201 });
   } catch (err: any) {

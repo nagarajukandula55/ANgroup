@@ -1,128 +1,69 @@
-import { NextRequest, NextResponse } from "next/server";
-import { Types } from "mongoose";
-import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
-import SalesOrder from "@/models/SalesOrder";
-import InventoryMovement from "@/models/InventoryMovement";
-import InventoryItem from "@/models/InventoryItem";
+/**
+ * Sales Orders API
+ */
+import { NextResponse } from 'next/server'
+import { connectDB } from '@/lib/mongodb'
+import mongoose, { Schema, Model } from 'mongoose'
+import { notify } from '@/lib/notify'
 
-/* =========================================================
- * GET SALES ORDERS
- * =======================================================*/
-export async function GET(req: NextRequest) {
+const SalesOrderSchema = new Schema({
+  orderNumber: { type: String, unique: true },
+  customer: { type: String, required: true },
+  customerEmail: String,
+  items: [{
+    name: String, sku: String, quantity: Number, unitPrice: Number, total: Number
+  }],
+  totalAmount: { type: Number, default: 0 },
+  currency: { type: String, default: 'INR' },
+  status: { type: String, enum: ['DRAFT','CONFIRMED','PROCESSING','SHIPPED','DELIVERED','CANCELLED'], default: 'DRAFT' },
+  businessId: String,
+  notes: String,
+  deliveryDate: Date,
+  shippingAddress: String,
+  isDeleted: { type: Boolean, default: false },
+  createdBy: String,
+}, { timestamps: true, versionKey: false })
+
+const SalesOrder: Model<any> = mongoose.models.SalesOrder || mongoose.model('SalesOrder', SalesOrderSchema)
+
+async function getNextOrderNumber(): Promise<string> {
+  const last = await SalesOrder.findOne({}, {}, { sort: { createdAt: -1 } })
+  if (!last?.orderNumber) return 'SO-0001'
+  const num = parseInt(last.orderNumber.split('-')[1] || '0') + 1
+  return `SO-${String(num).padStart(4, '0')}`
+}
+
+export async function GET(req: Request) {
   try {
-    const session = await getEnrichedSession();
-
-    if (!session?.user || !session.business) {
-      return NextResponse.json(
-        { error: "Unauthorized or missing business context" },
-        { status: 401 }
-      );
-    }
-
-    requirePermission(session as any, "sales.view");
-
-    const orders = await SalesOrder.find({
-      businessId: new Types.ObjectId(session.business.businessId),
-      isDeleted: false,
-    }).sort({ createdAt: -1 });
-
-    return NextResponse.json({
-      success: true,
-      data: orders,
-    });
+    const userId = req.headers.get('x-user-id')
+    if (!userId) return NextResponse.json({ success: false, message: 'Unauthorised' }, { status: 401 })
+    await connectDB()
+    const orders = await SalesOrder.find({ isDeleted: false }).sort({ createdAt: -1 }).lean()
+    const totalRevenue = orders.filter((o: any) => o.status === 'DELIVERED').reduce((s: number, o: any) => s + o.totalAmount, 0)
+    return NextResponse.json({ success: true, orders, totalRevenue })
   } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }
 
-/* =========================================================
- * CREATE SALES ORDER (RESERVATION ONLY)
- * =======================================================*/
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const session = await getEnrichedSession();
+    const userId = req.headers.get('x-user-id')
+    if (!userId) return NextResponse.json({ success: false, message: 'Unauthorised' }, { status: 401 })
+    await connectDB()
+    const body = await req.json()
+    const orderNumber = await getNextOrderNumber()
+    const total = (body.items || []).reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0)
+    const order = await SalesOrder.create({ ...body, orderNumber, totalAmount: total, createdBy: userId })
 
-    if (!session?.user || !session.business) {
-      return NextResponse.json(
-        { error: "Unauthorized or missing business context" },
-        { status: 401 }
-      );
-    }
+    // Fire notification (non-blocking)
+    notify({
+      event: 'NEW_ORDER',
+      message: `🛒 New sales order received.\nOrder: ${orderNumber}\nCustomer: ${body.customer || 'N/A'}\nAmount: ₹${total.toLocaleString('en-IN')}\nStatus: ${body.status || 'DRAFT'}`,
+    }).catch(() => {});
 
-    requirePermission(session as any, "sales.create");
-
-    const body = await req.json();
-
-    const { customerId, items, expectedDate } = body;
-
-    if (!customerId || !items?.length) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-
-    const businessId = session.business.businessId;
-
-    /**
-     * STEP 1: Create Sales Order
-     */
-    const order = await SalesOrder.create({
-      businessId: new Types.ObjectId(businessId),
-      customerId: new Types.ObjectId(customerId),
-      items,
-      expectedDate,
-      status: "CONFIRMED",
-      createdBy: session.user.id,
-    });
-
-    /**
-     * STEP 2: Deduct inventory (OUT movement)
-     */
-    for (const item of items) {
-      await InventoryMovement.create({
-        businessId: new Types.ObjectId(businessId),
-        materialId: new Types.ObjectId(item.materialId),
-        warehouseId: new Types.ObjectId(item.warehouseId),
-        type: "OUT",
-        quantity: item.quantity,
-        referenceId: order._id,
-        referenceType: "SALES_ORDER",
-        notes: "Sales Order Consumption",
-        createdBy: session.user.id,
-      });
-
-      const inventory = await InventoryItem.findOne({
-        businessId: new Types.ObjectId(businessId),
-        materialId: new Types.ObjectId(item.materialId),
-        warehouseId: new Types.ObjectId(item.warehouseId),
-      });
-
-      if (inventory) {
-        inventory.quantity -= item.quantity;
-        await inventory.save();
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Sales order created and inventory updated",
-      data: order,
-    });
+    return NextResponse.json({ success: true, order }, { status: 201 })
   } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }
