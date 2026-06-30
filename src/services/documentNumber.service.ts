@@ -12,7 +12,7 @@ export async function generateDocumentNumber(
       },
       {
         $inc: {
-          currentNumber: 1,
+          current: 1,
         },
       },
       {
@@ -22,7 +22,7 @@ export async function generateDocumentNumber(
     );
 
   const seq = String(
-    counter.currentNumber
+    counter.current
   ).padStart(5, "0");
 
   const now = new Date();
