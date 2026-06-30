@@ -1,226 +1,161 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Building2, ShoppingCart, Users, Package,
-  BarChart3, DollarSign, Truck, Settings, Bell, MessageSquare,
-  FileText, ChevronRight, Menu, X, LogOut, ChevronDown,
-  Briefcase, Shield, Bot, Hash, Globe, ClipboardList, UserCheck, Layers,
-} from 'lucide-react'
+  ChevronRight,
+  Menu,
+  X,
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  DollarSign,
+  Users,
+  UserCheck,
+  FileSignature,
+  Share2,
+  Sparkles,
+  Plug,
+  Shield,
+  Bell,
+  MessageSquare,
+  Building2,
+} from "lucide-react";
 
-const NAV_GROUPS = [
-  {
-    group: 'Platform',
-    items: [
-      { key: 'home', label: 'Dashboard', route: '/', icon: <LayoutDashboard size={16} /> },
-      { key: 'businesses', label: 'Businesses', route: '/businesses', icon: <Building2 size={16} /> },
-      { key: 'analytics', label: 'Analytics', route: '/analytics', icon: <BarChart3 size={16} /> },
-    ],
-  },
-  {
-    group: 'ERP',
-    items: [
-      { key: 'inventory', label: 'Inventory', route: '/erp/inventory', icon: <Package size={16} /> },
-      { key: 'purchase', label: 'Purchase', route: '/erp/purchase', icon: <ClipboardList size={16} /> },
-      { key: 'sales', label: 'Sales', route: '/erp/sales', icon: <ShoppingCart size={16} /> },
-      { key: 'finance', label: 'Finance', route: '/finance', icon: <DollarSign size={16} /> },
-      { key: 'hr', label: 'HR & Payroll', route: '/employees', icon: <UserCheck size={16} /> },
-      { key: 'crm', label: 'CRM', route: '/erp/crm', icon: <Users size={16} /> },
-      { key: 'logistics', label: 'Logistics', route: '/logistics', icon: <Truck size={16} /> },
-    ],
-  },
-  {
-    group: 'Documents',
-    items: [
-      { key: 'documents', label: 'Documents', route: '/documents', icon: <FileText size={16} /> },
-      { key: 'agreements', label: 'Agreements', route: '/documents/agreements', icon: <Layers size={16} /> },
-    ],
-  },
-  {
-    group: 'Workspace',
-    items: [
-      { key: 'chat', label: 'Internal Chat', route: '/chat', icon: <MessageSquare size={16} /> },
-      { key: 'ai', label: 'AI Assistant', route: '/ai', icon: <Bot size={16} /> },
-      { key: 'notifications', label: 'Notifications', route: '/notifications', icon: <Bell size={16} /> },
-    ],
-  },
-  {
-    group: 'Admin',
-    items: [
-      { key: 'admin', label: 'Admin Panel', route: '/admin', icon: <Shield size={16} /> },
-      { key: 'users', label: 'Users', route: '/admin/users', icon: <Users size={16} /> },
-      { key: 'roles', label: 'Roles & Perms', route: '/admin/roles', icon: <Hash size={16} /> },
-      { key: 'sso', label: 'SSO Settings', route: '/admin/sso', icon: <Globe size={16} /> },
-      { key: 'settings', label: 'Settings', route: '/settings', icon: <Settings size={16} /> },
-    ],
-  },
-]
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  LayoutDashboard, Package, ShoppingCart, TrendingUp, DollarSign,
+  Users, UserCheck, FileSignature, Share2, Sparkles,
+  Plug, Shield, Bell, MessageSquare, Building2,
+};
+
+const STATIC_MODULES = [
+  { key: "dashboard", label: "Dashboard", route: "/dashboard", icon: "LayoutDashboard" },
+  { key: "inventory", label: "Inventory", route: "/inventory", icon: "Package" },
+  { key: "purchase", label: "Purchase", route: "/purchase", icon: "ShoppingCart" },
+  { key: "sales", label: "Sales", route: "/sales", icon: "TrendingUp" },
+  { key: "finance", label: "Finance", route: "/finance", icon: "DollarSign" },
+  { key: "crm", label: "CRM", route: "/crm", icon: "Users" },
+  { key: "hr", label: "HR", route: "/hr", icon: "UserCheck" },
+  { key: "agreements", label: "Agreements", route: "/agreements", icon: "FileSignature" },
+  { key: "social", label: "Social Media", route: "/social", icon: "Share2" },
+  { key: "ai-image", label: "AI Studio", route: "/ai-image", icon: "Sparkles" },
+  { key: "chat", label: "Team Chat", route: "/chat", icon: "MessageSquare" },
+  { key: "notifications", label: "Notifications", route: "/notifications", icon: "Bell" },
+  { key: "admin-integrations", label: "Integrations", route: "/admin/integrations", icon: "Plug" },
+  { key: "admin-roles", label: "Roles & Permissions", route: "/admin/roles", icon: "Shield" },
+];
 
 export default function Sidebar() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [businesses, setBusinesses] = useState<any[]>([])
-  const [currentBusiness, setCurrentBusiness] = useState<any>(null)
-  const [showBizPicker, setShowBizPicker] = useState(false)
+  const pathname = usePathname();
+  const [modules, setModules] = useState<any[]>(STATIC_MODULES);
+  const [open, setOpen] = useState(false);
+  const [businessName, setBusinessName] = useState("AN Group");
 
-  useEffect(() => { loadUser() }, [])
+  useEffect(() => {
+    loadSidebar();
+  }, []);
 
-  async function loadUser() {
+  async function loadSidebar() {
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' })
-      const data = await res.json()
-      if (data.success) {
-        setUser(data.user)
-        setBusinesses(data.businesses || [])
-        if (data.businesses?.length) {
-          const saved = localStorage.getItem('an_biz')
-          setCurrentBusiness(data.businesses.find((b: any) => b._id === saved) || data.businesses[0])
-        }
+      const businessId = localStorage.getItem("businessId");
+      if (!businessId) return;
+
+      const res = await fetch("/api/ui/sidebar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "demo-user", businessId }),
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.modules?.length > 0) {
+        const dbKeys = new Set(data.modules.map((m: any) => m.key));
+        const extra = STATIC_MODULES.filter((m) => !dbKeys.has(m.key));
+        setModules([...data.modules, ...extra]);
+        if (data.business?.name) setBusinessName(data.business.name);
       }
-    } catch {}
+    } catch {
+      // keep static fallback
+    }
   }
-
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-    localStorage.clear()
-    router.push('/login')
-  }
-
-  function selectBiz(biz: any) {
-    setCurrentBusiness(biz)
-    localStorage.setItem('an_biz', biz._id)
-    setShowBizPicker(false)
-    router.refresh()
-  }
-
-  const active = (route: string) => route === '/' ? pathname === '/' : pathname.startsWith(route)
 
   return (
     <>
       <button
         onClick={() => setOpen(!open)}
-        className="fixed left-4 top-4 z-50 rounded-xl border border-white/10 bg-black/80 p-2.5 backdrop-blur-xl lg:hidden"
+        className="fixed left-4 top-4 z-50 rounded-2xl border border-white/10 bg-black/40 p-3 backdrop-blur-xl lg:hidden"
       >
-        {open ? <X size={18} className="text-white" /> : <Menu size={18} className="text-white" />}
+        {open ? <X size={20} /> : <Menu size={20} />}
       </button>
 
       {open && (
-        <div onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/70 lg:hidden" />
+        <div
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-40 bg-black/70 lg:hidden"
+        />
       )}
 
       <aside
-        className={`fixed lg:relative z-50 h-screen w-64 flex-shrink-0 border-r border-white/[0.06] bg-black transition-transform duration-300 ${
-          open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed lg:relative z-50 h-screen w-72 transform border-r border-white/[0.06] bg-zinc-950 transition-transform duration-300 flex flex-col ${
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="flex h-full flex-col">
-          {/* Brand */}
-          <div className="border-b border-white/[0.06] px-5 py-4">
-            <p className="text-[9px] uppercase tracking-[0.5em] text-zinc-600">Enterprise</p>
-            <h2 className="mt-1 text-lg font-bold text-white">AN Group</h2>
-            <p className="text-[10px] text-zinc-500">Parent Company Portal</p>
+        <div className="px-6 pt-8 pb-6 border-b border-white/[0.05]">
+          <p className="text-[10px] uppercase tracking-[0.45em] text-zinc-600">
+            Executive Platform
+          </p>
+          <h2 className="mt-2 text-lg font-semibold tracking-tight text-white">
+            {businessName}
+          </h2>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <p className="text-xs text-zinc-500">Fully Operational</p>
           </div>
+        </div>
 
-          {/* Business switcher */}
-          {businesses.length > 0 && (
-            <div className="border-b border-white/[0.06] px-3 py-3">
-              <button
-                onClick={() => setShowBizPicker(!showBizPicker)}
-                className="w-full flex items-center gap-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] px-3 py-2 transition-all text-left"
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+          {modules.map((m) => {
+            const active =
+              pathname === m.route ||
+              (m.route !== "/" && m.route.length > 1 && pathname?.startsWith(m.route));
+            const IconComp = ICON_MAP[m.icon] || Building2;
+
+            return (
+              <Link
+                key={m.key}
+                href={m.route}
+                onClick={() => setOpen(false)}
+                className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 ${
+                  active
+                    ? "bg-white/[0.08] text-white border border-white/[0.08]"
+                    : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"
+                }`}
               >
-                <Briefcase size={13} className="text-zinc-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white truncate">{currentBusiness?.name || 'Select Business'}</p>
-                  <p className="text-[10px] text-zinc-500">{currentBusiness?.businessCode || '—'}</p>
-                </div>
-                <ChevronDown size={11} className={`text-zinc-600 transition-transform ${showBizPicker ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showBizPicker && (
-                <div className="mt-2 rounded-xl border border-white/10 bg-zinc-950 overflow-hidden">
-                  {businesses.map(biz => (
-                    <button
-                      key={biz._id}
-                      onClick={() => selectBiz(biz)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.05] transition-all text-left ${currentBusiness?._id === biz._id ? 'bg-white/[0.04]' : ''}`}
-                    >
-                      <div className="h-1.5 w-1.5 rounded-full bg-green-400 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-white">{biz.name}</p>
-                        <p className="text-[10px] text-zinc-500">{biz.businessCode}</p>
-                      </div>
-                    </button>
-                  ))}
-                  <Link href="/businesses/create" onClick={() => setShowBizPicker(false)}
-                    className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.06] text-[11px] text-zinc-500 hover:text-white hover:bg-white/[0.04] transition-all">
-                    + Add Business
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Nav */}
-          <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-            {NAV_GROUPS.map(group => (
-              <div key={group.group}>
-                <p className="px-2 mb-1 text-[9px] uppercase tracking-[0.4em] text-zinc-700 font-semibold">{group.group}</p>
-                <div className="space-y-0.5">
-                  {group.items.map(item => {
-                    const isActive = active(item.route)
-                    return (
-                      <Link
-                        key={item.key}
-                        href={item.route}
-                        onClick={() => setOpen(false)}
-                        className={`group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] transition-all ${
-                          isActive
-                            ? 'bg-white text-black font-semibold'
-                            : 'text-zinc-400 hover:bg-white/[0.05] hover:text-white'
-                        }`}
-                      >
-                        <span className={isActive ? 'text-black' : 'text-zinc-600 group-hover:text-zinc-300'}>{item.icon}</span>
-                        <span className="flex-1">{item.label}</span>
-                        {isActive && <ChevronRight size={11} className="text-black/30" />}
-                      </Link>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </nav>
-
-          {/* User footer */}
-          <div className="border-t border-white/[0.06] px-4 py-3">
-            {user ? (
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-                  {user.name?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-white truncate">{user.name}</p>
-                  <p className="text-[10px] text-zinc-500">{user.isSuperAdmin ? 'Super Admin' : user.role}</p>
-                </div>
-                <button onClick={handleLogout} title="Sign out"
-                  className="p-1.5 rounded-lg text-zinc-600 hover:bg-red-500/10 hover:text-red-400 transition-all">
-                  <LogOut size={14} />
-                </button>
-              </div>
-            ) : (
-              <Link href="/login" className="flex items-center gap-2 text-xs text-zinc-500 hover:text-white">
-                <div className="h-8 w-8 rounded-xl bg-white/5 flex items-center justify-center">
-                  <Users size={13} />
-                </div>
-                Sign In
+                <IconComp
+                  size={15}
+                  className={active ? "text-white" : "text-zinc-600 group-hover:text-zinc-400"}
+                />
+                <span className="text-sm font-medium">{m.label}</span>
+                {active && (
+                  <ChevronRight size={13} className="ml-auto text-zinc-600" />
+                )}
               </Link>
-            )}
+            );
+          })}
+        </nav>
+
+        <div className="px-4 py-5 border-t border-white/[0.05]">
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-600">Status</p>
+            <div className="mt-3 flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
+              <span className="text-xs text-zinc-400">All Systems Normal</span>
+            </div>
           </div>
         </div>
       </aside>
     </>
-  )
+  );
 }

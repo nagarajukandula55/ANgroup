@@ -1,4 +1,4 @@
-import { auth } from "./auth";
+import { headers } from "next/headers";
 import User from "@/models/User";
 import BusinessMember from "@/models/BusinessMember";
 import { Types } from "mongoose";
@@ -7,7 +7,12 @@ import { Types } from "mongoose";
  * =========================================================
  * BUSINESS CONTEXT (MULTI-TENANT CORE)
  * =========================================================
- * Resolves active business context for current user session
+ * Reads user identity from JWT middleware headers, then resolves
+ * the active business membership from MongoDB.
+ *
+ * The custom JWT middleware (src/middleware.ts) injects:
+ *   x-user-id, x-user-email, x-user-name, x-user-role, x-is-super-admin
+ * =========================================================
  */
 
 export interface IBusinessContext {
@@ -21,33 +26,29 @@ export interface IBusinessContext {
  * Get current active business context
  */
 export async function getBusinessContext(): Promise<IBusinessContext | null> {
-  const session = await auth();
+  const headersList = await headers();
+  const userEmail = headersList.get("x-user-email");
 
-  if (!session?.user?.email) return null;
+  if (!userEmail) return null;
 
-  const user = await User.findOne({
-    email: session.user.email,
-  });
+  const user = await User.findOne({ email: userEmail }).lean();
 
   if (!user) return null;
 
-  /**
-   * Get active business membership
-   */
   const membership = await BusinessMember.findOne({
-    userId: user._id,
+    userId: (user as any)._id,
     isDeleted: false,
     status: "ACTIVE",
     isDefaultBusiness: true,
-  });
+  }).lean();
 
   if (!membership) return null;
 
   return {
-    userId: user._id.toString(),
-    businessId: membership.businessId.toString(),
-    organizationId: membership.organizationId.toString(),
-    membershipId: membership._id.toString(),
+    userId: (user as any)._id.toString(),
+    businessId: (membership as any).businessId.toString(),
+    organizationId: (membership as any).organizationId.toString(),
+    membershipId: (membership as any)._id.toString(),
   };
 }
 
@@ -55,18 +56,16 @@ export async function getBusinessContext(): Promise<IBusinessContext | null> {
  * Get all businesses for current user
  */
 export async function getUserBusinesses() {
-  const session = await auth();
+  const headersList = await headers();
+  const userEmail = headersList.get("x-user-email");
 
-  if (!session?.user?.email) return [];
+  if (!userEmail) return [];
 
-  const user = await User.findOne({
-    email: session.user.email,
-  });
-
+  const user = await User.findOne({ email: userEmail }).lean();
   if (!user) return [];
 
   return BusinessMember.find({
-    userId: user._id,
+    userId: (user as any)._id,
     isDeleted: false,
   }).populate("businessId");
 }

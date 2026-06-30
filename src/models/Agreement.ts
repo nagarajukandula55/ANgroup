@@ -1,102 +1,123 @@
-import mongoose, { Document, Model, Schema, Types } from "mongoose";
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export enum AgreementStatus {
-  DRAFT = "DRAFT",
-  PENDING_VENDOR = "PENDING_VENDOR",
-  PENDING_COMPANY = "PENDING_COMPANY",
-  SIGNED = "SIGNED",
-  EXPIRED = "EXPIRED",
-  CANCELLED = "CANCELLED",
+export interface IParty {
+  name: string;
+  email: string;
+  role: 'COMPANY' | 'VENDOR' | 'EMPLOYEE' | 'PARTY_A' | 'PARTY_B';
+  phone?: string;
+  address?: string;
+  aadhaarLast4?: string;
+  panNumber?: string;
 }
 
-export enum AgreementType {
-  VENDOR_SUPPLY = "VENDOR_SUPPLY",
-  NDA = "NDA",
-  SERVICE_LEVEL = "SERVICE_LEVEL",
-  PARTNERSHIP = "PARTNERSHIP",
-  EMPLOYMENT = "EMPLOYMENT",
-  DISTRIBUTION = "DISTRIBUTION",
+export interface ISignature {
+  partyEmail: string;
+  partyName: string;
+  partyRole: string;
+  signedAt?: Date;
+  signatureData?: string;
+  ipAddress?: string;
+  otpVerified: boolean;
+  otp?: string;
+  otpExpiry?: Date;
 }
 
 export interface IAgreement extends Document {
-  agreementNumber: string;
+  businessId: mongoose.Types.ObjectId;
+  templateType: 'NDA' | 'VENDOR_SUPPLY' | 'EMPLOYMENT' | 'SERVICE_AGREEMENT' | 'MOU' | 'CUSTOM';
   title: string;
-  type: AgreementType;
-  status: AgreementStatus;
-
-  businessId: Types.ObjectId;
-  createdBy: Types.ObjectId;
-
-  // Parties
-  companyName: string;
-  companySignatory: string;
-  companySignature?: string;
-  companySignedAt?: Date;
-
-  vendorName: string;
-  vendorEmail: string;
-  vendorSignatory: string;
-  vendorSignature?: string;
-  vendorSignedAt?: Date;
-
-  // Content
-  content: string;       // Rich text / HTML
-  pdfUrl?: string;
-
-  // Terms
-  startDate?: Date;
-  endDate?: Date;
-  value?: number;
-  currency: string;
-
-  notes?: string;
-
-  isDeleted: boolean;
+  parties: IParty[];
+  content: string;
+  variables: Record<string, unknown>;
+  status: 'DRAFT' | 'PENDING_SIGNATURE' | 'PARTIALLY_SIGNED' | 'FULLY_SIGNED' | 'EXPIRED' | 'CANCELLED';
+  signatures: ISignature[];
+  expiresAt?: Date;
+  signedPdfUrl?: string;
+  governingLaw: string;
+  jurisdiction: string;
+  stampDutyNotice: string;
+  createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
 
+const PartySchema = new Schema<IParty>({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  role: {
+    type: String,
+    enum: ['COMPANY', 'VENDOR', 'EMPLOYEE', 'PARTY_A', 'PARTY_B'],
+    required: true,
+  },
+  phone: { type: String },
+  address: { type: String },
+  aadhaarLast4: { type: String },
+  panNumber: { type: String },
+}, { _id: false });
+
+const SignatureSchema = new Schema<ISignature>({
+  partyEmail: { type: String, required: true },
+  partyName: { type: String, required: true },
+  partyRole: { type: String, required: true },
+  signedAt: { type: Date },
+  signatureData: { type: String },
+  ipAddress: { type: String },
+  otpVerified: { type: Boolean, default: false },
+  otp: { type: String },
+  otpExpiry: { type: Date },
+}, { _id: false });
+
 const AgreementSchema = new Schema<IAgreement>(
   {
-    agreementNumber: { type: String, required: true, unique: true },
+    businessId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Business',
+      required: true,
+      index: true,
+    },
+    templateType: {
+      type: String,
+      enum: ['NDA', 'VENDOR_SUPPLY', 'EMPLOYMENT', 'SERVICE_AGREEMENT', 'MOU', 'CUSTOM'],
+      required: true,
+    },
     title: { type: String, required: true },
-    type: { type: String, enum: Object.values(AgreementType), required: true },
-    status: { type: String, enum: Object.values(AgreementStatus), default: AgreementStatus.DRAFT },
-
-    businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-
-    companyName: { type: String, required: true },
-    companySignatory: { type: String, required: true },
-    companySignature: { type: String, default: null },
-    companySignedAt: { type: Date, default: null },
-
-    vendorName: { type: String, required: true },
-    vendorEmail: { type: String, required: true },
-    vendorSignatory: { type: String, required: true },
-    vendorSignature: { type: String, default: null },
-    vendorSignedAt: { type: Date, default: null },
-
-    content: { type: String, required: true },
-    pdfUrl: { type: String, default: null },
-
-    startDate: { type: Date },
-    endDate: { type: Date },
-    value: { type: Number, default: 0 },
-    currency: { type: String, default: "INR" },
-    notes: { type: String },
-
-    isDeleted: { type: Boolean, default: false },
+    parties: [PartySchema],
+    content: { type: String },
+    variables: { type: Schema.Types.Mixed, default: {} },
+    status: {
+      type: String,
+      enum: ['DRAFT', 'PENDING_SIGNATURE', 'PARTIALLY_SIGNED', 'FULLY_SIGNED', 'EXPIRED', 'CANCELLED'],
+      default: 'DRAFT',
+    },
+    signatures: [SignatureSchema],
+    expiresAt: { type: Date },
+    signedPdfUrl: { type: String },
+    governingLaw: {
+      type: String,
+      default: 'Indian Contract Act, 1872',
+    },
+    jurisdiction: {
+      type: String,
+      default: 'India',
+    },
+    stampDutyNotice: {
+      type: String,
+      default: 'This agreement may be subject to stamp duty as per the Indian Stamp Act, 1899.',
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
   },
-  { timestamps: true, versionKey: false }
+  { timestamps: true }
 );
 
 AgreementSchema.index({ businessId: 1, status: 1 });
-AgreementSchema.index({ vendorEmail: 1 });
-AgreementSchema.index({ agreementNumber: 1 });
+AgreementSchema.index({ 'parties.email': 1 });
+AgreementSchema.index({ status: 1 });
 
 const Agreement: Model<IAgreement> =
-  mongoose.models.Agreement ||
-  mongoose.model<IAgreement>("Agreement", AgreementSchema);
+  mongoose.models.Agreement || mongoose.model<IAgreement>('Agreement', AgreementSchema);
 
 export default Agreement;
