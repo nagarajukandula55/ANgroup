@@ -8,7 +8,7 @@ import { Types } from "mongoose";
  * =======================================================*/
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -20,7 +20,7 @@ export async function POST(
       );
     }
 
-    const roleId = context.params.id;
+    const { id: roleId } = await context.params;
     const body = await req.json();
 
     const { permissionIds } = body as {
@@ -86,7 +86,7 @@ export async function POST(
  * =======================================================*/
 export async function GET(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -98,7 +98,7 @@ export async function GET(
       );
     }
 
-    const roleId = context.params.id;
+    const { id: roleId } = await context.params;
 
     const mappings = await RolePermission.find({
       roleId: new Types.ObjectId(roleId),

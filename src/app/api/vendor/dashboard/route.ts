@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import connectDB from '@/lib/mongodb'
+import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 
 // Inline VendorProfile schema
