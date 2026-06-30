@@ -19,12 +19,14 @@ export async function POST(req: Request) {
     }
 
     /* ── Find user by email OR username ──────────────────────────────── */
+    // password has select:false — must explicitly request it
     const user = await User.findOne({
       $or: [
         ...(email    ? [{ email: email.toLowerCase().trim() }] : []),
         ...(username ? [{ username: username.toLowerCase().trim() }] : []),
       ],
     })
+      .select("+password")
       .lean()
       .exec() as any;
 
