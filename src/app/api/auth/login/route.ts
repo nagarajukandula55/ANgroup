@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { signToken } from "@/lib/auth/jwt";
@@ -10,104 +9,82 @@ export async function POST(req: Request) {
     await connectDB();
 
     const body = await req.json();
-    const identifier = body?.email || body?.username;
+    const { email, username, password } = body ?? {};
 
-    if (!identifier || !body?.password) {
+    if ((!email && !username) || !password) {
       return NextResponse.json(
-        { success: false, message: "Username/email and password required" },
+        { success: false, message: "Credentials required" },
         { status: 400 }
       );
     }
 
-    // Support login by email OR username
+    /* ── Find user by email OR username ──────────────────────────────── */
     const user = await User.findOne({
       $or: [
-        { email: identifier.toLowerCase() },
-        { username: identifier.toLowerCase() },
+        ...(email    ? [{ email: email.toLowerCase().trim() }] : []),
+        ...(username ? [{ username: username.toLowerCase().trim() }] : []),
       ],
-      isDeleted: false,
     })
-      .select("+password")
       .lean()
       .exec() as any;
 
     if (!user) {
       return NextResponse.json(
-        { success: false, message: "Invalid credentials" },
-        { status: 401 }
-      );
-    }
-
-    if (!user.isActive) {
-      return NextResponse.json(
-        { success: false, message: "Account is inactive. Contact administrator." },
-        { status: 403 }
+        { success: false, message: "User not found" },
+        { status: 404 }
       );
     }
 
     if (!user.password) {
       return NextResponse.json(
-        { success: false, message: "Password not set for this account" },
-        { status: 400 }
+        { success: false, message: "Invalid user record" },
+        { status: 500 }
       );
     }
 
-    const valid = await bcrypt.compare(body.password, user.password);
-
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      // Increment failed attempts
-      await User.findByIdAndUpdate(user._id, {
-        $inc: { failedLoginAttempts: 1 },
-      });
       return NextResponse.json(
-        { success: false, message: "Invalid credentials" },
+        { success: false, message: "Invalid password" },
         { status: 401 }
       );
     }
 
-    // Reset failed attempts and update lastLogin
-    await User.findByIdAndUpdate(user._id, {
-      failedLoginAttempts: 0,
-      lastLogin: new Date(),
-    });
-
+    /* ── Build JWT payload ───────────────────────────────────────────── */
     const token = signToken({
-      id: user._id.toString(),
-      email: user.email,
-      username: user.username || undefined,
-      name: user.name,
-      role: user.role || "CUSTOMER",
-      isSuperAdmin: user.role === "SUPER_ADMIN",
-      businessIds: (user.businessAccess || []).map((b: any) => b.businessId),
-      organizationId: user.defaultOrganizationId?.toString() || undefined,
+      id:             user._id.toString(),
+      email:          user.email,
+      name:           user.name || user.username || "User",
+      role:           user.role || "USER",
+      isSuperAdmin:   user.role === "SUPER_ADMIN",
+      businessIds:    user.businessIds ?? (user.businessId ? [user.businessId.toString()] : []),
+      organizationId: user.organizationId?.toString(),
     });
 
-    const response = NextResponse.json({
-      success: true,
-      token,
-      user: {
-        id: user._id.toString(),
-        email: user.email,
-        username: user.username || null,
-        name: user.name,
-        role: user.role,
-        isSuperAdmin: user.role === "SUPER_ADMIN",
-        avatar: user.avatar || null,
-      },
-    });
+    const safeUser = {
+      id:             user._id.toString(),
+      email:          user.email,
+      name:           user.name,
+      username:       user.username,
+      role:           user.role,
+      isSuperAdmin:   user.role === "SUPER_ADMIN",
+      businessIds:    user.businessIds ?? [],
+      organizationId: user.organizationId?.toString(),
+    };
 
-    // Set httpOnly cookie for web sessions (7 days)
-    response.cookies.set("an_token", token, {
+    /* ── Set httpOnly cookie + return token in JSON ──────────────────── */
+    const res = NextResponse.json({ success: true, token, user: safeUser });
+
+    res.cookies.set("an_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure:   process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-      path: "/",
+      maxAge:   60 * 60 * 24 * 7, // 7 days
+      path:     "/",
     });
 
-    return response;
+    return res;
   } catch (error: any) {
-    console.error("LOGIN ERROR:", error);
     return NextResponse.json(
       { success: false, message: error?.message || "Internal Server Error" },
       { status: 500 }
