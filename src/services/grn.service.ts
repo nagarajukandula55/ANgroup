@@ -61,3 +61,12 @@ export async function updateGRN(id: string, updates: Record<string, unknown>) {
   await connectDB();
   return GRN.findByIdAndUpdate(id, { $set: updates }, { new: true }).lean();
 }
+
+/**
+ * Retrieve all GRNs (no business filter).
+ * Backwards-compatible export for the legacy /api/grn/route.ts.
+ */
+export async function getAllGRNs() {
+  await connectDB();
+  return GRN.find({}).sort({ createdAt: -1 }).lean();
+}
