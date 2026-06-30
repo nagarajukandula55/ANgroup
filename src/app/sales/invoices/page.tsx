@@ -132,7 +132,7 @@ export default function SalesInvoicesPage() {
   async function shareInvoice(id: string) {
     const res = await fetch(`/api/sales/invoices/${id}/share`, { method: "POST" });
     const data = await res.json();
-    if (data.success) setShareModal({ url: data.shareUrl, expiresAt: data.expiresAt });
+    if (data.success) setShareModal({ url: data.shareUrl, expiry: data.expiresAt });
   }
 
   async function markPaid() {
