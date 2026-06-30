@@ -1,0 +1,107 @@
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { connectDB } from "@/lib/mongodb";
+import { Types } from "mongoose";
+import MaterialCategory from "@/models/MaterialCategory";
+
+/* =========================================================
+ * GET  /api/material-categories?businessId=xxx
+ * List all non-deleted categories for a business
+ * ======================================================= */
+export async function GET(req: NextRequest) {
+  try {
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const businessId = searchParams.get("businessId");
+
+    if (!businessId) {
+      return NextResponse.json(
+        { success: false, error: "businessId is required" },
+        { status: 400 }
+      );
+    }
+
+    const categories = await MaterialCategory.find({
+      businessId: new Types.ObjectId(businessId),
+      isDeleted: false,
+    })
+      .populate("parentCategory", "name code")
+      .sort({ name: 1 });
+
+    return NextResponse.json({ success: true, data: categories });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+/* =========================================================
+ * POST /api/material-categories
+ * Create a new material category
+ * ======================================================= */
+export async function POST(req: NextRequest) {
+  try {
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { businessId, name, code, description, parentCategory, unit, isActive } = body;
+
+    if (!businessId) {
+      return NextResponse.json(
+        { success: false, error: "businessId is required" },
+        { status: 400 }
+      );
+    }
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { success: false, error: "name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Check for duplicate name within the same business
+    const existing = await MaterialCategory.findOne({
+      businessId: new Types.ObjectId(businessId),
+      name: name.trim(),
+      isDeleted: false,
+    });
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: "A category with this name already exists" },
+        { status: 409 }
+      );
+    }
+
+    const category = await MaterialCategory.create({
+      businessId: new Types.ObjectId(businessId),
+      name: name.trim(),
+      code: code?.trim() || undefined,
+      description: description?.trim() || undefined,
+      parentCategory: parentCategory ? new Types.ObjectId(parentCategory) : null,
+      unit: unit?.trim() || undefined,
+      isActive: isActive !== undefined ? isActive : true,
+      isDeleted: false,
+      createdBy: new Types.ObjectId(userId),
+    });
+
+    return NextResponse.json({ success: true, data: category }, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

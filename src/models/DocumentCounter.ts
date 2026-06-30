@@ -1,57 +1,42 @@
-import mongoose from "mongoose";
+/**
+ * DocumentCounter — atomic sequence counter for auto-incrementing document numbers.
+ *
+ * Usage:
+ *   import DocumentCounter from "@/models/DocumentCounter";
+ *
+ *   const counter = await DocumentCounter.findOneAndUpdate(
+ *     { _id: "invoiceNumber" },
+ *     { $inc: { seq: 1 } },
+ *     { upsert: true, new: true }
+ *   );
+ *   const nextNumber = counter.seq;
+ *
+ * No files currently import this model (per import audit). It is provided here
+ * as the canonical TypeScript version. A DocumentCounter.js file (if it existed)
+ * should be removed; it cannot be reliably re-exported via CommonJS from a TS module
+ * in a Next.js project, and the JS variant was not imported anywhere.
+ */
 
-const DocumentCounterSchema =
-  new mongoose.Schema(
-    {
-      businessId: {
-        type: String,
-        required: true,
-        index: true,
-      },
+import mongoose, { Schema, Model, Document } from "mongoose";
 
-      documentType: {
-        type: String,
-        required: true,
-        index: true,
-      },
+export interface IDocumentCounter extends Document {
+  _id: string; // counter name, e.g. "invoiceNumber", "poNumber"
+  seq: number;
+}
 
-      financialYear: {
-        type: String,
-        required: true,
-        index: true,
-      },
-
-      prefix: {
-        type: String,
-        default: "NA",
-      },
-
-      current: {
-        type: Number,
-        default: 0,
-      },
-    },
-    {
-      timestamps: true,
-    }
-  );
-
-DocumentCounterSchema.index(
+const DocumentCounterSchema = new Schema<IDocumentCounter>(
   {
-    businessId: 1,
-
-    documentType: 1,
-
-    financialYear: 1,
+    _id: { type: String, required: true },
+    seq: { type: Number, default: 0 },
   },
   {
-    unique: true,
+    // No timestamps needed — counters are updated atomically
+    _id: false,
   }
 );
 
-export default
-  mongoose.models.DocumentCounter ||
-  mongoose.model(
-    "DocumentCounter",
-    DocumentCounterSchema
-  );
+const DocumentCounter: Model<IDocumentCounter> =
+  (mongoose.models.DocumentCounter as Model<IDocumentCounter>) ||
+  mongoose.model<IDocumentCounter>("DocumentCounter", DocumentCounterSchema);
+
+export default DocumentCounter;

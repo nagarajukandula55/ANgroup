@@ -1,0 +1,178 @@
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { connectDB } from "@/lib/mongodb";
+import { Types } from "mongoose";
+import MaterialCategory from "@/models/MaterialCategory";
+
+/* =========================================================
+ * GET /api/material-categories/[id]
+ * Fetch a single material category by id
+ * ======================================================= */
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid id" },
+        { status: 400 }
+      );
+    }
+
+    const category = await MaterialCategory.findOne({
+      _id: new Types.ObjectId(id),
+      isDeleted: false,
+    }).populate("parentCategory", "name code");
+
+    if (!category) {
+      return NextResponse.json(
+        { success: false, error: "Category not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: category });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+/* =========================================================
+ * PUT /api/material-categories/[id]
+ * Update a material category
+ * ======================================================= */
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid id" },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+    const { name, code, description, parentCategory, unit, isActive } = body;
+
+    const category = await MaterialCategory.findOne({
+      _id: new Types.ObjectId(id),
+      isDeleted: false,
+    });
+
+    if (!category) {
+      return NextResponse.json(
+        { success: false, error: "Category not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check duplicate name only if name is being changed
+    if (name && name.trim() !== category.name) {
+      const duplicate = await MaterialCategory.findOne({
+        businessId: category.businessId,
+        name: name.trim(),
+        isDeleted: false,
+        _id: { $ne: category._id },
+      });
+      if (duplicate) {
+        return NextResponse.json(
+          { success: false, error: "A category with this name already exists" },
+          { status: 409 }
+        );
+      }
+    }
+
+    if (name !== undefined) category.name = name.trim();
+    if (code !== undefined) category.code = code?.trim() || undefined;
+    if (description !== undefined) category.description = description?.trim() || undefined;
+    if (parentCategory !== undefined) {
+      category.parentCategory = parentCategory
+        ? new Types.ObjectId(parentCategory)
+        : undefined;
+    }
+    if (unit !== undefined) category.unit = unit?.trim() || undefined;
+    if (isActive !== undefined) category.isActive = isActive;
+
+    await category.save();
+
+    return NextResponse.json({ success: true, data: category });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+/* =========================================================
+ * DELETE /api/material-categories/[id]
+ * Soft-delete a material category
+ * ======================================================= */
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid id" },
+        { status: 400 }
+      );
+    }
+
+    const category = await MaterialCategory.findOne({
+      _id: new Types.ObjectId(id),
+      isDeleted: false,
+    });
+
+    if (!category) {
+      return NextResponse.json(
+        { success: false, error: "Category not found" },
+        { status: 404 }
+      );
+    }
+
+    category.isDeleted = true;
+    await category.save();
+
+    return NextResponse.json({ success: true, message: "Category deleted successfully" });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

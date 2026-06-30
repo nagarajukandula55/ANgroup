@@ -1,93 +1,73 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
-import Vendor from "@/models/Vendor";
+import VendorProfile from "@/models/VendorProfile";
 
 type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
-export async function GET(
-  req: Request,
-  { params }: RouteContext
-) {
+export async function GET(req: NextRequest, context: RouteContext) {
   try {
     await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const { id } = await params;
+    const { id } = await context.params;
+    const vendor = await VendorProfile.findById(id);
+    if (!vendor) {
+      return NextResponse.json({ success: false, error: "Vendor not found" }, { status: 404 });
+    }
 
-    const vendor = await Vendor.findById(id);
-
-    return NextResponse.json({
-      success: true,
-      data: vendor,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: error.message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, data: vendor });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ success: false, message: msg }, { status: 500 });
   }
 }
 
-export async function PUT(
-  req: Request,
-  { params }: RouteContext
-) {
+export async function PUT(req: NextRequest, context: RouteContext) {
   try {
     await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const { id } = await params;
+    const { id } = await context.params;
     const body = await req.json();
 
-    const vendor = await Vendor.findByIdAndUpdate(
-      id,
-      body,
-      { new: true }
-    );
+    const vendor = await VendorProfile.findByIdAndUpdate(id, body, { new: true });
+    if (!vendor) {
+      return NextResponse.json({ success: false, error: "Vendor not found" }, { status: 404 });
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: vendor,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: error.message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, data: vendor });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ success: false, message: msg }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: RouteContext
-) {
+export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
     await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const { id } = await params;
+    const { id } = await context.params;
+    await VendorProfile.findByIdAndUpdate(id, { isDeleted: true });
 
-    await Vendor.findByIdAndUpdate(id, {
-      active: false,
-    });
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: error.message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ success: false, message: msg }, { status: 500 });
   }
 }

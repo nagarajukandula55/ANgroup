@@ -1,58 +1,118 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
+import { Types } from "mongoose";
 import ProductCategory from "@/models/ProductCategory";
+import NativeProduct from "@/models/NativeProduct";
 
-export async function GET() {
+// GET /api/product-categories?businessId=...&search=...
+export async function GET(req: NextRequest) {
   try {
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const businessId = searchParams.get("businessId");
+    const search = searchParams.get("search");
+
+    if (!businessId) {
+      return NextResponse.json({ error: "businessId is required" }, { status: 400 });
+    }
+
     await connectDB();
 
-    const categories =
-      await ProductCategory.find({
-        active: true,
-      }).sort({
-        categoryName: 1,
-      });
+    const query: Record<string, unknown> = {
+      businessId: new Types.ObjectId(businessId),
+      isDeleted: false,
+    };
 
-    return NextResponse.json({
-      success: true,
-      data: categories,
-    });
-  } catch (err: any) {
-    return NextResponse.json(
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const categories = await ProductCategory.find(query)
+      .populate("parentId", "name")
+      .sort({ name: 1 })
+      .lean();
+
+    // Get product counts per category name
+    const categoryNames = categories.map((c) => c.name);
+    const productCounts = await NativeProduct.aggregate([
       {
-        success: false,
-        message: err.message,
+        $match: {
+          businessId: new Types.ObjectId(businessId),
+          category: { $in: categoryNames },
+          isDeleted: { $ne: true },
+        },
       },
-      { status: 500 }
-    );
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+    ]);
+
+    const countMap: Record<string, number> = {};
+    for (const pc of productCounts) {
+      if (pc._id) countMap[pc._id] = pc.count;
+    }
+
+    const result = categories.map((cat) => ({
+      ...cat,
+      productCount: countMap[cat.name] || 0,
+    }));
+
+    return NextResponse.json({ success: true, categories: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
-export async function POST(
-  req: Request
-) {
+// POST /api/product-categories
+export async function POST(req: NextRequest) {
   try {
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await req.json();
+    const { name, description, parentId, imageUrl, businessId } = body;
+
+    if (!name || !businessId) {
+      return NextResponse.json(
+        { error: "name and businessId are required" },
+        { status: 400 }
+      );
+    }
+
     await connectDB();
 
-    const body =
-      await req.json();
-
-    const category =
-      await ProductCategory.create(
-        body
-      );
-
-    return NextResponse.json({
-      success: true,
-      data: category,
+    // Check duplicate name within business
+    const existing = await ProductCategory.findOne({
+      businessId: new Types.ObjectId(businessId),
+      name: name.trim(),
+      isDeleted: false,
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: err.message,
-      },
-      { status: 500 }
-    );
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: "A category with this name already exists" },
+        { status: 409 }
+      );
+    }
+
+    const category = await ProductCategory.create({
+      name: name.trim(),
+      description: description?.trim() || undefined,
+      parentId: parentId ? new Types.ObjectId(parentId) : null,
+      imageUrl: imageUrl?.trim() || undefined,
+      businessId: new Types.ObjectId(businessId),
+      createdBy: new Types.ObjectId(userId),
+    });
+
+    return NextResponse.json({ success: true, category }, { status: 201 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

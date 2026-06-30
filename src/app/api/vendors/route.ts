@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { requirePermission } from "@/middleware/permission.guard";
-import Vendor from "@/models/Vendor";
+import VendorProfile from "@/models/VendorProfile";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 
@@ -13,21 +12,13 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const session = userId
-      ? { user: { id: userId, name: h.get("x-user-name") || "", email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
-      : null;
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    requirePermission(session, "vendor.view");
 
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
+    const search = searchParams.get("search");
 
     if (!businessId) {
       return NextResponse.json(
@@ -36,23 +27,24 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const vendors = await Vendor.find({
+    const query: Record<string, unknown> = {
       businessId: new Types.ObjectId(businessId),
       isDeleted: false,
-    }).sort({ createdAt: -1 });
+    };
 
-    return NextResponse.json({
-      success: true,
-      data: vendors,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
+    if (search) {
+      query.$or = [
+        { companyName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const vendors = await VendorProfile.find(query).sort({ createdAt: -1 });
+
+    return NextResponse.json({ success: true, data: vendors });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
 
@@ -64,58 +56,39 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const session = userId
-      ? { user: { id: userId, name: h.get("x-user-name") || "", email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
-      : null;
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    requirePermission(session, "vendor.manage");
-
     const body = await req.json();
+    const { businessId, companyName, email, phone, address, gstNumber } = body;
 
-    const {
-      businessId,
-      name,
-      email,
-      phone,
-      address,
-      gstNumber,
-    } = body;
-
-    if (!businessId || !name) {
+    if (!businessId || !companyName) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "businessId and companyName are required" },
         { status: 400 }
       );
     }
 
-    const vendor = await Vendor.create({
+    // Generate a unique vendorId
+    const count = await VendorProfile.countDocuments({
       businessId: new Types.ObjectId(businessId),
-      name,
+    });
+    const vendorId = `VND-${String(count + 1).padStart(4, "0")}`;
+
+    const vendor = await VendorProfile.create({
+      businessId: new Types.ObjectId(businessId),
+      vendorId,
+      companyName,
       email,
       phone,
       address,
       gstNumber,
-      createdBy: session.user.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: vendor,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, data: vendor });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

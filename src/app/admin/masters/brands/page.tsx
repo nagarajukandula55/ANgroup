@@ -1,15 +1,576 @@
-import PageHeader from "@/components/admin/PageHeader";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Search,
+  Plus,
+  Tag,
+  Edit2,
+  Trash2,
+  X,
+  ImageOff,
+  Package,
+  CheckCircle,
+  AlertCircle,
+  Layers,
+} from "lucide-react";
+
+interface Brand {
+  _id: string;
+  name: string;
+  description?: string;
+  logoUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ModalState {
+  type: "add" | "edit" | "delete" | null;
+  brand?: Brand;
+}
 
 export default function BrandsPage() {
-  return (
-    <div className="p-8">
-      <PageHeader
-        title="Brands"
-        subtitle="Manage product brands"
-      />
+  const businessId =
+    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
 
-      <div className="rounded-2xl border border-white/10 p-6">
-        Brands Module
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [modal, setModal] = useState<ModalState>({ type: null });
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    logoUrl: "",
+  });
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const fetchBrands = useCallback(async () => {
+    if (!businessId) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ businessId });
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/brands?${params}`);
+      const data = await res.json();
+      if (data.success) setBrands(data.brands);
+    } catch {
+      showToast("Failed to load brands", false);
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, search]);
+
+  useEffect(() => {
+    const timer = setTimeout(fetchBrands, 300);
+    return () => clearTimeout(timer);
+  }, [fetchBrands]);
+
+  const openAdd = () => {
+    setFormData({ name: "", description: "", logoUrl: "" });
+    setFormError("");
+    setModal({ type: "add" });
+  };
+
+  const openEdit = (brand: Brand) => {
+    setFormData({
+      name: brand.name,
+      description: brand.description || "",
+      logoUrl: brand.logoUrl || "",
+    });
+    setFormError("");
+    setModal({ type: "edit", brand });
+  };
+
+  const openDelete = (brand: Brand) => {
+    setDeleteConfirmName("");
+    setModal({ type: "delete", brand });
+  };
+
+  const closeModal = () => {
+    setModal({ type: null });
+    setFormError("");
+  };
+
+  const handleSubmitAdd = async () => {
+    if (!formData.name.trim()) {
+      setFormError("Brand name is required.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError("");
+    try {
+      const res = await fetch("/api/brands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          logoUrl: formData.logoUrl.trim(),
+          businessId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setFormError(data.error || "Failed to create brand.");
+        return;
+      }
+      showToast("Brand created successfully.");
+      closeModal();
+      fetchBrands();
+    } catch {
+      setFormError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmitEdit = async () => {
+    if (!formData.name.trim()) {
+      setFormError("Brand name is required.");
+      return;
+    }
+    if (!modal.brand) return;
+    setSubmitting(true);
+    setFormError("");
+    try {
+      const res = await fetch(`/api/brands/${modal.brand._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          logoUrl: formData.logoUrl.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setFormError(data.error || "Failed to update brand.");
+        return;
+      }
+      showToast("Brand updated successfully.");
+      closeModal();
+      fetchBrands();
+    } catch {
+      setFormError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!modal.brand) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/brands/${modal.brand._id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Failed to delete brand.", false);
+        closeModal();
+        return;
+      }
+      showToast("Brand deleted.");
+      closeModal();
+      fetchBrands();
+    } catch {
+      showToast("Network error.", false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleActive = async (brand: Brand) => {
+    try {
+      const res = await fetch(`/api/brands/${brand._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !brand.isActive }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Brand ${!brand.isActive ? "activated" : "deactivated"}.`);
+        fetchBrands();
+      }
+    } catch {
+      showToast("Failed to update status.", false);
+    }
+  };
+
+  const activeBrands = brands.filter((b) => b.isActive);
+  const inactiveBrands = brands.filter((b) => !b.isActive);
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-[100] flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium shadow-xl transition-all ${
+            toast.ok
+              ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+              : "bg-red-500/10 border border-red-500/20 text-red-400"
+          }`}
+        >
+          {toast.ok ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-white">Brands</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">
+            Manage product brands and their details
+          </p>
+        </div>
+        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100">
+          <Plus size={16} />
+          Add Brand
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+            <Layers size={14} />
+            Total Brands
+          </div>
+          <p className="text-2xl font-semibold text-white">{brands.length}</p>
+        </div>
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+            <CheckCircle size={14} />
+            Active
+          </div>
+          <p className="text-2xl font-semibold text-emerald-400">{activeBrands.length}</p>
+        </div>
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+            <Package size={14} />
+            Inactive
+          </div>
+          <p className="text-2xl font-semibold text-zinc-400">{inactiveBrands.length}</p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search brands…"
+          className="w-full pl-9 pr-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+        />
+      </div>
+
+      {/* Grid */}
+      {loading ? (
+        <div className="p-12 text-center text-zinc-500">Loading…</div>
+      ) : brands.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+            <Tag size={24} className="text-zinc-600" />
+          </div>
+          <div className="text-center">
+            <p className="text-white font-medium">No brands found</p>
+            <p className="text-sm text-zinc-500 mt-1">
+              {search ? "Try a different search term." : "Get started by adding your first brand."}
+            </p>
+          </div>
+          {!search && (
+            <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100">
+              <Plus size={16} />
+              Add Brand
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {brands.map((brand) => (
+            <BrandCard
+              key={brand._id}
+              brand={brand}
+              onEdit={openEdit}
+              onDelete={openDelete}
+              onToggleActive={toggleActive}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Add Modal */}
+      {modal.type === "add" && (
+        <BrandModal
+          title="Add Brand"
+          formData={formData}
+          setFormData={setFormData}
+          formError={formError}
+          submitting={submitting}
+          onClose={closeModal}
+          onSubmit={handleSubmitAdd}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {modal.type === "edit" && modal.brand && (
+        <BrandModal
+          title="Edit Brand"
+          formData={formData}
+          setFormData={setFormData}
+          formError={formError}
+          submitting={submitting}
+          onClose={closeModal}
+          onSubmit={handleSubmitEdit}
+        />
+      )}
+
+      {/* Delete Modal */}
+      {modal.type === "delete" && modal.brand && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
+              <h2 className="text-base font-semibold text-white">Delete Brand</h2>
+              <button onClick={closeModal} className="text-zinc-500 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-zinc-400">
+                This action cannot be undone. Type{" "}
+                <span className="text-white font-medium">{modal.brand.name}</span>{" "}
+                to confirm deletion.
+              </p>
+              <input
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder={modal.brand.name}
+                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/40"
+              />
+            </div>
+            <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
+              <button onClick={closeModal} className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20">
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteConfirmName !== modal.brand.name || submitting}
+                className="px-3 py-2 text-xs text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Deleting…" : "Delete Brand"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BrandCard({
+  brand,
+  onEdit,
+  onDelete,
+  onToggleActive,
+}: {
+  brand: Brand;
+  onEdit: (b: Brand) => void;
+  onDelete: (b: Brand) => void;
+  onToggleActive: (b: Brand) => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col gap-3 hover:border-white/[0.10] transition-colors group">
+      {/* Logo */}
+      <div className="flex items-start justify-between">
+        <div className="w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center overflow-hidden flex-shrink-0">
+          {brand.logoUrl && !imgError ? (
+            <img
+              src={brand.logoUrl}
+              alt={brand.name}
+              className="w-full h-full object-contain p-1"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <ImageOff size={18} className="text-zinc-600" />
+          )}
+        </div>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => onEdit(brand)}
+            className="p-1.5 text-zinc-500 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+            title="Edit"
+          >
+            <Edit2 size={13} />
+          </button>
+          <button
+            onClick={() => onDelete(brand)}
+            className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Delete"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="text-sm font-medium text-white truncate">{brand.name}</h3>
+        </div>
+        {brand.description ? (
+          <p className="text-xs text-zinc-500 line-clamp-2">{brand.description}</p>
+        ) : (
+          <p className="text-xs text-zinc-700 italic">No description</p>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+        <button
+          onClick={() => onToggleActive(brand)}
+          className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
+            brand.isActive
+              ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+              : "text-zinc-400 bg-white/[0.04] hover:bg-white/[0.08]"
+          }`}
+          title={brand.isActive ? "Click to deactivate" : "Click to activate"}
+        >
+          {brand.isActive ? "Active" : "Inactive"}
+        </button>
+        <span className="text-xs text-zinc-600">
+          {new Date(brand.createdAt).toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function BrandModal({
+  title,
+  formData,
+  setFormData,
+  formError,
+  submitting,
+  onClose,
+  onSubmit,
+}: {
+  title: string;
+  formData: { name: string; description: string; logoUrl: string };
+  setFormData: (d: { name: string; description: string; logoUrl: string }) => void;
+  formError: string;
+  submitting: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const [logoPreviewError, setLogoPreviewError] = useState(false);
+
+  useEffect(() => {
+    setLogoPreviewError(false);
+  }, [formData.logoUrl]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
+          <h2 className="text-base font-semibold text-white">{title}</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Logo preview */}
+          {formData.logoUrl && (
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center overflow-hidden">
+                {!logoPreviewError ? (
+                  <img
+                    src={formData.logoUrl}
+                    alt="Logo preview"
+                    className="w-full h-full object-contain p-2"
+                    onError={() => setLogoPreviewError(true)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <ImageOff size={20} className="text-zinc-600" />
+                    <span className="text-xs text-zinc-600">Invalid URL</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs text-zinc-500 block mb-1">
+              Brand Name <span className="text-red-400">*</span>
+            </label>
+            <input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g. Tata, Bosch, Samsung"
+              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-zinc-500 block mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Brief description of the brand…"
+              rows={3}
+              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-zinc-500 block mb-1">Logo URL (optional)</label>
+            <input
+              value={formData.logoUrl}
+              onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
+              placeholder="https://example.com/logo.png"
+              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+            />
+          </div>
+
+          {formError && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+              <AlertCircle size={14} />
+              {formError}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
+          <button onClick={onClose} className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20">
+            Cancel
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={submitting}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Saving…" : title}
+          </button>
+        </div>
       </div>
     </div>
   );
