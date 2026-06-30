@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const h = await headers();
     const userId = h.get("x-user-id");
     const session = userId
-      ? { user: { id: userId, email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
+      ? { user: { id: userId, name: h.get("x-user-name") || "", email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
       : null;
 
     if (!session?.user) {
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     const h = await headers();
     const userId = h.get("x-user-id");
     const session = userId
-      ? { user: { id: userId, email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
+      ? { user: { id: userId, name: h.get("x-user-name") || "", email: h.get("x-user-email") || "" }, permissions: [], roles: [] }
       : null;
 
     if (!session?.user) {
