@@ -1,11 +1,9 @@
-import { auth } from "./auth";
+/**
+ * Auth session helpers (custom JWT version)
+ * Auth is now handled via custom JWT — see lib/auth/jwt.ts
+ * This file is kept for reference; use getAuthUser() from jwt.ts instead.
+ */
 import User from "@/models/User";
-import BusinessMember from "@/models/BusinessMember";
-import RolePermission from "@/models/RolePermission";
-import UserRole from "@/models/UserRole";
-import Role from "@/models/Role";
-import Permission from "@/models/Permission";
-import { Types } from "mongoose";
 
 /**
  * Full enriched session context for ERP
@@ -25,81 +23,15 @@ export interface IAuthSession {
 }
 
 /**
- * Get raw Auth.js session
+ * Legacy stub — session is now provided by custom JWT middleware
+ * Use req.headers.get('x-user-id') in API routes instead
  */
 export async function getSession() {
-  return await auth();
+  return null;
 }
 
-/**
- * Build enriched ERP session with roles + permissions
- */
 export async function getAuthSession(): Promise<IAuthSession | null> {
-  const session = await auth();
-
-  if (!session?.user?.email) return null;
-
-  const user = await User.findOne({
-    email: session.user.email,
-    isDeleted: false,
-  });
-
-  if (!user) return null;
-
-  /**
-   * Get active business membership
-   */
-  const membership = await BusinessMember.findOne({
-    userId: user._id,
-    isDeleted: false,
-    status: "ACTIVE",
-  });
-
-  const businessId = membership?.businessId?.toString();
-  const organizationId = membership?.organizationId?.toString();
-
-  /**
-   * Get user roles in this business
-   */
-  const userRoles = await UserRole.find({
-    userId: user._id,
-    businessMemberId: membership?._id,
-    isActive: true,
-  });
-
-  const roleIds = userRoles.map((r) => r.roleId);
-
-  const roles = await Role.find({
-    _id: { $in: roleIds },
-  });
-
-  /**
-   * Get permissions from roles
-   */
-  const rolePermissions = await RolePermission.find({
-    roleId: { $in: roleIds },
-  });
-
-  const permissionIds = rolePermissions.map((rp) => rp.permissionId);
-
-  const permissions = await Permission.find({
-    _id: { $in: permissionIds },
-  });
-
-  return {
-    user: {
-      id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-    },
-
-    organizationId,
-    businessId,
-
-    roles: roles.map((r) => r.code),
-
-    permissions: permissions.map((p) => p.code),
-  };
+  return null;
 }
 
 /**

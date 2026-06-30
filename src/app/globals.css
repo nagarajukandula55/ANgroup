@@ -3,24 +3,35 @@
 @tailwind utilities;
 
 /* ==========================================
-   GLOBAL THEME
+   AN GROUP — DARK MINIMAL THEME
 ========================================== */
 
 :root {
-  --bg: #f8fafc;
-  --surface: #ffffff;
-  --border: #e5e7eb;
+  /* Core palette — black/white with subtle greys */
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-2: #111111;
+  --surface-3: #1a1a1a;
 
-  --text: #111827;
-  --muted: #6b7280;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.15);
 
-  --primary: #111827;
-  --primary-hover: #000000;
+  --text: #ffffff;
+  --text-2: #a1a1aa;
+  --text-3: #52525b;
+  --muted: #71717a;
 
-  --success: #16a34a;
-  --danger: #dc2626;
+  --primary: #ffffff;
+  --primary-hover: #f4f4f5;
+  --primary-fg: #000000;
 
-  --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
 }
 
 /* ==========================================
@@ -38,7 +49,7 @@ body {
   background: var(--bg);
   color: var(--text);
 
-  font-family: Inter, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
 
   min-height: 100vh;
 
@@ -82,8 +93,8 @@ select {
 ========================================== */
 
 ::selection {
-  background: #dbeafe;
-  color: #111827;
+  background: rgba(255,255,255,0.2);
+  color: #ffffff;
 }
 
 /* ==========================================
@@ -97,10 +108,46 @@ select {
 }
 
 .card {
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   box-shadow: var(--shadow);
+}
+
+/* ==========================================
+   AN DESIGN SYSTEM COMPONENTS
+========================================== */
+
+/* Glassmorphism panel */
+.glass {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.badge-active { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+.badge-inactive { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.15); }
+.badge-pending { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.15); }
+.badge-info { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.15); }
+
+/* Interactive table rows */
+.table-row-hover {
+  transition: background 0.15s ease;
+}
+.table-row-hover:hover {
+  background: rgba(255,255,255,0.03);
 }
 
 .section {
@@ -125,16 +172,16 @@ select {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #0a0a0a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(255,255,255,0.1);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(255,255,255,0.2);
 }
 
 /* ==========================================
@@ -144,17 +191,23 @@ select {
 input,
 textarea,
 select {
-  background: #ffffff;
-  color: #111827;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
   outline: none;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: #111827;
+  border-color: rgba(255,255,255,0.25);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.05);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255,255,255,0.2);
 }
 
 /* ==========================================
@@ -162,32 +215,54 @@ select:focus {
 ========================================== */
 
 .btn-primary {
-  background: #111827;
-  color: white;
+  background: #ffffff;
+  color: #000000;
   border: none;
   border-radius: 10px;
-  padding: 12px 18px;
+  padding: 10px 18px;
+  font-weight: 500;
+  font-size: 13px;
   transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-  background: #000000;
+  background: #f4f4f5;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(255,255,255,0.06);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.1);
 }
 
 .btn-success {
-  background: #16a34a;
-  color: white;
-  border: none;
+  background: rgba(34,197,94,0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.2);
   border-radius: 10px;
-  padding: 12px 18px;
+  padding: 10px 18px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .btn-danger {
-  background: #dc2626;
-  color: white;
-  border: none;
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.2);
   border-radius: 10px;
-  padding: 12px 18px;
+  padding: 10px 18px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 /* ==========================================
@@ -199,14 +274,29 @@ table {
 }
 
 th {
-  background: #111827;
-  color: white;
+  background: rgba(255,255,255,0.04);
+  color: #a1a1aa;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+}
+
+td {
+  padding: 12px 16px;
+  color: #e4e4e7;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
 td,
 th {
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(255,255,255,0.06);
 }
+
+/* Remove double borders */
+table { border-collapse: collapse; }
+tr:last-child td { border-bottom: none; }
 
 /* ==========================================
    PRINT

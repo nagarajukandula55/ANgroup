@@ -35,6 +35,7 @@ export interface IUser extends Document {
   /* Identity */
   name: string;
   email: string;
+  username?: string;
   phone?: string;
   password?: string;
 
@@ -92,6 +93,16 @@ const UserSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
       index: true,
+    },
+
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+      default: null,
     },
 
     phone: {
@@ -227,6 +238,7 @@ const UserSchema = new Schema<IUser>(
  * =======================================================*/
 
 UserSchema.index({ email: 1 });
+UserSchema.index({ username: 1 });
 UserSchema.index({ phone: 1 });
 UserSchema.index({ isActive: 1 });
 UserSchema.index({ defaultBusinessId: 1 });

@@ -1,110 +1,113 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
-import { UserService } from "@/services/user/user.service";
+/**
+ * Users API
+ * GET  /api/users  — list users (admin only)
+ * POST /api/users  — create user (admin only)
+ */
 
-/* =========================================================
- * GET USERS (BASIC LIST)
- * =======================================================*/
-export async function GET(req: NextRequest) {
+import { NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import { connectDB } from '@/lib/mongodb'
+import User from '@/models/User'
+
+const SALT_ROUNDS = 12
+
+export async function GET(req: Request) {
   try {
-    const session = await auth();
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const role = req.headers.get('x-user-role') || ''
+    if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) {
+      return NextResponse.json({ success: false, message: 'Admin access required' }, { status: 403 })
     }
 
-    const { searchParams } = new URL(req.url);
+    await connectDB()
 
-    const email = searchParams.get("email");
+    const { searchParams } = new URL(req.url)
+    const search = searchParams.get('search')
+    const isActive = searchParams.get('isActive')
+    const userRole = searchParams.get('role')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '50')
 
-    if (email) {
-      const user = await UserService.getUserByEmail(email);
-
-      return NextResponse.json({
-        success: true,
-        data: user,
-      });
+    const query: any = { isDeleted: false }
+    if (isActive !== null && isActive !== undefined && isActive !== '') {
+      query.isActive = isActive === 'true'
     }
+    if (userRole) query.role = userRole
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } },
+      ]
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(query),
+    ])
 
     return NextResponse.json({
       success: true,
-      message: "Provide email query param to fetch user",
-      data: [],
-    });
+      users,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    })
   } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
+    console.error('Users GET error:', error)
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }
 
-/* =========================================================
- * CREATE USER (FULL IAM FLOW)
- * =======================================================*/
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const session = await auth();
+    const role = req.headers.get('x-user-role') || ''
+    const requesterId = req.headers.get('x-user-id')
 
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (!requesterId || !['SUPER_ADMIN', 'ADMIN'].includes(role)) {
+      return NextResponse.json({ success: false, message: 'Admin access required' }, { status: 403 })
     }
 
-    const body = await req.json();
+    await connectDB()
 
-    const {
-      name,
-      email,
-      password,
-      organizationId,
-      businessId,
-      roleCode,
-    } = body;
+    const body = await req.json()
+    const { name, email, username, phone, password, userRole, isActive } = body
 
-    if (
-      !name ||
-      !email ||
-      !password ||
-      !organizationId ||
-      !businessId ||
-      !roleCode
-    ) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+    if (!name?.trim() || !email?.trim()) {
+      return NextResponse.json({ success: false, message: 'Name and email are required' }, { status: 400 })
     }
 
-    const result = await UserService.createUser({
-      name,
-      email,
-      password,
-      organizationId,
-      businessId,
-      roleCode,
-      createdBy: session.user.id,
-    });
+    // Only super admin can create admins
+    if (userRole === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, message: 'Only super admin can assign SUPER_ADMIN role' }, { status: 403 })
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    const hashedPassword = password ? await bcrypt.hash(password, SALT_ROUNDS) : undefined
+
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      username: username?.toLowerCase()?.trim() || null,
+      phone: phone?.trim() || null,
+      password: hashedPassword,
+      role: userRole || 'STAFF',
+      isActive: isActive !== false,
+      isEmailVerified: false,
+      authProvider: 'credentials',
+    })
+
+    const userObj = user.toObject()
+    delete (userObj as any).password
+
+    return NextResponse.json({ success: true, user: userObj }, { status: 201 })
   } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0]
+      return NextResponse.json({ success: false, message: `${field} already exists` }, { status: 409 })
+    }
+    console.error('Users POST error:', error)
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }

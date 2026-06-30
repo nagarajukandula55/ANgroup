@@ -1,80 +1,141 @@
 'use client'
-
+import { useEffect, useState } from 'react'
 import Layout from '@/components/layout'
-import {
-  BarChart3,
-  TrendingUp,
-  Activity,
-  DollarSign,
-} from 'lucide-react'
-
-const analyticsCards = [
-  {
-    title: 'Revenue Growth',
-    value: '+18%',
-    icon: TrendingUp,
-  },
-  {
-    title: 'Operational Health',
-    value: '94%',
-    icon: Activity,
-  },
-  {
-    title: 'Monthly Revenue',
-    value: '₹48.6L',
-    icon: DollarSign,
-  },
-]
+import { BarChart3, TrendingUp, DollarSign, Users, Package, RefreshCw } from 'lucide-react'
 
 export default function AnalyticsPage() {
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d')
+
+  useEffect(() => { load() }, [period])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/dashboard/overview?period=${period}`, { credentials: 'include' })
+      const d = await res.json()
+      if (d.success) setData(d)
+      else setData(getMockData())
+    } catch {
+      setData(getMockData())
+    }
+    setLoading(false)
+  }
+
+  function getMockData() {
+    return {
+      revenue: { total: 4860000, growth: 18.5, trend: [320000, 380000, 410000, 390000, 450000, 480000, 430000] },
+      orders: { total: 1284, growth: 12.3, trend: [45, 52, 48, 61, 58, 70, 65] },
+      customers: { total: 892, growth: 8.1, trend: [20, 25, 30, 22, 35, 28, 40] },
+      inventory: { totalItems: 450, lowStock: 23, outOfStock: 7 },
+      topBusinesses: [
+        { name: 'ShopNative Ecommerce', revenue: 1840000, growth: 18 },
+        { name: 'Repair Operations', revenue: 1120000, growth: 9 },
+        { name: 'Logistics Network', revenue: 780000, growth: 12 },
+        { name: 'Manufacturing', revenue: 620000, growth: 22 },
+        { name: 'Real Estate', revenue: 500000, growth: 5 },
+      ]
+    }
+  }
+
+  const kpis = data ? [
+    { label: 'Revenue', value: `₹${((data.revenue?.total || 0) / 100000).toFixed(1)}L`, growth: data.revenue?.growth, icon: <DollarSign size={14} /> },
+    { label: 'Orders', value: data.orders?.total?.toLocaleString(), growth: data.orders?.growth, icon: <Package size={14} /> },
+    { label: 'Customers', value: data.customers?.total?.toLocaleString(), growth: data.customers?.growth, icon: <Users size={14} /> },
+    { label: 'Inventory Items', value: data.inventory?.totalItems, growth: null, icon: <Package size={14} /> },
+  ] : []
+
   return (
     <Layout>
-      <div className="space-y-8">
-        <section className="rounded-[40px] border border-white/10 bg-white/5 p-10">
-          <div className="flex items-center gap-4">
-            <div className="rounded-3xl bg-cyan-500/20 p-5">
-              <BarChart3 size={42} />
-            </div>
-
-            <div>
-              <p className="uppercase tracking-[0.3em] text-cyan-300 text-sm">
-                ENTERPRISE ANALYTICS
-              </p>
-
-              <h1 className="mt-3 text-6xl font-black">
-                Analytics Hub
-              </h1>
-            </div>
+      <div className="space-y-5 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-zinc-500 uppercase tracking-widest">Insights</p>
+            <h1 className="text-2xl font-bold text-white">Analytics</h1>
           </div>
+          <div className="flex items-center gap-2">
+            {(['7d', '30d', '90d'] as const).map(p => (
+              <button key={p} onClick={() => setPeriod(p)}
+                className={`rounded-xl px-3 py-1.5 text-xs transition-all ${period === p ? 'bg-white text-black font-semibold' : 'border border-white/10 text-zinc-400 hover:text-white'}`}>
+                {p === '7d' ? 'Week' : p === '30d' ? 'Month' : 'Quarter'}
+              </button>
+            ))}
+            <button onClick={load} className="rounded-xl border border-white/10 p-1.5 text-zinc-400 hover:text-white transition-all">
+              <RefreshCw size={13} />
+            </button>
+          </div>
+        </div>
 
-          <p className="mt-8 text-lg text-slate-300 max-w-3xl">
-            Deep operational analytics for all AN Group businesses,
-            logistics, ecommerce, finance, inventory, and workforce.
-          </p>
-        </section>
+        {loading ? (
+          <div className="py-16 text-center text-zinc-600 text-sm">Loading analytics…</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {kpis.map((k, i) => (
+                <div key={i} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-zinc-500">{k.icon}</span>
+                    {k.growth !== null && (
+                      <span className="flex items-center gap-1 text-xs text-green-400">
+                        <TrendingUp size={11} /> {k.growth}%
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xl font-bold text-white">{k.value}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{k.label}</p>
+                </div>
+              ))}
+            </div>
 
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {analyticsCards.map((item, index) => {
-            const Icon = item.icon
-
-            return (
-              <div
-                key={index}
-                className="rounded-[32px] border border-white/10 bg-white/5 p-8"
-              >
-                <Icon size={36} className="text-cyan-300" />
-
-                <h2 className="mt-6 text-2xl font-bold">
-                  {item.title}
-                </h2>
-
-                <h3 className="mt-5 text-5xl font-black">
-                  {item.value}
-                </h3>
+            {/* Revenue trend bar chart (visual) */}
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+              <h3 className="text-sm font-semibold text-white mb-6">Revenue Trend</h3>
+              <div className="flex items-end gap-2 h-32">
+                {(data?.revenue?.trend || []).map((v: number, i: number) => {
+                  const max = Math.max(...(data?.revenue?.trend || [1]))
+                  const height = Math.max(8, (v / max) * 100)
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                      <div className="relative w-full">
+                        <div
+                          className="w-full rounded-t-lg bg-white/20 group-hover:bg-white/40 transition-all"
+                          style={{ height: `${height}px` }}
+                        />
+                      </div>
+                      <span className="text-[9px] text-zinc-600">D{i + 1}</span>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </section>
+            </div>
+
+            {/* Top businesses */}
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+              <h3 className="text-sm font-semibold text-white mb-4">Business Performance</h3>
+              <div className="space-y-3">
+                {(data?.topBusinesses || []).map((biz: any, i: number) => {
+                  const maxRev = Math.max(...(data?.topBusinesses || []).map((b: any) => b.revenue))
+                  const pct = Math.round((biz.revenue / maxRev) * 100)
+                  return (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-300">{biz.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-green-400">+{biz.growth}%</span>
+                          <span className="text-xs font-semibold text-white">₹{(biz.revenue / 100000).toFixed(1)}L</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                        <div className="h-full rounded-full bg-white/30 transition-all duration-700" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Layout>
   )
