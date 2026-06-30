@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
+import { headers } from "next/headers";
 import RolePermission from "@/models/RolePermission";
 import { Types } from "mongoose";
+import { connectDB } from "@/lib/mongodb";
 
 /* =========================================================
  * ASSIGN PERMISSIONS TO ROLE (REPLACE MODE)
@@ -11,9 +12,11 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -51,9 +54,7 @@ export async function POST(
         document: {
           roleId: roleObjectId,
           permissionId: new Types.ObjectId(pid),
-          createdBy: session.user.id
-            ? new Types.ObjectId(session.user.id)
-            : undefined,
+          createdBy: userId ? new Types.ObjectId(userId) : undefined,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -73,8 +74,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message || "Internal Server Error",
+        error: error.message || "Internal Server Error",
       },
       { status: 500 }
     );
@@ -89,9 +89,11 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    await connectDB();
+    const h = await headers();
+    const userId = h.get("x-user-id");
 
-    if (!session?.user?.email) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -106,16 +108,13 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: mappings.map((m) =>
-        m.permissionId.toString()
-      ),
+      data: mappings.map((m) => m.permissionId.toString()),
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message || "Internal Server Error",
+        error: error.message || "Internal Server Error",
       },
       { status: 500 }
     );
