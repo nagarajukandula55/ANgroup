@@ -25,7 +25,7 @@ export class RoleService {
       organizationId: new Types.ObjectId(data.organizationId),
       businessId: data.businessId
         ? new Types.ObjectId(data.businessId)
-        : null,
+        : undefined,
       name: data.name,
       code: data.code,
       description: data.description,
@@ -35,7 +35,7 @@ export class RoleService {
       isProtected: data.isProtected ?? false,
       createdBy: data.createdBy
         ? new Types.ObjectId(data.createdBy)
-        : null,
+        : undefined,
     });
 
     return role;
@@ -103,7 +103,7 @@ export class RoleService {
             permissionId: new Types.ObjectId(pid),
             createdBy: data.createdBy
               ? new Types.ObjectId(data.createdBy)
-              : null,
+              : undefined,
           },
         },
         upsert: true,
