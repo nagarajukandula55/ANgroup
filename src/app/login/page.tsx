@@ -42,7 +42,6 @@ function LoginForm() {
       localStorage.setItem('an_token', data.token)
       localStorage.setItem('an_user', JSON.stringify(data.user))
 
-      // Redirect
       router.push(redirect)
       router.refresh()
     } catch {
@@ -71,13 +70,13 @@ function LoginForm() {
         {/* Identifier */}
         <div>
           <label className="block text-xs font-medium text-zinc-400 mb-2">
-            Username or Email
+            Email
           </label>
           <input
             type="text"
             value={form.identifier}
             onChange={(e) => setForm({ ...form, identifier: e.target.value })}
-            placeholder="raj or raj@angroup.com"
+            placeholder="raj@angroup.com"
             required
             autoFocus
             className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
@@ -161,7 +160,6 @@ export default function LoginPage() {
           <LoginForm />
         </Suspense>
 
-        {/* Setup hint for first time */}
         <p className="mt-4 text-center text-xs text-zinc-700">
           First time?{' '}
           <a href="/api/seed" target="_blank" className="text-zinc-500 underline hover:text-zinc-300">
