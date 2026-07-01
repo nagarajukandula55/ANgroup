@@ -12,6 +12,7 @@
 
   "dependencies": {
     "bcryptjs": "^3.0.2",
+    "jose": "^5.9.6",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.511.0",
     "mongoose": "^8.15.1",

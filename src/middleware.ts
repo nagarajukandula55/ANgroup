@@ -1,27 +1,54 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifyToken } from "@/lib/auth/jwt";
+import { jwtVerify } from "jose";
 
 /**
  * AN Group ERP — Route Protection Middleware
- * Uses custom JWT (an_token cookie) — NOT NextAuth
  *
- * Super Admin bypass: SUPER_ADMIN role skips all business-level restrictions.
+ * Uses `jose` for JWT verification — it is Web Crypto / Edge-runtime compatible.
+ * `jsonwebtoken` uses Node.js crypto and CANNOT be used in Next.js middleware
+ * (which runs on the Edge runtime).
  */
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
 
-  /* ── Public routes — no auth needed ──────────────────────────────────── */
-  const publicPrefixes = [
-    "/login",
-    "/register",
-    "/api/auth",          // login / logout / refresh endpoints
-    "/api/seed",          // first-run super admin seeding
-    "/api/health",
-    "/_next",
-    "/favicon.ico",
-    "/public",
-  ];
+// Encode secret once at module level (TextEncoder works in Edge)
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || "AN_GROUP_ENTERPRISE_SECRET"
+);
+
+interface JWTPayload {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isSuperAdmin: boolean;
+  businessIds: string[];
+  activeBusinessId?: string;
+  organizationId?: string;
+}
+
+async function verifyEdgeToken(token: string): Promise<JWTPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as JWTPayload;
+  } catch {
+    return null;
+  }
+}
+
+/* ── Public routes — no auth needed ──────────────────────────────────── */
+const publicPrefixes = [
+  "/login",
+  "/register",
+  "/api/auth",
+  "/api/seed",
+  "/api/health",
+  "/_next",
+  "/favicon.ico",
+  "/public",
+];
+
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
   const isPublic = publicPrefixes.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
@@ -30,7 +57,6 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get("an_token")?.value;
 
   if (!token) {
-    // API routes → 401 JSON; page routes → redirect to login
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -39,7 +65,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const payload = verifyToken(token);
+  const payload = await verifyEdgeToken(token);
 
   if (!payload) {
     if (pathname.startsWith("/api/")) {
@@ -62,10 +88,8 @@ export function middleware(req: NextRequest) {
     requestHeaders.set("x-organization-id", payload.organizationId);
   }
 
-  // Super admin gets all business IDs available — no restriction
   if (payload.isSuperAdmin) {
     requestHeaders.set("x-super-admin-access", "true");
-    // Still pass their business context if set
     if (payload.activeBusinessId) {
       requestHeaders.set("x-active-business-id", payload.activeBusinessId);
     }
@@ -73,7 +97,6 @@ export function middleware(req: NextRequest) {
       requestHeaders.set("x-business-ids", payload.businessIds.join(","));
     }
   } else {
-    // Regular users — restrict to their assigned businesses
     if (payload.businessIds?.length) {
       requestHeaders.set("x-business-ids", payload.businessIds.join(","));
     }
