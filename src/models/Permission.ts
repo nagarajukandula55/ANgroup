@@ -1,13 +1,27 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+/* ── Enums (runtime values + type inference) ───────────────────────────── */
+export enum PermissionType {
+  SYSTEM = 'SYSTEM',
+  CUSTOM = 'CUSTOM',
+}
+
+export enum PermissionStatus {
+  ACTIVE   = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+
+/* ── Interface ─────────────────────────────────────────────────────────── */
 export interface IPermission extends Document {
   code:        string;
   name:        string;
   description: string;
-  module:      string;   /* top-level module grouping, e.g. "SALES", "HR" */
-  group:       string;   /* sub-group within a module, e.g. "Invoices" */
-  status:      string;   /* "ACTIVE" | "INACTIVE" */
+  module:      string;
+  group:       string;
+  type:        PermissionType;
+  status:      PermissionStatus;
   isActive:    boolean;
+  isProtected: boolean;
   isDeleted:   boolean;
   createdAt:   Date;
   updatedAt:   Date;
@@ -20,8 +34,19 @@ const PermissionSchema = new Schema<IPermission>(
     description: { type: String, default: '' },
     module:      { type: String, default: 'GENERAL', index: true },
     group:       { type: String, default: 'GENERAL', index: true },
-    status:      { type: String, enum: ['ACTIVE', 'INACTIVE'], default: 'ACTIVE', index: true },
-    isActive:    { type: Boolean, default: true, index: true },
+    type: {
+      type:    String,
+      enum:    Object.values(PermissionType),
+      default: PermissionType.CUSTOM,
+    },
+    status: {
+      type:    String,
+      enum:    Object.values(PermissionStatus),
+      default: PermissionStatus.ACTIVE,
+      index:   true,
+    },
+    isActive:    { type: Boolean, default: true,  index: true },
+    isProtected: { type: Boolean, default: false },
     isDeleted:   { type: Boolean, default: false },
   },
   { timestamps: true, versionKey: false }
