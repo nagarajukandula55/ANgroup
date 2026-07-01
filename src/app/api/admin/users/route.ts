@@ -111,14 +111,16 @@ export async function POST(request: NextRequest) {
       name,
       email,
       password: hashedPassword,
-      status: 'ACTIVE',
+      isActive: true,       // CORRECT field — User schema uses isActive not status
+      isEmailVerified: false,
+      authProvider: 'credentials',
       isDeleted: false,
     });
 
     // Find or create role
-    let roleDoc = await Role.findOne({ code: role });
+    let roleDoc = await Role.findOne({ code: role.toUpperCase() });
     if (!roleDoc) {
-      roleDoc = await Role.create({ name: role, code: role, description: role });
+      roleDoc = await Role.create({ name: role, code: role.toUpperCase(), description: role, isSystem: false });
     }
 
     // Create UserRole
@@ -129,8 +131,9 @@ export async function POST(request: NextRequest) {
       await BusinessMember.create({
         userId: user._id,
         businessId,
-        role,
-        isActive: true,
+        memberType: role.toUpperCase(),
+        status: 'ACTIVE',
+        isDefaultBusiness: true,
       });
     }
 

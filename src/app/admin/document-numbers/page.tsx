@@ -68,9 +68,20 @@ export default function DocumentNumbersPage() {
   const [saved, setSaved] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, DocConfig>>({});
+  const [businessId, setBusinessId] = useState<string | null>(null);
 
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  // Resolve businessId from JWT via /api/auth/me (not localStorage)
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          const bid = d.user?.activeBusinessId || d.businesses?.[0]?._id || null;
+          setBusinessId(bid);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchConfigs = useCallback(async () => {
     if (!businessId) return;
