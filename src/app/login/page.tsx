@@ -1,13 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const redirect = '/admin'
-
   const [form, setForm] = useState({ identifier: '', password: '' })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -40,8 +36,9 @@ export default function LoginPage() {
       localStorage.setItem('an_token', data.token)
       localStorage.setItem('an_user', JSON.stringify(data.user))
 
-      router.push(redirect)
-      router.refresh()
+      // Hard redirect so the browser commits the httpOnly cookie before the next request.
+      // router.push() triggers an RSC fetch that races with cookie propagation → 307 loop.
+      window.location.href = '/admin'
     } catch {
       setError('Network error. Please try again.')
     } finally {
