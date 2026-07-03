@@ -1,6 +1,6 @@
 // Route: /api/integrations/telegram/send/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/connectDB';
+import { connectDB } from '@/lib/mongodb'
 import Integration from '@/models/Integration';
 import { TelegramConfig } from '@/models/Integration';
 
