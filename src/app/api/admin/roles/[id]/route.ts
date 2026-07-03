@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodbConnect";
+import { connectDB } from '@/lib/mongodb'
 import Role from "@/models/Role";
 
 // GET /api/admin/roles/[id]
