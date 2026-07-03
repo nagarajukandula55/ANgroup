@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/connectDB'
+import { connectDB } from '@/lib/connectDB'
 import AIConfig from '@/models/AIConfig'
 
 const SYSTEM_PROMPT =
