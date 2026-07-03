@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/connectDB'
+import { connectDB } from '@/lib/connectDB'
 import AIConfig from '@/models/AIConfig'
 
 function maskApiKey(key: string | undefined): string | null {
