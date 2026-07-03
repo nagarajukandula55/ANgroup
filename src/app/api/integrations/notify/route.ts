@@ -1,6 +1,6 @@
 // Route: /api/integrations/notify/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/connectDB';
+import { connectDB } from '@/lib/mongodb'
 import Integration, { TelegramConfig, WhatsAppConfig, SlackConfig } from '@/models/Integration';
 
 async function sendTelegram(config: TelegramConfig, message: string): Promise<void> {
