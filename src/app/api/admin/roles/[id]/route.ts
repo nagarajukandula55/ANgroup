@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await dbConnect();
+    await connectDB();
     const { id } = await params;
     const role = await Role.findById(id);
     if (!role) {
@@ -27,7 +27,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await dbConnect();
+    await connectDB();
     const { id } = await params;
     const body = await request.json();
     const { permissions } = body;
@@ -62,7 +62,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await dbConnect();
+    await connectDB();
     const { id } = await params;
     const role = await Role.findById(id);
 
