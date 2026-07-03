@@ -151,12 +151,12 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col">
+    <div className="h-screen bg-gray-50 text-gray-900 flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center gap-4 px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
+      <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-200 flex-shrink-0">
         <button
           onClick={() => router.push('/admin')}
-          className="w-9 h-9 rounded-xl border border-white/[0.06] bg-white/[0.04] flex items-center justify-center hover:bg-white/[0.08] transition"
+          className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
@@ -165,30 +165,30 @@ export default function ChatPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Rooms sidebar */}
-        <div className="w-64 border-r border-white/[0.06] flex flex-col flex-shrink-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            <span className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Rooms</span>
+        <div className="w-64 border-r border-gray-200 flex flex-col flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Rooms</span>
             <button
               onClick={() => setShowNewRoom((p) => !p)}
-              className="w-6 h-6 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] transition"
+              className="w-6 h-6 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition"
             >
-              <Plus className="w-3 h-3 text-zinc-400" />
+              <Plus className="w-3 h-3 text-gray-500" />
             </button>
           </div>
 
           {showNewRoom && (
-            <form onSubmit={createRoom} className="px-3 py-2 border-b border-white/[0.06]">
+            <form onSubmit={createRoom} className="px-3 py-2 border-b border-gray-200">
               <input
                 autoFocus
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value)}
                 placeholder="Room name..."
-                className="w-full bg-white/[0.06] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-white/20 mb-1.5"
+                className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-1.5"
               />
               <button
                 type="submit"
                 disabled={creatingRoom || !newRoomName.trim()}
-                className="w-full py-1.5 rounded-lg bg-white text-black text-xs font-medium disabled:opacity-50"
+                className="w-full py-1.5 rounded-lg bg-white text-gray-900 text-xs font-medium disabled:opacity-50"
               >
                 {creatingRoom ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Create Room'}
               </button>
@@ -198,13 +198,13 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto py-2">
             {loadingRooms ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-5 h-5 text-zinc-500 animate-spin" />
+                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
               </div>
             ) : rooms.length === 0 ? (
               <div className="px-4 py-8 text-center">
-                <MessageSquare className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
-                <p className="text-xs text-zinc-500">No chat rooms yet.</p>
-                <p className="text-xs text-zinc-600">Create one to get started.</p>
+                <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-xs text-gray-400">No chat rooms yet.</p>
+                <p className="text-xs text-gray-400">Create one to get started.</p>
               </div>
             ) : (
               rooms.map((room) => (
@@ -213,8 +213,8 @@ export default function ChatPage() {
                   onClick={() => setSelectedRoom(room)}
                   className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 transition ${
                     selectedRoom?._id === room._id
-                      ? 'bg-white/[0.08] text-white'
-                      : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-white'
                   }`}
                 >
                   <Hash className="w-3.5 h-3.5 flex-shrink-0" />
@@ -230,37 +230,37 @@ export default function ChatPage() {
           {!selectedRoom ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <MessageSquare className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
-                <p className="text-zinc-500">Select a room to start chatting</p>
+                <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-400">Select a room to start chatting</p>
               </div>
             </div>
           ) : (
             <>
               {/* Room header */}
-              <div className="px-6 py-3 border-b border-white/[0.06] flex items-center gap-2">
-                <Hash className="w-4 h-4 text-zinc-500" />
-                <span className="font-medium text-white">{selectedRoom.name}</span>
+              <div className="px-6 py-3 border-b border-gray-200 flex items-center gap-2">
+                <Hash className="w-4 h-4 text-gray-400" />
+                <span className="font-medium text-gray-900">{selectedRoom.name}</span>
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                 {loadingMessages ? (
                   <div className="flex justify-center py-12">
-                    <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
+                    <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <MessageSquare className="w-10 h-10 text-zinc-700 mb-3" />
-                    <p className="text-zinc-500 text-sm">No messages yet. Start the conversation!</p>
+                    <MessageSquare className="w-10 h-10 text-gray-400 mb-3" />
+                    <p className="text-gray-400 text-sm">No messages yet. Start the conversation!</p>
                   </div>
                 ) : (
                   messages.map((msg) => (
                     <div key={msg._id} className="flex flex-col gap-0.5">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium text-white">{getSenderName(msg)}</span>
-                        <span className="text-xs text-zinc-600">{fmtTime(msg.createdAt)}</span>
+                        <span className="text-sm font-medium text-gray-900">{getSenderName(msg)}</span>
+                        <span className="text-xs text-gray-400">{fmtTime(msg.createdAt)}</span>
                       </div>
-                      <p className="text-sm text-zinc-300 leading-relaxed">{msg.content}</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{msg.content}</p>
                     </div>
                   ))
                 )}
@@ -270,19 +270,19 @@ export default function ChatPage() {
               {/* Message input */}
               <form
                 onSubmit={sendMessage}
-                className="px-6 py-4 border-t border-white/[0.06] flex items-center gap-3"
+                className="px-6 py-4 border-t border-gray-200 flex items-center gap-3"
               >
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder={`Message #${selectedRoom.name}`}
-                  className="flex-1 bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-white/20"
+                  className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400"
                 />
                 <button
                   type="submit"
                   disabled={sending || !newMessage.trim()}
-                  className="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center hover:bg-zinc-100 transition disabled:opacity-40"
+                  className="w-10 h-10 rounded-xl bg-white text-gray-900 flex items-center justify-center hover:bg-gray-800 transition disabled:opacity-40"
                 >
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>

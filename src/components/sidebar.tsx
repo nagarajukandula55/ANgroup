@@ -135,8 +135,6 @@ export default function Sidebar() {
       });
       const data = await res.json();
       if (data.success) {
-        localStorage.setItem("an_token", data.token);
-        localStorage.setItem("an_user",  JSON.stringify(data.user));
         setActiveBiz(biz);
         setUser((prev) => prev ? { ...prev, activeBusinessId: biz._id } : prev);
         setBizDropdown(false);
@@ -148,8 +146,6 @@ export default function Sidebar() {
 
   async function handleLogout() {
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* silent */ }
-    localStorage.removeItem("an_token");
-    localStorage.removeItem("an_user");
     router.push("/login");
   }
 
@@ -157,29 +153,30 @@ export default function Sidebar() {
 
   return (
     <>
+      {/* Mobile toggle */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed left-4 top-4 z-50 rounded-2xl border border-white/10 bg-black/40 p-3 backdrop-blur-xl lg:hidden"
+        className="fixed left-4 top-4 z-50 rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm lg:hidden"
       >
-        {open ? <X size={20} /> : <Menu size={20} />}
+        {open ? <X size={18} className="text-gray-700" /> : <Menu size={18} className="text-gray-700" />}
       </button>
 
       {open && (
-        <div onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/70 lg:hidden" />
+        <div onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden" />
       )}
 
       <aside
-        className={`fixed lg:relative z-50 h-screen w-60 transform border-r border-white/[0.06] bg-zinc-950 transition-transform duration-300 flex flex-col ${
-          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`fixed lg:sticky lg:top-0 z-50 h-screen w-60 shrink-0 flex flex-col
+          border-r border-gray-200 bg-white transform transition-transform duration-300
+          ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
         {/* Brand */}
-        <div className="px-5 pt-6 pb-4 border-b border-white/[0.05]">
-          <p className="text-[9px] uppercase tracking-[0.45em] text-zinc-600">AN Group</p>
-          <h2 className="mt-1 text-base font-semibold tracking-tight text-white">Enterprise</h2>
+        <div className="px-5 pt-5 pb-4 border-b border-gray-100">
+          <p className="text-[9px] uppercase tracking-[0.45em] text-gray-400 font-medium">AN Group</p>
+          <h2 className="mt-0.5 text-base font-bold tracking-tight text-gray-900">Enterprise</h2>
           <div className="mt-1.5 flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <p className="text-[10px] text-zinc-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <p className="text-[10px] text-gray-400">
               {user?.isSuperAdmin ? "Super Admin" : (user?.role || "Operational")}
             </p>
           </div>
@@ -191,32 +188,32 @@ export default function Sidebar() {
             <button
               onClick={() => setBizDropdown(!bizDropdown)}
               disabled={switching}
-              className="flex w-full items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-left transition hover:bg-white/[0.07] disabled:opacity-60"
+              className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <Building2 size={12} className="shrink-0 text-zinc-500" />
-                <span className="truncate text-xs font-medium text-white">
+                <Building2 size={12} className="shrink-0 text-gray-400" />
+                <span className="truncate text-xs font-medium text-gray-700">
                   {activeBiz ? (activeBiz.brandName || activeBiz.name) : "Select Business"}
                 </span>
               </div>
-              <ChevronDown size={12} className={`shrink-0 text-zinc-600 transition-transform ${bizDropdown ? "rotate-180" : ""}`} />
+              <ChevronDown size={12} className={`shrink-0 text-gray-400 transition-transform ${bizDropdown ? "rotate-180" : ""}`} />
             </button>
 
             {bizDropdown && (
-              <div className="absolute left-3 right-3 top-full mt-1 z-50 rounded-xl border border-white/10 bg-zinc-900 shadow-2xl overflow-hidden">
+              <div className="absolute left-3 right-3 top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
                 {businesses.map((biz) => {
                   const isActive = biz._id === user?.activeBusinessId;
                   return (
                     <button
                       key={biz._id}
                       onClick={() => switchBusiness(biz)}
-                      className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-white/[0.05] border-b border-white/[0.03] last:border-0"
+                      className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-xs text-white font-medium">{biz.brandName || biz.name}</p>
-                        {biz.businessCode && <p className="text-[10px] text-zinc-600">{biz.businessCode}</p>}
+                        <p className="truncate text-xs text-gray-800 font-medium">{biz.brandName || biz.name}</p>
+                        {biz.businessCode && <p className="text-[10px] text-gray-400">{biz.businessCode}</p>}
                       </div>
-                      {isActive && <Check size={11} className="shrink-0 text-emerald-400 ml-2" />}
+                      {isActive && <Check size={11} className="shrink-0 text-emerald-500 ml-2" />}
                     </button>
                   );
                 })}
@@ -231,14 +228,14 @@ export default function Sidebar() {
             const visibleItems = group.items.filter((item) => moduleKeys.has(item.key));
             if (visibleItems.length === 0) return null;
             return (
-              <div key={group.label} className="mb-3">
-                <p className="px-3 mb-1 text-[9px] uppercase tracking-[0.45em] text-zinc-600 font-semibold">
+              <div key={group.label} className="mb-4">
+                <p className="px-3 mb-1 text-[9px] uppercase tracking-[0.45em] text-gray-400 font-semibold">
                   {group.label}
                 </p>
                 <div className="space-y-0.5">
                   {visibleItems.map((item) => {
-                    const dbMod = modules.find((m: any) => m.key === item.key);
-                    const m     = { ...item, ...(dbMod || {}) };
+                    const dbMod  = modules.find((m: any) => m.key === item.key);
+                    const m      = { ...item, ...(dbMod || {}) };
                     const active =
                       m.route === "/admin"
                         ? pathname === "/admin"
@@ -250,15 +247,18 @@ export default function Sidebar() {
                         key={m.key}
                         href={m.route}
                         onClick={() => setOpen(false)}
-                        className={`group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all duration-150 ${
+                        className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-all duration-150 ${
                           active
-                            ? "bg-white/[0.08] text-white border border-white/[0.08]"
-                            : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"
+                            ? "bg-gray-900 text-white"
+                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                         }`}
                       >
-                        <IconComp size={14} className={active ? "text-white" : "text-zinc-600 group-hover:text-zinc-400"} />
+                        <IconComp
+                          size={14}
+                          className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"}
+                        />
                         <span className="text-[13px] font-medium">{m.label}</span>
-                        {active && <ChevronRight size={12} className="ml-auto text-zinc-600" />}
+                        {active && <ChevronRight size={12} className="ml-auto text-gray-400" />}
                       </Link>
                     );
                   })}
@@ -269,19 +269,19 @@ export default function Sidebar() {
         </nav>
 
         {/* User footer */}
-        <div className="px-3 py-3 border-t border-white/[0.05]">
+        <div className="px-3 py-3 border-t border-gray-100">
           {user ? (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-white">{user.name}</p>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                  <p className="truncate text-xs font-semibold text-gray-800">{user.name}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">
                     {user.isSuperAdmin ? "Super Admin" : user.role}
                   </p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-white/10 transition"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition"
                   title="Sign out"
                 >
                   <LogOut size={13} />
@@ -289,10 +289,10 @@ export default function Sidebar() {
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-white/20 animate-pulse" />
-                <span className="text-xs text-zinc-500">Loading…</span>
+                <div className="h-2 w-2 rounded-full bg-gray-300 animate-pulse" />
+                <span className="text-xs text-gray-400">Loading…</span>
               </div>
             </div>
           )}

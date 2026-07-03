@@ -35,7 +35,7 @@ const fmt = (n: number) =>
 function getStatusInfo(p: Product): { label: string; cls: string } {
   const qty = p.quantity ?? 0
   const reorder = p.reorderLevel ?? 0
-  if (p.status === 'INACTIVE') return { label: 'Inactive', cls: 'bg-zinc-500/20 text-zinc-400' }
+  if (p.status === 'INACTIVE') return { label: 'Inactive', cls: 'bg-gray-100 text-gray-500' }
   if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-500/20 text-red-400' }
   if (qty <= reorder) return { label: 'Low Stock', cls: 'bg-yellow-500/20 text-yellow-400' }
   return { label: 'Active', cls: 'bg-green-500/20 text-green-400' }
@@ -136,30 +136,30 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-zinc-400 animate-spin" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => router.push('/admin')}
-            className="w-9 h-9 rounded-xl border border-white/[0.06] bg-white/[0.04] flex items-center justify-center hover:bg-white/[0.08] transition"
+            className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h1 className="text-2xl font-semibold">Products</h1>
-            <p className="text-sm text-zinc-500">Product catalog management</p>
+            <p className="text-sm text-gray-400">Product catalog management</p>
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="ml-auto flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-xl hover:bg-zinc-100 transition"
+            className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
           >
             <Plus className="w-4 h-4" /> Add Product
           </button>
@@ -179,14 +179,14 @@ export default function ProductsPage() {
             { icon: XCircle, label: 'Inactive', value: String(inactive) },
             { icon: AlertTriangle, label: 'Low Stock', value: String(lowStock) },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-6">
+            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-zinc-400 text-sm">{label}</span>
-                <div className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-zinc-300" />
+                <span className="text-gray-500 text-sm">{label}</span>
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-gray-700" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-white">{value}</p>
+              <p className="text-2xl font-semibold text-gray-900">{value}</p>
             </div>
           ))}
         </div>
@@ -194,13 +194,13 @@ export default function ProductsPage() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search products, SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-600 outline-none focus:border-white/20"
+              className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-white/20"
             />
           </div>
           <div className="flex gap-1 flex-wrap">
@@ -210,8 +210,8 @@ export default function ProductsPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                   categoryFilter === cat
-                    ? 'bg-white text-black'
-                    : 'bg-white/[0.04] text-zinc-400 hover:text-white border border-white/[0.06]'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
                 }`}
               >
                 {cat}
@@ -221,24 +221,24 @@ export default function ProductsPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.04] overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Name</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">SKU</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Category</th>
-                <th className="text-right px-6 py-3 text-zinc-500 font-medium">Base Price</th>
-                <th className="text-center px-6 py-3 text-zinc-500 font-medium">Tax %</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Unit</th>
-                <th className="text-right px-6 py-3 text-zinc-500 font-medium">Stock</th>
-                <th className="text-center px-6 py-3 text-zinc-500 font-medium">Status</th>
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Name</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">SKU</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Category</th>
+                <th className="text-right px-6 py-3 text-gray-400 font-medium">Base Price</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">Tax %</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Unit</th>
+                <th className="text-right px-6 py-3 text-gray-400 font-medium">Stock</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-10 text-center text-zinc-500">
+                  <td colSpan={8} className="px-6 py-10 text-center text-gray-400">
                     No products found
                   </td>
                 </tr>
@@ -246,14 +246,14 @@ export default function ProductsPage() {
                 filtered.map((p) => {
                   const { label, cls } = getStatusInfo(p)
                   return (
-                    <tr key={p._id} className="hover:bg-white/[0.02] transition">
-                      <td className="px-6 py-3 font-medium text-white">{p.name}</td>
-                      <td className="px-6 py-3 text-zinc-500 font-mono text-xs">{p.sku ?? '—'}</td>
-                      <td className="px-6 py-3 text-zinc-400">{p.category ?? '—'}</td>
-                      <td className="px-6 py-3 text-right text-white">{p.basePrice != null ? fmt(p.basePrice) : '—'}</td>
-                      <td className="px-6 py-3 text-center text-zinc-400">{p.taxRate != null ? `${p.taxRate}%` : '—'}</td>
-                      <td className="px-6 py-3 text-zinc-400">{p.unit ?? '—'}</td>
-                      <td className="px-6 py-3 text-right text-white">{p.quantity ?? 0}</td>
+                    <tr key={p._id} className="hover:bg-gray-50 transition">
+                      <td className="px-6 py-3 font-medium text-gray-900">{p.name}</td>
+                      <td className="px-6 py-3 text-gray-400 font-mono text-xs">{p.sku ?? '—'}</td>
+                      <td className="px-6 py-3 text-gray-500">{p.category ?? '—'}</td>
+                      <td className="px-6 py-3 text-right text-gray-900">{p.basePrice != null ? fmt(p.basePrice) : '—'}</td>
+                      <td className="px-6 py-3 text-center text-gray-500">{p.taxRate != null ? `${p.taxRate}%` : '—'}</td>
+                      <td className="px-6 py-3 text-gray-500">{p.unit ?? '—'}</td>
+                      <td className="px-6 py-3 text-right text-gray-900">{p.quantity ?? 0}</td>
                       <td className="px-6 py-3 text-center">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>
                       </td>
@@ -269,13 +269,13 @@ export default function ProductsPage() {
       {/* Slide-over: Add Product */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="w-full max-w-md bg-zinc-950 border-l border-white/[0.06] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
-              <h2 className="font-semibold text-white">Add Product</h2>
+          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="w-full max-w-md bg-gray-50 border-l border-gray-200 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-900">Add Product</h2>
               <button
                 onClick={() => setShowForm(false)}
-                className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08]"
+                className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -297,38 +297,38 @@ export default function ProductsPage() {
                 { field: 'reorderLevel', label: 'Reorder Level', type: 'number', required: false },
               ] as const).map(({ field, label, type, required }) => (
                 <div key={field}>
-                  <label className="block text-xs text-zinc-400 mb-1.5">{label}</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
                   <input
                     type={type}
                     required={required}
                     value={form[field]}
                     onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
-                    className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                   />
                 </div>
               ))}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Description</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Description</label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                   rows={3}
-                  className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-white/20 resize-none"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20 resize-none"
                 />
               </div>
             </form>
-            <div className="px-6 py-4 border-t border-white/[0.06] flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-white/[0.06] bg-white/[0.04] text-sm text-zinc-400 hover:text-white transition"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white text-black text-sm font-medium hover:bg-zinc-100 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Add Product

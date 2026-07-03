@@ -29,7 +29,7 @@ interface Employee {
 const statusColors: Record<string, string> = {
   ACTIVE: 'bg-green-500/20 text-green-400',
   ON_LEAVE: 'bg-yellow-500/20 text-yellow-400',
-  INACTIVE: 'bg-zinc-500/20 text-zinc-400',
+  INACTIVE: 'bg-gray-100 text-gray-500',
   TERMINATED: 'bg-red-500/20 text-red-400',
 }
 
@@ -152,21 +152,21 @@ export default function EmployeesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-zinc-400 animate-spin" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
       </div>
     )
   }
 
   if (!businessId) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4">
-        <Users className="w-12 h-12 text-zinc-600" />
+      <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col items-center justify-center gap-4">
+        <Users className="w-12 h-12 text-gray-400" />
         <h2 className="text-xl font-medium">No Business Selected</h2>
-        <p className="text-zinc-500">Select a business first to manage employees.</p>
+        <p className="text-gray-400">Select a business first to manage employees.</p>
         <button
           onClick={() => router.push('/admin')}
-          className="mt-2 px-4 py-2 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 transition"
+          className="mt-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition"
         >
           Go to Dashboard
         </button>
@@ -175,23 +175,23 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => router.push('/admin')}
-            className="w-9 h-9 rounded-xl border border-white/[0.06] bg-white/[0.04] flex items-center justify-center hover:bg-white/[0.08] transition"
+            className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h1 className="text-2xl font-semibold">Employees</h1>
-            <p className="text-sm text-zinc-500">Workforce management</p>
+            <p className="text-sm text-gray-400">Workforce management</p>
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="ml-auto flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-xl hover:bg-zinc-100 transition"
+            className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
           >
             <Plus className="w-4 h-4" /> Add Employee
           </button>
@@ -211,14 +211,14 @@ export default function EmployeesPage() {
             { icon: UserMinus, label: 'On Leave', value: String(onLeave) },
             { icon: Calendar, label: 'New This Month', value: String(newThisMonth) },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-6">
+            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-zinc-400 text-sm">{label}</span>
-                <div className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-zinc-300" />
+                <span className="text-gray-500 text-sm">{label}</span>
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-gray-700" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-white">{value}</p>
+              <p className="text-2xl font-semibold text-gray-900">{value}</p>
             </div>
           ))}
         </div>
@@ -226,22 +226,22 @@ export default function EmployeesPage() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search employees..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-600 outline-none focus:border-white/20"
+              className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-white/20"
             />
           </div>
           <select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
-            className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2 text-sm text-white outline-none"
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none"
           >
             {departments.map((d) => (
-              <option key={d} value={d} className="bg-zinc-900">
+              <option key={d} value={d} className="bg-white">
                 {d === 'ALL' ? 'All Departments' : d}
               </option>
             ))}
@@ -249,10 +249,10 @@ export default function EmployeesPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2 text-sm text-white outline-none"
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none"
           >
             {['ALL', 'ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s) => (
-              <option key={s} value={s} className="bg-zinc-900">
+              <option key={s} value={s} className="bg-white">
                 {s === 'ALL' ? 'All Statuses' : s}
               </option>
             ))}
@@ -260,35 +260,35 @@ export default function EmployeesPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.04] overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">ID</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Name</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Department</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Designation</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Type</th>
-                <th className="text-center px-6 py-3 text-zinc-500 font-medium">Status</th>
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">ID</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Name</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Department</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Designation</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Type</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-zinc-500">
+                  <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
                     No employees found
                   </td>
                 </tr>
               ) : (
                 filtered.map((emp) => (
-                  <tr key={emp._id} className="hover:bg-white/[0.02] transition">
-                    <td className="px-6 py-3 text-zinc-500 font-mono text-xs">{emp.employeeId ?? emp._id.slice(-6)}</td>
-                    <td className="px-6 py-3 font-medium text-white">{getEmpName(emp)}</td>
-                    <td className="px-6 py-3 text-zinc-400">{emp.department ?? '—'}</td>
-                    <td className="px-6 py-3 text-zinc-400">{emp.designation ?? '—'}</td>
-                    <td className="px-6 py-3 text-zinc-400">{emp.employmentType ?? '—'}</td>
+                  <tr key={emp._id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-3 text-gray-400 font-mono text-xs">{emp.employeeId ?? emp._id.slice(-6)}</td>
+                    <td className="px-6 py-3 font-medium text-gray-900">{getEmpName(emp)}</td>
+                    <td className="px-6 py-3 text-gray-500">{emp.department ?? '—'}</td>
+                    <td className="px-6 py-3 text-gray-500">{emp.designation ?? '—'}</td>
+                    <td className="px-6 py-3 text-gray-500">{emp.employmentType ?? '—'}</td>
                     <td className="px-6 py-3 text-center">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[emp.status ?? ''] ?? 'bg-zinc-500/20 text-zinc-400'}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[emp.status ?? ''] ?? 'bg-gray-100 text-gray-500'}`}>
                         {emp.status ?? 'UNKNOWN'}
                       </span>
                     </td>
@@ -303,13 +303,13 @@ export default function EmployeesPage() {
       {/* Slide-over: Add Employee */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="w-full max-w-md bg-zinc-950 border-l border-white/[0.06] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
-              <h2 className="font-semibold text-white">Add Employee</h2>
+          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="w-full max-w-md bg-gray-50 border-l border-gray-200 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-900">Add Employee</h2>
               <button
                 onClick={() => setShowForm(false)}
-                className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08]"
+                className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -328,42 +328,42 @@ export default function EmployeesPage() {
                 { field: 'salary', label: 'Salary (₹)', type: 'number', required: false, placeholder: '50000' },
               ] as const).map(({ field, label, type, required, placeholder }) => (
                 <div key={field}>
-                  <label className="block text-xs text-zinc-400 mb-1.5">{label}</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
                   <input
                     type={type}
                     required={required}
                     placeholder={placeholder}
                     value={form[field]}
                     onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
-                    className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                   />
                 </div>
               ))}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Employment Type</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Employment Type</label>
                 <select
                   value={form.employmentType}
                   onChange={(e) => setForm((p) => ({ ...p, employmentType: e.target.value }))}
-                  className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                 >
                   {['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t) => (
-                    <option key={t} value={t} className="bg-zinc-900">{t}</option>
+                    <option key={t} value={t} className="bg-white">{t}</option>
                   ))}
                 </select>
               </div>
             </form>
-            <div className="px-6 py-4 border-t border-white/[0.06] flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-white/[0.06] bg-white/[0.04] text-sm text-zinc-400 hover:text-white transition"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white text-black text-sm font-medium hover:bg-zinc-100 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Add Employee

@@ -2,123 +2,68 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import {
-  ArrowLeft,
-  Users,
-  DollarSign,
-  Calendar,
-  FolderOpen,
-  ArrowRight,
-} from 'lucide-react'
+import { ArrowLeft, Users, DollarSign, Calendar, FolderOpen, ArrowRight } from 'lucide-react'
 
-interface ModuleCard {
-  icon: React.ElementType
-  label: string
-  description: string
-  href?: string
-  comingSoon?: boolean
-}
+interface ModuleCard { icon: React.ElementType; label: string; description: string; href: string }
 
 const modules: ModuleCard[] = [
-  {
-    icon: Users,
-    label: 'Employees',
-    description: 'Manage employee profiles, designations, and employment details.',
-    href: '/admin/employees',
-    comingSoon: false,
-  },
-  {
-    icon: DollarSign,
-    label: 'Payroll',
-    description: 'Process monthly salaries, deductions, and payslips.',
-    comingSoon: true,
-  },
-  {
-    icon: Calendar,
-    label: 'Leave Management',
-    description: 'Track leave applications, approvals, and balances.',
-    comingSoon: true,
-  },
-  {
-    icon: FolderOpen,
-    label: 'Documents',
-    description: 'Store and manage employee documents and contracts.',
-    comingSoon: true,
-  },
+  { icon: Users,      label: 'Employees',        description: 'Manage employee profiles, designations, and employment details.', href: '/admin/employees' },
+  { icon: DollarSign, label: 'Payroll',           description: 'Process monthly salaries, deductions, and payslips.',            href: '/admin/hr/payroll' },
+  { icon: Calendar,   label: 'Leave Management',  description: 'Track leave applications, approvals, and balances.',             href: '/admin/hr/leave' },
+  { icon: FolderOpen, label: 'Documents',         description: 'Store and manage employee documents and contracts.',              href: '/admin/hr/documents' },
 ]
 
 export default function HRPage() {
   const router = useRouter()
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="max-w-5xl mx-auto px-6 py-10">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-10">
-          <button
-            onClick={() => router.push('/admin')}
-            className="w-9 h-9 rounded-xl border border-white/[0.06] bg-white/[0.04] flex items-center justify-center hover:bg-white/[0.08] transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => router.push('/admin')}
+            className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 shadow-sm">
+            <ArrowLeft size={15} className="text-gray-600" />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold">HR Management</h1>
-            <p className="text-sm text-zinc-500">Human resources and workforce management</p>
+            <h1 className="text-xl font-semibold text-gray-900">HR Management</h1>
+            <p className="text-sm text-gray-500">Human resources and workforce management</p>
           </div>
         </div>
 
         {/* Module Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-          {modules.map((mod) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          {modules.map(mod => {
             const Icon = mod.icon
-            const card = (
-              <div
-                className={`rounded-2xl border p-6 flex flex-col gap-4 transition group ${
-                  mod.comingSoon
-                    ? 'border-zinc-800 bg-white/[0.02] opacity-70'
-                    : 'border-white/[0.06] bg-white/[0.04] hover:bg-white/[0.07] cursor-pointer'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="w-11 h-11 rounded-xl bg-white/[0.08] flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-zinc-300" />
-                  </div>
-                  {mod.comingSoon ? (
-                    <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400">
-                      Coming Soon
-                    </span>
-                  ) : (
-                    <ArrowRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-300 transition" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-medium text-white mb-1">{mod.label}</h3>
-                  <p className="text-sm text-zinc-500">{mod.description}</p>
-                </div>
-              </div>
-            )
-
-            return mod.href && !mod.comingSoon ? (
+            return (
               <Link key={mod.label} href={mod.href}>
-                {card}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col gap-4 hover:shadow-md hover:border-gray-300 transition group cursor-pointer">
+                  <div className="flex items-start justify-between">
+                    <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center group-hover:bg-gray-900 transition">
+                      <Icon className="w-5 h-5 text-gray-500 group-hover:text-white transition" />
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-600 transition" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-1">{mod.label}</h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">{mod.description}</p>
+                  </div>
+                </div>
               </Link>
-            ) : (
-              <div key={mod.label}>{card}</div>
             )
           })}
         </div>
 
-        {/* Quick Link */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-6">
-          <h2 className="font-medium text-white mb-4">Quick Links</h2>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/admin/employees"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-sm font-medium hover:bg-zinc-100 transition"
-            >
-              <Users className="w-4 h-4" />
-              Go to Employees
-            </Link>
+        {/* Quick Links */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Quick Links</h2>
+          <div className="flex flex-wrap gap-2">
+            {modules.map(mod => (
+              <Link key={mod.label} href={mod.href}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-100 transition">
+                <mod.icon className="w-3.5 h-3.5" /> {mod.label}
+              </Link>
+            ))}
           </div>
         </div>
       </div>

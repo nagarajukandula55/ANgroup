@@ -101,26 +101,26 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-zinc-400 animate-spin" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => router.push('/admin')}
-            className="w-9 h-9 rounded-xl border border-white/[0.06] bg-white/[0.04] flex items-center justify-center hover:bg-white/[0.08] transition"
+            className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h1 className="text-2xl font-semibold">Inventory</h1>
-            <p className="text-sm text-zinc-500">Stock levels and item management</p>
+            <p className="text-sm text-gray-400">Stock levels and item management</p>
           </div>
         </div>
 
@@ -138,14 +138,14 @@ export default function InventoryPage() {
             { icon: XCircle, label: 'Out of Stock', value: String(outOfStock) },
             { icon: DollarSign, label: 'Total Value', value: fmt(totalValue) },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-6">
+            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-zinc-400 text-sm">{label}</span>
-                <div className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-zinc-300" />
+                <span className="text-gray-500 text-sm">{label}</span>
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-gray-700" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-white">{value}</p>
+              <p className="text-2xl font-semibold text-gray-900">{value}</p>
             </div>
           ))}
         </div>
@@ -154,13 +154,13 @@ export default function InventoryPage() {
         <div className="flex gap-3 mb-6">
           <Link
             href="/admin/inventory/lots"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.06] bg-white/[0.04] text-sm text-zinc-400 hover:text-white hover:bg-white/[0.07] transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition"
           >
             Lot Management <ArrowRight className="w-3.5 h-3.5" />
           </Link>
           <Link
             href="/admin/stock-adjustments"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.06] bg-white/[0.04] text-sm text-zinc-400 hover:text-white hover:bg-white/[0.07] transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition"
           >
             Stock Adjustments <ArrowRight className="w-3.5 h-3.5" />
           </Link>
@@ -169,13 +169,13 @@ export default function InventoryPage() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search items, SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-zinc-600 outline-none focus:border-white/20"
+              className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-white/20"
             />
           </div>
           <div className="flex gap-1 flex-wrap">
@@ -185,8 +185,8 @@ export default function InventoryPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                   categoryFilter === cat
-                    ? 'bg-white text-black'
-                    : 'bg-white/[0.04] text-zinc-400 hover:text-white border border-white/[0.06]'
+                    ? 'bg-gray-900 text-gray-900'
+                    : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
                 }`}
               >
                 {cat}
@@ -196,23 +196,23 @@ export default function InventoryPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.04] overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Name</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">SKU</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Category</th>
-                <th className="text-right px-6 py-3 text-zinc-500 font-medium">Qty</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Unit</th>
-                <th className="text-right px-6 py-3 text-zinc-500 font-medium">Reorder</th>
-                <th className="text-center px-6 py-3 text-zinc-500 font-medium">Status</th>
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Name</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">SKU</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Category</th>
+                <th className="text-right px-6 py-3 text-gray-400 font-medium">Qty</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Unit</th>
+                <th className="text-right px-6 py-3 text-gray-400 font-medium">Reorder</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-zinc-500">
+                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
                     No items found
                   </td>
                 </tr>
@@ -220,13 +220,13 @@ export default function InventoryPage() {
                 filtered.map((item) => {
                   const { label, cls } = getStockStatus(item)
                   return (
-                    <tr key={item._id} className="hover:bg-white/[0.02] transition">
-                      <td className="px-6 py-3 font-medium text-white">{item.name}</td>
-                      <td className="px-6 py-3 text-zinc-500 font-mono text-xs">{item.sku ?? '—'}</td>
-                      <td className="px-6 py-3 text-zinc-400">{item.category ?? '—'}</td>
-                      <td className="px-6 py-3 text-right text-white">{item.quantity ?? 0}</td>
-                      <td className="px-6 py-3 text-zinc-400">{item.unit ?? '—'}</td>
-                      <td className="px-6 py-3 text-right text-zinc-500">{item.reorderLevel ?? 0}</td>
+                    <tr key={item._id} className="hover:bg-gray-50 transition">
+                      <td className="px-6 py-3 font-medium text-gray-900">{item.name}</td>
+                      <td className="px-6 py-3 text-gray-400 font-mono text-xs">{item.sku ?? '—'}</td>
+                      <td className="px-6 py-3 text-gray-500">{item.category ?? '—'}</td>
+                      <td className="px-6 py-3 text-right text-gray-900">{item.quantity ?? 0}</td>
+                      <td className="px-6 py-3 text-gray-500">{item.unit ?? '—'}</td>
+                      <td className="px-6 py-3 text-right text-gray-400">{item.reorderLevel ?? 0}</td>
                       <td className="px-6 py-3 text-center">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
                           {label}

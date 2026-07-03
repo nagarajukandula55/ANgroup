@@ -40,7 +40,7 @@ const NOTIFICATION_EVENTS = [
 function StatusBadge({ active, configured }: { active: boolean; configured: boolean }) {
   if (!configured) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-800/60 text-gray-400 border border-gray-700/50">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200">
         <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
         Not configured
       </span>
@@ -50,12 +50,12 @@ function StatusBadge({ active, configured }: { active: boolean; configured: bool
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
         active
-          ? 'bg-emerald-900/40 text-emerald-400 border-emerald-700/50'
-          : 'bg-red-900/40 text-red-400 border-red-700/50'
+          ? 'bg-green-50 text-green-700 border-green-200'
+          : 'bg-red-50 text-red-700 border-red-200'
       }`}
     >
       <span
-        className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}
+        className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}
       />
       {active ? 'Connected' : 'Disabled'}
     </span>
@@ -73,8 +73,8 @@ function Toggle({
     <button
       type="button"
       onClick={() => onChange(!enabled)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
-        enabled ? 'bg-violet-600' : 'bg-gray-700'
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-white ${
+        enabled ? 'bg-violet-600' : 'bg-gray-200'
       }`}
     >
       <span
@@ -121,12 +121,12 @@ function TagInput({
             }
           }}
           placeholder={placeholder}
-          className="flex-1 bg-gray-900/60 border border-gray-700/60 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30"
+          className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 placeholder-gray-500 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30"
         />
         <button
           type="button"
           onClick={add}
-          className="px-3 py-2 rounded-lg bg-violet-600/20 border border-violet-500/40 text-violet-400 text-sm hover:bg-violet-600/30 transition-colors"
+          className="px-3 py-2 rounded-lg bg-violet-100 border border-violet-200 text-violet-700 text-sm hover:bg-violet-200 transition-colors"
         >
           Add
         </button>
@@ -136,13 +136,13 @@ function TagInput({
           {values.map((val) => (
             <span
               key={val}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-800/80 border border-gray-700/50 text-sm text-gray-300"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-sm text-gray-700"
             >
               {val}
               <button
                 type="button"
                 onClick={() => remove(val)}
-                className="text-gray-500 hover:text-red-400 transition-colors"
+                className="text-gray-400 hover:text-red-400 transition-colors"
               >
                 ×
               </button>
@@ -356,14 +356,14 @@ export default function IntegrationsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* Toast */}
       {toast && (
         <div
           className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-xl text-sm font-medium transition-all animate-in slide-in-from-top-2 ${
             toast.type === 'success'
-              ? 'bg-emerald-900/80 border-emerald-700/60 text-emerald-300'
-              : 'bg-red-900/80 border-red-700/60 text-red-300'
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : 'bg-red-50 border-red-200 text-red-700'
           }`}
         >
           {toast.msg}
@@ -373,22 +373,22 @@ export default function IntegrationsPage() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Integrations</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Integrations</h1>
           <p className="mt-1 text-sm text-gray-400">
             Connect messaging platforms and social channels to receive real-time ERP notifications.
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 p-1 bg-gray-900/60 border border-gray-800/60 rounded-xl w-fit">
+        <div className="flex gap-1 mb-6 p-1 bg-white border border-gray-200/60 rounded-xl w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.id
-                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  ? 'bg-violet-600 text-gray-900 shadow-lg shadow-violet-900/30'
+                  : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
               <span className="mr-1.5">{tab.icon}</span>
@@ -401,15 +401,15 @@ export default function IntegrationsPage() {
         {activeTab === 'messaging' && (
           <div className="space-y-6">
             {/* Telegram Section */}
-            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/60 rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-800/60 flex items-center justify-between">
+            <div className="bg-gray-50 backdrop-blur-xl border border-gray-200/60 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200/60 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-lg">
                     ✈️
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white">Telegram</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <h2 className="font-semibold text-gray-900">Telegram</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
                       Send notifications via Telegram Bot API
                     </p>
                   </div>
@@ -433,7 +433,7 @@ export default function IntegrationsPage() {
                       setTelegramConfig((p) => ({ ...p, botToken: e.target.value }))
                     }
                     placeholder="1234567890:ABCdefGhIJKlmnoPQRsTUVwxyz"
-                    className="w-full bg-gray-900/60 border border-gray-700/60 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
                   />
                   <p className="text-xs text-gray-600 mt-1">
                     Obtain from @BotFather on Telegram
@@ -469,7 +469,7 @@ export default function IntegrationsPage() {
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm ${
                             checked
                               ? 'bg-violet-900/30 border-violet-600/50 text-violet-300'
-                              : 'bg-gray-800/40 border-gray-700/40 text-gray-400 hover:border-gray-600/60'
+                              : 'bg-gray-100 border-gray-200 text-gray-500 hover:border-gray-400'
                           }`}
                         >
                           <input
@@ -488,12 +488,12 @@ export default function IntegrationsPage() {
                             className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                               checked
                                 ? 'bg-violet-600 border-violet-500'
-                                : 'border-gray-600'
+                                : 'border-gray-400'
                             }`}
                           >
                             {checked && (
                               <svg
-                                className="w-2.5 h-2.5 text-white"
+                                className="w-2.5 h-2.5 text-gray-900"
                                 viewBox="0 0 10 10"
                                 fill="none"
                               >
@@ -522,14 +522,14 @@ export default function IntegrationsPage() {
                   <button
                     onClick={saveTelegram}
                     disabled={saving === 'telegram'}
-                    className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+                    className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-gray-900 text-sm font-medium transition-colors"
                   >
                     {saving === 'telegram' ? 'Saving...' : 'Save Configuration'}
                   </button>
                   <button
                     onClick={testTelegram}
                     disabled={testing === 'telegram' || !telegramConfigured}
-                    className="px-4 py-2 rounded-lg bg-gray-800/80 hover:bg-gray-700/80 disabled:opacity-40 border border-gray-700/60 text-gray-300 text-sm font-medium transition-colors"
+                    className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200/80 disabled:opacity-40 border border-gray-200 text-gray-700 text-sm font-medium transition-colors"
                   >
                     {testing === 'telegram' ? 'Testing...' : 'Test Connection'}
                   </button>
@@ -538,15 +538,15 @@ export default function IntegrationsPage() {
             </div>
 
             {/* WhatsApp Section */}
-            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/60 rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-800/60 flex items-center justify-between">
+            <div className="bg-gray-50 backdrop-blur-xl border border-gray-200/60 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200/60 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-lg">
                     📞
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white">WhatsApp Business</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <h2 className="font-semibold text-gray-900">WhatsApp Business</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
                       Send notifications via WhatsApp Business API
                     </p>
                   </div>
@@ -571,7 +571,7 @@ export default function IntegrationsPage() {
                         setWaConfig((p) => ({ ...p, phoneNumberId: e.target.value }))
                       }
                       placeholder="123456789012345"
-                      className="w-full bg-gray-900/60 border border-gray-700/60 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
+                      className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
                     />
                   </div>
 
@@ -587,7 +587,7 @@ export default function IntegrationsPage() {
                         setWaConfig((p) => ({ ...p, wabaId: e.target.value }))
                       }
                       placeholder="WhatsApp Business Account ID"
-                      className="w-full bg-gray-900/60 border border-gray-700/60 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
+                      className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
                     />
                   </div>
                 </div>
@@ -604,7 +604,7 @@ export default function IntegrationsPage() {
                       setWaConfig((p) => ({ ...p, accessToken: e.target.value }))
                     }
                     placeholder="EAAxxxxxxxxxx..."
-                    className="w-full bg-gray-900/60 border border-gray-700/60 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-600 focus:outline-none focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/30 font-mono"
                   />
                   <p className="text-xs text-gray-600 mt-1">
                     Permanent token from Meta Business Suite
@@ -640,7 +640,7 @@ export default function IntegrationsPage() {
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm ${
                             checked
                               ? 'bg-emerald-900/30 border-emerald-600/50 text-emerald-300'
-                              : 'bg-gray-800/40 border-gray-700/40 text-gray-400 hover:border-gray-600/60'
+                              : 'bg-gray-100 border-gray-200 text-gray-500 hover:border-gray-400'
                           }`}
                         >
                           <input
@@ -659,12 +659,12 @@ export default function IntegrationsPage() {
                             className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                               checked
                                 ? 'bg-emerald-600 border-emerald-500'
-                                : 'border-gray-600'
+                                : 'border-gray-400'
                             }`}
                           >
                             {checked && (
                               <svg
-                                className="w-2.5 h-2.5 text-white"
+                                className="w-2.5 h-2.5 text-gray-900"
                                 viewBox="0 0 10 10"
                                 fill="none"
                               >
@@ -693,14 +693,14 @@ export default function IntegrationsPage() {
                   <button
                     onClick={saveWhatsApp}
                     disabled={saving === 'whatsapp'}
-                    className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+                    className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-gray-900 text-sm font-medium transition-colors"
                   >
                     {saving === 'whatsapp' ? 'Saving...' : 'Save Configuration'}
                   </button>
                   <button
                     onClick={testWhatsApp}
                     disabled={testing === 'whatsapp' || !waConfigured}
-                    className="px-4 py-2 rounded-lg bg-gray-800/80 hover:bg-gray-700/80 disabled:opacity-40 border border-gray-700/60 text-gray-300 text-sm font-medium transition-colors"
+                    className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200/80 disabled:opacity-40 border border-gray-200 text-gray-700 text-sm font-medium transition-colors"
                   >
                     {testing === 'whatsapp' ? 'Testing...' : 'Test Connection'}
                   </button>
@@ -727,12 +727,12 @@ export default function IntegrationsPage() {
 
         {/* Social Media Tab */}
         {activeTab === 'social' && (
-          <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/60 rounded-2xl px-6 py-10 text-center">
+          <div className="bg-gray-50 backdrop-blur-xl border border-gray-200/60 rounded-2xl px-6 py-10 text-center">
             <div className="text-4xl mb-3">📱</div>
-            <h3 className="text-base font-semibold text-gray-300 mb-1">
+            <h3 className="text-base font-semibold text-gray-700 mb-1">
               Social Media Integrations
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-400">
               Instagram, LinkedIn, Twitter / X, and Facebook integrations coming soon.
             </p>
           </div>
@@ -740,12 +740,12 @@ export default function IntegrationsPage() {
 
         {/* Email Tab */}
         {activeTab === 'email' && (
-          <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/60 rounded-2xl px-6 py-10 text-center">
+          <div className="bg-gray-50 backdrop-blur-xl border border-gray-200/60 rounded-2xl px-6 py-10 text-center">
             <div className="text-4xl mb-3">✉️</div>
-            <h3 className="text-base font-semibold text-gray-300 mb-1">
+            <h3 className="text-base font-semibold text-gray-700 mb-1">
               Email Integration
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-400">
               SMTP and transactional email provider configuration coming soon.
             </p>
           </div>

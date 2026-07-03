@@ -155,17 +155,17 @@ export default function RolesPage() {
   const displayRole = editing || selected
   const activePerms = showCreate ? newRole.permissions : (displayRole?.permissions || [])
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={20} className="animate-spin text-zinc-600" /></div>
+  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
 
   return (
     <div className="p-6 md:p-8 space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white flex items-center gap-3"><Shield size={22} /> Roles & Permissions</h1>
-          <p className="mt-1 text-sm text-zinc-500">{roles.length} roles — manage access across the platform</p>
+          <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-3"><Shield size={22} /> Roles & Permissions</h1>
+          <p className="mt-1 text-sm text-gray-400">{roles.length} roles — manage access across the platform</p>
         </div>
         <button onClick={() => { setCreate(true); setEditing(null); setSelected(null) }}
-          className="flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-medium rounded-xl hover:bg-zinc-100 transition">
+          className="flex items-center gap-2 px-4 py-2 bg-white text-gray-900 text-sm font-medium rounded-xl hover:bg-gray-800 transition">
           <Plus size={14} /> New Role
         </button>
       </div>
@@ -173,20 +173,20 @@ export default function RolesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Role list */}
         <div className="space-y-1.5">
-          <p className="text-xs text-zinc-600 uppercase tracking-wider mb-3">{roles.length} Roles</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">{roles.length} Roles</p>
           {roles.map((role) => (
             <button key={role.id} onClick={() => { setSelected(role); setEditing(null); setCreate(false) }}
-              className={`w-full text-left rounded-xl border p-3 transition ${selected?.id === role.id && !showCreate ? 'border-white/20 bg-white/[0.06]' : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]'}`}>
+              className={`w-full text-left rounded-xl border p-3 transition ${selected?.id === role.id && !showCreate ? 'border-white/20 bg-gray-100' : 'border-gray-200 bg-gray-50 hover:border-white/[0.12]'}`}>
               <div className="flex items-center gap-2.5">
                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: role.color }} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-white truncate">{role.name}</span>
-                    {role.isSystem && <Lock size={10} className="text-zinc-600" />}
+                    <span className="text-sm font-medium text-gray-900 truncate">{role.name}</span>
+                    {role.isSystem && <Lock size={10} className="text-gray-400" />}
                   </div>
-                  <p className="text-[11px] text-zinc-600 mt-0.5 truncate">{role.description}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5 truncate">{role.description}</p>
                 </div>
-                <div className="flex items-center gap-1 text-zinc-600 flex-shrink-0">
+                <div className="flex items-center gap-1 text-gray-400 flex-shrink-0">
                   <Users size={10} /><span className="text-[11px]">{role.userCount}</span>
                 </div>
               </div>
@@ -195,45 +195,45 @@ export default function RolesPage() {
         </div>
 
         {/* Permissions panel */}
-        <div className="lg:col-span-2 rounded-xl border border-white/[0.08] bg-white/[0.02]">
-          <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+        <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between p-5 border-b border-gray-200">
             {showCreate ? (
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-3">
                   <input type="color" value={newRole.color} onChange={(e) => setNewRole({ ...newRole, color: e.target.value })} className="w-8 h-8 rounded-lg border border-white/10 cursor-pointer bg-transparent" />
-                  <input type="text" placeholder="Role name" value={newRole.name} onChange={(e) => setNewRole({ ...newRole, name: e.target.value })} className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/25" />
+                  <input type="text" placeholder="Role name" value={newRole.name} onChange={(e) => setNewRole({ ...newRole, name: e.target.value })} className="flex-1 bg-white border border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-white/25" />
                   <div className="flex gap-2">
                     <button onClick={createRole} disabled={saving} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition">
                       {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                     </button>
-                    <button onClick={() => setCreate(false)} className="p-2 text-zinc-500 hover:bg-white/[0.06] rounded-lg transition"><X size={14} /></button>
+                    <button onClick={() => setCreate(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition"><X size={14} /></button>
                   </div>
                 </div>
-                <input type="text" placeholder="Description" value={newRole.description} onChange={(e) => setNewRole({ ...newRole, description: e.target.value })} className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/25" />
+                <input type="text" placeholder="Description" value={newRole.description} onChange={(e) => setNewRole({ ...newRole, description: e.target.value })} className="w-full bg-white border border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-white/25" />
               </div>
             ) : displayRole ? (
               <>
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: displayRole.color }} />
                   <div>
-                    <h2 className="text-base font-semibold text-white">{displayRole.name}</h2>
-                    <p className="text-xs text-zinc-500">{displayRole.description}</p>
+                    <h2 className="text-base font-semibold text-gray-900">{displayRole.name}</h2>
+                    <p className="text-xs text-gray-400">{displayRole.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-600">{activePerms.length} perms</span>
+                  <span className="text-xs text-gray-400">{activePerms.length} perms</span>
                   {!displayRole.isSystem && !editing && (
                     <>
-                      <button onClick={() => setEditing(displayRole)} className="p-2 text-zinc-500 hover:text-white hover:bg-white/[0.06] rounded-lg transition"><Edit2 size={13} /></button>
-                      <button onClick={() => deleteRole(displayRole.id)} className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={13} /></button>
+                      <button onClick={() => setEditing(displayRole)} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"><Edit2 size={13} /></button>
+                      <button onClick={() => deleteRole(displayRole.id)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={13} /></button>
                     </>
                   )}
                   {editing && (
                     <div className="flex gap-2">
-                      <button onClick={saveEdit} disabled={saving} className="px-3 py-1.5 bg-white text-black text-xs rounded-lg hover:bg-zinc-100 transition flex items-center gap-1.5">
+                      <button onClick={saveEdit} disabled={saving} className="px-3 py-1.5 bg-white text-gray-900 text-xs rounded-lg hover:bg-gray-800 transition flex items-center gap-1.5">
                         {saving && <Loader2 size={11} className="animate-spin" />} Save
                       </button>
-                      <button onClick={() => setEditing(null)} className="px-3 py-1.5 border border-white/10 text-xs text-zinc-400 rounded-lg hover:bg-white/[0.06] transition">Cancel</button>
+                      <button onClick={() => setEditing(null)} className="px-3 py-1.5 border border-white/10 text-xs text-gray-500 rounded-lg hover:bg-gray-100 transition">Cancel</button>
                     </div>
                   )}
                 </div>
@@ -245,9 +245,9 @@ export default function RolesPage() {
             {ALL_PERMISSIONS.map((group) => (
               <div key={group.group}>
                 <button onClick={() => toggleGroup(group.group)} className="flex items-center gap-2 w-full text-left mb-2">
-                  {expanded.has(group.group) ? <ChevronUp size={12} className="text-zinc-500" /> : <ChevronDown size={12} className="text-zinc-500" />}
-                  <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">{group.group}</span>
-                  <span className="text-[10px] text-zinc-600">({group.items.filter((i) => activePerms.includes(i.key)).length}/{group.items.length})</span>
+                  {expanded.has(group.group) ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{group.group}</span>
+                  <span className="text-[10px] text-gray-400">({group.items.filter((i) => activePerms.includes(i.key)).length}/{group.items.length})</span>
                 </button>
                 {expanded.has(group.group) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-4">
@@ -256,12 +256,12 @@ export default function RolesPage() {
                       const editable = showCreate || (editing && !editing.isSystem)
                       return (
                         <button key={perm.key} onClick={() => editable && togglePerm(perm.key, !!editing)} disabled={!editable}
-                          className={`text-left rounded-lg border p-2.5 transition ${enabled ? 'border-white/20 bg-white/[0.05]' : 'border-white/[0.04] opacity-50'} ${editable ? 'cursor-pointer hover:border-white/30' : 'cursor-default'}`}>
+                          className={`text-left rounded-lg border p-2.5 transition ${enabled ? 'border-white/20 bg-white/[0.05]' : 'border-gray-200 opacity-50'} ${editable ? 'cursor-pointer hover:border-white/30' : 'cursor-default'}`}>
                           <div className="flex items-center gap-2">
-                            {enabled ? <Eye size={11} className="text-emerald-400" /> : <EyeOff size={11} className="text-zinc-600" />}
-                            <span className={`text-xs font-medium ${enabled ? 'text-white' : 'text-zinc-500'}`}>{perm.label}</span>
+                            {enabled ? <Eye size={11} className="text-emerald-400" /> : <EyeOff size={11} className="text-gray-400" />}
+                            <span className={`text-xs font-medium ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>{perm.label}</span>
                           </div>
-                          <p className="text-[10px] text-zinc-600 mt-0.5 pl-4">{perm.description}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5 pl-4">{perm.description}</p>
                         </button>
                       )
                     })}
@@ -273,9 +273,9 @@ export default function RolesPage() {
 
           {displayRole?.isSystem && !showCreate && (
             <div className="px-5 pb-4">
-              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5 flex items-center gap-2">
-                <Lock size={12} className="text-zinc-600" />
-                <p className="text-xs text-zinc-600">System roles cannot be modified</p>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 flex items-center gap-2">
+                <Lock size={12} className="text-gray-400" />
+                <p className="text-xs text-gray-400">System roles cannot be modified</p>
               </div>
             </div>
           )}

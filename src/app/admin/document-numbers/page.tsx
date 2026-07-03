@@ -152,11 +152,11 @@ export default function DocumentNumbersPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white flex items-center gap-2">
-            <Hash size={20} className="text-zinc-400" />
+          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <Hash size={20} className="text-gray-500" />
             Document Number Settings
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <p className="text-sm text-gray-400 mt-0.5">
             Configure how document numbers are auto-generated for each document type across your business
           </p>
         </div>
@@ -173,7 +173,7 @@ export default function DocumentNumbersPage() {
 
       {/* Config cards */}
       {loading ? (
-        <div className="p-12 text-center text-zinc-500">Loading…</div>
+        <div className="p-12 text-center text-gray-400">Loading…</div>
       ) : (
         <div className="space-y-2">
           {configs.map((cfg) => {
@@ -190,51 +190,51 @@ export default function DocumentNumbersPage() {
             return (
               <div
                 key={cfg.documentType}
-                className="rounded-xl border border-white/[0.06] overflow-hidden"
+                className="rounded-xl border border-gray-200 overflow-hidden"
               >
                 {/* Row header */}
                 <button
-                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] text-left"
+                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 text-left"
                   onClick={() =>
                     setExpanded(isOpen ? null : cfg.documentType)
                   }
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">
+                      <span className="text-sm font-medium text-gray-900">
                         {info.label}
                       </span>
                       {!cfg._saved && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-700 text-zinc-400">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">
                           default
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-zinc-500 mt-0.5">{info.desc}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{info.desc}</p>
                   </div>
                   {/* Preview pill */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-                      <Eye size={11} className="text-zinc-500" />
-                      <span className="font-mono text-xs text-zinc-300">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-gray-200">
+                      <Eye size={11} className="text-gray-400" />
+                      <span className="font-mono text-xs text-gray-700">
                         {preview}
                       </span>
                     </div>
                   </div>
                   {isOpen ? (
-                    <ChevronDown size={14} className="text-zinc-500 shrink-0" />
+                    <ChevronDown size={14} className="text-gray-400 shrink-0" />
                   ) : (
-                    <ChevronRight size={14} className="text-zinc-500 shrink-0" />
+                    <ChevronRight size={14} className="text-gray-400 shrink-0" />
                   )}
                 </button>
 
                 {/* Expanded editor */}
                 {isOpen && (
-                  <div className="border-t border-white/[0.06] px-5 py-5 bg-white/[0.01]">
+                  <div className="border-t border-gray-200 px-5 py-5 bg-white/[0.01]">
                     <div className="grid grid-cols-2 gap-x-8 gap-y-5 max-w-2xl">
                       {/* Prefix */}
                       <div>
-                        <label className="text-xs text-zinc-500 block mb-1">
+                        <label className="text-xs text-gray-400 block mb-1">
                           Prefix
                         </label>
                         <input
@@ -244,13 +244,13 @@ export default function DocumentNumbersPage() {
                           }
                           maxLength={10}
                           placeholder="e.g. INV"
-                          className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 font-mono uppercase"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 font-mono uppercase"
                         />
                       </div>
 
                       {/* Separator */}
                       <div>
-                        <label className="text-xs text-zinc-500 block mb-1">
+                        <label className="text-xs text-gray-400 block mb-1">
                           Separator
                         </label>
                         <div className="flex gap-1.5">
@@ -262,8 +262,8 @@ export default function DocumentNumbersPage() {
                               }
                               className={`flex-1 py-2 rounded-lg text-sm font-mono border transition-colors ${
                                 draft.separator === s
-                                  ? "border-white/30 bg-white/[0.08] text-white"
-                                  : "border-white/[0.08] text-zinc-400 hover:text-white"
+                                  ? "border-white/30 bg-gray-100 text-gray-900"
+                                  : "border-gray-200 text-gray-500 hover:text-gray-900"
                               }`}
                             >
                               {s === "" ? "none" : s}
@@ -274,7 +274,7 @@ export default function DocumentNumbersPage() {
 
                       {/* Sequence length */}
                       <div>
-                        <label className="text-xs text-zinc-500 block mb-1">
+                        <label className="text-xs text-gray-400 block mb-1">
                           Sequence digits
                         </label>
                         <div className="flex gap-1.5">
@@ -286,23 +286,23 @@ export default function DocumentNumbersPage() {
                               }
                               className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
                                 draft.sequenceLength === n
-                                  ? "border-white/30 bg-white/[0.08] text-white"
-                                  : "border-white/[0.08] text-zinc-400 hover:text-white"
+                                  ? "border-white/30 bg-gray-100 text-gray-900"
+                                  : "border-gray-200 text-gray-500 hover:text-gray-900"
                               }`}
                             >
                               {n}
                             </button>
                           ))}
                         </div>
-                        <p className="text-[10px] text-zinc-600 mt-1">
+                        <p className="text-[10px] text-gray-400 mt-1">
                           e.g. 4 digits → 0001, 0042
                         </p>
                       </div>
 
                       {/* Suffix */}
                       <div>
-                        <label className="text-xs text-zinc-500 block mb-1">
-                          Suffix <span className="text-zinc-600">(optional)</span>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Suffix <span className="text-gray-400">(optional)</span>
                         </label>
                         <input
                           value={draft.suffix}
@@ -311,7 +311,7 @@ export default function DocumentNumbersPage() {
                           }
                           maxLength={10}
                           placeholder="e.g. MUM, HQ"
-                          className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                         />
                       </div>
 
@@ -329,21 +329,21 @@ export default function DocumentNumbersPage() {
                             className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${
                               draft.includeFinancialYear
                                 ? "bg-white"
-                                : "bg-zinc-700"
+                                : "bg-gray-200"
                             }`}
                           >
                             <div
                               className={`w-4 h-4 rounded-full transition-transform ${
                                 draft.includeFinancialYear
-                                  ? "translate-x-4 bg-black"
-                                  : "translate-x-0 bg-zinc-400"
+                                  ? "translate-x-4 bg-gray-50"
+                                  : "translate-x-0 bg-gray-300"
                               }`}
                             />
                           </div>
-                          <span className="text-sm text-zinc-300">
+                          <span className="text-sm text-gray-700">
                             Include financial year
                           </span>
-                          <span className="text-xs text-zinc-600">
+                          <span className="text-xs text-gray-400">
                             (e.g. 2024-25)
                           </span>
                         </label>
@@ -358,34 +358,34 @@ export default function DocumentNumbersPage() {
                               )
                             }
                             className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${
-                              draft.includeMonth ? "bg-white" : "bg-zinc-700"
+                              draft.includeMonth ? "bg-white" : "bg-gray-200"
                             }`}
                           >
                             <div
                               className={`w-4 h-4 rounded-full transition-transform ${
                                 draft.includeMonth
-                                  ? "translate-x-4 bg-black"
-                                  : "translate-x-0 bg-zinc-400"
+                                  ? "translate-x-4 bg-gray-50"
+                                  : "translate-x-0 bg-gray-300"
                               }`}
                             />
                           </div>
-                          <span className="text-sm text-zinc-300">
+                          <span className="text-sm text-gray-700">
                             Include month
                           </span>
-                          <span className="text-xs text-zinc-600">
+                          <span className="text-xs text-gray-400">
                             (e.g. 06)
                           </span>
                         </label>
                       </div>
 
                       {/* Live preview */}
-                      <div className="col-span-2 flex items-center gap-4 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                        <Eye size={14} className="text-zinc-500 shrink-0" />
+                      <div className="col-span-2 flex items-center gap-4 px-4 py-3 rounded-xl bg-white border border-gray-200">
+                        <Eye size={14} className="text-gray-400 shrink-0" />
                         <div>
-                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">
+                          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-0.5">
                             Preview
                           </p>
-                          <p className="font-mono text-base text-white tracking-wide">
+                          <p className="font-mono text-base text-gray-900 tracking-wide">
                             {preview}
                           </p>
                         </div>
@@ -397,7 +397,7 @@ export default function DocumentNumbersPage() {
                       <button
                         onClick={() => saveConfig(cfg.documentType)}
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-white text-gray-900 rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
                       >
                         {isSaved ? (
                           <>
@@ -413,7 +413,7 @@ export default function DocumentNumbersPage() {
                       </button>
                       <button
                         onClick={() => resetDraft(cfg.documentType)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-white/20"
                       >
                         <RotateCcw size={13} />
                         Reset

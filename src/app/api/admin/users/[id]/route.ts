@@ -5,10 +5,11 @@ import bcrypt from 'bcryptjs';
 
 async function getModels() {
   const User = mongoose.models.User || (await import('@/models/User')).default;
+  const Role = mongoose.models.Role || (await import('@/models/Role')).default;
   const UserRole = mongoose.models.UserRole || (await import('@/models/UserRole')).default;
   const EmployeeProfile = mongoose.models.EmployeeProfile || (await import('@/models/EmployeeProfile')).default;
   const VendorProfile = mongoose.models.VendorProfile || (await import('@/models/VendorProfile')).default;
-  return { User, UserRole, EmployeeProfile, VendorProfile };
+  return { User, Role, UserRole, EmployeeProfile, VendorProfile };
 }
 
 export async function GET(
@@ -61,20 +62,28 @@ export async function PUT(
   try {
     await connectDB();
     const { id } = await params;
-    const { User, UserRole, EmployeeProfile, VendorProfile } = await getModels();
+    const { User, Role, UserRole, EmployeeProfile, VendorProfile } = await getModels();
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
     const body = await request.json();
-    const { name, email, password, status, role, employeeData, vendorData } = body;
+    const { name, email, password, status, isActive, role, employeeData, vendorData } = body;
 
     const updateData: Record<string, unknown> = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (status) updateData.status = status;
+    if (name)     updateData.name = name;
+    if (email)    updateData.email = email;
     if (password) updateData.password = await bcrypt.hash(password, 12);
+
+    // Handle status toggle — User schema uses `isActive` (boolean), not `status` (string)
+    if (typeof isActive === 'boolean') {
+      updateData.isActive = isActive;
+    } else if (status === 'ACTIVE') {
+      updateData.isActive = true;
+    } else if (status === 'INACTIVE') {
+      updateData.isActive = false;
+    }
 
     const user = await User.findOneAndUpdate(
       { _id: id, isDeleted: { $ne: true } },
@@ -86,12 +95,23 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Update role if provided
+    if (role) {
+      let roleDoc = await Role.findOne({ code: role.toUpperCase() });
+      if (!roleDoc) {
+        roleDoc = await Role.create({ name: role, code: role.toUpperCase(), description: role, isSystem: false });
+      }
+      // Replace existing user role
+      await UserRole.deleteMany({ userId: id });
+      await UserRole.create({ userId: id, roleId: roleDoc._id });
+    }
+
     // Update employee profile if provided
     if (employeeData) {
       await EmployeeProfile.findOneAndUpdate(
         { userId: id },
         { $set: employeeData },
-        { new: true }
+        { new: true, upsert: false }
       );
     }
 
@@ -100,11 +120,15 @@ export async function PUT(
       await VendorProfile.findOneAndUpdate(
         { userId: id },
         { $set: vendorData },
-        { new: true }
+        { new: true, upsert: false }
       );
     }
 
-    return NextResponse.json({ user });
+    // Re-fetch enriched user
+    const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
+    const roles = userRoles.map((ur: Record<string, unknown>) => ur.roleId);
+
+    return NextResponse.json({ user: { ...user.toObject(), roles } });
   } catch (error) {
     console.error('PUT /api/admin/users/[id] error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -126,7 +150,7 @@ export async function DELETE(
 
     const user = await User.findOneAndUpdate(
       { _id: id, isDeleted: { $ne: true } },
-      { $set: { isDeleted: true, status: 'INACTIVE' } },
+      { $set: { isDeleted: true, isActive: false } },
       { new: true }
     ).select('-password');
 

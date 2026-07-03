@@ -32,7 +32,7 @@ interface POItem {
 }
 
 const statusColors: Record<string, string> = {
-  DRAFT: 'bg-zinc-500/20 text-zinc-400',
+  DRAFT: 'bg-gray-100 text-gray-500',
   SUBMITTED: 'bg-blue-500/20 text-blue-400',
   APPROVED: 'bg-green-500/20 text-green-400',
   REJECTED: 'bg-red-500/20 text-red-400',
@@ -124,30 +124,30 @@ export default function PurchasePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-zinc-400 animate-spin" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => router.push('/admin')}
-            className="w-9 h-9 rounded-xl border border-white/[0.06] bg-white/[0.04] flex items-center justify-center hover:bg-white/[0.08] transition"
+            className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h1 className="text-2xl font-semibold">Purchase Orders</h1>
-            <p className="text-sm text-zinc-500">Manage procurement and vendor orders</p>
+            <p className="text-sm text-gray-400">Manage procurement and vendor orders</p>
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="ml-auto flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-xl hover:bg-zinc-100 transition"
+            className="ml-auto flex items-center gap-2 bg-gray-900 text-gray-900 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
           >
             <Plus className="w-4 h-4" /> New PO
           </button>
@@ -167,50 +167,50 @@ export default function PurchasePage() {
             { icon: Clock, label: 'Pending', value: String(pending) },
             { icon: DollarSign, label: 'Total Value', value: fmt(totalValue) },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-6">
+            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-zinc-400 text-sm">{label}</span>
-                <div className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-zinc-300" />
+                <span className="text-gray-500 text-sm">{label}</span>
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-gray-700" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-white">{value}</p>
+              <p className="text-2xl font-semibold text-gray-900">{value}</p>
             </div>
           ))}
         </div>
 
         {/* PO Table */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.04] overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">PO #</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Vendor</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Date</th>
-                <th className="text-left px-6 py-3 text-zinc-500 font-medium">Delivery</th>
-                <th className="text-right px-6 py-3 text-zinc-500 font-medium">Amount</th>
-                <th className="text-center px-6 py-3 text-zinc-500 font-medium">Status</th>
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">PO #</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Vendor</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Date</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Delivery</th>
+                <th className="text-right px-6 py-3 text-gray-400 font-medium">Amount</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-gray-100">
               {pos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-zinc-500">
+                  <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
                     No purchase orders found
                   </td>
                 </tr>
               ) : (
                 pos.map((po) => (
-                  <tr key={po._id} className="hover:bg-white/[0.02] transition">
-                    <td className="px-6 py-3 font-medium text-white">{po.poNumber}</td>
-                    <td className="px-6 py-3 text-zinc-300">{po.vendorName}</td>
-                    <td className="px-6 py-3 text-zinc-500">{fmtDate(po.createdAt)}</td>
-                    <td className="px-6 py-3 text-zinc-500">
+                  <tr key={po._id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-3 font-medium text-gray-900">{po.poNumber}</td>
+                    <td className="px-6 py-3 text-gray-700">{po.vendorName}</td>
+                    <td className="px-6 py-3 text-gray-400">{fmtDate(po.createdAt)}</td>
+                    <td className="px-6 py-3 text-gray-400">
                       {po.deliveryDate ? fmtDate(po.deliveryDate) : '—'}
                     </td>
-                    <td className="px-6 py-3 text-right text-white">{fmt(po.totalAmount)}</td>
+                    <td className="px-6 py-3 text-right text-gray-900">{fmt(po.totalAmount)}</td>
                     <td className="px-6 py-3 text-center">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[po.status] ?? 'bg-zinc-500/20 text-zinc-400'}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[po.status] ?? 'bg-gray-100 text-gray-500'}`}>
                         {po.status}
                       </span>
                     </td>
@@ -225,13 +225,13 @@ export default function PurchasePage() {
       {/* Slide-over: New PO */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="w-full max-w-lg bg-zinc-950 border-l border-white/[0.06] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06]">
-              <h2 className="font-semibold text-white">New Purchase Order</h2>
+          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="w-full max-w-lg bg-gray-50 border-l border-gray-200 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-900">New Purchase Order</h2>
               <button
                 onClick={() => setShowForm(false)}
-                className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08]"
+                className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -243,47 +243,47 @@ export default function PurchasePage() {
                 </div>
               )}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Vendor Name *</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Vendor Name *</label>
                 <input
                   required
                   value={vendorName}
                   onChange={(e) => setVendorName(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                   placeholder="Supplier Ltd."
                 />
               </div>
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Delivery Date</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Delivery Date</label>
                 <input
                   type="date"
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                 />
               </div>
 
               {/* Items */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs text-zinc-400">Items</label>
+                  <label className="text-xs text-gray-500">Items</label>
                   <button
                     type="button"
                     onClick={addItem}
-                    className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 transition"
+                    className="text-xs text-gray-500 hover:text-gray-900 flex items-center gap-1 transition"
                   >
                     <Plus className="w-3 h-3" /> Add Item
                   </button>
                 </div>
                 <div className="space-y-3">
                   {items.map((item, idx) => (
-                    <div key={idx} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 space-y-2">
+                    <div key={idx} className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Item {idx + 1}</span>
+                        <span className="text-xs text-gray-400">Item {idx + 1}</span>
                         {items.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeItem(idx)}
-                            className="text-zinc-600 hover:text-red-400 transition"
+                            className="text-gray-400 hover:text-red-400 transition"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -293,27 +293,27 @@ export default function PurchasePage() {
                         value={item.description}
                         onChange={(e) => updateItem(idx, 'description', e.target.value)}
                         placeholder="Description"
-                        className="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/20"
+                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-white/20"
                       />
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs text-zinc-600 mb-1">Qty</label>
+                          <label className="block text-xs text-gray-400 mb-1">Qty</label>
                           <input
                             type="number"
                             min={1}
                             value={item.qty}
                             onChange={(e) => updateItem(idx, 'qty', parseFloat(e.target.value) || 1)}
-                            className="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-sm text-white outline-none"
+                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-zinc-600 mb-1">Price</label>
+                          <label className="block text-xs text-gray-400 mb-1">Price</label>
                           <input
                             type="number"
                             min={0}
                             value={item.price}
                             onChange={(e) => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
-                            className="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-sm text-white outline-none"
+                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none"
                           />
                         </div>
                       </div>
@@ -323,27 +323,27 @@ export default function PurchasePage() {
               </div>
 
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Notes</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Notes</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-white/20 resize-none"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20 resize-none"
                 />
               </div>
             </form>
-            <div className="px-6 py-4 border-t border-white/[0.06] flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-white/[0.06] bg-white/[0.04] text-sm text-zinc-400 hover:text-white transition"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white text-black text-sm font-medium hover:bg-zinc-100 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-gray-900 text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Create PO
