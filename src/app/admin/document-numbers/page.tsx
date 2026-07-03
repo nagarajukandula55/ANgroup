@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import {
-  Hash,
-  Save,
-  RotateCcw,
-  Eye,
-  ChevronDown,
-  ChevronRight,
-  CheckCircle,
-  Info,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
 
-/* ─── Types ───────────────────────────────────────────────────────────────── */
-interface DocConfig {
-  _id?: string;
-  businessId: string;
-  documentType: string;
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type DocumentType =
+  | "INVOICE"
+  | "SALES_ORDER"
+  | "PURCHASE_ORDER"
+  | "GRN"
+  | "CREDIT_NOTE"
+  | "DEBIT_NOTE"
+  | "QUOTATION"
+  | "DELIVERY_CHALLAN"
+  | "PAYMENT_RECEIPT"
+  | "PRODUCTION_ORDER";
+
+interface DocumentConfig {
+  documentType: DocumentType;
   prefix: string;
   separator: string;
   includeFinancialYear: boolean;
@@ -24,408 +25,740 @@ interface DocConfig {
   sequenceLength: number;
   suffix: string;
   startFrom: number;
-  isActive: boolean;
-  formatPreview: string;
-  _saved?: boolean;
 }
 
-const DOC_TYPE_LABELS: Record<string, { label: string; desc: string }> = {
-  INVOICE:           { label: "Sales Invoice",       desc: "Customer invoices / tax invoices" },
-  SALES_ORDER:       { label: "Sales Order",          desc: "Customer orders" },
-  PURCHASE_ORDER:    { label: "Purchase Order",       desc: "Vendor purchase orders" },
-  GRN:               { label: "Goods Receipt Note",   desc: "Stock inward receipts" },
-  CREDIT_NOTE:       { label: "Credit Note",          desc: "Refund / credit adjustments" },
-  DEBIT_NOTE:        { label: "Debit Note",           desc: "Debit adjustments to vendor" },
-  QUOTATION:         { label: "Quotation",            desc: "Customer price quotations" },
-  DELIVERY_CHALLAN:  { label: "Delivery Challan",     desc: "Goods dispatch notes" },
-  PAYMENT_RECEIPT:   { label: "Payment Receipt",      desc: "Payment acknowledgements" },
-  PRODUCTION_ORDER:  { label: "Production Order",     desc: "Manufacturing / production orders" },
+interface CardState {
+  current: DocumentConfig;
+  saved: DocumentConfig;
+  isOpen: boolean;
+  isSaving: boolean;
+  successMsg: string | null;
+  errorMsg: string | null;
+}
+
+// ─── Defaults ────────────────────────────────────────────────────────────────
+
+const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  INVOICE: "Invoice",
+  SALES_ORDER: "Sales Order",
+  PURCHASE_ORDER: "Purchase Order",
+  GRN: "Goods Receipt Note",
+  CREDIT_NOTE: "Credit Note",
+  DEBIT_NOTE: "Debit Note",
+  QUOTATION: "Quotation",
+  DELIVERY_CHALLAN: "Delivery Challan",
+  PAYMENT_RECEIPT: "Payment Receipt",
+  PRODUCTION_ORDER: "Production Order",
 };
 
-/* ─── Live preview builder ────────────────────────────────────────────────── */
-function buildPreview(cfg: DocConfig): string {
-  const sep = cfg.separator || "-";
-  const now = new Date();
-  const yr = now.getFullYear();
-  const mo = String(now.getMonth() + 1).padStart(2, "0");
-  const nextFY = mo >= "04" ? `${yr}-${String(yr + 1).slice(2)}` : `${yr - 1}-${String(yr).slice(2)}`;
-  const seq = "0".repeat(cfg.sequenceLength - 1) + "1";
+const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
+  INVOICE: {
+    documentType: "INVOICE",
+    prefix: "INV",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  SALES_ORDER: {
+    documentType: "SALES_ORDER",
+    prefix: "SO",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  PURCHASE_ORDER: {
+    documentType: "PURCHASE_ORDER",
+    prefix: "PO",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  GRN: {
+    documentType: "GRN",
+    prefix: "GRN",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  CREDIT_NOTE: {
+    documentType: "CREDIT_NOTE",
+    prefix: "CN",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  DEBIT_NOTE: {
+    documentType: "DEBIT_NOTE",
+    prefix: "DN",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  QUOTATION: {
+    documentType: "QUOTATION",
+    prefix: "QT",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  DELIVERY_CHALLAN: {
+    documentType: "DELIVERY_CHALLAN",
+    prefix: "DC",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  PAYMENT_RECEIPT: {
+    documentType: "PAYMENT_RECEIPT",
+    prefix: "PR",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  PRODUCTION_ORDER: {
+    documentType: "PRODUCTION_ORDER",
+    prefix: "PROD",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+};
+
+const DOCUMENT_TYPES: DocumentType[] = [
+  "INVOICE",
+  "SALES_ORDER",
+  "PURCHASE_ORDER",
+  "GRN",
+  "CREDIT_NOTE",
+  "DEBIT_NOTE",
+  "QUOTATION",
+  "DELIVERY_CHALLAN",
+  "PAYMENT_RECEIPT",
+  "PRODUCTION_ORDER",
+];
+
+// ─── Preview Builder ──────────────────────────────────────────────────────────
+
+function buildPreview(config: DocumentConfig): string {
+  const {
+    prefix,
+    separator,
+    includeFinancialYear,
+    includeMonth,
+    sequenceLength,
+    suffix,
+    startFrom,
+  } = config;
 
   const parts: string[] = [];
-  if (cfg.prefix) parts.push(cfg.prefix);
-  if (cfg.includeFinancialYear) parts.push(nextFY);
-  if (cfg.includeMonth) parts.push(mo);
-  parts.push(seq);
-  if (cfg.suffix) parts.push(cfg.suffix);
-  return parts.join(sep);
-}
 
-/* ─── Page ────────────────────────────────────────────────────────────────── */
-export default function DocumentNumbersPage() {
-  const [configs, setConfigs] = useState<DocConfig[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, DocConfig>>({});
-  const [businessId, setBusinessId] = useState<string | null>(null);
-
-  // Resolve businessId from JWT via /api/auth/me (not localStorage)
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          const bid = d.user?.activeBusinessId || d.businesses?.[0]?._id || null;
-          setBusinessId(bid);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const fetchConfigs = useCallback(async () => {
-    if (!businessId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/admin/document-numbers?businessId=${businessId}`
-      );
-      const data = await res.json();
-      if (data.success) {
-        setConfigs(data.data);
-        const d: Record<string, DocConfig> = {};
-        data.data.forEach((c: DocConfig) => {
-          d[c.documentType] = { ...c };
-        });
-        setDrafts(d);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [businessId]);
-
-  useEffect(() => {
-    fetchConfigs();
-  }, [fetchConfigs]);
-
-  function updateDraft(docType: string, field: keyof DocConfig, value: unknown) {
-    setDrafts((prev) => {
-      const updated = { ...prev[docType], [field]: value } as DocConfig;
-      return { ...prev, [docType]: updated };
-    });
+  if (prefix) {
+    parts.push(prefix);
   }
 
-  async function saveConfig(docType: string) {
-    const draft = drafts[docType];
-    if (!draft || !businessId) return;
-    setSaving(docType);
+  if (includeFinancialYear) {
+    parts.push("2024-25");
+  }
+
+  if (includeMonth) {
+    parts.push("Apr");
+  }
+
+  if (suffix) {
+    parts.push(suffix);
+  }
+
+  const seq = String(startFrom).padStart(sequenceLength, "0");
+  parts.push(seq);
+
+  return parts.join(separator);
+}
+
+// ─── Toggle Component ─────────────────────────────────────────────────────────
+
+interface ToggleProps {
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  label: string;
+}
+
+function Toggle({ checked, onChange, label }: ToggleProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex items-center gap-3 w-full text-left"
+      aria-pressed={checked}
+    >
+      <div
+        className={`relative inline-flex w-10 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
+          checked ? "bg-gray-900" : "bg-gray-200"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+            checked ? "translate-x-4" : "translate-x-0.5"
+          }`}
+        />
+      </div>
+      <span className="text-sm text-gray-700">{label}</span>
+    </button>
+  );
+}
+
+// ─── Document Card ────────────────────────────────────────────────────────────
+
+interface DocumentCardProps {
+  cardState: CardState;
+  onChange: (config: DocumentConfig) => void;
+  onSave: () => void;
+  onReset: () => void;
+  onToggleOpen: () => void;
+  businessId: string;
+}
+
+function DocumentCard({
+  cardState,
+  onChange,
+  onSave,
+  onReset,
+  onToggleOpen,
+}: DocumentCardProps) {
+  const { current, isOpen, isSaving, successMsg, errorMsg } = cardState;
+  const docType = current.documentType;
+  const label = DOCUMENT_TYPE_LABELS[docType];
+  const preview = buildPreview(current);
+
+  const separatorOptions = ["-", "/", "."];
+  const sequenceLengthOptions = [3, 4, 5, 6];
+
+  const update = (partial: Partial<DocumentConfig>) => {
+    onChange({ ...current, ...partial });
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      {/* Card Header */}
+      <button
+        type="button"
+        onClick={onToggleOpen}
+        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-gray-900 font-medium text-sm">{label}</span>
+          <span className="text-xs text-gray-400 font-mono">{docType}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {!isOpen && (
+            <span className="text-xs text-gray-400 font-mono">{preview}</span>
+          )}
+          <svg
+            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </div>
+      </button>
+
+      {/* Card Body */}
+      {isOpen && (
+        <div className="px-5 pb-5 border-t border-gray-100">
+          {/* Preview */}
+          <div className="mt-4 mb-5">
+            <p className="text-xs text-gray-500 mb-1.5 font-medium uppercase tracking-wide">
+              Preview
+            </p>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-mono text-gray-900 text-sm">
+              {preview}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Prefix & Suffix */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 font-medium mb-1.5">
+                  Prefix
+                </label>
+                <input
+                  type="text"
+                  value={current.prefix}
+                  onChange={(e) => update({ prefix: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  placeholder="e.g. INV"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 font-medium mb-1.5">
+                  Suffix
+                </label>
+                <input
+                  type="text"
+                  value={current.suffix}
+                  onChange={(e) => update({ suffix: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            {/* Separator */}
+            <div>
+              <label className="block text-xs text-gray-500 font-medium mb-1.5">
+                Separator
+              </label>
+              <div className="flex gap-2">
+                {separatorOptions.map((sep) => (
+                  <button
+                    key={sep}
+                    type="button"
+                    onClick={() => update({ separator: sep })}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      current.separator === sep
+                        ? "bg-gray-900 text-white"
+                        : "border border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    {sep}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sequence Length */}
+            <div>
+              <label className="block text-xs text-gray-500 font-medium mb-1.5">
+                Sequence Length
+              </label>
+              <div className="flex gap-2">
+                {sequenceLengthOptions.map((len) => (
+                  <button
+                    key={len}
+                    type="button"
+                    onClick={() => update({ sequenceLength: len })}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      current.sequenceLength === len
+                        ? "bg-gray-900 text-white"
+                        : "border border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                  >
+                    {len}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Start From */}
+            <div>
+              <label className="block text-xs text-gray-500 font-medium mb-1.5">
+                Start From
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={current.startFrom}
+                onChange={(e) =>
+                  update({
+                    startFrom: Math.max(1, parseInt(e.target.value, 10) || 1),
+                  })
+                }
+                className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+            </div>
+
+            {/* Toggles */}
+            <div className="space-y-3 pt-1">
+              <Toggle
+                checked={current.includeFinancialYear}
+                onChange={(val) => update({ includeFinancialYear: val })}
+                label="Include Financial Year (e.g. 2024-25)"
+              />
+              <Toggle
+                checked={current.includeMonth}
+                onChange={(val) => update({ includeMonth: val })}
+                label="Include Month (e.g. Apr)"
+              />
+            </div>
+          </div>
+
+          {/* Feedback Messages */}
+          {successMsg && (
+            <div className="mt-4 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+              {successMsg}
+            </div>
+          )}
+          {errorMsg && (
+            <div className="mt-4 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {errorMsg}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2 mt-5">
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={isSaving}
+              className="bg-gray-900 text-white hover:bg-gray-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              disabled={isSaving}
+              className="border border-gray-200 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function DocumentNumbersPage() {
+  const [loading, setLoading] = useState(true);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [noBusiness, setNoBusiness] = useState(false);
+  const [cards, setCards] = useState<Record<DocumentType, CardState>>(() => {
+    const initial: Partial<Record<DocumentType, CardState>> = {};
+    for (const dt of DOCUMENT_TYPES) {
+      const def = DEFAULT_CONFIGS[dt];
+      initial[dt] = {
+        current: { ...def },
+        saved: { ...def },
+        isOpen: false,
+        isSaving: false,
+        successMsg: null,
+        errorMsg: null,
+      };
+    }
+    return initial as Record<DocumentType, CardState>;
+  });
+
+  // ── Fetch on mount ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      // Step 1: get businessId
+      let bId: string | null = null;
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          bId =
+            data?.businessId ??
+            data?.business?.id ??
+            data?.user?.businessId ??
+            null;
+        }
+      } catch {
+        // network error — treat as no business
+      }
+
+      if (cancelled) return;
+
+      if (!bId) {
+        setNoBusiness(true);
+        setLoading(false);
+        return;
+      }
+
+      setBusinessId(bId);
+
+      // Step 2: fetch document number configs
+      try {
+        const res = await fetch(
+          `/api/admin/document-numbers?businessId=${encodeURIComponent(bId)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const configs: DocumentConfig[] = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.configs)
+            ? data.configs
+            : [];
+
+          if (!cancelled && configs.length > 0) {
+            setCards((prev) => {
+              const next = { ...prev };
+              for (const cfg of configs) {
+                const dt = cfg.documentType as DocumentType;
+                if (DOCUMENT_TYPES.includes(dt)) {
+                  const merged: DocumentConfig = {
+                    ...DEFAULT_CONFIGS[dt],
+                    ...cfg,
+                    documentType: dt,
+                  };
+                  next[dt] = {
+                    ...next[dt],
+                    current: { ...merged },
+                    saved: { ...merged },
+                  };
+                }
+              }
+              return next;
+            });
+          }
+        }
+        // If response not ok or empty — keep defaults, fall through to setLoading(false)
+      } catch {
+        // API error — keep defaults, still stop loading
+      }
+
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+
+    init();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ── Card handlers ─────────────────────────────────────────────────────────
+
+  const handleChange = (docType: DocumentType, config: DocumentConfig) => {
+    setCards((prev) => ({
+      ...prev,
+      [docType]: { ...prev[docType], current: config },
+    }));
+  };
+
+  const handleToggleOpen = (docType: DocumentType) => {
+    setCards((prev) => ({
+      ...prev,
+      [docType]: {
+        ...prev[docType],
+        isOpen: !prev[docType].isOpen,
+        successMsg: null,
+        errorMsg: null,
+      },
+    }));
+  };
+
+  const handleReset = (docType: DocumentType) => {
+    setCards((prev) => ({
+      ...prev,
+      [docType]: {
+        ...prev[docType],
+        current: { ...prev[docType].saved },
+        successMsg: null,
+        errorMsg: null,
+      },
+    }));
+  };
+
+  const handleSave = async (docType: DocumentType) => {
+    if (!businessId) return;
+
+    setCards((prev) => ({
+      ...prev,
+      [docType]: {
+        ...prev[docType],
+        isSaving: true,
+        successMsg: null,
+        errorMsg: null,
+      },
+    }));
+
+    const config = cards[docType].current;
+
     try {
       const res = await fetch("/api/admin/document-numbers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...draft, businessId }),
+        body: JSON.stringify({
+          businessId,
+          documentType: docType,
+          prefix: config.prefix,
+          separator: config.separator,
+          includeFinancialYear: config.includeFinancialYear,
+          includeMonth: config.includeMonth,
+          sequenceLength: config.sequenceLength,
+          suffix: config.suffix,
+          startFrom: config.startFrom,
+        }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setSaved(docType);
-        setTimeout(() => setSaved(null), 2000);
-        await fetchConfigs();
+
+      if (res.ok) {
+        setCards((prev) => ({
+          ...prev,
+          [docType]: {
+            ...prev[docType],
+            saved: { ...config },
+            isSaving: false,
+            successMsg: "Settings saved successfully.",
+            errorMsg: null,
+          },
+        }));
       } else {
-        alert(data.error || "Failed to save");
+        let msg = "Failed to save. Please try again.";
+        try {
+          const err = await res.json();
+          if (err?.message) msg = err.message;
+        } catch {
+          // ignore parse errors
+        }
+        setCards((prev) => ({
+          ...prev,
+          [docType]: {
+            ...prev[docType],
+            isSaving: false,
+            successMsg: null,
+            errorMsg: msg,
+          },
+        }));
       }
-    } finally {
-      setSaving(null);
+    } catch {
+      setCards((prev) => ({
+        ...prev,
+        [docType]: {
+          ...prev[docType],
+          isSaving: false,
+          successMsg: null,
+          errorMsg: "Network error. Please check your connection.",
+        },
+      }));
     }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500">
+          <svg
+            className="animate-spin w-5 h-5 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <span className="text-sm">Loading document settings...</span>
+        </div>
+      </div>
+    );
   }
 
-  function resetDraft(docType: string) {
-    const original = configs.find((c) => c.documentType === docType);
-    if (original) {
-      setDrafts((prev) => ({ ...prev, [docType]: { ...original } }));
-    }
-  }
-
-  const SEP_OPTIONS = ["-", "/", "_", ".", ""];
-
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <Hash size={20} className="text-gray-500" />
-            Document Number Settings
-          </h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            Configure how document numbers are auto-generated for each document type across your business
+  if (noBusiness) {
+    return (
+      <div className="bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-6 h-6 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"
+              />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            No business selected
+          </h2>
+          <p className="text-sm text-gray-500">
+            Please select a business to manage document number settings.
           </p>
         </div>
       </div>
+    );
+  }
 
-      {/* Info banner */}
-      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
-        <Info size={16} className="mt-0.5 shrink-0" />
-        <span>
-          Changes only affect <strong>new</strong> documents. Existing document numbers are never renumbered.
-          Financial year resets the counter automatically each April 1.
-        </span>
-      </div>
-
-      {/* Config cards */}
-      {loading ? (
-        <div className="p-12 text-center text-gray-400">Loading…</div>
-      ) : (
-        <div className="space-y-2">
-          {configs.map((cfg) => {
-            const draft = drafts[cfg.documentType] ?? cfg;
-            const info = DOC_TYPE_LABELS[cfg.documentType] ?? {
-              label: cfg.documentType,
-              desc: "",
-            };
-            const isOpen = expanded === cfg.documentType;
-            const preview = buildPreview(draft);
-            const isSaving = saving === cfg.documentType;
-            const isSaved = saved === cfg.documentType;
-
-            return (
-              <div
-                key={cfg.documentType}
-                className="rounded-xl border border-gray-200 overflow-hidden"
-              >
-                {/* Row header */}
-                <button
-                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 text-left"
-                  onClick={() =>
-                    setExpanded(isOpen ? null : cfg.documentType)
-                  }
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">
-                        {info.label}
-                      </span>
-                      {!cfg._saved && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">
-                          default
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{info.desc}</p>
-                  </div>
-                  {/* Preview pill */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-gray-200">
-                      <Eye size={11} className="text-gray-400" />
-                      <span className="font-mono text-xs text-gray-700">
-                        {preview}
-                      </span>
-                    </div>
-                  </div>
-                  {isOpen ? (
-                    <ChevronDown size={14} className="text-gray-400 shrink-0" />
-                  ) : (
-                    <ChevronRight size={14} className="text-gray-400 shrink-0" />
-                  )}
-                </button>
-
-                {/* Expanded editor */}
-                {isOpen && (
-                  <div className="border-t border-gray-200 px-5 py-5 bg-gray-50/50">
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-5 max-w-2xl">
-                      {/* Prefix */}
-                      <div>
-                        <label className="text-xs text-gray-400 block mb-1">
-                          Prefix
-                        </label>
-                        <input
-                          value={draft.prefix}
-                          onChange={(e) =>
-                            updateDraft(cfg.documentType, "prefix", e.target.value.toUpperCase())
-                          }
-                          maxLength={10}
-                          placeholder="e.g. INV"
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 font-mono uppercase"
-                        />
-                      </div>
-
-                      {/* Separator */}
-                      <div>
-                        <label className="text-xs text-gray-400 block mb-1">
-                          Separator
-                        </label>
-                        <div className="flex gap-1.5">
-                          {SEP_OPTIONS.map((s) => (
-                            <button
-                              key={s === "" ? "none" : s}
-                              onClick={() =>
-                                updateDraft(cfg.documentType, "separator", s)
-                              }
-                              className={`flex-1 py-2 rounded-lg text-sm font-mono border transition-colors ${
-                                draft.separator === s
-                                  ? "border-gray-400 bg-gray-900 text-white"
-                                  : "border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300"
-                              }`}
-                            >
-                              {s === "" ? "none" : s}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Sequence length */}
-                      <div>
-                        <label className="text-xs text-gray-400 block mb-1">
-                          Sequence digits
-                        </label>
-                        <div className="flex gap-1.5">
-                          {[3, 4, 5, 6].map((n) => (
-                            <button
-                              key={n}
-                              onClick={() =>
-                                updateDraft(cfg.documentType, "sequenceLength", n)
-                              }
-                              className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
-                                draft.sequenceLength === n
-                                  ? "border-gray-400 bg-gray-900 text-white"
-                                  : "border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300"
-                              }`}
-                            >
-                              {n}
-                            </button>
-                          ))}
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-1">
-                          e.g. 4 digits → 0001, 0042
-                        </p>
-                      </div>
-
-                      {/* Suffix */}
-                      <div>
-                        <label className="text-xs text-gray-400 block mb-1">
-                          Suffix <span className="text-gray-400">(optional)</span>
-                        </label>
-                        <input
-                          value={draft.suffix}
-                          onChange={(e) =>
-                            updateDraft(cfg.documentType, "suffix", e.target.value)
-                          }
-                          maxLength={10}
-                          placeholder="e.g. MUM, HQ"
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
-                        />
-                      </div>
-
-                      {/* Toggles */}
-                      <div className="col-span-2 flex items-center gap-6">
-                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                          <div
-                            onClick={() =>
-                              updateDraft(
-                                cfg.documentType,
-                                "includeFinancialYear",
-                                !draft.includeFinancialYear
-                              )
-                            }
-                            className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${
-                              draft.includeFinancialYear
-                                ? "bg-gray-900"
-                                : "bg-gray-200"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full transition-transform ${
-                                draft.includeFinancialYear
-                                  ? "translate-x-4 bg-white"
-                                  : "translate-x-0 bg-white"
-                              }`}
-                            />
-                          </div>
-                          <span className="text-sm text-gray-700">
-                            Include financial year
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            (e.g. 2024-25)
-                          </span>
-                        </label>
-
-                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                          <div
-                            onClick={() =>
-                              updateDraft(
-                                cfg.documentType,
-                                "includeMonth",
-                                !draft.includeMonth
-                              )
-                            }
-                            className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${
-                              draft.includeMonth ? "bg-gray-900" : "bg-gray-200"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full transition-transform ${
-                                draft.includeMonth
-                                  ? "translate-x-4 bg-white"
-                                  : "translate-x-0 bg-white"
-                              }`}
-                            />
-                          </div>
-                          <span className="text-sm text-gray-700">
-                            Include month
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            (e.g. 06)
-                          </span>
-                        </label>
-                      </div>
-
-                      {/* Live preview */}
-                      <div className="col-span-2 flex items-center gap-4 px-4 py-3 rounded-xl bg-white border border-gray-200">
-                        <Eye size={14} className="text-gray-400 shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-0.5">
-                            Preview
-                          </p>
-                          <p className="font-mono text-base text-gray-900 tracking-wide">
-                            {preview}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 mt-5">
-                      <button
-                        onClick={() => saveConfig(cfg.documentType)}
-                        disabled={isSaving}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition"
-                      >
-                        {isSaved ? (
-                          <>
-                            <CheckCircle size={14} className="text-emerald-600" />
-                            Saved
-                          </>
-                        ) : (
-                          <>
-                            <Save size={14} />
-                            {isSaving ? "Saving…" : "Save Format"}
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => resetDraft(cfg.documentType)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400 transition"
-                      >
-                        <RotateCcw size={13} />
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+  return (
+    <div className="bg-gray-50 min-h-screen">
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Document Numbers
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Configure numbering formats for each document type.
+          </p>
         </div>
-      )}
+
+        {/* Cards */}
+        <div className="space-y-3">
+          {DOCUMENT_TYPES.map((dt) => (
+            <DocumentCard
+              key={dt}
+              cardState={cards[dt]}
+              businessId={businessId!}
+              onChange={(config) => handleChange(dt, config)}
+              onSave={() => handleSave(dt)}
+              onReset={() => handleReset(dt)}
+              onToggleOpen={() => handleToggleOpen(dt)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

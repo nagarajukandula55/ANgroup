@@ -1,105 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
-import mongoose from 'mongoose';
+import { NextRequest, NextResponse } from "next/server";
+import dbConnect from "@/lib/mongodbConnect";
+import Role from "@/models/Role";
 
+// GET /api/admin/roles/[id]
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectDB();
+    await dbConnect();
     const { id } = await params;
-    const Role = mongoose.models.Role || (await import('@/models/Role')).default;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: 'Invalid role ID' }, { status: 400 });
-    }
-
-    const role = await Role.findOne({ _id: id, isDeleted: { $ne: true } }).lean();
+    const role = await Role.findById(id);
     if (!role) {
-      return NextResponse.json({ error: 'Role not found' }, { status: 404 });
+      return NextResponse.json({ error: "Role not found" }, { status: 404 });
     }
-
     return NextResponse.json({ role });
   } catch (error) {
-    console.error('GET /api/admin/roles/[id] error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error fetching role:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
+// PUT /api/admin/roles/[id] - update permissions
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectDB();
+    await dbConnect();
     const { id } = await params;
-    const Role = mongoose.models.Role || (await import('@/models/Role')).default;
+    const body = await request.json();
+    const { permissions } = body;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: 'Invalid role ID' }, { status: 400 });
+    if (!Array.isArray(permissions)) {
+      return NextResponse.json({ error: "permissions must be an array" }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { name, description, permissions } = body;
-
-    const updateData: Record<string, unknown> = {};
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (permissions !== undefined) updateData.permissions = permissions;
-
-    const role = await Role.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
-      { $set: updateData },
+    const role = await Role.findByIdAndUpdate(
+      id,
+      { permissions },
       { new: true }
     );
-
     if (!role) {
-      return NextResponse.json({ error: 'Role not found' }, { status: 404 });
+      return NextResponse.json({ error: "Role not found" }, { status: 404 });
     }
-
     return NextResponse.json({ role });
   } catch (error) {
-    console.error('PUT /api/admin/roles/[id] error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error updating role:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
+// DELETE /api/admin/roles/[id] - delete non-system role
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectDB();
+    const userId = request.headers.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    await dbConnect();
     const { id } = await params;
-    const Role = mongoose.models.Role || (await import('@/models/Role')).default;
-    const UserRole = mongoose.models.UserRole || (await import('@/models/UserRole')).default;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: 'Invalid role ID' }, { status: 400 });
-    }
-
-    const assignedCount = await UserRole.countDocuments({ roleId: id });
-    if (assignedCount > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete role: ${assignedCount} user(s) are assigned to this role` },
-        { status: 409 }
-      );
-    }
-
-    const role = await Role.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
+    const role = await Role.findById(id);
 
     if (!role) {
-      return NextResponse.json({ error: 'Role not found' }, { status: 404 });
+      return NextResponse.json({ error: "Role not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Role deleted successfully' });
+    if (role.isSystem === true) {
+      return NextResponse.json({ error: "Cannot delete system roles" }, { status: 403 });
+    }
+
+    await role.deleteOne();
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('DELETE /api/admin/roles/[id] error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error deleting role:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

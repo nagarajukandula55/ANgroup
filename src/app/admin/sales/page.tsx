@@ -24,13 +24,29 @@ interface Invoice {
   totalAmount?: number    // legacy fallback
   status: string
   createdAt: string
+  issueDate?: string
   dueDate?: string
   supplyType?: 'INTRASTATE' | 'INTERSTATE'
+  invoiceType?: 'GST' | 'NON_GST'
   cgstTotal?: number
   sgstTotal?: number
   igstTotal?: number
   subtotal?: number
   taxTotal?: number
+  notes?: string
+  terms?: string
+  items?: Array<{
+    description: string
+    hsnCode?: string
+    quantity: number
+    unit?: string
+    unitPrice: number
+    taxRate: number
+    lineAmount?: number
+    taxAmount?: number
+  }>
+  businessName?: string
+  discountAmount?: number
 }
 
 interface Order {
@@ -51,6 +67,8 @@ interface LineItem {
   taxPct: number
 }
 
+type InvoiceType = 'GST' | 'NON_GST'
+
 const STATUS_COLORS: Record<string, string> = {
   PAID:       'bg-green-50 text-green-700',
   DRAFT:      'bg-gray-100 text-gray-600',
@@ -69,7 +87,9 @@ const fmt = (n: number) =>
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
-function calcItems(items: LineItem[], supplyType: 'INTRASTATE' | 'INTERSTATE') {
+const todayStr = () => new Date().toISOString().split('T')[0]
+
+function calcGSTItems(items: LineItem[], supplyType: 'INTRASTATE' | 'INTERSTATE') {
   let subtotal = 0, cgstTotal = 0, sgstTotal = 0, igstTotal = 0
   const rows = items.map(item => {
     const lineAmt = (item.qty || 1) * (item.price || 0)
@@ -87,6 +107,19 @@ function calcItems(items: LineItem[], supplyType: 'INTRASTATE' | 'INTERSTATE') {
   return { rows, subtotal, cgstTotal, sgstTotal, igstTotal, grandTotal }
 }
 
+function calcNonGSTItems(items: LineItem[]) {
+  let subtotal = 0, taxTotal = 0
+  const rows = items.map(item => {
+    const lineAmt = (item.qty || 1) * (item.price || 0)
+    const taxAmt  = lineAmt * ((item.taxPct || 0) / 100)
+    subtotal += lineAmt
+    taxTotal += taxAmt
+    return { ...item, lineAmount: lineAmt, taxAmount: taxAmt }
+  })
+  const grandTotal = subtotal + taxTotal
+  return { rows, subtotal, taxTotal, grandTotal }
+}
+
 export default function SalesPage() {
   const router = useRouter()
   const [tab, setTab]             = useState<'invoices' | 'orders'>('invoices')
@@ -100,19 +133,41 @@ export default function SalesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [preview, setPreview]     = useState<Invoice | null>(null)
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [businessName, setBusinessName] = useState<string>('Your Business')
 
   // Form state
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>('GST')
   const [supplyType, setSupplyType] = useState<'INTRASTATE' | 'INTERSTATE'>('INTRASTATE')
   const [customer, setCustomer]     = useState<Customer>({ name: '', email: '', phone: '', address: '', gstin: '' })
   const [notes, setNotes]           = useState('')
   const [terms, setTerms]           = useState('Payment due within 30 days.')
+  const [issueDate, setIssueDate]   = useState(todayStr())
   const [dueDate, setDueDate]       = useState('')
   const [items, setItems]           = useState<LineItem[]>([
     { description: '', hsnCode: '', qty: 1, unit: 'Nos', price: 0, taxPct: 18 },
   ])
   const [discount, setDiscount]     = useState(0)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+    fetchMe()
+  }, [])
+
+  async function fetchMe() {
+    try {
+      const res = await fetch('/api/auth/me')
+      if (res.ok) {
+        const d = await res.json()
+        const bid = d?.activeBusinessId ?? d?.user?.activeBusinessId ?? null
+        setBusinessId(bid)
+        const bname = d?.activeBusiness?.name ?? d?.user?.activeBusiness?.name ?? d?.businessName ?? null
+        if (bname) setBusinessName(bname)
+      }
+    } catch {
+      // silently fail — businessId stays null
+    }
+  }
 
   async function fetchData() {
     setLoading(true)
@@ -133,15 +188,8 @@ export default function SalesPage() {
     finally   { setLoading(false) }
   }
 
-  function getBusinessId(): string | null {
-    try {
-      const r = localStorage.getItem('an_user')
-      return r ? JSON.parse(r).activeBusinessId ?? null : null
-    } catch { return null }
-  }
-
   function addItem() {
-    setItems(p => [...p, { description: '', hsnCode: '', qty: 1, unit: 'Nos', price: 0, taxPct: 18 }])
+    setItems(p => [...p, { description: '', hsnCode: '', qty: 1, unit: 'Nos', price: 0, taxPct: invoiceType === 'GST' ? 18 : 0 }])
   }
   function removeItem(i: number) {
     setItems(p => p.filter((_, idx) => idx !== i))
@@ -150,18 +198,19 @@ export default function SalesPage() {
     setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: value } : it))
   }
 
-  const calc = calcItems(items, supplyType)
+  const gstCalc    = calcGSTItems(items, supplyType)
+  const nonGstCalc = calcNonGSTItems(items)
+  const calc       = invoiceType === 'GST' ? gstCalc : nonGstCalc
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!customer.name.trim()) { setFormError('Customer name is required'); return }
     setSubmitting(true); setFormError(null)
-    const businessId = getBusinessId()
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         businessId,
         customer,
-        supplyType,
+        invoiceType,
         items: items.map(it => ({
           description: it.description,
           hsnCode:     it.hsnCode,
@@ -173,8 +222,15 @@ export default function SalesPage() {
         discountAmount: discount,
         notes,
         terms,
-        dueDate: dueDate || undefined,
-        status: 'DRAFT',
+        issueDate: issueDate || todayStr(),
+        dueDate:   dueDate || undefined,
+        status:    'DRAFT',
+      }
+      if (invoiceType === 'GST') {
+        payload.supplyType = supplyType
+      } else {
+        // Route through IGST path in API (single tax line)
+        payload.supplyType = 'INTERSTATE'
       }
       const res = await fetch('/api/sales/invoices', {
         method: 'POST',
@@ -194,17 +250,18 @@ export default function SalesPage() {
   }
 
   function resetForm() {
+    setInvoiceType('GST')
     setCustomer({ name: '', email: '', phone: '', address: '', gstin: '' })
     setItems([{ description: '', hsnCode: '', qty: 1, unit: 'Nos', price: 0, taxPct: 18 }])
     setNotes(''); setTerms('Payment due within 30 days.')
-    setDueDate(''); setDiscount(0); setSupplyType('INTRASTATE')
+    setIssueDate(todayStr()); setDueDate(''); setDiscount(0); setSupplyType('INTRASTATE')
   }
 
   const STATUSES = ['ALL', 'DRAFT', 'SENT', 'PAID', 'OVERDUE']
 
-  // Normalize invoice display fields (handle old + new format)
   const getCustomerName = (inv: Invoice) => inv.customer?.name || inv.customerName || '—'
   const getAmount       = (inv: Invoice) => inv.grandTotal ?? inv.totalAmount ?? 0
+  const isGST           = (inv: Invoice) => inv.invoiceType !== 'NON_GST'
 
   const filteredInvoices = invoices.filter(inv => {
     const matchStatus = statusFilter === 'ALL' || inv.status === statusFilter
@@ -221,7 +278,6 @@ export default function SalesPage() {
     ord.customerName?.toLowerCase().includes(search.toLowerCase())
   )
 
-  // Stats
   const paidTotal    = invoices.filter(i => i.status === 'PAID').reduce((s, i) => s + getAmount(i), 0)
   const pendingTotal = invoices.filter(i => ['SENT','OVERDUE'].includes(i.status)).reduce((s, i) => s + getAmount(i), 0)
   const draftCount   = invoices.filter(i => i.status === 'DRAFT').length
@@ -259,10 +315,10 @@ export default function SalesPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
-            { icon: IndianRupee, label: 'Revenue Collected', value: fmt(paidTotal), color: 'bg-green-100' },
-            { icon: Clock,       label: 'Pending Payments',  value: fmt(pendingTotal), color: 'bg-orange-100' },
+            { icon: IndianRupee, label: 'Revenue Collected', value: fmt(paidTotal),      color: 'bg-green-100' },
+            { icon: Clock,       label: 'Pending Payments',  value: fmt(pendingTotal),    color: 'bg-orange-100' },
             { icon: FileText,    label: 'Total Invoices',    value: String(invoices.length), color: 'bg-purple-100' },
-            { icon: ShoppingCart,label: 'Total Orders',      value: String(orders.length), color: 'bg-blue-100' },
+            { icon: ShoppingCart,label: 'Total Orders',      value: String(orders.length),  color: 'bg-blue-100' },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-center justify-between mb-3">
@@ -327,7 +383,12 @@ export default function SalesPage() {
                   <tr><td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm">No invoices found</td></tr>
                 ) : filteredInvoices.map(inv => (
                   <tr key={inv._id} className="hover:bg-gray-50 transition">
-                    <td className="px-5 py-3 font-medium text-gray-900">{inv.invoiceNumber}</td>
+                    <td className="px-5 py-3">
+                      <p className="font-medium text-gray-900">{inv.invoiceNumber}</p>
+                      {inv.invoiceType === 'NON_GST' && (
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wide">Non-GST</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3">
                       <p className="text-gray-900">{getCustomerName(inv)}</p>
                       {inv.customer?.gstin && <p className="text-xs text-gray-400 font-mono">{inv.customer.gstin}</p>}
@@ -394,8 +455,10 @@ export default function SalesPage() {
           <div className="w-full max-w-2xl bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
-                <h2 className="font-semibold text-gray-900">New GST Invoice</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Compliant with Indian GST regulations</p>
+                <h2 className="font-semibold text-gray-900">New Invoice</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {invoiceType === 'GST' ? 'Compliant with Indian GST regulations' : 'Simple invoice without GST'}
+                </p>
               </div>
               <button onClick={() => { setShowForm(false); resetForm() }}
                 className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200">
@@ -409,18 +472,61 @@ export default function SalesPage() {
                   <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{formError}</div>
                 )}
 
-                {/* Supply Type */}
+                {/* Invoice Type Toggle */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">Supply Type</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">Invoice Type</label>
                   <div className="flex gap-2">
-                    {(['INTRASTATE', 'INTERSTATE'] as const).map(t => (
-                      <button key={t} type="button" onClick={() => setSupplyType(t)}
+                    {(['GST', 'NON_GST'] as const).map(t => (
+                      <button key={t} type="button"
+                        onClick={() => {
+                          setInvoiceType(t)
+                          if (t === 'NON_GST') {
+                            setItems(p => p.map(it => ({ ...it, taxPct: 0 })))
+                          } else {
+                            setItems(p => p.map(it => ({ ...it, taxPct: 18 })))
+                          }
+                        }}
                         className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${
-                          supplyType === t ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                          invoiceType === t
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                         }`}>
-                        {t === 'INTRASTATE' ? 'Intrastate (CGST + SGST)' : 'Interstate (IGST)'}
+                        {t === 'GST' ? 'GST Invoice' : 'Non-GST Invoice'}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Supply Type — GST only */}
+                {invoiceType === 'GST' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">Supply Type</label>
+                    <div className="flex gap-2">
+                      {(['INTRASTATE', 'INTERSTATE'] as const).map(t => (
+                        <button key={t} type="button" onClick={() => setSupplyType(t)}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${
+                            supplyType === t ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                          }`}>
+                          {t === 'INTRASTATE' ? 'Intrastate (CGST + SGST)' : 'Interstate (IGST)'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Issue Date</label>
+                    <input type="date" value={issueDate}
+                      onChange={e => setIssueDate(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Due Date</label>
+                    <input type="date" value={dueDate}
+                      onChange={e => setDueDate(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400" />
                   </div>
                 </div>
 
@@ -435,14 +541,16 @@ export default function SalesPage() {
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
                         placeholder="Acme Pvt Ltd" />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">GSTIN</label>
-                      <input value={customer.gstin}
-                        onChange={e => setCustomer(p => ({ ...p, gstin: e.target.value.toUpperCase() }))}
-                        maxLength={15}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-gray-400"
-                        placeholder="22AAAAA0000A1Z5" />
-                    </div>
+                    {invoiceType === 'GST' && (
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">GSTIN</label>
+                        <input value={customer.gstin}
+                          onChange={e => setCustomer(p => ({ ...p, gstin: e.target.value.toUpperCase() }))}
+                          maxLength={15}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-gray-400"
+                          placeholder="22AAAAA0000A1Z5" />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Phone</label>
                       <input value={customer.phone}
@@ -456,12 +564,6 @@ export default function SalesPage() {
                         onChange={e => setCustomer(p => ({ ...p, email: e.target.value }))}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
                         placeholder="billing@acme.com" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Due Date</label>
-                      <input type="date" value={dueDate}
-                        onChange={e => setDueDate(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400" />
                     </div>
                     <div className="col-span-2">
                       <label className="block text-xs text-gray-500 mb-1">Billing Address</label>
@@ -503,13 +605,15 @@ export default function SalesPage() {
                               placeholder="Product or service description"
                               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400" />
                           </div>
-                          <div>
-                            <label className="block text-[10px] text-gray-500 mb-1">HSN / SAC Code</label>
-                            <input value={item.hsnCode}
-                              onChange={e => updateItem(idx, 'hsnCode', e.target.value)}
-                              placeholder="e.g. 8471"
-                              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400 font-mono" />
-                          </div>
+                          {invoiceType === 'GST' && (
+                            <div>
+                              <label className="block text-[10px] text-gray-500 mb-1">HSN / SAC Code</label>
+                              <input value={item.hsnCode}
+                                onChange={e => updateItem(idx, 'hsnCode', e.target.value)}
+                                placeholder="e.g. 8471"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400 font-mono" />
+                            </div>
+                          )}
                           <div>
                             <label className="block text-[10px] text-gray-500 mb-1">Unit</label>
                             <select value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
@@ -531,14 +635,23 @@ export default function SalesPage() {
                               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400" />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-gray-500 mb-1">GST Rate %</label>
-                            <select value={item.taxPct} onChange={e => updateItem(idx, 'taxPct', parseInt(e.target.value))}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400">
-                              {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
-                            </select>
+                            <label className="block text-[10px] text-gray-500 mb-1">
+                              {invoiceType === 'GST' ? 'GST Rate %' : 'Tax %'}
+                            </label>
+                            {invoiceType === 'GST' ? (
+                              <select value={item.taxPct} onChange={e => updateItem(idx, 'taxPct', parseInt(e.target.value))}
+                                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400">
+                                {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
+                              </select>
+                            ) : (
+                              <input type="number" min={0} max={100} step={0.5} value={item.taxPct}
+                                onChange={e => updateItem(idx, 'taxPct', parseFloat(e.target.value) || 0)}
+                                placeholder="0"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400" />
+                            )}
                           </div>
                           <div>
-                            <label className="block text-[10px] text-gray-500 mb-1">Taxable Value</label>
+                            <label className="block text-[10px] text-gray-500 mb-1">Amount</label>
                             <div className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-500">
                               {fmt((item.qty || 1) * (item.price || 0))}
                             </div>
@@ -549,27 +662,34 @@ export default function SalesPage() {
                   </div>
                 </div>
 
-                {/* GST Summary */}
+                {/* Summary */}
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
                   <div className="flex justify-between text-sm text-gray-600">
-                    <span>Subtotal (Taxable Value)</span>
+                    <span>Subtotal</span>
                     <span className="font-medium">{fmt(calc.subtotal)}</span>
                   </div>
-                  {supplyType === 'INTRASTATE' ? (
-                    <>
+                  {invoiceType === 'GST' ? (
+                    supplyType === 'INTRASTATE' ? (
+                      <>
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>CGST</span>
+                          <span>{fmt(gstCalc.cgstTotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>SGST</span>
+                          <span>{fmt(gstCalc.sgstTotal)}</span>
+                        </div>
+                      </>
+                    ) : (
                       <div className="flex justify-between text-sm text-gray-600">
-                        <span>CGST</span>
-                        <span>{fmt(calc.cgstTotal)}</span>
+                        <span>IGST</span>
+                        <span>{fmt(gstCalc.igstTotal)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-gray-600">
-                        <span>SGST</span>
-                        <span>{fmt(calc.sgstTotal)}</span>
-                      </div>
-                    </>
+                    )
                   ) : (
                     <div className="flex justify-between text-sm text-gray-600">
-                      <span>IGST</span>
-                      <span>{fmt(calc.igstTotal)}</span>
+                      <span>Tax</span>
+                      <span>{fmt(nonGstCalc.taxTotal)}</span>
                     </div>
                   )}
                   <div>
@@ -616,66 +736,195 @@ export default function SalesPage() {
         </div>
       )}
 
-      {/* Invoice Preview Modal */}
+      {/* ── Invoice Preview Modal ── */}
       {preview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPreview(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900">Invoice Details</h3>
-                <p className="text-sm text-gray-500">{preview.invoiceNumber}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[preview.status] ?? 'bg-gray-100 text-gray-600'}`}>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 overflow-hidden">
+
+            {/* Modal Header (UI chrome) */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+              <div className="flex items-center gap-3">
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[preview.status] ?? 'bg-gray-100 text-gray-600'}`}>
                   {preview.status}
                 </span>
-                <button onClick={() => setPreview(null)} className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200">
-                  <X size={13} className="text-gray-500" />
-                </button>
+                {preview.invoiceType === 'NON_GST' && (
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                    Non-GST
+                  </span>
+                )}
               </div>
+              <button onClick={() => setPreview(null)} className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
+                <X size={13} className="text-gray-500" />
+              </button>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-gray-500 text-xs">Customer</p>
-                <p className="text-gray-900 font-medium">{getCustomerName(preview)}</p>
-                {preview.customer?.gstin && <p className="text-gray-400 font-mono text-xs">{preview.customer.gstin}</p>}
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs">Date</p>
-                <p className="text-gray-900">{fmtDate(preview.createdAt)}</p>
-              </div>
-              {preview.supplyType && (
+
+            {/* Invoice Document */}
+            <div className="p-8 bg-white">
+
+              {/* Invoice Header */}
+              <div className="flex items-start justify-between mb-8">
                 <div>
-                  <p className="text-gray-500 text-xs">Supply Type</p>
-                  <p className="text-gray-900">{preview.supplyType}</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+                    {isGST(preview)
+                      ? (preview.customer?.gstin ? 'TAX INVOICE' : 'INVOICE')
+                      : 'INVOICE'}
+                  </p>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {preview.businessName ?? businessName}
+                  </h2>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-gray-900">{preview.invoiceNumber}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Issued: {preview.issueDate ? fmtDate(preview.issueDate) : fmtDate(preview.createdAt)}
+                  </p>
+                  {preview.dueDate && (
+                    <p className="text-sm text-gray-500">Due: {fmtDate(preview.dueDate)}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Bill To */}
+              <div className="mb-6">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Bill To</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="font-semibold text-gray-900">{getCustomerName(preview)}</p>
+                  {isGST(preview) && preview.customer?.gstin && (
+                    <p className="text-sm text-gray-500 font-mono mt-0.5">GSTIN: {preview.customer.gstin}</p>
+                  )}
+                  {preview.customer?.email && (
+                    <p className="text-sm text-gray-500 mt-0.5">{preview.customer.email}</p>
+                  )}
+                  {preview.customer?.phone && (
+                    <p className="text-sm text-gray-500 mt-0.5">{preview.customer.phone}</p>
+                  )}
+                  {preview.customer?.address && (
+                    <p className="text-sm text-gray-500 mt-0.5">{preview.customer.address}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Supply Type badge — GST only */}
+              {isGST(preview) && preview.supplyType && (
+                <div className="mb-4">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-3 py-1">
+                    {preview.supplyType === 'INTRASTATE' ? 'Intrastate Supply (CGST + SGST)' : 'Interstate Supply (IGST)'}
+                  </span>
                 </div>
               )}
-              <div className="col-span-2 border-t border-gray-100 pt-3 space-y-1">
-                {preview.subtotal != null && (
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Subtotal</span><span>{fmt(preview.subtotal)}</span>
+
+              {/* Items Table */}
+              {preview.items && preview.items.length > 0 ? (
+                <div className="mb-6 overflow-x-auto">
+                  <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Description</th>
+                        {isGST(preview) && (
+                          <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">HSN</th>
+                        )}
+                        <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Qty</th>
+                        <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Rate</th>
+                        <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Tax%</th>
+                        <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {preview.items.map((it, i) => {
+                        const lineAmt = it.lineAmount ?? (it.quantity * it.unitPrice)
+                        return (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-gray-900">{it.description}</td>
+                            {isGST(preview) && (
+                              <td className="px-4 py-3 text-gray-500 font-mono text-xs">{it.hsnCode || '—'}</td>
+                            )}
+                            <td className="px-4 py-3 text-right text-gray-700">{it.quantity} {it.unit || ''}</td>
+                            <td className="px-4 py-3 text-right text-gray-700">{fmt(it.unitPrice)}</td>
+                            <td className="px-4 py-3 text-right text-gray-500">{it.taxRate}%</td>
+                            <td className="px-4 py-3 text-right font-medium text-gray-900">{fmt(lineAmt)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                /* Fallback when items array not available */
+                <div className="mb-6 h-px bg-gray-100" />
+              )}
+
+              {/* Totals */}
+              <div className="flex justify-end mb-6">
+                <div className="w-64 space-y-1.5">
+                  {preview.subtotal != null && (
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Subtotal</span>
+                      <span>{fmt(preview.subtotal)}</span>
+                    </div>
+                  )}
+                  {/* GST breakdown */}
+                  {isGST(preview) ? (
+                    <>
+                      {(preview.cgstTotal ?? 0) > 0 && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>CGST</span>
+                          <span>{fmt(preview.cgstTotal!)}</span>
+                        </div>
+                      )}
+                      {(preview.sgstTotal ?? 0) > 0 && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>SGST</span>
+                          <span>{fmt(preview.sgstTotal!)}</span>
+                        </div>
+                      )}
+                      {(preview.igstTotal ?? 0) > 0 && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>IGST</span>
+                          <span>{fmt(preview.igstTotal!)}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* Non-GST: simple tax line */
+                    (preview.taxTotal ?? 0) > 0 && (
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>Tax</span>
+                        <span>{fmt(preview.taxTotal!)}</span>
+                      </div>
+                    )
+                  )}
+                  {(preview.discountAmount ?? 0) > 0 && (
+                    <div className="flex justify-between text-sm text-red-600">
+                      <span>Discount</span>
+                      <span>- {fmt(preview.discountAmount!)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                    <span>Total</span>
+                    <span>{fmt(getAmount(preview))}</span>
                   </div>
-                )}
-                {(preview.cgstTotal ?? 0) > 0 && (
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>CGST</span><span>{fmt(preview.cgstTotal!)}</span>
-                  </div>
-                )}
-                {(preview.sgstTotal ?? 0) > 0 && (
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>SGST</span><span>{fmt(preview.sgstTotal!)}</span>
-                  </div>
-                )}
-                {(preview.igstTotal ?? 0) > 0 && (
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>IGST</span><span>{fmt(preview.igstTotal!)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold text-gray-900 pt-1 border-t border-gray-100">
-                  <span>Total</span><span>{fmt(getAmount(preview))}</span>
                 </div>
               </div>
+
+              {/* Notes & Terms */}
+              {(preview.notes || preview.terms) && (
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                  {preview.notes && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Notes</p>
+                      <p className="text-sm text-gray-600">{preview.notes}</p>
+                    </div>
+                  )}
+                  {preview.terms && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Terms & Conditions</p>
+                      <p className="text-sm text-gray-600">{preview.terms}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
         </div>

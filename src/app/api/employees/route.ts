@@ -1,121 +1,188 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { connectDB } from "@/lib/mongodb";
-import EmployeeProfile from "@/models/EmployeeProfile";
-import User from "@/models/User";
+import mongoose from "mongoose";
+import connectDB from "@/lib/mongodb";
+import Employee from "@/models/Employee";
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const headersList = await headers();
+    const userId = headersList.get("x-user-id");
 
-    const { searchParams } = new URL(req.url);
-    const businessId = searchParams.get("businessId");
-    const search = searchParams.get("search") || "";
-    const department = searchParams.get("department") || "";
-    const status = searchParams.get("status") || "";
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: x-user-id header is required" },
+        { status: 401 }
+      );
+    }
 
-    if (!businessId) return NextResponse.json({ success: false, error: "businessId required" }, { status: 400 });
+    const { searchParams } = new URL(request.url);
+
+    const businessId =
+      headersList.get("x-active-business-id") ||
+      searchParams.get("businessId");
+
+    if (!businessId) {
+      return NextResponse.json(
+        { success: false, error: "businessId is required" },
+        { status: 400 }
+      );
+    }
 
     await connectDB();
 
-    const query: any = { businessId, isDeleted: false };
-    if (department) query.department = department;
-    if (status) query.status = status;
+    const filter: Record<string, unknown> = {
+      businessId: new mongoose.Types.ObjectId(businessId),
+      isDeleted: false,
+    };
 
-    const employees = await EmployeeProfile.find(query)
-      .populate("userId", "name email phone avatar")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Filter by search across populated user fields
-    let filtered = employees;
-    if (search) {
-      const s = search.toLowerCase();
-      filtered = employees.filter((e: any) => {
-        const user = e.userId as any;
-        return (
-          user?.name?.toLowerCase().includes(s) ||
-          user?.email?.toLowerCase().includes(s) ||
-          e.employeeId?.toLowerCase().includes(s) ||
-          e.department?.toLowerCase().includes(s) ||
-          e.designation?.toLowerCase().includes(s)
-        );
-      });
+    const search = searchParams.get("search");
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      filter.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { department: searchRegex },
+        { designation: searchRegex },
+      ];
     }
 
-    // Stats
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const total = filtered.length;
-    const active = filtered.filter((e: any) => e.status === "ACTIVE").length;
-    const onLeave = filtered.filter((e: any) => e.status === "ON_LEAVE").length;
-    const newThisMonth = filtered.filter((e: any) => new Date(e.joiningDate) >= startOfMonth).length;
+    const department = searchParams.get("department");
+    if (department && department.trim()) {
+      filter.department = department.trim();
+    }
+
+    const status = searchParams.get("status");
+    if (status && status.trim()) {
+      filter.status = status.trim();
+    }
+
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limitRaw = parseInt(searchParams.get("limit") || "50", 10);
+    const limit = Math.min(100, Math.max(1, limitRaw));
+    const skip = (page - 1) * limit;
+
+    const [employees, total] = await Promise.all([
+      Employee.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Employee.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       success: true,
-      employees: filtered,
-      stats: { total, active, onLeave, newThisMonth },
+      employees,
+      total,
+      page,
+      totalPages,
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/employees error:", error);
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const headersList = await headers();
+    const userId = headersList.get("x-user-id");
 
-    await connectDB();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: x-user-id header is required" },
+        { status: 401 }
+      );
+    }
 
-    const body = await req.json();
+    const body = await request.json();
+
     const {
-      businessId,
-      employeeUserId,
-      employeeId,
+      name,
+      email,
+      phone,
       department,
       designation,
       employmentType,
       joiningDate,
       salary,
-      status,
-      emergencyContact,
+      businessId,
     } = body;
 
-    if (!businessId) return NextResponse.json({ success: false, error: "businessId required" }, { status: 400 });
-    if (!employeeUserId) return NextResponse.json({ success: false, error: "employeeUserId required" }, { status: 400 });
-
-    // Check for duplicate
-    const exists = await EmployeeProfile.findOne({ businessId, userId: employeeUserId, isDeleted: false });
-    if (exists) return NextResponse.json({ success: false, error: "Employee profile already exists for this user" }, { status: 409 });
-
-    // Auto-generate employeeId if not provided
-    let finalEmployeeId = employeeId;
-    if (!finalEmployeeId) {
-      const count = await EmployeeProfile.countDocuments({ businessId });
-      finalEmployeeId = `EMP${String(count + 1).padStart(4, "0")}`;
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Employee name is required" },
+        { status: 400 }
+      );
     }
 
-    const profile = await EmployeeProfile.create({
-      userId: employeeUserId,
-      businessId,
-      employeeId: finalEmployeeId,
-      department,
-      designation,
-      employmentType: employmentType || "FULL_TIME",
-      joiningDate: joiningDate ? new Date(joiningDate) : undefined,
-      salary: salary ? Number(salary) : undefined,
-      status: status || "ACTIVE",
-      emergencyContact,
+    if (!businessId) {
+      return NextResponse.json(
+        { success: false, error: "businessId is required" },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+
+    // Auto-generate employeeId: count all employees for this business (including deleted)
+    const existingCount = await Employee.countDocuments({
+      businessId: new mongoose.Types.ObjectId(businessId),
     });
 
-    const populated = await profile.populate("userId", "name email phone avatar");
+    const nextNumber = existingCount + 1;
+    const employeeId = `EMP-${String(nextNumber).padStart(4, "0")}`;
 
-    return NextResponse.json({ success: true, employee: populated }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const employee = await Employee.create({
+      userId: userId ? new mongoose.Types.ObjectId(userId) : undefined,
+      businessId: new mongoose.Types.ObjectId(businessId),
+      employeeId,
+      name: name.trim(),
+      email: email?.trim() || undefined,
+      phone: phone?.trim() || undefined,
+      department: department?.trim() || undefined,
+      designation: designation?.trim() || undefined,
+      employmentType: employmentType || "FULL_TIME",
+      joiningDate: joiningDate ? new Date(joiningDate) : undefined,
+      salary: typeof salary === "number" ? salary : 0,
+    });
+
+    return NextResponse.json(
+      { success: true, employee },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("POST /api/employees error:", error);
+
+    if (error instanceof mongoose.Error.ValidationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
+
+    // Handle duplicate employeeId race condition
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code: number }).code === 11000
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Employee ID conflict, please retry" },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

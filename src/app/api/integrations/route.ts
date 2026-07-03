@@ -1,56 +1,110 @@
+// Route: /api/integrations/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
-import Integration from '@/models/Integration';
+import connectDB from '@/lib/connectDB';
+import Integration, { IntegrationConfig, TelegramConfig, WhatsAppConfig, EmailConfig } from '@/models/Integration';
 
-export async function GET(request: NextRequest) {
-  const userId = request.headers.get('x-user-id');
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+function maskConfig(provider: string, config: IntegrationConfig): IntegrationConfig {
+  if (!config) return config;
 
-  await connectDB();
-
-  try {
-    const integrations = await Integration.find({ businessId: userId }).lean();
-    return NextResponse.json({ integrations });
-  } catch (error) {
-    console.error('GET /api/integrations error:', error);
-    return NextResponse.json({ error: 'Failed to fetch integrations' }, { status: 500 });
+  switch (provider) {
+    case 'TELEGRAM': {
+      const c = config as TelegramConfig;
+      return {
+        ...c,
+        botToken: c.botToken
+          ? `...${c.botToken.slice(-4)}`
+          : c.botToken,
+      };
+    }
+    case 'WHATSAPP': {
+      const c = config as WhatsAppConfig;
+      return {
+        ...c,
+        accessToken: c.accessToken
+          ? `...${c.accessToken.slice(-4)}`
+          : c.accessToken,
+      };
+    }
+    case 'EMAIL': {
+      const c = config as EmailConfig;
+      return {
+        ...c,
+        smtpPass: c.smtpPass ? '***' : c.smtpPass,
+      };
+    }
+    default:
+      return config;
   }
 }
 
-export async function POST(request: NextRequest) {
-  const userId = request.headers.get('x-user-id');
+export async function GET(req: NextRequest) {
+  const userId = req.headers.get('x-user-id');
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const businessId =
+    req.headers.get('x-active-business-id') ||
+    req.nextUrl.searchParams.get('businessId');
+
   await connectDB();
 
-  try {
-    const body = await request.json();
-    const { type, name, config, isActive } = body;
+  const rawIntegrations = await Integration.find({ businessId }).lean();
 
-    if (!type || !name) {
-      return NextResponse.json({ error: 'type and name are required' }, { status: 400 });
-    }
+  const integrations = rawIntegrations.map((integration) => ({
+    ...integration,
+    config: maskConfig(integration.provider, integration.config as IntegrationConfig),
+  }));
 
-    const integration = await Integration.findOneAndUpdate(
-      { businessId: userId, type },
-      {
-        $set: {
-          name,
-          config: config || {},
-          isActive: isActive ?? false,
-          createdBy: userId,
-        },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+  return NextResponse.json({ success: true, integrations });
+}
 
-    return NextResponse.json({ integration }, { status: 200 });
-  } catch (error) {
-    console.error('POST /api/integrations error:', error);
-    return NextResponse.json({ error: 'Failed to save integration' }, { status: 500 });
+export async function POST(req: NextRequest) {
+  const userId = req.headers.get('x-user-id');
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const body = await req.json();
+  const { provider, config, isActive, businessId } = body;
+
+  if (!provider || !businessId) {
+    return NextResponse.json(
+      { error: 'provider and businessId are required' },
+      { status: 400 }
+    );
+  }
+
+  await connectDB();
+
+  // If the botToken looks masked (starts with "..."), fetch the existing value
+  // so we don't overwrite the real token with a masked placeholder
+  let finalConfig = { ...config };
+
+  if (provider === 'TELEGRAM' && config?.botToken?.startsWith('...')) {
+    const existing = await Integration.findOne({ businessId, provider }).lean();
+    if (existing?.config) {
+      finalConfig.botToken = (existing.config as TelegramConfig).botToken;
+    }
+  }
+
+  if (provider === 'WHATSAPP' && config?.accessToken?.startsWith('...')) {
+    const existing = await Integration.findOne({ businessId, provider }).lean();
+    if (existing?.config) {
+      finalConfig.accessToken = (existing.config as WhatsAppConfig).accessToken;
+    }
+  }
+
+  const integration = await Integration.findOneAndUpdate(
+    { businessId, provider },
+    {
+      $set: {
+        config: finalConfig,
+        ...(isActive !== undefined ? { isActive } : {}),
+      },
+    },
+    { upsert: true, new: true, runValidators: true }
+  );
+
+  return NextResponse.json({ success: true, integration });
 }

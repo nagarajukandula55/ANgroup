@@ -1,257 +1,953 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Sparkles, Download, Copy, Loader2, Image as ImageIcon, RefreshCw, Wand2 } from 'lucide-react'
 
-const STYLES = ['Realistic', 'Cartoon', 'Watercolor', 'Oil Painting', 'Sketch', 'Digital Art', 'Minimalist', 'Vintage']
-const SIZES  = ['1024x1024', '1792x1024', '1024x1792']
-const TONES  = ['Professional', 'Friendly', 'Inspirational', 'Humorous', 'Informative', 'Urgent']
+import { useState, useEffect, useCallback } from 'react'
+import {
+  ArrowLeft,
+  Settings,
+  Key,
+  Check,
+  X,
+  Loader2,
+  Image,
+  Copy,
+  Download,
+  ChevronDown,
+  Sparkles,
+} from 'lucide-react'
 
-export default function AIStudioPage() {
-  const router = useRouter()
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-  /* Image generation */
-  const [imgPrompt,  setImgPrompt]  = useState('')
-  const [imgStyle,   setImgStyle]   = useState('Realistic')
-  const [imgSize,    setImgSize]    = useState('1024x1024')
-  const [genImage,   setGenImage]   = useState<string | null>(null)
-  const [genLoading, setGenLoading] = useState(false)
-  const [genError,   setGenError]   = useState('')
+type ProviderName = 'openai' | 'anthropic' | 'google' | 'stabilityai' | 'openrouter'
+type ImageProvider = 'openai' | 'stabilityai'
+type TextProvider = 'openai' | 'anthropic' | 'google' | 'openrouter'
 
-  /* Caption generation */
-  const [capTopic,   setCapTopic]   = useState('')
-  const [capTone,    setCapTone]    = useState('Professional')
-  const [capPlatform,setCapPlatform]= useState('instagram')
-  const [captions,   setCaptions]   = useState<string[]>([])
-  const [capLoading, setCapLoading] = useState(false)
-  const [capError,   setCapError]   = useState('')
-  const [copied,     setCopied]     = useState<number | null>(null)
+interface ProviderConfig {
+  apiKey: string | null
+  isEnabled: boolean
+  model?: string
+}
 
-  async function generateImage() {
-    if (!imgPrompt.trim()) return
-    setGenLoading(true); setGenError(''); setGenImage(null)
+interface AIProviderConfig {
+  providers: {
+    openai: ProviderConfig & { model: string }
+    anthropic: ProviderConfig & { model: string }
+    google: ProviderConfig & { model: string }
+    stabilityai: ProviderConfig
+    openrouter: ProviderConfig & { model: string }
+  }
+  defaultImageProvider: ImageProvider
+  defaultTextProvider: TextProvider
+}
+
+interface ProviderMeta {
+  name: ProviderName
+  label: string
+  emoji: string
+  description: string
+  hasModel: boolean
+  defaultModel?: string
+  placeholder: string
+  type: 'image' | 'text' | 'both'
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const PROVIDER_META: ProviderMeta[] = [
+  {
+    name: 'openai',
+    label: 'OpenAI',
+    emoji: '🤖',
+    description: 'GPT-4o and DALL-E 3 image generation',
+    hasModel: true,
+    defaultModel: 'gpt-4o',
+    placeholder: 'sk-...',
+    type: 'both',
+  },
+  {
+    name: 'anthropic',
+    label: 'Anthropic',
+    emoji: '🧠',
+    description: 'Claude models for advanced reasoning',
+    hasModel: true,
+    defaultModel: 'claude-3-5-sonnet-20241022',
+    placeholder: 'sk-ant-...',
+    type: 'text',
+  },
+  {
+    name: 'google',
+    label: 'Google Gemini',
+    emoji: '✨',
+    description: 'Gemini models for multimodal tasks',
+    hasModel: true,
+    defaultModel: 'gemini-1.5-pro',
+    placeholder: 'AIza...',
+    type: 'text',
+  },
+  {
+    name: 'stabilityai',
+    label: 'Stability AI',
+    emoji: '🎨',
+    description: 'Stable Diffusion image generation',
+    hasModel: false,
+    placeholder: 'sk-...',
+    type: 'image',
+  },
+  {
+    name: 'openrouter',
+    label: 'OpenRouter',
+    emoji: '🔀',
+    description: 'Access multiple AI models via one API',
+    hasModel: true,
+    defaultModel: 'openai/gpt-4o-mini',
+    placeholder: 'sk-or-...',
+    type: 'text',
+  },
+]
+
+const IMAGE_STYLES = [
+  'Realistic',
+  'Cartoon',
+  'Watercolor',
+  'Oil Painting',
+  'Sketch',
+  'Digital Art',
+  'Minimalist',
+  'Vintage',
+]
+
+const IMAGE_SIZES = ['1024x1024', '1792x1024', '1024x1792']
+
+const PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'Twitter', 'WhatsApp']
+
+const TONES = ['Professional', 'Casual', 'Funny', 'Inspirational', 'Urgent', 'Friendly']
+
+// ---------------------------------------------------------------------------
+// Utility
+// ---------------------------------------------------------------------------
+
+function cn(...classes: (string | false | null | undefined)[]) {
+  return classes.filter(Boolean).join(' ')
+}
+
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const el = document.createElement('textarea')
+    el.value = text
+    document.body.appendChild(el)
+    el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function Badge({ configured }: { configured: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+        configured
+          ? 'bg-green-100 text-green-700'
+          : 'bg-red-100 text-red-600'
+      )}
+    >
+      {configured ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+      {configured ? 'Configured' : 'Not configured'}
+    </span>
+  )
+}
+
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
+        checked ? 'bg-blue-600' : 'bg-gray-300',
+        disabled && 'cursor-not-allowed opacity-50'
+      )}
+    >
+      <span
+        className={cn(
+          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+          checked ? 'translate-x-4' : 'translate-x-0.5'
+        )}
+      />
+    </button>
+  )
+}
+
+function Spinner({ className }: { className?: string }) {
+  return <Loader2 className={cn('animate-spin', className)} />
+}
+
+// ---------------------------------------------------------------------------
+// Provider Card
+// ---------------------------------------------------------------------------
+
+interface ProviderCardProps {
+  meta: ProviderMeta
+  providerData: ProviderConfig & { model?: string }
+  defaultImageProvider: ImageProvider
+  defaultTextProvider: TextProvider
+  onSave: (
+    providerName: ProviderName,
+    data: { apiKey: string; isEnabled: boolean; model?: string }
+  ) => Promise<void>
+  onSetDefaultImage: (p: ImageProvider) => void
+  onSetDefaultText: (p: TextProvider) => void
+}
+
+function ProviderCard({
+  meta,
+  providerData,
+  defaultImageProvider,
+  defaultTextProvider,
+  onSave,
+  onSetDefaultImage,
+  onSetDefaultText,
+}: ProviderCardProps) {
+  const [apiKey, setApiKey] = useState(providerData.apiKey ?? '')
+  const [isEnabled, setIsEnabled] = useState(providerData.isEnabled)
+  const [model, setModel] = useState(providerData.model ?? meta.defaultModel ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [showKey, setShowKey] = useState(false)
+
+  useEffect(() => {
+    setApiKey(providerData.apiKey ?? '')
+    setIsEnabled(providerData.isEnabled)
+    setModel(providerData.model ?? meta.defaultModel ?? '')
+  }, [providerData, meta.defaultModel])
+
+  const isConfigured = Boolean(providerData.apiKey)
+
+  async function handleSave() {
+    setSaving(true)
     try {
-      const r = await fetch('/api/ai/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: imgPrompt, style: imgStyle, size: imgSize }),
-      })
-      const d = await r.json()
-      if (d.url) setGenImage(d.url)
-      else setGenError(d.error || 'Image generation failed')
-    } catch { setGenError('Network error. Please try again.') }
-    finally { setGenLoading(false) }
+      await onSave(meta.name, { apiKey, isEnabled, model: meta.hasModel ? model : undefined })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  async function generateCaptions() {
-    if (!capTopic.trim()) return
-    setCapLoading(true); setCapError(''); setCaptions([])
+  const isDefaultImage = meta.type !== 'text' && defaultImageProvider === meta.name
+  const isDefaultText = meta.type !== 'image' && defaultTextProvider === meta.name
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{meta.emoji}</span>
+          <div>
+            <h3 className="font-semibold text-gray-900">{meta.label}</h3>
+            <p className="text-xs text-gray-500">{meta.description}</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <Badge configured={isConfigured} />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">Enabled</span>
+            <Toggle checked={isEnabled} onChange={setIsEnabled} />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {/* API Key */}
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            <Key className="mr-1 inline h-3 w-3" />
+            API Key
+          </label>
+          <div className="flex gap-2">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={isConfigured ? '••••••••' : meta.placeholder}
+              className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 hover:bg-gray-100"
+            >
+              {showKey ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+
+        {/* Model */}
+        {meta.hasModel && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">Model</label>
+            <input
+              type="text"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder={meta.defaultModel}
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        )}
+
+        {/* Default selectors */}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {(meta.type === 'image' || meta.type === 'both') && (
+            <button
+              type="button"
+              onClick={() => onSetDefaultImage(meta.name as ImageProvider)}
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                isDefaultImage
+                  ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-400'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              )}
+            >
+              {isDefaultImage ? '★ Default for Images' : 'Set Default for Images'}
+            </button>
+          )}
+          {(meta.type === 'text' || meta.type === 'both') && (
+            <button
+              type="button"
+              onClick={() => onSetDefaultText(meta.name as TextProvider)}
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                isDefaultText
+                  ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-400'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              )}
+            >
+              {isDefaultText ? '★ Default for Text' : 'Set Default for Text'}
+            </button>
+          )}
+        </div>
+
+        {/* Save */}
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+        >
+          {saving ? (
+            <Spinner className="h-4 w-4" />
+          ) : saved ? (
+            <Check className="h-4 w-4" />
+          ) : null}
+          {saved ? 'Saved!' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Provider Settings Panel
+// ---------------------------------------------------------------------------
+
+interface ProviderSettingsPanelProps {
+  config: AIProviderConfig | null
+  loading: boolean
+  onSaveProvider: (
+    name: ProviderName,
+    data: { apiKey: string; isEnabled: boolean; model?: string }
+  ) => Promise<void>
+  onSetDefaultImage: (p: ImageProvider) => void
+  onSetDefaultText: (p: TextProvider) => void
+}
+
+function ProviderSettingsPanel({
+  config,
+  loading,
+  onSaveProvider,
+  onSetDefaultImage,
+  onSetDefaultText,
+}: ProviderSettingsPanelProps) {
+  const [open, setOpen] = useState(true)
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-6 py-4 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Settings className="h-5 w-5 text-blue-600" />
+          <span className="font-semibold text-gray-900">Provider Settings</span>
+          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+            {config
+              ? Object.values(config.providers).filter((p) => p.apiKey).length
+              : 0}{' '}
+            configured
+          </span>
+        </div>
+        <ChevronDown
+          className={cn('h-4 w-4 text-gray-400 transition-transform', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-100 px-6 pb-6 pt-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner className="h-6 w-6 text-blue-600" />
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {PROVIDER_META.map((meta) => {
+                const providerData = config?.providers[meta.name] ?? {
+                  apiKey: null,
+                  isEnabled: false,
+                  model: meta.defaultModel,
+                }
+                return (
+                  <ProviderCard
+                    key={meta.name}
+                    meta={meta}
+                    providerData={providerData}
+                    defaultImageProvider={config?.defaultImageProvider ?? 'openai'}
+                    defaultTextProvider={config?.defaultTextProvider ?? 'openai'}
+                    onSave={onSaveProvider}
+                    onSetDefaultImage={onSetDefaultImage}
+                    onSetDefaultText={onSetDefaultText}
+                  />
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Image Generation Tab
+// ---------------------------------------------------------------------------
+
+interface ImageTabProps {
+  config: AIProviderConfig | null
+}
+
+function ImageTab({ config }: ImageTabProps) {
+  const [prompt, setPrompt] = useState('')
+  const [style, setStyle] = useState('')
+  const [size, setSize] = useState('1024x1024')
+  const [generating, setGenerating] = useState(false)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const hasImageProvider =
+    config?.providers?.openai?.isEnabled ||
+    config?.providers?.stabilityai?.isEnabled
+
+  async function handleGenerate() {
+    if (!prompt.trim()) return
+    setGenerating(true)
+    setError(null)
+    setImageUrl(null)
+
     try {
-      const r = await fetch('/api/ai/generate-captions', {
+      const res = await fetch('/api/ai/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: capTopic, tone: capTone, platform: capPlatform }),
+        body: JSON.stringify({ prompt, style, size }),
       })
-      const d = await r.json()
-      if (d.captions?.length) setCaptions(d.captions)
-      else setCapError(d.error || 'Caption generation failed')
-    } catch { setCapError('Network error. Please try again.') }
-    finally { setCapLoading(false) }
+      const data = await res.json()
+      if (data.error) {
+        setError(data.error)
+      } else {
+        setImageUrl(data.url)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate image')
+    } finally {
+      setGenerating(false)
+    }
   }
 
-  function copyCaption(text: string, idx: number) {
-    navigator.clipboard.writeText(text)
-    setCopied(idx)
-    setTimeout(() => setCopied(null), 2000)
+  async function handleCopyUrl() {
+    if (!imageUrl) return
+    await copyToClipboard(imageUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleDownload() {
+    if (!imageUrl) return
+    const a = document.createElement('a')
+    a.href = imageUrl
+    a.download = `ai-image-${Date.now()}.png`
+    a.target = '_blank'
+    a.click()
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => router.push('/admin')}
-            className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 shadow-sm">
-            <ArrowLeft size={15} className="text-gray-600" />
+    <div className="space-y-6">
+      {/* Form */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Prompt</label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Describe the image you want to generate..."
+              rows={3}
+              className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Style</label>
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">No specific style</option>
+                {IMAGE_STYLES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Size</label>
+              <select
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {IMAGE_SIZES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {!hasImageProvider && (
+            <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              Configure OpenAI or Stability AI above to enable image generation.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!hasImageProvider || !prompt.trim() || generating}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {generating ? (
+              <>
+                <Spinner className="h-4 w-4" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Generate Image
+              </>
+            )}
           </button>
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold text-gray-900">AI Studio</h1>
-            <p className="text-sm text-gray-500">Generate images and social media content with AI</p>
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <X className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {/* Result */}
+      {imageUrl && (
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Generated Image</h3>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyUrl}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Copied!' : 'Copy URL'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-pink-50 border border-violet-200 rounded-xl px-3 py-2">
-            <Sparkles size={14} className="text-violet-500" />
-            <span className="text-xs font-medium text-violet-700">AI Powered</span>
+          <div className="p-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt="AI generated"
+              className="mx-auto max-h-[512px] rounded-xl object-contain shadow"
+            />
           </div>
         </div>
+      )}
+    </div>
+  )
+}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* ── Image Generator ─────────────────────────────── */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                  <ImageIcon size={14} className="text-violet-600" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Image Generator</h2>
-                  <p className="text-xs text-gray-400">Create visuals from text descriptions</p>
-                </div>
-              </div>
+// ---------------------------------------------------------------------------
+// Caption Generator Tab
+// ---------------------------------------------------------------------------
+
+interface CaptionTabProps {
+  config: AIProviderConfig | null
+}
+
+function CaptionTab({ config }: CaptionTabProps) {
+  const [topic, setTopic] = useState('')
+  const [platform, setPlatform] = useState('Instagram')
+  const [tone, setTone] = useState('Professional')
+  const [count, setCount] = useState(3)
+  const [generating, setGenerating] = useState(false)
+  const [captions, setCaptions] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+
+  const hasTextProvider =
+    config?.providers?.openai?.isEnabled ||
+    config?.providers?.anthropic?.isEnabled ||
+    config?.providers?.google?.isEnabled ||
+    config?.providers?.openrouter?.isEnabled
+
+  async function handleGenerate() {
+    if (!topic.trim()) return
+    setGenerating(true)
+    setError(null)
+    setCaptions([])
+
+    try {
+      const res = await fetch('/api/ai/generate-captions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, tone, platform, count }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setError(data.error)
+      } else {
+        setCaptions(data.captions ?? [])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate captions')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleCopyCaption(idx: number) {
+    await copyToClipboard(captions[idx])
+    setCopiedIdx(idx)
+    setTimeout(() => setCopiedIdx(null), 2000)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Topic</label>
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. Summer sale on sneakers, new product launch..."
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Platform</label>
+              <select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {PLATFORMS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Describe your image *</label>
-                <textarea rows={3} value={imgPrompt} onChange={e => setImgPrompt(e.target.value)}
-                  placeholder="e.g. A modern office with natural light, team meeting around a glass table..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-300" />
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Tone</label>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {TONES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Count: <span className="font-semibold text-blue-600">{count}</span>
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+                className="mt-2 w-full accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>1</span>
+                <span>5</span>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Style</label>
-                  <select value={imgStyle} onChange={e => setImgStyle(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white">
-                    {STYLES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Size</label>
-                  <select value={imgSize} onChange={e => setImgSize(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white">
-                    {SIZES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {genError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{genError}</p>}
-
-              <button onClick={generateImage} disabled={genLoading || !imgPrompt.trim()}
-                className="w-full py-2.5 rounded-xl bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center gap-2 transition">
-                {genLoading ? <><Loader2 size={14} className="animate-spin" /> Generating…</> : <><Wand2 size={14} /> Generate Image</>}
-              </button>
-
-              {/* Result */}
-              {genImage && (
-                <div className="rounded-xl overflow-hidden border border-gray-200 relative group">
-                  <img src={genImage} alt="Generated" className="w-full object-cover" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-end justify-end p-3 gap-2 opacity-0 group-hover:opacity-100">
-                    <a href={genImage} download="ai-generated.png"
-                      className="bg-white rounded-lg p-2 shadow hover:bg-gray-50">
-                      <Download size={14} className="text-gray-700" />
-                    </a>
-                    <button onClick={() => { setGenImage(null); generateImage() }}
-                      className="bg-white rounded-lg p-2 shadow hover:bg-gray-50">
-                      <RefreshCw size={14} className="text-gray-700" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {genLoading && !genImage && (
-                <div className="rounded-xl border-2 border-dashed border-violet-200 bg-violet-50 h-48 flex flex-col items-center justify-center gap-3">
-                  <Loader2 size={24} className="text-violet-400 animate-spin" />
-                  <p className="text-xs text-violet-500 font-medium">Creating your image…</p>
-                  <p className="text-xs text-violet-400">This may take 15-30 seconds</p>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* ── Caption Generator ────────────────────────────── */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
-                  <Sparkles size={14} className="text-pink-600" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Caption Generator</h2>
-                  <p className="text-xs text-gray-400">Write engaging social media captions</p>
-                </div>
-              </div>
-            </div>
+          {!hasTextProvider && (
+            <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              Configure a text provider (OpenAI, Anthropic, Google, or OpenRouter) above to enable caption generation.
+            </p>
+          )}
 
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Topic / Product *</label>
-                <textarea rows={3} value={capTopic} onChange={e => setCapTopic(e.target.value)}
-                  placeholder="e.g. New product launch for our eco-friendly water bottles..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-300" />
-              </div>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!hasTextProvider || !topic.trim() || generating}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 py-3 text-sm font-semibold text-white hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {generating ? (
+              <>
+                <Spinner className="h-4 w-4" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Generate Captions
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Tone</label>
-                  <select value={capTone} onChange={e => setCapTone(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500/20 bg-white">
-                    {TONES.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1.5">Platform</label>
-                  <select value={capPlatform} onChange={e => setCapPlatform(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500/20 bg-white">
-                    <option value="instagram">Instagram</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="twitter">X / Twitter</option>
-                    <option value="linkedin">LinkedIn</option>
-                  </select>
-                </div>
-              </div>
+      {/* Error */}
+      {error && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <X className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
 
-              {capError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{capError}</p>}
-
-              <button onClick={generateCaptions} disabled={capLoading || !capTopic.trim()}
-                className="w-full py-2.5 rounded-xl bg-pink-600 text-white text-sm font-medium hover:bg-pink-700 disabled:opacity-50 flex items-center justify-center gap-2 transition">
-                {capLoading ? <><Loader2 size={14} className="animate-spin" /> Generating…</> : <><Sparkles size={14} /> Generate Captions</>}
+      {/* Results */}
+      {captions.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="font-semibold text-gray-900">Generated Captions</h3>
+          {captions.map((caption, idx) => (
+            <div
+              key={idx}
+              className="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            >
+              <p className="pr-10 text-sm text-gray-800 leading-relaxed">{caption}</p>
+              <button
+                type="button"
+                onClick={() => handleCopyCaption(idx)}
+                className="absolute right-3 top-3 rounded-lg p-1.5 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100"
+                title="Copy caption"
+              >
+                {copiedIdx === idx ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
               </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
-              {/* Caption Results */}
-              {captions.length > 0 && (
-                <div className="space-y-3">
-                  {captions.map((cap, i) => (
-                    <div key={i} className="relative bg-gray-50 rounded-xl border border-gray-200 p-4 group">
-                      <p className="text-sm text-gray-700 leading-relaxed pr-8 whitespace-pre-wrap">{cap}</p>
-                      <button onClick={() => copyCaption(cap, i)}
-                        className="absolute top-3 right-3 p-1.5 rounded-lg bg-white border border-gray-200 opacity-0 group-hover:opacity-100 transition hover:bg-gray-50">
-                        {copied === i
-                          ? <span className="text-[10px] font-medium text-green-600 px-1">✓</span>
-                          : <Copy size={12} className="text-gray-500" />}
-                      </button>
-                    </div>
-                  ))}
-                  <button onClick={generateCaptions} disabled={capLoading}
-                    className="w-full py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1.5 font-medium">
-                    <RefreshCw size={12} /> Regenerate
-                  </button>
-                </div>
-              )}
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
 
-              {capLoading && captions.length === 0 && (
-                <div className="rounded-xl border-2 border-dashed border-pink-200 bg-pink-50 h-32 flex flex-col items-center justify-center gap-2">
-                  <Loader2 size={20} className="text-pink-400 animate-spin" />
-                  <p className="text-xs text-pink-500 font-medium">Writing captions…</p>
-                </div>
-              )}
+type Tab = 'image' | 'captions'
+
+export default function AIStudioPage() {
+  const [config, setConfig] = useState<AIProviderConfig | null>(null)
+  const [configLoading, setConfigLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<Tab>('image')
+
+  const fetchConfig = useCallback(async () => {
+    setConfigLoading(true)
+    try {
+      const res = await fetch('/api/ai/providers')
+      const data = await res.json()
+      if (data.success) {
+        setConfig(data.config)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setConfigLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchConfig()
+  }, [fetchConfig])
+
+  async function handleSaveProvider(
+    providerName: ProviderName,
+    data: { apiKey: string; isEnabled: boolean; model?: string }
+  ) {
+    await fetch('/api/ai/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: providerName,
+        apiKey: data.apiKey,
+        isEnabled: data.isEnabled,
+        model: data.model,
+      }),
+    })
+    await fetchConfig()
+  }
+
+  async function handleSetDefaultImage(p: ImageProvider) {
+    await fetch('/api/ai/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultImageProvider: p }),
+    })
+    setConfig((prev) => (prev ? { ...prev, defaultImageProvider: p } : prev))
+  }
+
+  async function handleSetDefaultText(p: TextProvider) {
+    await fetch('/api/ai/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultTextProvider: p }),
+    })
+    setConfig((prev) => (prev ? { ...prev, defaultTextProvider: p } : prev))
+  }
+
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'image', label: 'Image Generation', icon: <Image className="h-4 w-4" /> },
+    { id: 'captions', label: 'Caption Generator', icon: <Sparkles className="h-4 w-4" /> },
+  ]
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
+                <Sparkles className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h1 className="text-base font-bold text-gray-900">AI Studio</h1>
+                <p className="text-xs text-gray-500">Generate images and captions with AI</p>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Tips */}
-        <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Tips for better results</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { title: 'Be specific', body: 'Include colors, mood, setting, and subject details in your image prompts.' },
-              { title: 'Use context', body: 'Mention your brand values and target audience for more relevant captions.' },
-              { title: 'Iterate', body: 'Generate multiple variations and combine the best elements from each.' },
-            ].map(({ title, body }) => (
-              <div key={title} className="bg-gray-50 rounded-xl p-3">
-                <p className="text-xs font-semibold text-gray-800 mb-1">{title}</p>
-                <p className="text-xs text-gray-500 leading-relaxed">{body}</p>
-              </div>
-            ))}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="space-y-6">
+          {/* Provider Settings */}
+          <ProviderSettingsPanel
+            config={config}
+            loading={configLoading}
+            onSaveProvider={handleSaveProvider}
+            onSetDefaultImage={handleSetDefaultImage}
+            onSetDefaultText={handleSetDefaultText}
+          />
+
+          {/* Tabs */}
+          <div>
+            <div className="mb-6 flex gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm w-fit">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
+                    activeTab === tab.id
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  )}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'image' && <ImageTab config={config} />}
+            {activeTab === 'captions' && <CaptionTab config={config} />}
           </div>
         </div>
       </div>

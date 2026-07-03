@@ -1,156 +1,154 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
+import connectDB from '@/lib/mongodb';
 import Agreement from '@/models/Agreement';
-import mongoose from 'mongoose';
 
-export async function GET(req: NextRequest) {
-  try {
-    await connectDB();
+const VALID_TYPES = [
+  'NDA',
+  'EMPLOYMENT',
+  'VENDOR',
+  'SERVICE',
+  'PARTNERSHIP',
+  'LEASE',
+  'CONSULTANCY',
+  'FRANCHISE',
+  'MOU',
+  'CUSTOM',
+] as const;
 
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+type AgreementType = (typeof VALID_TYPES)[number];
 
-    const { searchParams } = new URL(req.url);
-    const businessId = searchParams.get('businessId');
-    const status = searchParams.get('status');
-    const templateType = searchParams.get('type');
-    const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-
-    if (!businessId) {
-      return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
-    }
-
-    const query: Record<string, unknown> = {
-      businessId: new mongoose.Types.ObjectId(businessId),
-    };
-
-    if (status && status !== 'ALL') {
-      query.status = status;
-    }
-    if (templateType) {
-      query.templateType = templateType;
-    }
-    if (search) {
-      query.title = { $regex: search, $options: 'i' };
-    }
-
-    const skip = (page - 1) * limit;
-
-    const [agreements, total] = await Promise.all([
-      Agreement.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .select('-content -signatures.otp')
-        .lean(),
-      Agreement.countDocuments(query),
-    ]);
-
-    const stats = await Agreement.aggregate([
-      { $match: { businessId: new mongoose.Types.ObjectId(businessId) } },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const statsMap: Record<string, number> = {};
-    for (const s of stats) {
-      statsMap[s._id] = s.count;
-    }
-
-    return NextResponse.json({
-      agreements,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-      stats: {
-        total,
-        DRAFT: statsMap['DRAFT'] || 0,
-        PENDING_SIGNATURE: statsMap['PENDING_SIGNATURE'] || 0,
-        PARTIALLY_SIGNED: statsMap['PARTIALLY_SIGNED'] || 0,
-        FULLY_SIGNED: statsMap['FULLY_SIGNED'] || 0,
-        EXPIRED: statsMap['EXPIRED'] || 0,
-        CANCELLED: statsMap['CANCELLED'] || 0,
-      },
-    });
-  } catch (error) {
-    console.error('GET /api/agreements error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const userId = request.headers.get('x-user-id');
+  if (!userId) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: x-user-id header is required' },
+      { status: 401 }
+    );
   }
+
+  const { searchParams } = new URL(request.url);
+
+  const businessId =
+    request.headers.get('x-business-id') ?? searchParams.get('businessId');
+
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
+  const limit = Math.max(1, parseInt(searchParams.get('limit') ?? '10', 10));
+  const status = searchParams.get('status');
+
+  await connectDB();
+
+  const filter: Record<string, unknown> = {
+    isDeleted: false,
+    businessId,
+  };
+
+  if (status) {
+    filter.status = status;
+  }
+
+  const skip = (page - 1) * limit;
+
+  const [agreements, total] = await Promise.all([
+    Agreement.find(filter).skip(skip).limit(limit).lean(),
+    Agreement.countDocuments(filter),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return NextResponse.json({
+    success: true,
+    agreements,
+    total,
+    page,
+    totalPages,
+  });
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    await connectDB();
-
-    const userId = req.headers.get('x-user-id');
-    const userName = req.headers.get('x-user-name');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const {
-      businessId,
-      templateType,
-      title,
-      parties,
-      content,
-      variables,
-      expiresAt,
-      governingLaw,
-      jurisdiction,
-    } = body;
-
-    if (!businessId || !templateType || !title) {
-      return NextResponse.json(
-        { error: 'businessId, templateType, and title are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!parties || parties.length < 2) {
-      return NextResponse.json(
-        { error: 'At least 2 parties are required' },
-        { status: 400 }
-      );
-    }
-
-    const agreement = await Agreement.create({
-      businessId: new mongoose.Types.ObjectId(businessId),
-      templateType,
-      title,
-      parties,
-      content: content || '',
-      variables: variables || {},
-      status: 'DRAFT',
-      signatures: parties.map((p: { name: string; email: string; role: string }) => ({
-        partyEmail: p.email,
-        partyName: p.name,
-        partyRole: p.role,
-        otpVerified: false,
-      })),
-      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-      governingLaw: governingLaw || 'Indian Contract Act, 1872',
-      jurisdiction: jurisdiction || 'India',
-      createdBy: new mongoose.Types.ObjectId(userId),
-    });
-
-    console.log(`Agreement created by ${userName || userId}: ${agreement._id}`);
-
-    return NextResponse.json({ agreement }, { status: 201 });
-  } catch (error) {
-    console.error('POST /api/agreements error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const userId = request.headers.get('x-user-id');
+  if (!userId) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: x-user-id header is required' },
+      { status: 401 }
+    );
   }
+
+  let body: {
+    title?: string;
+    type?: string;
+    content?: string;
+    parties?: unknown;
+    expiresAt?: string;
+    businessId?: string;
+    governingLaw?: string;
+    jurisdiction?: string;
+    notes?: string;
+  };
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid JSON body' },
+      { status: 400 }
+    );
+  }
+
+  const { title, type, content, parties, expiresAt, businessId, governingLaw, jurisdiction, notes } = body;
+
+  if (!title) {
+    return NextResponse.json(
+      { success: false, error: 'title is required' },
+      { status: 400 }
+    );
+  }
+
+  if (!type) {
+    return NextResponse.json(
+      { success: false, error: 'type is required' },
+      { status: 400 }
+    );
+  }
+
+  if (!VALID_TYPES.includes(type as AgreementType)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `type must be one of: ${VALID_TYPES.join(', ')}`,
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!content) {
+    return NextResponse.json(
+      { success: false, error: 'content is required' },
+      { status: 400 }
+    );
+  }
+
+  if (!businessId) {
+    return NextResponse.json(
+      { success: false, error: 'businessId is required' },
+      { status: 400 }
+    );
+  }
+
+  await connectDB();
+
+  const agreement = await Agreement.create({
+    title,
+    type,
+    content,
+    parties,
+    expiresAt,
+    businessId,
+    governingLaw,
+    jurisdiction,
+    notes,
+    status: 'DRAFT',
+    createdBy: userId,
+  });
+
+  return NextResponse.json({ success: true, agreement }, { status: 201 });
 }
