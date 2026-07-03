@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDB } from '@/lib/connectDB'
+import { connectDB } from '@/lib/mongodb'
 import AIConfig from '@/models/AIConfig'
 
 export async function POST(req: NextRequest) {
