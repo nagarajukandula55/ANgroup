@@ -3,12 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
-  Loader2,
-  Plus,
-  Send,
-  MessageSquare,
-  Hash,
+  ArrowLeft, Loader2, Plus, Send, MessageSquare,
+  Hash, Users, Circle,
 } from 'lucide-react'
 
 interface ChatRoom {
@@ -22,14 +18,29 @@ interface ChatMessage {
   _id: string
   content: string
   senderId?: { name?: string; email?: string } | string
+  senderName?: string
   roomId?: string
   createdAt: string
 }
 
+interface Employee {
+  _id: string
+  name: string
+  email?: string
+  role?: string
+  department?: string
+  isActive?: boolean
+}
+
 function getSenderName(msg: ChatMessage): string {
+  if (msg.senderName) return msg.senderName
   if (!msg.senderId) return 'Unknown'
   if (typeof msg.senderId === 'string') return msg.senderId
   return msg.senderId.name ?? msg.senderId.email ?? 'Unknown'
+}
+
+function initials(name: string) {
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
 const fmtTime = (d: string) =>
@@ -39,6 +50,7 @@ export default function ChatPage() {
   const router = useRouter()
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null)
   const [loadingRooms, setLoadingRooms] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
@@ -48,10 +60,13 @@ export default function ChatPage() {
   const [newRoomName, setNewRoomName] = useState('')
   const [showNewRoom, setShowNewRoom] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchRooms()
+    loadCurrentUser()
+    fetchEmployees()
   }, [])
 
   useEffect(() => {
@@ -63,6 +78,37 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  async function loadCurrentUser() {
+    try {
+      const res = await fetch('/api/auth/me')
+      if (res.ok) {
+        const d = await res.json()
+        if (d.success) setCurrentUserId(d.user?.id ?? null)
+      }
+    } catch { /* silent */ }
+  }
+
+  async function fetchEmployees() {
+    try {
+      // Try employees endpoint first, fall back to admin users
+      const res = await fetch('/api/employees?limit=100')
+      if (res.ok) {
+        const d = await res.json()
+        const list = Array.isArray(d) ? d : (d.employees ?? d.data ?? [])
+        setEmployees(list.filter((e: Employee) => e.isActive !== false))
+        return
+      }
+    } catch { /* try fallback */ }
+    try {
+      const res = await fetch('/api/admin/users?limit=100')
+      if (res.ok) {
+        const d = await res.json()
+        const list = Array.isArray(d) ? d : (d.users ?? d.data ?? [])
+        setEmployees(list.filter((e: Employee) => e.isActive !== false))
+      }
+    } catch { /* silent */ }
+  }
 
   async function fetchRooms() {
     setLoadingRooms(true)
@@ -164,10 +210,11 @@ export default function ChatPage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Rooms sidebar */}
-        <div className="w-64 border-r border-gray-200 flex flex-col flex-shrink-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Rooms</span>
+        {/* Sidebar: Rooms + Team Members */}
+        <div className="w-64 border-r border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto">
+          {/* Channels section */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Channels</span>
             <button
               onClick={() => setShowNewRoom((p) => !p)}
               className="w-6 h-6 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition"
@@ -177,33 +224,33 @@ export default function ChatPage() {
           </div>
 
           {showNewRoom && (
-            <form onSubmit={createRoom} className="px-3 py-2 border-b border-gray-200">
+            <form onSubmit={createRoom} className="px-3 py-2 border-b border-gray-100">
               <input
                 autoFocus
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value)}
-                placeholder="Room name..."
-                className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-1.5"
+                placeholder="Channel name..."
+                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-1.5"
               />
               <button
                 type="submit"
                 disabled={creatingRoom || !newRoomName.trim()}
-                className="w-full py-1.5 rounded-lg bg-white text-gray-900 text-xs font-medium disabled:opacity-50"
+                className="w-full py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium disabled:opacity-50 hover:bg-gray-800 transition"
               >
-                {creatingRoom ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Create Room'}
+                {creatingRoom ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Create Channel'}
               </button>
             </form>
           )}
 
-          <div className="flex-1 overflow-y-auto py-2">
+          <div className="py-1">
             {loadingRooms ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
               </div>
             ) : rooms.length === 0 ? (
-              <div className="px-4 py-8 text-center">
-                <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-xs text-gray-400">No chat rooms yet.</p>
+              <div className="px-4 py-6 text-center">
+                <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-xs text-gray-400">No channels yet.</p>
                 <p className="text-xs text-gray-400">Create one to get started.</p>
               </div>
             ) : (
@@ -211,17 +258,49 @@ export default function ChatPage() {
                 <button
                   key={room._id}
                   onClick={() => setSelectedRoom(room)}
-                  className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 transition ${
+                  className={`w-full text-left px-4 py-2 flex items-center gap-2.5 transition ${
                     selectedRoom?._id === room._id
                       ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-white'
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
                   }`}
                 >
-                  <Hash className="w-3.5 h-3.5 flex-shrink-0" />
+                  <Hash className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
                   <span className="text-sm truncate">{room.name}</span>
                 </button>
               ))
             )}
+          </div>
+
+          {/* Team Members section */}
+          <div className="border-t border-gray-100 mt-2">
+            <div className="flex items-center gap-2 px-4 py-3">
+              <Users className="w-3 h-3 text-gray-400" />
+              <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Team Members</span>
+              <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">{employees.length}</span>
+            </div>
+            <div className="pb-3 space-y-0.5">
+              {employees.length === 0 ? (
+                <div className="px-4 py-3 text-center">
+                  <p className="text-xs text-gray-400">No team members found.</p>
+                </div>
+              ) : employees.map(emp => (
+                <div key={emp._id} className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${
+                    emp._id === currentUserId ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {initials(emp.name || emp.email || '?')}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-gray-700 truncate font-medium">
+                      {emp.name || emp.email}
+                      {emp._id === currentUserId && <span className="text-gray-400 font-normal"> (you)</span>}
+                    </p>
+                    {emp.department && <p className="text-[10px] text-gray-400 truncate">{emp.department}</p>}
+                  </div>
+                  <Circle className="w-1.5 h-1.5 text-emerald-500 fill-emerald-500 flex-shrink-0" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -282,7 +361,7 @@ export default function ChatPage() {
                 <button
                   type="submit"
                   disabled={sending || !newMessage.trim()}
-                  className="w-10 h-10 rounded-xl bg-white text-gray-900 flex items-center justify-center hover:bg-gray-800 transition disabled:opacity-40"
+                  className="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center hover:bg-gray-800 transition disabled:opacity-40"
                 >
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>

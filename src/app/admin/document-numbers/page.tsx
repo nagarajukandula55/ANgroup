@@ -163,7 +163,7 @@ export default function DocumentNumbersPage() {
       </div>
 
       {/* Info banner */}
-      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-sm text-blue-300">
+      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
         <Info size={16} className="mt-0.5 shrink-0" />
         <span>
           Changes only affect <strong>new</strong> documents. Existing document numbers are never renumbered.
@@ -230,7 +230,7 @@ export default function DocumentNumbersPage() {
 
                 {/* Expanded editor */}
                 {isOpen && (
-                  <div className="border-t border-gray-200 px-5 py-5 bg-white/[0.01]">
+                  <div className="border-t border-gray-200 px-5 py-5 bg-gray-50/50">
                     <div className="grid grid-cols-2 gap-x-8 gap-y-5 max-w-2xl">
                       {/* Prefix */}
                       <div>
@@ -262,8 +262,8 @@ export default function DocumentNumbersPage() {
                               }
                               className={`flex-1 py-2 rounded-lg text-sm font-mono border transition-colors ${
                                 draft.separator === s
-                                  ? "border-white/30 bg-gray-100 text-gray-900"
-                                  : "border-gray-200 text-gray-500 hover:text-gray-900"
+                                  ? "border-gray-400 bg-gray-900 text-white"
+                                  : "border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300"
                               }`}
                             >
                               {s === "" ? "none" : s}
@@ -286,8 +286,8 @@ export default function DocumentNumbersPage() {
                               }
                               className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
                                 draft.sequenceLength === n
-                                  ? "border-white/30 bg-gray-100 text-gray-900"
-                                  : "border-gray-200 text-gray-500 hover:text-gray-900"
+                                  ? "border-gray-400 bg-gray-900 text-white"
+                                  : "border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300"
                               }`}
                             >
                               {n}
@@ -328,15 +328,15 @@ export default function DocumentNumbersPage() {
                             }
                             className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${
                               draft.includeFinancialYear
-                                ? "bg-white"
+                                ? "bg-gray-900"
                                 : "bg-gray-200"
                             }`}
                           >
                             <div
                               className={`w-4 h-4 rounded-full transition-transform ${
                                 draft.includeFinancialYear
-                                  ? "translate-x-4 bg-gray-50"
-                                  : "translate-x-0 bg-gray-300"
+                                  ? "translate-x-4 bg-white"
+                                  : "translate-x-0 bg-white"
                               }`}
                             />
                           </div>
@@ -358,14 +358,14 @@ export default function DocumentNumbersPage() {
                               )
                             }
                             className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${
-                              draft.includeMonth ? "bg-white" : "bg-gray-200"
+                              draft.includeMonth ? "bg-gray-900" : "bg-gray-200"
                             }`}
                           >
                             <div
                               className={`w-4 h-4 rounded-full transition-transform ${
                                 draft.includeMonth
-                                  ? "translate-x-4 bg-gray-50"
-                                  : "translate-x-0 bg-gray-300"
+                                  ? "translate-x-4 bg-white"
+                                  : "translate-x-0 bg-white"
                               }`}
                             />
                           </div>
@@ -397,7 +397,7 @@ export default function DocumentNumbersPage() {
                       <button
                         onClick={() => saveConfig(cfg.documentType)}
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-4 py-2 bg-white text-gray-900 rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition"
                       >
                         {isSaved ? (
                           <>
@@ -413,7 +413,7 @@ export default function DocumentNumbersPage() {
                       </button>
                       <button
                         onClick={() => resetDraft(cfg.documentType)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-white/20"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400 transition"
                       >
                         <RotateCcw size={13} />
                         Reset

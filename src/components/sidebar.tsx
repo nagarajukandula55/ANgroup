@@ -7,7 +7,7 @@ import {
   ChevronRight, Menu, X, LayoutDashboard, Package, ShoppingCart,
   TrendingUp, DollarSign, Users, UserCheck, FileSignature, Share2,
   Sparkles, Plug, Shield, Bell, MessageSquare, Building2, UserCog,
-  Key, Store, UserPlus, ChevronDown, Check, LogOut, ShoppingBag,
+  Key, UserPlus, ChevronDown, Check, LogOut, ShoppingBag,
   Box, Hash, Truck,
 } from "lucide-react";
 
@@ -21,7 +21,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   LayoutDashboard, Package, ShoppingCart, TrendingUp, DollarSign,
   Users, UserCheck, FileSignature, Share2, Sparkles,
   Plug, Shield, Bell, MessageSquare, Building2, UserCog,
-  Key, Store, UserPlus, ShoppingBag, Box, Hash, Truck,
+  Key, UserPlus, ShoppingBag, Box, Hash, Truck,
 };
 
 const NAV_GROUPS = [
@@ -35,9 +35,6 @@ const NAV_GROUPS = [
     { key: "purchase",   label: "Purchase",     route: "/admin/purchase",   icon: "ShoppingCart" },
     { key: "sales",      label: "Sales",        route: "/admin/sales",      icon: "TrendingUp" },
     { key: "finance",    label: "Finance",      route: "/admin/finance",    icon: "DollarSign" },
-  ]},
-  { label: "eCommerce", items: [
-    { key: "native",     label: "Native Store", route: "/admin/native",    icon: "Store" },
   ]},
   { label: "Vendors", items: [
     { key: "vendors",    label: "Vendors",      route: "/admin/vendors",    icon: "Truck" },
