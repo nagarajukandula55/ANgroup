@@ -1,55 +1,110 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export interface IParty {
-  name: string;
-  email?: string;
+export interface ISignature {
+  partyName: string;
+  partyEmail: string;
   role?: string;
+
+  otp?: string;
+  otpExpiry?: Date;
+  otpVerified?: boolean;
+
   signedAt?: Date;
   signatureData?: string;
   ipAddress?: string;
 }
 
 export interface IAgreement extends Document {
-  businessId: mongoose.Schema.Types.ObjectId;
-  createdBy: mongoose.Schema.Types.ObjectId;
+  businessId: mongoose.Types.ObjectId;
+  createdBy: mongoose.Types.ObjectId;
+
   title: string;
-  type: 'NDA' | 'EMPLOYMENT' | 'VENDOR' | 'SERVICE' | 'PARTNERSHIP' | 'LEASE' | 'CONSULTANCY' | 'FRANCHISE' | 'MOU' | 'CUSTOM';
+
+  type:
+    | 'NDA'
+    | 'EMPLOYMENT'
+    | 'VENDOR'
+    | 'SERVICE'
+    | 'PARTNERSHIP'
+    | 'LEASE'
+    | 'CONSULTANCY'
+    | 'FRANCHISE'
+    | 'MOU'
+    | 'CUSTOM';
+
   content: string;
-  parties: IParty[];
-  status: 'DRAFT' | 'SENT' | 'SIGNED' | 'PARTIALLY_SIGNED' | 'DECLINED' | 'EXPIRED';
+
+  signatures: ISignature[];
+
+  status:
+    | 'DRAFT'
+    | 'PENDING_SIGNATURE'
+    | 'PARTIALLY_SIGNED'
+    | 'SIGNED'
+    | 'DECLINED'
+    | 'EXPIRED';
+
   governingLaw: string;
   jurisdiction?: string;
+
   expiresAt?: Date;
   pdfUrl?: string;
   notes?: string;
+
   isDeleted: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
 
-const PartySchema = new Schema<IParty>(
+const SignatureSchema = new Schema<ISignature>(
   {
-    name: {
+    partyName: {
       type: String,
       required: true,
+      trim: true,
     },
-    email: {
+
+    partyEmail: {
       type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
     },
+
     role: {
       type: String,
+      trim: true,
     },
+
+    otp: {
+      type: String,
+    },
+
+    otpExpiry: {
+      type: Date,
+    },
+
+    otpVerified: {
+      type: Boolean,
+      default: false,
+    },
+
     signedAt: {
       type: Date,
     },
+
     signatureData: {
       type: String,
     },
+
     ipAddress: {
       type: String,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
 const AgreementSchema = new Schema<IAgreement>(
@@ -57,50 +112,82 @@ const AgreementSchema = new Schema<IAgreement>(
     businessId: {
       type: Schema.Types.ObjectId,
       required: true,
+      ref: 'Business',
     },
+
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
       required: true,
+      ref: 'User',
     },
+
     title: {
       type: String,
       required: true,
+      trim: true,
     },
+
     type: {
       type: String,
-      enum: ['NDA', 'EMPLOYMENT', 'VENDOR', 'SERVICE', 'PARTNERSHIP', 'LEASE', 'CONSULTANCY', 'FRANCHISE', 'MOU', 'CUSTOM'],
+      enum: [
+        'NDA',
+        'EMPLOYMENT',
+        'VENDOR',
+        'SERVICE',
+        'PARTNERSHIP',
+        'LEASE',
+        'CONSULTANCY',
+        'FRANCHISE',
+        'MOU',
+        'CUSTOM',
+      ],
       required: true,
     },
+
     content: {
       type: String,
       required: true,
     },
-    parties: {
-      type: [PartySchema],
+
+    signatures: {
+      type: [SignatureSchema],
       default: [],
     },
+
     status: {
       type: String,
-      enum: ['DRAFT', 'SENT', 'SIGNED', 'PARTIALLY_SIGNED', 'DECLINED', 'EXPIRED'],
+      enum: [
+        'DRAFT',
+        'PENDING_SIGNATURE',
+        'PARTIALLY_SIGNED',
+        'SIGNED',
+        'DECLINED',
+        'EXPIRED',
+      ],
       default: 'DRAFT',
     },
+
     governingLaw: {
       type: String,
       default: 'Laws of India',
     },
+
     jurisdiction: {
       type: String,
     },
+
     expiresAt: {
       type: Date,
     },
+
     pdfUrl: {
       type: String,
     },
+
     notes: {
       type: String,
     },
+
     isDeleted: {
       type: Boolean,
       default: false,
@@ -111,4 +198,5 @@ const AgreementSchema = new Schema<IAgreement>(
   }
 );
 
-export default mongoose.models.Agreement || mongoose.model<IAgreement>('Agreement', AgreementSchema);
+export default (mongoose.models.Agreement as mongoose.Model<IAgreement>) ||
+  mongoose.model<IAgreement>('Agreement', AgreementSchema);
