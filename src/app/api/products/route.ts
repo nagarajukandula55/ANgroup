@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import mongoose, { Schema, Types } from "mongoose";
-import connectDB from "@/lib/mongodb";
+import { connectDB } from '@/lib/mongodb'
 
 // Inline schema definition extending NativeProduct fields with SEO fields.
 // We reuse the same model name "NativeProduct" so it stays compatible with
