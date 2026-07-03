@@ -1,6 +1,6 @@
 // Route: /api/integrations/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/connectDB';
+import { connectDB } from '@/lib/mongodb'
 import Integration, { IntegrationConfig, TelegramConfig, WhatsAppConfig, EmailConfig } from '@/models/Integration';
 
 function maskConfig(provider: string, config: IntegrationConfig): IntegrationConfig {
