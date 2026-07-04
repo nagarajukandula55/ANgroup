@@ -31,6 +31,12 @@ export async function connectDB() {
       throw new Error("MONGODB_URI is not defined in environment variables");
     }
 
+    console.log("MONGODB_URI exists:", !!process.env.MONGODB_URI);
+    console.log(
+      "URI prefix:",
+      process.env.MONGODB_URI?.substring(0, 30)
+    );
+
     cached.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
       // Production pool + timeout settings. The mongoose default
@@ -46,10 +52,12 @@ export async function connectDB() {
 
   try {
     cached.conn = await cached.promise;
+    console.log("MongoDB Connected");
   } catch (err) {
     // Un-poison the cache: without this, one failed connection attempt
     // leaves a permanently-rejected promise cached and every subsequent
     // request fails instantly until the server restarts.
+    console.error("Mongo Error:", err);
     cached.promise = null;
     throw err;
   }
