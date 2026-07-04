@@ -97,8 +97,7 @@ const AgreementSchema = new Schema<IAgreement>(
   { timestamps: true }
 );
 
-const Agreement: mongoose.Model<IAgreement> =
-  (mongoose.models.Agreement as mongoose.Model<IAgreement>) ||
-  mongoose.model<IAgreement>('Agreement', AgreementSchema);
+// Agreements are always listed per business, newest first.
+AgreementSchema.index({ businessId: 1, createdAt: -1 });
 
-export default Agreement;
+export default mongoose.models.Agreement || mongoose.model<IAgreement>('Agreement', AgreementSchema);

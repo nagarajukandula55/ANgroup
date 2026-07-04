@@ -25,6 +25,15 @@ export interface SSOPayload {
   isSuperAdmin: boolean;
   permissions: string[];
   issuer: string;
+  /**
+   * Business tagging — every platform (Native e-commerce, other business
+   * front-ends) consuming this SSO token gets the user's business scope,
+   * so a vendor/staff login on any platform is automatically scoped to
+   * the right business(es) in the centralized system.
+   */
+  businessIds?: string[];
+  activeBusinessId?: string;
+  memberType?: string; // e.g. VENDOR | STAFF | OWNER for the active business
   iat?: number;
   exp?: number;
 }

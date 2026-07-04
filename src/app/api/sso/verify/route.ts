@@ -57,6 +57,10 @@ export async function POST(req: Request) {
         role: payload.role,
         isSuperAdmin: payload.isSuperAdmin,
         avatar: user.avatar || null,
+        // Business tagging — consuming platforms scope everything by this
+        businessIds: payload.businessIds || [],
+        activeBusinessId: payload.activeBusinessId || null,
+        memberType: payload.memberType || null,
       },
       permissions: payload.permissions,
       issuer: payload.issuer,

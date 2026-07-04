@@ -2,47 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcryptjs from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
-import mongoose from 'mongoose'
-
-const VendorProfileSchema = new mongoose.Schema(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    vendorId: { type: String, unique: true },
-    companyName: { type: String, required: true, trim: true },
-    contactPerson: { type: String, trim: true },
-    email: { type: String, trim: true, lowercase: true },
-    phone: { type: String, trim: true },
-    gstNumber: { type: String, trim: true, uppercase: true },
-    panNumber: { type: String, trim: true, uppercase: true },
-    category: { type: String },
-    address: {
-      street: String,
-      city: String,
-      state: String,
-      pincode: String,
-    },
-    bankDetails: {
-      accountName: String,
-      accountNumber: String,
-      ifscCode: String,
-      bankName: String,
-    },
-    isApproved: { type: Boolean, default: false },
-    rating: { type: Number, default: 0 },
-  },
-  { timestamps: true }
-)
-
-const VendorProfile =
-  mongoose.models.VendorProfile ||
-  mongoose.model('VendorProfile', VendorProfileSchema)
+import Business from '@/models/Business'
+// IMPORTANT: use the canonical VendorProfile model. This route previously
+// declared its own inline VendorProfile schema WITHOUT businessId — whichever
+// module loaded first won the mongoose.models registry, silently disabling
+// business scoping, and self-registered vendors were created as orphans not
+// linked to any business ("vendors under which business??").
+import VendorProfile from '@/models/VendorProfile'
 
 async function generateVendorId(): Promise<string> {
   const year = new Date().getFullYear()
+  // vendorId is globally unique in the schema, so count globally.
   const count = await VendorProfile.countDocuments()
   const seq = String(count + 1).padStart(4, '0')
   return `VND-${year}-${seq}`
@@ -52,6 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
+      businessId,
       companyName,
       contactPerson,
       email,
@@ -76,6 +47,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (!businessId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            'businessId is required — a vendor must register under a specific business (e.g. Native)',
+        },
+        { status: 400 }
+      )
+    }
+
     if (password.length < 8) {
       return NextResponse.json(
         {
@@ -95,6 +77,18 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB()
+
+    // The target business must exist and be active
+    const business = await (Business as any)
+      .findOne({ _id: businessId, isActive: true })
+      .select('_id name')
+      .lean()
+    if (!business) {
+      return NextResponse.json(
+        { success: false, message: 'Business not found or inactive' },
+        { status: 404 }
+      )
+    }
 
     // Check if email already taken
     const existing = await User.findOne({
@@ -126,6 +120,7 @@ export async function POST(req: NextRequest) {
 
     const vendorProfile = await VendorProfile.create({
       userId: user._id,
+      businessId: business._id,
       vendorId,
       companyName: companyName.trim(),
       contactPerson: contactPerson.trim(),
@@ -148,6 +143,7 @@ export async function POST(req: NextRequest) {
         message:
           'Vendor application submitted successfully. Your account will be reviewed and approved within 24 hours.',
         vendorId: vendorProfile.vendorId,
+        business: business.name,
       },
       { status: 201 }
     )

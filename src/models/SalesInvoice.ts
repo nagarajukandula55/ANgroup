@@ -113,6 +113,11 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
   { timestamps: true }
 );
 
+// Multi-tenant hot path: invoice lists are always filtered by businessId
+// and sorted newest-first. Without this index every load is a full scan.
+InvoiceSchema.index({ businessId: 1, createdAt: -1 });
+InvoiceSchema.index({ businessId: 1, status: 1 });
+
 const SalesInvoice: Model<ISalesInvoice> =
   (mongoose.models.SalesInvoice as Model<ISalesInvoice>) ||
   mongoose.model<ISalesInvoice>("SalesInvoice", InvoiceSchema);

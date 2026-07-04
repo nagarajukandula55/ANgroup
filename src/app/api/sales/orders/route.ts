@@ -24,6 +24,11 @@ const SalesOrderSchema = new Schema({
   createdBy: String,
 }, { timestamps: true, versionKey: false })
 
+// Every list query filters by businessId and sorts by createdAt — without
+// this index it's a full collection scan on every page load.
+SalesOrderSchema.index({ businessId: 1, isDeleted: 1, createdAt: -1 })
+SalesOrderSchema.index({ createdBy: 1, isDeleted: 1, createdAt: -1 })
+
 const SalesOrder: Model<any> = mongoose.models.SalesOrder || mongoose.model('SalesOrder', SalesOrderSchema)
 
 async function getNextOrderNumber(): Promise<string> {
@@ -49,9 +54,23 @@ export async function GET(req: Request) {
     } else {
       filter.createdBy = userId
     }
-    const orders = await SalesOrder.find(filter).sort({ createdAt: -1 }).lean()
-    const totalRevenue = orders.filter((o: any) => o.status === 'DELIVERED').reduce((s: number, o: any) => s + o.totalAmount, 0)
-    return NextResponse.json({ success: true, orders, totalRevenue })
+    // Paginate — previously this returned EVERY order ever created, which
+    // grows unboundedly and is a primary "page takes forever to load" cause.
+    const page  = Math.max(1, parseInt(url.searchParams.get('page')  || '1'))
+    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50')))
+
+    const [orders, total, revenueAgg] = await Promise.all([
+      SalesOrder.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      SalesOrder.countDocuments(filter),
+      // Revenue computed in the DB across ALL matching orders, so the stat
+      // stays correct even though the list is paginated.
+      SalesOrder.aggregate([
+        { $match: { ...filter, status: 'DELIVERED' } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+      ]),
+    ])
+    const totalRevenue = revenueAgg[0]?.total || 0
+    return NextResponse.json({ success: true, orders, totalRevenue, total, page, limit })
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }

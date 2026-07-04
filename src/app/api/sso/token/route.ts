@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import BusinessMember from "@/models/BusinessMember";
 import { signSSOToken, verifyToken, extractToken } from "@/lib/auth/jwt";
 
 export async function POST(req: Request) {
@@ -49,6 +50,30 @@ export async function POST(req: Request) {
     const requestedApp = body.app || "unknown";
     const requestedScopes = body.scopes || ["profile", "email"];
 
+    /* ── Business tagging ─────────────────────────────────────────────
+     * Every downstream platform (Native storefront, other business
+     * front-ends, vendor portals) needs to know which businesses this
+     * user belongs to. Vendors get their vendor-business memberships,
+     * staff get theirs, super admins are flagged and can access all.
+     */
+    const memberships = (await BusinessMember.find({
+      userId: user._id,
+      status: "ACTIVE",
+    })
+      .select("businessId memberType")
+      .lean()) as any[];
+
+    const businessIds = memberships.map((m) => String(m.businessId));
+    const activeBusinessId =
+      decoded.activeBusinessId && businessIds.includes(decoded.activeBusinessId)
+        ? decoded.activeBusinessId
+        : decoded.activeBusinessId && user.role === "SUPER_ADMIN"
+        ? decoded.activeBusinessId
+        : businessIds[0];
+    const activeMembership = memberships.find(
+      (m) => String(m.businessId) === activeBusinessId
+    );
+
     const ssoToken = signSSOToken({
       userId: user._id.toString(),
       email: user.email,
@@ -57,6 +82,9 @@ export async function POST(req: Request) {
       isSuperAdmin: user.role === "SUPER_ADMIN",
       permissions: requestedScopes,
       issuer: "an-group-erp",
+      businessIds,
+      activeBusinessId,
+      memberType: activeMembership?.memberType,
     });
 
     return NextResponse.json({
@@ -71,6 +99,8 @@ export async function POST(req: Request) {
         name: user.name,
         role: user.role,
         avatar: user.avatar || null,
+        businessIds,
+        activeBusinessId: activeBusinessId || null,
       },
       verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL || ""}/api/sso/verify`,
     });
