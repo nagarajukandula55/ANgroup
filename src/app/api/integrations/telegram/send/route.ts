@@ -1,10 +1,6 @@
 // Route: /api/integrations/telegram/send/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-<<<<<<< HEAD
-import { connectDB } from '@/lib/mongodb'
-=======
 import { connectDB } from '@/lib/mongodb';
->>>>>>> 1440f99 (Fix: Agreement variables field, correct connectDB imports across all new API routes)
 import Integration from '@/models/Integration';
 import { TelegramConfig } from '@/models/Integration';
 
