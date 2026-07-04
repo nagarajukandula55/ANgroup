@@ -1,5 +1,4 @@
 'use client'
-import Layout from '@/components/layout'
 import { Globe, Copy, CheckCircle, Shield, Code } from 'lucide-react'
 import { useState } from 'react'
 
@@ -59,8 +58,10 @@ async function loginWithSSO(ssoToken) {
   }
 }`
 
+  // NOTE: no <Layout> wrapper here — /admin/layout.tsx already renders the
+  // sidebar; wrapping again rendered the sidebar twice on this page.
   return (
-    <Layout>
+    <div className="p-4 lg:p-6">
       <div className="space-y-6 max-w-4xl mx-auto">
         <div>
           <p className="text-xs text-zinc-500 uppercase tracking-widest">Admin</p>
@@ -157,6 +158,6 @@ async function loginWithSSO(ssoToken) {
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
   )
 }

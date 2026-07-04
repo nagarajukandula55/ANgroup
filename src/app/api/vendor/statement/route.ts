@@ -1,51 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { connectDB } from '@/lib/mongodb'
-import mongoose from 'mongoose'
+import VendorProfile from '@/models/VendorProfile'
+import SalesInvoice from '@/models/SalesInvoice'
+import Payment from '@/models/Payment'
 
-const VendorProfileSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  vendorId: { type: String, unique: true },
-  companyName: String,
-  isApproved: { type: Boolean, default: false },
-})
 
-const VendorProfile =
-  mongoose.models.VendorProfile ||
-  mongoose.model('VendorProfile', VendorProfileSchema)
-
-const InvoiceSchema = new mongoose.Schema({
-  invoiceNumber: String,
-  vendorId: { type: mongoose.Schema.Types.ObjectId },
-  vendorProfileId: { type: mongoose.Schema.Types.ObjectId },
-  items: Array,
-  subtotal: Number,
-  taxAmount: Number,
-  totalAmount: { type: Number, default: 0 },
-  paidAmount: { type: Number, default: 0 },
-  status: { type: String, default: 'DRAFT' },
-  dueDate: Date,
-  description: String,
-  createdAt: { type: Date, default: Date.now },
-})
-
-const Invoice =
-  mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema)
-
-const PaymentSchema = new mongoose.Schema({
-  paymentNumber: String,
-  vendorId: { type: mongoose.Schema.Types.ObjectId },
-  vendorProfileId: { type: mongoose.Schema.Types.ObjectId },
-  invoiceId: { type: mongoose.Schema.Types.ObjectId },
-  amount: { type: Number, default: 0 },
-  method: String,
-  notes: String,
-  type: { type: String, default: 'Payment' },
-  createdAt: { type: Date, default: Date.now },
-})
-
-const Payment =
-  mongoose.models.Payment || mongoose.model('Payment', PaymentSchema)
 
 export async function GET(req: NextRequest) {
   try {
@@ -91,21 +51,27 @@ export async function GET(req: NextRequest) {
       dateFilter.$lte = toDate
     }
 
-    const vendorFilter: Record<string, any> = {
-      $or: [
-        { vendorId: (vendor as any)._id },
-        { vendorProfileId: (vendor as any)._id },
-      ],
+    const invoiceFilter: Record<string, any> = {
+      vendorId: (vendor as any)._id,
+      invoiceType: 'B2B',
     }
-
     if (Object.keys(dateFilter).length > 0) {
-      vendorFilter.createdAt = dateFilter
+      invoiceFilter.createdAt = dateFilter
     }
 
-    const [invoices, payments] = await Promise.all([
-      Invoice.find(vendorFilter).sort({ createdAt: 1 }).lean(),
-      Payment.find(vendorFilter).sort({ createdAt: 1 }).lean(),
-    ])
+    const invoices = await SalesInvoice.find(invoiceFilter)
+      .sort({ createdAt: 1 })
+      .lean()
+
+    // Payments are linked to invoices by invoiceId (canonical Payment model)
+    const invoiceIds = invoices.map((i: any) => String(i._id))
+    const paymentFilter: Record<string, any> = { invoiceId: { $in: invoiceIds } }
+    if (Object.keys(dateFilter).length > 0) {
+      paymentFilter.createdAt = dateFilter
+    }
+    const payments = invoiceIds.length
+      ? await (Payment as any).find(paymentFilter).sort({ createdAt: 1 }).lean()
+      : []
 
     // Build unified transaction list
     type TxEntry = {
@@ -122,18 +88,18 @@ export async function GET(req: NextRequest) {
         date: new Date(inv.createdAt).toISOString(),
         type: 'Invoice' as const,
         reference: inv.invoiceNumber || '',
-        description: inv.description || 'Invoice',
-        amount: inv.totalAmount || 0,
+        description: inv.notes || 'Invoice',
+        amount: inv.grandTotal || 0,
         sortDate: new Date(inv.createdAt),
       })),
       ...payments.map((pay: any) => ({
         date: new Date(pay.createdAt).toISOString(),
-        type: (pay.type === 'Credit' ? 'Credit' : 'Payment') as
+        type: 'Payment' as
           | 'Invoice'
           | 'Payment'
           | 'Credit',
-        reference: pay.paymentNumber || '',
-        description: pay.notes || `Payment via ${pay.method || 'transfer'}`,
+        reference: pay.utr || pay.gatewayPaymentId || '',
+        description: `Payment via ${pay.method || pay.gateway || 'transfer'}`,
         amount: pay.amount || 0,
         sortDate: new Date(pay.createdAt),
       })),

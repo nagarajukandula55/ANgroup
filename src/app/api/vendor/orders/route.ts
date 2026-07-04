@@ -1,36 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { connectDB } from '@/lib/mongodb'
-import mongoose from 'mongoose'
-
-const VendorProfileSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  vendorId: { type: String, unique: true },
-  companyName: String,
-  isApproved: { type: Boolean, default: false },
-})
-
-const VendorProfile =
-  mongoose.models.VendorProfile ||
-  mongoose.model('VendorProfile', VendorProfileSchema)
-
-const OrderSchema = new mongoose.Schema({
-  orderNumber: String,
-  vendorId: { type: mongoose.Schema.Types.ObjectId },
-  vendorProfileId: { type: mongoose.Schema.Types.ObjectId },
-  customerId: { type: mongoose.Schema.Types.ObjectId },
-  items: Array,
-  totalAmount: { type: Number, default: 0 },
-  status: {
-    type: String,
-    enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
-    default: 'PENDING',
-  },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-})
-
-const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema)
+// IMPORTANT: canonical models. This route previously declared its own
+// minimal inline VendorProfile and Order schemas — whichever module loaded
+// first won mongoose's model registry, silently breaking vendor scoping and
+// the real Order pipeline everywhere else in the app.
+import VendorProfile from '@/models/VendorProfile'
+import Order from '@/models/Order'
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     await connectDB()
 
-    const vendor = await VendorProfile.findOne({ userId }).lean()
+    const vendor = await VendorProfile.findOne({ userId, isDeleted: false }).lean()
     if (!vendor) {
       return NextResponse.json(
         { success: false, message: 'Vendor profile not found' },
@@ -67,27 +43,50 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '10')))
     const status = searchParams.get('status') || ''
 
+    // Orders are routed to vendors per cart line via cart.vendorId
     const vendorFilter: Record<string, any> = {
-      $or: [
-        { vendorId: (vendor as any)._id },
-        { vendorProfileId: (vendor as any)._id },
-      ],
+      'cart.vendorId': String((vendor as any)._id),
     }
 
     if (status && status !== 'ALL') {
       vendorFilter.status = status.toUpperCase()
     }
 
-    const total = await Order.countDocuments(vendorFilter)
-    const orders = await Order.find(vendorFilter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean()
+    const [total, orders] = await Promise.all([
+      (Order as any).countDocuments(vendorFilter),
+      (Order as any)
+        .find(vendorFilter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ])
+
+    // Show each vendor only THEIR line items and totals
+    const vendorIdStr = String((vendor as any)._id)
+    const scoped = orders.map((o: any) => {
+      const lines = (o.cart || []).filter(
+        (l: any) => String(l.vendorId || '') === vendorIdStr
+      )
+      const vendorTotal = lines.reduce(
+        (s: number, l: any) => s + (l.qty || 1) * (l.price || l.sellingPrice || 0),
+        0
+      )
+      return {
+        _id: o._id,
+        orderId: o.orderId,
+        orderNumber: o.orderId,
+        customerName: o.customer?.name,
+        status: o.status,
+        createdAt: o.createdAt,
+        items: lines,
+        totalAmount: vendorTotal,
+      }
+    })
 
     return NextResponse.json({
       success: true,
-      orders,
+      orders: scoped,
       total,
       page,
       totalPages: Math.ceil(total / limit),

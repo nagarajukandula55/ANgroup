@@ -1,79 +1,10 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { connectDB } from '@/lib/mongodb'
-import mongoose from 'mongoose'
+import VendorProfile from '@/models/VendorProfile'
+import SalesInvoice from '@/models/SalesInvoice'
+import Order from '@/models/Order'
 
-// Inline VendorProfile schema
-const VendorProfileSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  vendorId: { type: String, unique: true },
-  companyName: String,
-  contactPerson: String,
-  email: String,
-  phone: String,
-  gstNumber: String,
-  panNumber: String,
-  category: String,
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    pincode: String,
-  },
-  bankDetails: {
-    accountName: String,
-    accountNumber: String,
-    ifscCode: String,
-    bankName: String,
-  },
-  isApproved: { type: Boolean, default: false },
-  rating: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now },
-})
-
-const VendorProfile =
-  mongoose.models.VendorProfile ||
-  mongoose.model('VendorProfile', VendorProfileSchema)
-
-// Inline Invoice schema
-const InvoiceSchema = new mongoose.Schema({
-  invoiceNumber: String,
-  vendorId: { type: mongoose.Schema.Types.ObjectId },
-  vendorProfileId: { type: mongoose.Schema.Types.ObjectId },
-  customerId: { type: mongoose.Schema.Types.ObjectId },
-  items: Array,
-  subtotal: Number,
-  taxAmount: Number,
-  totalAmount: { type: Number, default: 0 },
-  paidAmount: { type: Number, default: 0 },
-  status: {
-    type: String,
-    enum: ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED'],
-    default: 'DRAFT',
-  },
-  dueDate: Date,
-  createdAt: { type: Date, default: Date.now },
-})
-
-const Invoice =
-  mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema)
-
-// Inline Order schema
-const OrderSchema = new mongoose.Schema({
-  orderNumber: String,
-  vendorId: { type: mongoose.Schema.Types.ObjectId },
-  vendorProfileId: { type: mongoose.Schema.Types.ObjectId },
-  items: Array,
-  totalAmount: { type: Number, default: 0 },
-  status: {
-    type: String,
-    enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
-    default: 'PENDING',
-  },
-  createdAt: { type: Date, default: Date.now },
-})
-
-const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema)
 
 export async function GET() {
   try {
@@ -106,21 +37,19 @@ export async function GET() {
       )
     }
 
-    const vendorFilter = {
-      $or: [
-        { vendorId: vendor._id },
-        { vendorProfileId: vendor._id },
-      ],
-    }
+    // Orders are routed per cart line (cart.vendorId); invoices carry vendorId
+    const orderFilter = { 'cart.vendorId': String(vendor._id) }
+    const invoiceFilter = { vendorId: vendor._id, invoiceType: 'B2B' }
 
     const [allOrders, recentOrders, pendingInvoices] = await Promise.all([
-      Order.find(vendorFilter).lean(),
-      Order.find(vendorFilter)
+      (Order as any).find(orderFilter).lean(),
+      (Order as any)
+        .find(orderFilter)
         .sort({ createdAt: -1 })
         .limit(5)
         .lean(),
-      Invoice.find({
-        ...vendorFilter,
+      SalesInvoice.find({
+        ...invoiceFilter,
         status: { $in: ['SENT', 'OVERDUE'] },
       })
         .sort({ dueDate: 1 })
@@ -129,20 +58,22 @@ export async function GET() {
     ])
 
     const totalOrders = allOrders.length
-    const pendingOrders = allOrders.filter(
-      (o: any) => o.status === 'PENDING'
+    const pendingOrders = allOrders.filter((o: any) =>
+      ['CREATED', 'PAID', 'PENDING_PAYMENT'].includes(o.status)
     ).length
     const totalRevenue = allOrders.reduce(
       (sum: number, o: any) =>
-        o.status === 'DELIVERED' ? sum + (o.totalAmount || 0) : sum,
+        ['DELIVERED', 'COMPLETED'].includes(o.status)
+          ? sum + (o.pricing?.grandTotal || o.totalAmount || 0)
+          : sum,
       0
     )
 
-    const allInvoices = await Invoice.find(vendorFilter).lean()
+    const allInvoices = await SalesInvoice.find(invoiceFilter).lean()
     const outstanding = allInvoices.reduce(
       (sum: number, inv: any) =>
         ['SENT', 'OVERDUE'].includes(inv.status)
-          ? sum + ((inv.totalAmount || 0) - (inv.paidAmount || 0))
+          ? sum + ((inv.grandTotal || 0) - (inv.paidAmount || 0))
           : sum,
       0
     )

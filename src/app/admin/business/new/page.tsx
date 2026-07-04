@@ -52,27 +52,41 @@ export default function NewBusinessPage() {
     setSaving(true);
     setError(null);
 
+    // Hard timeout so the button can never spin forever — if the server
+    // (or DB connection) stalls, abort after 25s and show a real error.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+
     try {
       const res = await fetch("/api/businesses/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (data.success) {
+      if (res.ok && data.success) {
         // The business list page lives at /admin/business — there is no
         // standalone /businesses/[id] detail route, so the previous
         // `router.push('/businesses/' + id)` always dead-ended on a 404
         // right after a successful create.
         router.push("/admin/business");
       } else {
-        setError(data.message || "Failed to create business");
+        setError(
+          data.message ||
+            `Failed to create business (HTTP ${res.status}) — check the server logs / database connection`
+        );
       }
-    } catch {
-      setError("Failed to connect to server");
+    } catch (err: any) {
+      setError(
+        err?.name === "AbortError"
+          ? "Request timed out after 25s — the server is not responding. Check that the database (MONGODB_URI) is reachable and restart the server."
+          : "Failed to connect to server"
+      );
     } finally {
+      clearTimeout(timeout);
       setSaving(false);
     }
   }

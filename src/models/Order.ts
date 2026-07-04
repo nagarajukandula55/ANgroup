@@ -12,6 +12,15 @@ const OrderItemSchema = new mongoose.Schema(
       index: true,
     },
 
+    /* Vendor fulfilment linkage — which vendor supplies this line item.
+       Stamped from the approved vendor product at order time so the order
+       can be routed to the vendor for confirmation (B2B/B2C invoice flow). */
+    vendorId: {
+      type: String,
+      index: true,
+      default: null,
+    },
+
     sku: {
       type: String,
       default: "",

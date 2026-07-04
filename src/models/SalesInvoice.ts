@@ -31,6 +31,10 @@ export interface ISalesInvoice extends Document {
   invoiceNumber: string;
   businessId?: mongoose.Types.ObjectId;
   createdBy?: mongoose.Types.ObjectId;
+  /** B2B = vendor → business (purchase side); B2C = business → end customer */
+  invoiceType?: "B2B" | "B2C" | "STANDARD";
+  vendorId?: mongoose.Types.ObjectId;
+  sourceOrderId?: string;
   customer: {
     name: string;
     email?: string;
@@ -64,6 +68,14 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
     invoiceNumber: { type: String, unique: true },
     businessId: { type: Schema.Types.ObjectId },
     createdBy: { type: Schema.Types.ObjectId },
+    invoiceType: {
+      type: String,
+      enum: ["B2B", "B2C", "STANDARD"],
+      default: "STANDARD",
+      index: true,
+    },
+    vendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", default: null },
+    sourceOrderId: { type: String, default: null, index: true },
 
     customer: {
       name: { type: String, required: true },

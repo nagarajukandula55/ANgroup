@@ -1,6 +1,26 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export type VendorStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'INACTIVE' | 'REJECTED' | 'SUSPENDED';
+/**
+ * Vendor onboarding lifecycle:
+ *  APPLIED          — vendor submitted the public application form
+ *  PENDING          — created directly by admin (legacy default)
+ *  AGREEMENT_SENT   — admin reviewed & approved application; partner
+ *                     agreement triggered for signing
+ *  AGREEMENT_SIGNED — vendor signed the agreement (verified via Agreement)
+ *  APPROVED         — admin gave final approval; vendor ID + login issued
+ *  ACTIVE           — vendor is live (can manage warehouse/products/orders)
+ *  INACTIVE / REJECTED / SUSPENDED — terminal / paused states
+ */
+export type VendorStatus =
+  | 'APPLIED'
+  | 'PENDING'
+  | 'AGREEMENT_SENT'
+  | 'AGREEMENT_SIGNED'
+  | 'APPROVED'
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'REJECTED'
+  | 'SUSPENDED';
 
 export interface IVendorProfile extends Document {
   userId?:      mongoose.Types.ObjectId;
@@ -17,8 +37,17 @@ export interface IVendorProfile extends Document {
     pincode?: string;
     country:  string;
   };
+  /** true = GST-registered vendor (gstNumber required), false = without GST */
+  gstRegistered?: boolean;
   gstNumber?:  string;
   panNumber?:  string;
+  /** partner agreement generated at review-approval time */
+  agreementId?: mongoose.Types.ObjectId;
+  reviewedBy?:  mongoose.Types.ObjectId;
+  reviewedAt?:  Date;
+  finalApprovedBy?: mongoose.Types.ObjectId;
+  finalApprovedAt?: Date;
+  rejectionReason?: string;
   bankDetails?: {
     accountName?:  string;
     accountNumber?: string;
@@ -54,7 +83,14 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
       pincode: { type: String },
       country: { type: String, default: 'India' },
     },
+    gstRegistered: { type: Boolean, default: false },
     gstNumber:  { type: String },
+    agreementId:      { type: Schema.Types.ObjectId, ref: 'Agreement', default: null },
+    reviewedBy:       { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewedAt:       { type: Date, default: null },
+    finalApprovedBy:  { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    finalApprovedAt:  { type: Date, default: null },
+    rejectionReason:  { type: String, default: null },
     panNumber:  { type: String },
     bankDetails: {
       accountName:   { type: String },
@@ -70,7 +106,8 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     rating:       { type: Number, min: 0, max: 5, default: 0 },
     status: {
       type:    String,
-      enum:    ['PENDING', 'APPROVED', 'ACTIVE', 'INACTIVE', 'REJECTED', 'SUSPENDED'],
+      enum:    ['APPLIED', 'PENDING', 'AGREEMENT_SENT', 'AGREEMENT_SIGNED',
+                'APPROVED', 'ACTIVE', 'INACTIVE', 'REJECTED', 'SUSPENDED'],
       default: 'PENDING',
       index:   true,
     },
