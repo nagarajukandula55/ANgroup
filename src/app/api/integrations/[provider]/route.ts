@@ -36,6 +36,9 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   }
 
   const businessId = req.headers.get('x-active-business-id');
+  if (!businessId) {
+    return NextResponse.json({ error: 'x-active-business-id header is required' }, { status: 400 });
+  }
   const { provider } = await context.params;
   const body = await req.json();
   const { config, isActive } = body;
@@ -46,11 +49,11 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   if (config !== undefined) updateFields.config = config;
   if (isActive !== undefined) updateFields.isActive = isActive;
 
-  await Integration.findOneAndUpdate(
+  const integration = await Integration.findOneAndUpdate(
     { businessId, provider: provider.toUpperCase() },
     { $set: updateFields },
-    { new: true }
+    { new: true, upsert: true, runValidators: true }
   );
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, integration });
 }

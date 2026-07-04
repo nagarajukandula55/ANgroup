@@ -51,24 +51,37 @@ export default function InventoryPage() {
 
   async function fetchItems() {
     setLoading(true)
+    setError(null)
     try {
-      let url = '/api/inventory/items'
+      // Resolve the active business the same way every other admin page does
+      // (vendors/products/finance) instead of a localStorage key ('an_user')
+      // that is never actually written anywhere in the app — that dead
+      // lookup meant businessId was always omitted here, and since
+      // /api/inventory/items requires it, this page could never load data.
+      let businessId: string | null = null
       try {
-        const raw = localStorage.getItem('an_user')
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          if (parsed.activeBusinessId) {
-            url += `?businessId=${parsed.activeBusinessId}`
-          }
+        const meRes = await fetch('/api/auth/me')
+        if (meRes.ok) {
+          const meData = await meRes.json()
+          businessId = meData.user?.activeBusinessId ?? null
         }
       } catch {
-        // ignore
+        // ignore — fall back to no explicit businessId
       }
 
-      const res = await fetch(url)
+      if (!businessId) {
+        setError('No active business selected')
+        setItems([])
+        return
+      }
+
+      const res = await fetch(`/api/inventory/items?businessId=${businessId}`, {
+        headers: { 'x-active-business-id': businessId },
+      })
       if (res.ok) {
         const d = await res.json()
-        setItems(Array.isArray(d) ? d : (d.items ?? []))
+        // /api/inventory/items responds with { success, data }, not { items }
+        setItems(Array.isArray(d) ? d : (d.data ?? d.items ?? []))
       } else {
         setError('Failed to load inventory')
       }

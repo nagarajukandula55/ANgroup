@@ -58,5 +58,8 @@ export async function POST(req: NextRequest) {
 
   const sent = results.filter((r) => r.status === 'fulfilled').length;
 
-  return NextResponse.json({ success: true, sent });
+  return NextResponse.json({
+    success: true,
+    summary: { success: sent, total: targetChatIds.length },
+  });
 }

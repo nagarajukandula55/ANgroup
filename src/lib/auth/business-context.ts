@@ -28,6 +28,14 @@ export interface IBusinessContext {
 export async function getBusinessContext(): Promise<IBusinessContext | null> {
   const headersList = await headers();
   const userEmail = headersList.get("x-user-email");
+  // The currently-selected business, as resolved by the JWT / business
+  // switcher and injected by middleware. This is the SAME header that
+  // /api/auth/me and every other business-scoped route (products,
+  // vendors, integrations, etc.) treat as the source of truth — reading
+  // it here too keeps finance in sync with whatever business the user
+  // has actually switched to, instead of silently using a possibly-stale
+  // "isDefaultBusiness" flag in the DB.
+  const activeBusinessIdHeader = headersList.get("x-active-business-id");
 
   if (!userEmail) return null;
 
@@ -35,12 +43,28 @@ export async function getBusinessContext(): Promise<IBusinessContext | null> {
 
   if (!user) return null;
 
-  const membership = await BusinessMember.findOne({
-    userId: (user as any)._id,
-    isDeleted: false,
-    status: "ACTIVE",
-    isDefaultBusiness: true,
-  }).lean();
+  let membership = null as Awaited<ReturnType<typeof BusinessMember.findOne>> | null;
+
+  if (activeBusinessIdHeader) {
+    membership = await BusinessMember.findOne({
+      userId: (user as any)._id,
+      businessId: new Types.ObjectId(activeBusinessIdHeader),
+      isDeleted: false,
+      status: "ACTIVE",
+    }).lean();
+  }
+
+  // Fall back to whichever membership is flagged default — covers the case
+  // where no active-business header was sent (e.g. stale JWT) or it didn't
+  // match a valid membership.
+  if (!membership) {
+    membership = await BusinessMember.findOne({
+      userId: (user as any)._id,
+      isDeleted: false,
+      status: "ACTIVE",
+      isDefaultBusiness: true,
+    }).lean();
+  }
 
   if (!membership) return null;
 
