@@ -5,7 +5,7 @@
  */
 
 import { connectDB } from '@/lib/mongodb';
-import Integration from '@/models/Integration';
+import Integration, { TelegramConfig, WhatsAppConfig } from '@/models/Integration';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,21 +93,16 @@ export async function notify(opts: NotifyOptions): Promise<void> {
 
     const dispatches: Promise<void>[] = [];
 
-    for (const integration of integrations as Array<{
-      type: string;
-      isActive: boolean;
-      config: Record<string, unknown>;
-    }>) {
-      const cfg = integration.config || {};
-
+    for (const integration of integrations) {
       // ---- Telegram ----
-      if (integration.type === 'TELEGRAM') {
-        const triggers = (cfg.notificationTriggers as string[]) || [];
+      if (integration.provider === 'TELEGRAM') {
+        const cfg = integration.config as TelegramConfig;
+        const triggers = cfg.notificationTriggers || [];
         // Empty triggers list = receive ALL events
         if (triggers.length > 0 && !triggers.includes(event)) continue;
 
-        const botToken = cfg.botToken as string;
-        const chatIds = (cfg.chatIds as string[]) || [];
+        const botToken = cfg.botToken;
+        const chatIds = cfg.chatIds || [];
         if (!botToken || chatIds.length === 0) continue;
 
         const formatted = `<b>🔔 ${event.replace(/_/g, ' ')}</b>\n\n${message}`;
@@ -121,13 +116,14 @@ export async function notify(opts: NotifyOptions): Promise<void> {
       }
 
       // ---- WhatsApp ----
-      if (integration.type === 'WHATSAPP') {
-        const triggers = (cfg.notificationTriggers as string[]) || [];
+      if (integration.provider === 'WHATSAPP') {
+        const cfg = integration.config as WhatsAppConfig;
+        const triggers = cfg.notificationTriggers || [];
         if (triggers.length > 0 && !triggers.includes(event)) continue;
 
-        const phoneNumberId = cfg.phoneNumberId as string;
-        const accessToken = cfg.accessToken as string;
-        const recipients = (cfg.recipients as string[]) || [];
+        const phoneNumberId = cfg.phoneNumberId;
+        const accessToken = cfg.accessToken;
+        const recipients = cfg.recipients || [];
         if (!phoneNumberId || !accessToken || recipients.length === 0) continue;
 
         const formatted = `🔔 ${event.replace(/_/g, ' ')}\n\n${message}`;
