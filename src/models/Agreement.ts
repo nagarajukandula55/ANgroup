@@ -50,7 +50,6 @@ export interface IAgreement extends Document {
   expiresAt?: Date;
   pdfUrl?: string;
   notes?: string;
-
   isDeleted: boolean;
 
   createdAt: Date;
@@ -187,7 +186,6 @@ const AgreementSchema = new Schema<IAgreement>(
     notes: {
       type: String,
     },
-
     isDeleted: {
       type: Boolean,
       default: false,

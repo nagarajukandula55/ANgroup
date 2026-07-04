@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import mongoose from "mongoose";
-import { connectDB } from '@/lib/mongodb'
+import connectDB from "@/lib/mongodb";
 import Employee from "@/models/Employee";
 
 export async function GET(request: NextRequest) {
