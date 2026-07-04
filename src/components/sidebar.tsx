@@ -4,12 +4,14 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronRight, Menu, X, LayoutDashboard, Package, ShoppingCart,
+  ChevronRight, ChevronLeft, Menu, X, LayoutDashboard, Package, ShoppingCart,
   TrendingUp, DollarSign, Users, UserCheck, FileSignature, Share2,
   Sparkles, Plug, Shield, Bell, MessageSquare, Building2, UserCog,
   Key, UserPlus, ChevronDown, Check, LogOut, ShoppingBag,
   Box, Hash, Truck,
 } from "lucide-react";
+
+const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
 
 interface Business { _id: string; name: string; brandName?: string; businessCode?: string }
 interface UserInfo {
@@ -24,62 +26,128 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   Key, UserPlus, ShoppingBag, Box, Hash, Truck,
 };
 
-const NAV_GROUPS = [
+interface NavItem {
+  key: string; label: string; route: string; icon: string;
+}
+interface NavSubGroup {
+  key: string; label: string; items: NavItem[];
+}
+interface NavGroup {
+  label: string;
+  items?: NavItem[];
+  subgroups?: NavSubGroup[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
   { label: "Overview", items: [
     { key: "dashboard",  label: "Dashboard",    route: "/admin",            icon: "LayoutDashboard" },
   ]},
-  { label: "Operations", items: [
-    { key: "orders",     label: "Orders",       route: "/admin/orders",     icon: "ShoppingBag" },
-    { key: "inventory",  label: "Inventory",    route: "/admin/inventory",  icon: "Package" },
-    { key: "products",   label: "Products",     route: "/admin/products",   icon: "Box" },
-    { key: "purchase",   label: "Purchase",     route: "/admin/purchase",   icon: "ShoppingCart" },
-    { key: "sales",      label: "Sales",        route: "/admin/sales",      icon: "TrendingUp" },
-    { key: "finance",    label: "Finance",      route: "/admin/finance",    icon: "DollarSign" },
+  { label: "Operations", subgroups: [
+    { key: "ops-sales", label: "Sales", items: [
+      { key: "orders",   label: "Orders",       route: "/admin/orders",     icon: "ShoppingBag" },
+      { key: "sales",    label: "Sales",        route: "/admin/sales",      icon: "TrendingUp" },
+      { key: "coupons",  label: "Coupons",      route: "/admin/coupons",    icon: "Hash" },
+    ]},
+    { key: "ops-inv", label: "Inventory", items: [
+      { key: "inventory",  label: "Inventory",    route: "/admin/inventory",  icon: "Package" },
+      { key: "products",   label: "Products",     route: "/admin/products",   icon: "Box" },
+      { key: "warehouses", label: "Warehouses",   route: "/admin/warehouses", icon: "Building2" },
+      { key: "materials",  label: "Materials",    route: "/admin/materials",  icon: "Box" },
+    ]},
+    { key: "ops-purchase", label: "Purchase", items: [
+      { key: "purchase",        label: "Purchase",        route: "/admin/purchase",         icon: "ShoppingCart" },
+      { key: "purchase-orders", label: "Purchase Orders", route: "/admin/purchase-orders",  icon: "ShoppingCart" },
+    ]},
+    { key: "ops-production", label: "Manufacturing", items: [
+      { key: "bom",        label: "Bill of Materials", route: "/admin/bom",        icon: "Box" },
+      { key: "production", label: "Production",        route: "/admin/production", icon: "Package" },
+    ]},
+    { key: "ops-finance", label: "Finance", items: [
+      { key: "finance", label: "Finance", route: "/admin/finance", icon: "DollarSign" },
+    ]},
   ]},
-  { label: "Vendors", items: [
+  { label: "Business", items: [
+    { key: "businesses", label: "Businesses",   route: "/admin/business",   icon: "Building2" },
     { key: "vendors",    label: "Vendors",      route: "/admin/vendors",    icon: "Truck" },
   ]},
-  { label: "People", items: [
-    { key: "hr",         label: "HR",           route: "/admin/hr",         icon: "UserCheck" },
-    { key: "employees",  label: "Employees",    route: "/admin/employees",  icon: "Users" },
-    { key: "crm",        label: "CRM",          route: "/admin/crm",        icon: "UserPlus" },
+  { label: "People", subgroups: [
+    { key: "ppl-hr", label: "Human Resources", items: [
+      { key: "hr",        label: "HR Overview",  route: "/admin/hr",         icon: "UserCheck" },
+      { key: "employees", label: "Employees",    route: "/admin/employees",  icon: "Users" },
+      { key: "hr-leave",  label: "Leave",        route: "/admin/hr/leave",   icon: "UserCheck" },
+      { key: "hr-payroll",label: "Payroll",      route: "/admin/hr/payroll", icon: "DollarSign" },
+    ]},
+    { key: "ppl-crm", label: "CRM", items: [
+      { key: "crm", label: "CRM", route: "/admin/crm", icon: "UserPlus" },
+    ]},
   ]},
   { label: "Documents", items: [
-    { key: "agreements", label: "Agreements",   route: "/admin/agreements", icon: "FileSignature" },
+    { key: "agreements",      label: "Agreements",      route: "/admin/agreements",       icon: "FileSignature" },
+    { key: "admin-doc-nos",   label: "Document Numbers",route: "/admin/document-numbers", icon: "Hash" },
   ]},
   { label: "Growth", items: [
-    { key: "social",    label: "Social Media",  route: "/admin/social",    icon: "Share2" },
-    { key: "ai-image",  label: "AI Studio",    route: "/admin/ai-image",  icon: "Sparkles" },
+    { key: "social",   label: "Social Media", route: "/admin/social",    icon: "Share2" },
+    { key: "ai-image", label: "AI Studio",    route: "/admin/ai-image",  icon: "Sparkles" },
+    { key: "native",   label: "Native App",   route: "/admin/native",    icon: "MessageSquare" },
   ]},
   { label: "Communication", items: [
-    { key: "chat",          label: "Team Chat",    route: "/admin/chat",          icon: "MessageSquare" },
-    { key: "notifications", label: "Notifications",route: "/admin/notifications", icon: "Bell" },
+    { key: "chat",          label: "Team Chat",     route: "/admin/chat",          icon: "MessageSquare" },
+    { key: "notifications", label: "Notifications", route: "/admin/notifications", icon: "Bell" },
   ]},
-  { label: "Admin", items: [
-    { key: "admin-users",   label: "User Management",     route: "/admin/users",            icon: "UserCog" },
-    { key: "admin-access",  label: "Access Control",      route: "/admin/access",           icon: "Key" },
-    { key: "admin-roles",   label: "Roles & Permissions", route: "/admin/roles",            icon: "Shield" },
-    { key: "admin-doc-nos", label: "Document Numbers",    route: "/admin/document-numbers", icon: "Hash" },
-    { key: "admin-intg",    label: "Integrations",        route: "/admin/integrations",     icon: "Plug" },
+  { label: "Admin", subgroups: [
+    { key: "adm-users", label: "Users & Access", items: [
+      { key: "admin-users",  label: "User Management",      route: "/admin/users",  icon: "UserCog" },
+      { key: "admin-access", label: "Access Control",       route: "/admin/access", icon: "Key" },
+      { key: "admin-roles",  label: "Roles & Permissions",  route: "/admin/roles",  icon: "Shield" },
+    ]},
+    { key: "adm-config", label: "Configuration", items: [
+      { key: "admin-intg", label: "Integrations", route: "/admin/integrations", icon: "Plug" },
+      { key: "admin-sso",  label: "SSO / Auth",   route: "/admin/sso",          icon: "Key" },
+    ]},
   ]},
 ];
 
-const STATIC_MODULES = NAV_GROUPS.flatMap((g) => g.items);
+const STATIC_MODULES = NAV_GROUPS.flatMap((g) =>
+  g.items ? g.items : (g.subgroups ?? []).flatMap((sg) => sg.items)
+);
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [modules, setModules]         = useState<any[]>(STATIC_MODULES);
-  const [open, setOpen]               = useState(false);
-  const [user, setUser]               = useState<UserInfo | null>(null);
-  const [businesses, setBusinesses]   = useState<Business[]>([]);
-  const [activeBiz, setActiveBiz]     = useState<Business | null>(null);
-  const [bizDropdown, setBizDropdown] = useState(false);
-  const [switching, setSwitching]     = useState(false);
+  const [modules, setModules]           = useState<any[]>(STATIC_MODULES);
+  const [open, setOpen]                 = useState(false);
+  const [collapsed, setCollapsed]       = useState(false);
+  const [user, setUser]                 = useState<UserInfo | null>(null);
+  const [businesses, setBusinesses]     = useState<Business[]>([]);
+  const [activeBiz, setActiveBiz]       = useState<Business | null>(null);
+  const [bizDropdown, setBizDropdown]   = useState(false);
+  const [switching, setSwitching]       = useState(false);
+  // Tracks which subgroups are open — default all open
+  const [openSubgroups, setOpenSubgroups] = useState<Record<string, boolean>>(() => {
+    const allOpen: Record<string, boolean> = {};
+    NAV_GROUPS.forEach((g) => (g.subgroups ?? []).forEach((sg) => { allOpen[sg.key] = true; }));
+    return allOpen;
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadUser(); }, []);
+
+  // Restore the desktop collapsed/expanded preference across visits.
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+    } catch { /* localStorage unavailable — default to expanded */ }
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+      if (next) setBizDropdown(false);
+      return next;
+    });
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -163,20 +231,38 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed lg:sticky lg:top-0 z-50 h-screen w-60 shrink-0 flex flex-col
-          border-r border-gray-200 bg-white transform transition-transform duration-300
-          ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        className={`fixed lg:sticky lg:top-0 z-50 h-screen w-60 shrink-0 flex flex-col relative
+          border-r border-gray-200 bg-white transform transition-all duration-300
+          ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          ${collapsed ? "lg:w-16" : "lg:w-60"}`}
       >
+        {/* Desktop collapse/expand toggle */}
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="hidden lg:flex absolute -right-3 top-6 z-10 h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm hover:text-gray-700 hover:bg-gray-50"
+        >
+          {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        </button>
+
         {/* Brand */}
         <div className="px-5 pt-5 pb-4 border-b border-gray-100">
-          <p className="text-[9px] uppercase tracking-[0.45em] text-gray-400 font-medium">AN Group</p>
-          <h2 className="mt-0.5 text-base font-bold tracking-tight text-gray-900">Enterprise</h2>
-          <div className="mt-1.5 flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <p className="text-[10px] text-gray-400">
-              {user?.isSuperAdmin ? "Super Admin" : (user?.role || "Operational")}
-            </p>
-          </div>
+          {collapsed ? (
+            <div className="flex justify-center">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="AN Group" />
+            </div>
+          ) : (
+            <>
+              <p className="text-[9px] uppercase tracking-[0.45em] text-gray-400 font-medium">AN Group</p>
+              <h2 className="mt-0.5 text-base font-bold tracking-tight text-gray-900">Enterprise</h2>
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <p className="text-[10px] text-gray-400">
+                  {user?.isSuperAdmin ? "Super Admin" : (user?.role || "Operational")}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Business Switcher */}
@@ -185,19 +271,28 @@ export default function Sidebar() {
             <button
               onClick={() => setBizDropdown(!bizDropdown)}
               disabled={switching}
-              className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60"
+              title={activeBiz ? (activeBiz.brandName || activeBiz.name) : "Select Business"}
+              className={`flex w-full items-center rounded-lg border border-gray-200 bg-gray-50 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60 ${
+                collapsed ? "justify-center px-0" : "justify-between px-3"
+              }`}
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className={`flex items-center gap-2 min-w-0 ${collapsed ? "" : ""}`}>
                 <Building2 size={12} className="shrink-0 text-gray-400" />
-                <span className="truncate text-xs font-medium text-gray-700">
-                  {activeBiz ? (activeBiz.brandName || activeBiz.name) : "Select Business"}
-                </span>
+                {!collapsed && (
+                  <span className="truncate text-xs font-medium text-gray-700">
+                    {activeBiz ? (activeBiz.brandName || activeBiz.name) : "Select Business"}
+                  </span>
+                )}
               </div>
-              <ChevronDown size={12} className={`shrink-0 text-gray-400 transition-transform ${bizDropdown ? "rotate-180" : ""}`} />
+              {!collapsed && (
+                <ChevronDown size={12} className={`shrink-0 text-gray-400 transition-transform ${bizDropdown ? "rotate-180" : ""}`} />
+              )}
             </button>
 
             {bizDropdown && (
-              <div className="absolute left-3 right-3 top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+              <div className={`absolute top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden ${
+                collapsed ? "left-3 w-56" : "left-3 right-3"
+              }`}>
                 {businesses.map((biz) => {
                   const isActive = biz._id === user?.activeBusinessId;
                   return (
@@ -222,44 +317,102 @@ export default function Sidebar() {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 scrollbar-none">
           {NAV_GROUPS.map((group) => {
-            const visibleItems = group.items.filter((item) => moduleKeys.has(item.key));
-            if (visibleItems.length === 0) return null;
+            // Collect all items from this group (flat or nested)
+            const allItems: NavItem[] = group.items
+              ? group.items
+              : (group.subgroups ?? []).flatMap((sg) => sg.items);
+            const hasVisible = allItems.some((item) => moduleKeys.has(item.key));
+            if (!hasVisible) return null;
+
+            // Helper: render a single nav link
+            const renderItem = (item: NavItem, indent = false) => {
+              const dbMod    = modules.find((m: any) => m.key === item.key);
+              const m        = { ...item, ...(dbMod || {}) };
+              const active   =
+                m.route === "/admin"
+                  ? pathname === "/admin"
+                  : pathname === m.route ||
+                    (m.route.length > 1 && pathname?.startsWith(m.route + "/"));
+              const IconComp = ICON_MAP[m.icon] || Building2;
+              return (
+                <Link
+                  key={m.key}
+                  href={m.route}
+                  onClick={() => setOpen(false)}
+                  title={collapsed ? m.label : undefined}
+                  className={`group flex items-center gap-2.5 rounded-lg py-2 transition-all duration-150 ${
+                    collapsed ? "justify-center px-0" : indent ? "pl-5 pr-3" : "px-3"
+                  } ${
+                    active
+                      ? "bg-gray-900 text-white"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                >
+                  <IconComp
+                    size={14}
+                    className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"}
+                  />
+                  {!collapsed && <span className="text-[13px] font-medium">{m.label}</span>}
+                  {!collapsed && active && <ChevronRight size={12} className="ml-auto text-gray-400" />}
+                </Link>
+              );
+            };
+
             return (
               <div key={group.label} className="mb-4">
-                <p className="px-3 mb-1 text-[9px] uppercase tracking-[0.45em] text-gray-400 font-semibold">
-                  {group.label}
-                </p>
-                <div className="space-y-0.5">
-                  {visibleItems.map((item) => {
-                    const dbMod  = modules.find((m: any) => m.key === item.key);
-                    const m      = { ...item, ...(dbMod || {}) };
-                    const active =
-                      m.route === "/admin"
-                        ? pathname === "/admin"
-                        : pathname === m.route ||
-                          (m.route.length > 1 && pathname?.startsWith(m.route + "/"));
-                    const IconComp = ICON_MAP[m.icon] || Building2;
-                    return (
-                      <Link
-                        key={m.key}
-                        href={m.route}
-                        onClick={() => setOpen(false)}
-                        className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-all duration-150 ${
-                          active
-                            ? "bg-gray-900 text-white"
-                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                        }`}
-                      >
-                        <IconComp
-                          size={14}
-                          className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"}
-                        />
-                        <span className="text-[13px] font-medium">{m.label}</span>
-                        {active && <ChevronRight size={12} className="ml-auto text-gray-400" />}
-                      </Link>
-                    );
-                  })}
-                </div>
+                {/* Section header */}
+                {!collapsed && (
+                  <p className="px-3 mb-1 text-[9px] uppercase tracking-[0.45em] text-gray-400 font-semibold">
+                    {group.label}
+                  </p>
+                )}
+
+                {/* Flat items */}
+                {group.items && (
+                  <div className="space-y-0.5">
+                    {group.items
+                      .filter((item) => moduleKeys.has(item.key))
+                      .map((item) => renderItem(item))}
+                  </div>
+                )}
+
+                {/* Nested sub-groups */}
+                {group.subgroups && (
+                  <div className="space-y-0.5">
+                    {group.subgroups.map((sg) => {
+                      const visibleSgItems = sg.items.filter((i) => moduleKeys.has(i.key));
+                      if (visibleSgItems.length === 0) return null;
+                      const sgOpen = openSubgroups[sg.key] !== false;
+
+                      return (
+                        <div key={sg.key}>
+                          {/* Sub-group toggle header */}
+                          {!collapsed && (
+                            <button
+                              onClick={() =>
+                                setOpenSubgroups((p) => ({ ...p, [sg.key]: !sgOpen }))
+                              }
+                              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all"
+                            >
+                              <span>{sg.label}</span>
+                              <ChevronDown
+                                size={10}
+                                className={`transition-transform ${sgOpen ? "" : "-rotate-90"}`}
+                              />
+                            </button>
+                          )}
+
+                          {/* Sub-group items */}
+                          {(sgOpen || collapsed) && (
+                            <div className="space-y-0.5 mt-0.5">
+                              {visibleSgItems.map((item) => renderItem(item, !collapsed))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -268,14 +421,16 @@ export default function Sidebar() {
         {/* User footer */}
         <div className="px-3 py-3 border-t border-gray-100">
           {user ? (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-gray-800">{user.name}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">
-                    {user.isSuperAdmin ? "Super Admin" : user.role}
-                  </p>
-                </div>
+            <div className={`rounded-lg border border-gray-200 bg-gray-50 ${collapsed ? "p-2" : "p-3"}`}>
+              <div className={`flex items-center ${collapsed ? "flex-col gap-2" : "justify-between"}`}>
+                {!collapsed && (
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-gray-800">{user.name}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {user.isSuperAdmin ? "Super Admin" : user.role}
+                    </p>
+                  </div>
+                )}
                 <button
                   onClick={handleLogout}
                   className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition"

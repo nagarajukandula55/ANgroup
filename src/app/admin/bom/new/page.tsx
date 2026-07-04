@@ -141,7 +141,7 @@ export default function NewBOMPage() {
       <div className="grid gap-4 md:grid-cols-2">
 
         <select
-          className="border p-3"
+          className="border border-white/20 bg-black text-white p-3 rounded"
           value={
             form.productVariantId
           }
@@ -169,7 +169,7 @@ export default function NewBOMPage() {
 
         <input
           type="number"
-          className="border p-3"
+          className="border border-white/20 bg-black text-white p-3 rounded"
           placeholder="Batch Size"
           value={form.batchSize}
           onChange={(e) =>
@@ -212,7 +212,7 @@ export default function NewBOMPage() {
               >
 
                 <select
-                  className="border p-2"
+                  className="border border-white/20 bg-black text-white p-2 rounded"
                   value={
                     item.materialId
                   }
@@ -243,7 +243,7 @@ export default function NewBOMPage() {
                 </select>
 
                 <input
-                  className="border p-2"
+                  className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Qty"
                   type="number"
                   onChange={(e) =>
@@ -259,7 +259,7 @@ export default function NewBOMPage() {
                 />
 
                 <input
-                  className="border p-2"
+                  className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Unit"
                   onChange={(e) =>
                     updateRow(
@@ -271,7 +271,7 @@ export default function NewBOMPage() {
                 />
 
                 <input
-                  className="border p-2"
+                  className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Wastage"
                   type="number"
                   onChange={(e) =>
@@ -287,7 +287,7 @@ export default function NewBOMPage() {
                 />
 
                 <input
-                  className="border p-2"
+                  className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Current Cost"
                   type="number"
                   onChange={(e) =>
@@ -303,7 +303,7 @@ export default function NewBOMPage() {
                 />
 
                 <input
-                  className="border p-2"
+                  className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Safe Cost"
                   type="number"
                   onChange={(e) =>
@@ -319,7 +319,7 @@ export default function NewBOMPage() {
                 />
 
                 <input
-                  className="border p-2"
+                  className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Worst Cost"
                   type="number"
                   onChange={(e) =>

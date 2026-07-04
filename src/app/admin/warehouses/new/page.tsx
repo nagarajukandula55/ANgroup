@@ -30,7 +30,7 @@ export default function NewWarehouse() {
   }
 
   return (
-    <div className="max-w-3xl p-6">
+    <div className="max-w-3xl p-6 text-white">
       <h1 className="mb-6 text-2xl font-bold">
         New Warehouse
       </h1>
@@ -38,7 +38,7 @@ export default function NewWarehouse() {
       <div className="space-y-4">
         <input
           placeholder="Code"
-          className="w-full border p-3"
+          className="w-full border border-white/20 bg-black text-white p-3 rounded"
           onChange={(e) =>
             setForm({
               ...form,
@@ -50,7 +50,7 @@ export default function NewWarehouse() {
 
         <input
           placeholder="Name"
-          className="w-full border p-3"
+          className="w-full border border-white/20 bg-black text-white p-3 rounded"
           onChange={(e) =>
             setForm({
               ...form,
@@ -61,7 +61,7 @@ export default function NewWarehouse() {
         />
 
         <select
-          className="w-full border p-3"
+          className="w-full border border-white/20 bg-black text-white p-3 rounded"
           onChange={(e) =>
             setForm({
               ...form,

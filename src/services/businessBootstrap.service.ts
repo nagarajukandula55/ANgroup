@@ -40,10 +40,28 @@ const DEFAULT_MODULES = [
 ];
 
 /* ================= BOOTSTRAP BUSINESS ================= */
+
+// Business.tenantKey is required+unique in the schema but nothing here ever
+// set it, so every Business.create() call below was throwing a Mongoose
+// validation error ("tenantKey is required") and the whole "create business"
+// flow was silently failing on the backend — this is why there was no way to
+// actually create/see a business despite the form existing.
+function slugify(input: string) {
+  return (input || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-+|-+$)/g, "");
+}
+
 export async function bootstrapBusiness(payload: any) {
   const businessCode =
     payload.businessCode ||
     `BUS-${Date.now()}`;
+
+  const tenantKeyBase =
+    slugify(payload.name) || slugify(businessCode) || "business";
+  const tenantKey = `${tenantKeyBase}-${Date.now().toString(36)}`;
 
   const business = await Business.create({
     name: payload.name,
@@ -51,6 +69,7 @@ export async function bootstrapBusiness(payload: any) {
     brandName: payload.brandName,
 
     businessCode,
+    tenantKey,
 
     industry: payload.industry,
     type: payload.type,
@@ -63,30 +82,31 @@ export async function bootstrapBusiness(payload: any) {
 
     modules: DEFAULT_MODULES,
 
+    // Field names below match the Business model's DocumentSchema
+    // (singular "invoice", "creditNote", "debitNote", "receipt" — not the
+    // plural names previously used here, which Mongoose silently stripped
+    // since they aren't declared paths on the schema).
     documents: {
-      invoices: {
+      invoice: {
         enabled: true,
         numbering: {
           prefix: "NA",
           format: "PREFIX-DATE-SEQ-RANDOM",
-          sequenceScope: "BUSINESS",
           dateFormat: "YYMMDD",
           padding: 6,
-          resetPolicy: "DAILY",
         },
       },
 
-      creditNotes: { enabled: true },
-      debitNotes: { enabled: true },
-      receipts: { enabled: true },
+      creditNote: { enabled: true },
+      debitNote: { enabled: true },
+      receipt: { enabled: true },
     },
 
+    // ComplianceSchema stores these as flat fields (gstNumber, pan, cin,
+    // msme, iec, ...) — not a nested `gst: { number, registered }` object,
+    // which is also silently stripped by Mongoose's default strict mode.
     compliance: {
-      gst: {
-        number: payload.gstNumber,
-        registered: !!payload.gstNumber,
-      },
-
+      gstNumber: payload.gstNumber,
       pan: payload.pan,
       cin: payload.cin,
       msme: payload.msme,
@@ -96,17 +116,10 @@ export async function bootstrapBusiness(payload: any) {
     financial: {
       currency: "INR",
       fiscalYearStart: "04-01",
-      accountingMethod: "ACCRUAL",
-      costCentersEnabled: false,
-      profitTrackingEnabled: true,
+      taxStandard: "GST",
+      decimalPlaces: 2,
+      priceIncludesTax: false,
     },
-
-    organization: {
-      departments: [],
-      locations: payload.locations || [],
-    },
-
-    roles: [],
   });
 
   return business;
