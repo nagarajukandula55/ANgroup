@@ -4,14 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
-  Loader2,
-  Package,
-  ShoppingCart,
-  BarChart3,
-  Truck,
-  Hash,
-  ArrowRight,
+  ArrowLeft, Loader2, Package, ShoppingCart, BarChart3,
+  Truck, Hash, ArrowRight, Store, Layers,
 } from 'lucide-react'
 
 interface NativeStats {
@@ -28,59 +22,35 @@ interface NativeStats {
 export default function NativePage() {
   const router = useRouter()
   const [stats, setStats] = useState<NativeStats>({
-    products: 0,
-    orders: 0,
-    inventory: 0,
-    vendors: 0,
-    loadingProducts: true,
-    loadingOrders: true,
-    loadingInventory: true,
-    loadingVendors: true,
+    products: 0, orders: 0, inventory: 0, vendors: 0,
+    loadingProducts: true, loadingOrders: true,
+    loadingInventory: true, loadingVendors: true,
   })
 
   useEffect(() => {
-    async function fetchStats() {
-      // Products / Inventory items
-      fetch('/api/inventory/items')
-        .then((r) => r.ok ? r.json() : null)
-        .then((d) => {
-          if (d) {
-            const arr = Array.isArray(d) ? d : (d.items ?? [])
-            setStats((p) => ({ ...p, products: arr.length, inventory: arr.length, loadingProducts: false, loadingInventory: false }))
-          } else {
-            setStats((p) => ({ ...p, loadingProducts: false, loadingInventory: false }))
-          }
-        })
-        .catch(() => setStats((p) => ({ ...p, loadingProducts: false, loadingInventory: false })))
+    fetch('/api/products?limit=1')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const total = d?.total ?? (Array.isArray(d) ? d.length : (d?.products?.length ?? 0))
+        setStats(p => ({ ...p, products: total, inventory: total, loadingProducts: false, loadingInventory: false }))
+      })
+      .catch(() => setStats(p => ({ ...p, loadingProducts: false, loadingInventory: false })))
 
-      // Orders
-      fetch('/api/sales/orders')
-        .then((r) => r.ok ? r.json() : null)
-        .then((d) => {
-          if (d) {
-            const arr = Array.isArray(d) ? d : (d.orders ?? [])
-            setStats((p) => ({ ...p, orders: arr.length, loadingOrders: false }))
-          } else {
-            setStats((p) => ({ ...p, loadingOrders: false }))
-          }
-        })
-        .catch(() => setStats((p) => ({ ...p, loadingOrders: false })))
+    fetch('/api/sales/orders?limit=1')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const total = d?.total ?? (Array.isArray(d) ? d.length : (d?.orders?.length ?? 0))
+        setStats(p => ({ ...p, orders: total, loadingOrders: false }))
+      })
+      .catch(() => setStats(p => ({ ...p, loadingOrders: false })))
 
-      // Vendors
-      fetch('/api/vendors')
-        .then((r) => r.ok ? r.json() : null)
-        .then((d) => {
-          if (d) {
-            const arr = Array.isArray(d) ? d : (d.vendors ?? [])
-            setStats((p) => ({ ...p, vendors: arr.length, loadingVendors: false }))
-          } else {
-            setStats((p) => ({ ...p, loadingVendors: false }))
-          }
-        })
-        .catch(() => setStats((p) => ({ ...p, loadingVendors: false })))
-    }
-
-    fetchStats()
+    fetch('/api/vendors?limit=1')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const total = d?.total ?? (Array.isArray(d) ? d.length : (d?.vendors?.length ?? 0))
+        setStats(p => ({ ...p, vendors: total, loadingVendors: false }))
+      })
+      .catch(() => setStats(p => ({ ...p, loadingVendors: false })))
   }, [])
 
   const sections = [
@@ -88,10 +58,11 @@ export default function NativePage() {
       href: '/admin/products',
       icon: Package,
       title: 'Products',
-      description: 'Manage your product catalog, pricing, tax rates, and stock levels.',
+      description: 'Manage product catalog, pricing, HSN codes, GST rates, and SEO.',
       stat: stats.products,
       statLabel: 'products',
       loading: stats.loadingProducts,
+      color: 'bg-blue-50 text-blue-600',
     },
     {
       href: '/admin/orders',
@@ -101,67 +72,75 @@ export default function NativePage() {
       stat: stats.orders,
       statLabel: 'orders',
       loading: stats.loadingOrders,
+      color: 'bg-emerald-50 text-emerald-600',
     },
     {
       href: '/admin/inventory',
       icon: BarChart3,
       title: 'Inventory',
-      description: 'Monitor stock levels, lot management, and trigger reorder alerts.',
+      description: 'Monitor stock levels, lot management, and reorder alerts.',
       stat: stats.inventory,
       statLabel: 'items in stock',
       loading: stats.loadingInventory,
+      color: 'bg-violet-50 text-violet-600',
     },
     {
       href: '/admin/vendors',
       icon: Truck,
       title: 'Vendors',
-      description: 'Onboard and approve suppliers. Manage vendor profiles and ratings.',
+      description: 'Onboard suppliers, manage vendor profiles and payment terms.',
       stat: stats.vendors,
       statLabel: 'vendors',
       loading: stats.loadingVendors,
+      color: 'bg-amber-50 text-amber-600',
     },
   ]
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center gap-4 mb-10">
           <button
             onClick={() => router.push('/admin')}
-            className="w-9 h-9 rounded-xl border border-white/[0.06] bg-white/[0.04] flex items-center justify-center hover:bg-white/[0.08] transition"
+            className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-gray-600" />
           </button>
-          <div>
-            <h1 className="text-2xl font-semibold">Native Store</h1>
-            <p className="text-sm text-zinc-500">Ecommerce business management</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center">
+              <Store className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Native Store</h1>
+              <p className="text-sm text-gray-500">Ecommerce business management</p>
+            </div>
           </div>
         </div>
 
         {/* Section Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-          {sections.map(({ href, icon: Icon, title, description, stat, statLabel, loading }) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          {sections.map(({ href, icon: Icon, title, description, stat, statLabel, loading, color }) => (
             <Link
               key={href}
               href={href}
-              className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-6 hover:bg-white/[0.07] transition group"
+              className="rounded-2xl border border-gray-200 bg-white p-6 hover:shadow-sm hover:border-gray-300 transition group"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="w-11 h-11 rounded-xl bg-white/[0.08] flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-zinc-300" />
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${color}`}>
+                  <Icon className="w-5 h-5" />
                 </div>
-                <ArrowRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-300 transition" />
+                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />
               </div>
-              <h3 className="font-medium text-white mb-1">{title}</h3>
-              <p className="text-sm text-zinc-500 mb-4">{description}</p>
-              <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 mb-1">{title}</h3>
+              <p className="text-sm text-gray-500 mb-4">{description}</p>
+              <div className="flex items-baseline gap-2">
                 {loading ? (
-                  <Loader2 className="w-3.5 h-3.5 text-zinc-600 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />
                 ) : (
                   <>
-                    <span className="text-xl font-semibold text-white">{stat}</span>
-                    <span className="text-sm text-zinc-500">{statLabel}</span>
+                    <span className="text-2xl font-bold text-gray-900">{stat.toLocaleString()}</span>
+                    <span className="text-sm text-gray-500">{statLabel}</span>
                   </>
                 )}
               </div>
@@ -169,24 +148,48 @@ export default function NativePage() {
           ))}
         </div>
 
-        {/* Document Numbers Quick Link */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/[0.08] flex items-center justify-center">
-                <Hash className="w-5 h-5 text-zinc-300" />
+        {/* Bottom row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Document Numbers */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <Hash className="w-5 h-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Document Series</p>
+                  <p className="text-sm text-gray-500">Invoice & PO numbering</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-white">Document Series</p>
-                <p className="text-sm text-zinc-500">Configure invoice, order, and PO numbering sequences</p>
-              </div>
+              <Link
+                href="/admin/document-numbers"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+              >
+                Configure <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
-            <Link
-              href="/admin/document-numbers"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.06] bg-white/[0.04] text-sm text-zinc-400 hover:text-white hover:bg-white/[0.08] transition"
-            >
-              Configure <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+          </div>
+
+          {/* API Integration */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Native App SDK</p>
+                  <p className="text-sm text-gray-500">Connect your mobile frontend</p>
+                </div>
+              </div>
+              <Link
+                href="/admin/sso"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+              >
+                SDK Docs <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>
