@@ -28,6 +28,8 @@ export interface IVendorProfile extends Document {
   creditLimit: number;
   paymentTerms: string;
   category?: string;
+  businessType?: string;
+  notes?:    string;
   rating:    number;
   status:    VendorStatus;
   isApproved: boolean;
@@ -63,6 +65,8 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     creditLimit:  { type: Number, default: 0 },
     paymentTerms: { type: String, default: '30 days' },
     category:     { type: String },
+    businessType: { type: String },
+    notes:        { type: String },
     rating:       { type: Number, min: 0, max: 5, default: 0 },
     status: {
       type:    String,
@@ -78,6 +82,8 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
 
 VendorProfileSchema.index({ businessId: 1, email: 1 });
 VendorProfileSchema.index({ businessId: 1, status: 1 });
+// Hot path for the vendor list page (filter by business, newest first)
+VendorProfileSchema.index({ businessId: 1, isDeleted: 1, createdAt: -1 });
 
 const VendorProfile: Model<IVendorProfile> =
   mongoose.models.VendorProfile ||

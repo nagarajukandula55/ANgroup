@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import Agreement, { ISignature } from '@/models/Agreement';
+import Agreement, { IParty, ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const missingEmailParty = agreement.parties.find((p) => !p.email);
+    const missingEmailParty = agreement.parties.find((p: IParty) => !p.email);
     if (missingEmailParty) {
       return NextResponse.json(
         {
