@@ -1,16 +1,19 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Loader2, Plus, Send, MessageSquare,
-  Hash, Users, Circle,
+  Hash, Users, Circle, Lock, ChevronDown, ChevronRight,
+  Search, X,
 } from 'lucide-react'
 
 interface ChatRoom {
   _id: string
   name: string
+  type: 'CHANNEL' | 'DIRECT'
   description?: string
+  members?: string[]
   createdAt?: string
 }
 
@@ -32,6 +35,12 @@ interface Employee {
   isActive?: boolean
 }
 
+interface CurrentUser {
+  id: string
+  name: string
+  email: string
+}
+
 function getSenderName(msg: ChatMessage): string {
   if (msg.senderName) return msg.senderName
   if (!msg.senderId) return 'Unknown'
@@ -40,17 +49,51 @@ function getSenderName(msg: ChatMessage): string {
 }
 
 function initials(name: string) {
-  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+}
+
+function avatarColor(name: string) {
+  const colors = [
+    'bg-blue-100 text-blue-700',
+    'bg-violet-100 text-violet-700',
+    'bg-emerald-100 text-emerald-700',
+    'bg-amber-100 text-amber-700',
+    'bg-rose-100 text-rose-700',
+    'bg-cyan-100 text-cyan-700',
+  ]
+  let hash = 0
+  for (const c of name) hash = (hash + c.charCodeAt(0)) % colors.length
+  return colors[hash]
 }
 
 const fmtTime = (d: string) =>
   new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 
+const fmtDate = (d: string) => {
+  const date = new Date(d)
+  const today = new Date()
+  if (date.toDateString() === today.toDateString()) return 'Today'
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
+function getDMDisplayName(room: ChatRoom, currentUserId: string, employees: Employee[]): string {
+  // DM name is "dm:id1:id2" — extract the other user's ID
+  const parts = room.name.replace('dm:', '').split(':')
+  const otherId = parts.find(id => id !== currentUserId)
+  const emp = employees.find(e => e._id === otherId)
+  return emp?.name || emp?.email || 'Direct Message'
+}
+
 export default function ChatPage() {
   const router = useRouter()
-  const [rooms, setRooms] = useState<ChatRoom[]>([])
+  const [channels, setChannels] = useState<ChatRoom[]>([])
+  const [dms, setDms] = useState<ChatRoom[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null)
   const [loadingRooms, setLoadingRooms] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
@@ -59,19 +102,31 @@ export default function ChatPage() {
   const [creatingRoom, setCreatingRoom] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
   const [showNewRoom, setShowNewRoom] = useState(false)
+  const [showChannels, setShowChannels] = useState(true)
+  const [showDMs, setShowDMs] = useState(true)
+  const [showMembers, setShowMembers] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [startingDM, setStartingDM] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    fetchRooms()
     loadCurrentUser()
     fetchEmployees()
+    fetchChannels()
   }, [])
 
   useEffect(() => {
     if (selectedRoom) {
       fetchMessages(selectedRoom._id)
+      // Poll every 5 seconds for new messages
+      if (pollRef.current) clearInterval(pollRef.current)
+      pollRef.current = setInterval(() => fetchMessages(selectedRoom._id, true), 5000)
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [selectedRoom])
 
@@ -84,14 +139,15 @@ export default function ChatPage() {
       const res = await fetch('/api/auth/me')
       if (res.ok) {
         const d = await res.json()
-        if (d.success) setCurrentUserId(d.user?.id ?? null)
+        if (d.success && d.user) {
+          setCurrentUser({ id: d.user.id, name: d.user.name || d.user.email, email: d.user.email })
+        }
       }
     } catch { /* silent */ }
   }
 
   async function fetchEmployees() {
     try {
-      // Try employees endpoint first, fall back to admin users
       const res = await fetch('/api/employees?limit=100')
       if (res.ok) {
         const d = await res.json()
@@ -99,52 +155,59 @@ export default function ChatPage() {
         setEmployees(list.filter((e: Employee) => e.isActive !== false))
         return
       }
-    } catch { /* try fallback */ }
+    } catch { /* fallback */ }
     try {
       const res = await fetch('/api/admin/users?limit=100')
       if (res.ok) {
         const d = await res.json()
         const list = Array.isArray(d) ? d : (d.users ?? d.data ?? [])
-        setEmployees(list.filter((e: Employee) => e.isActive !== false))
+        setEmployees(list)
       }
     } catch { /* silent */ }
   }
 
-  async function fetchRooms() {
+  async function fetchChannels() {
     setLoadingRooms(true)
     try {
-      const res = await fetch('/api/chat/rooms')
-      if (res.ok) {
-        const d = await res.json()
-        const roomList = Array.isArray(d) ? d : (d.rooms ?? [])
-        setRooms(roomList)
-        if (roomList.length > 0 && !selectedRoom) {
-          setSelectedRoom(roomList[0])
-        }
-      } else {
-        setError('Could not load chat rooms')
+      const [chRes, dmRes] = await Promise.allSettled([
+        fetch('/api/chat/rooms?type=CHANNEL'),
+        fetch('/api/chat/rooms?type=DIRECT'),
+      ])
+
+      if (chRes.status === 'fulfilled' && chRes.value.ok) {
+        const d = await chRes.value.json()
+        const list = Array.isArray(d) ? d : (d.rooms ?? [])
+        setChannels(list)
+        if (list.length > 0 && !selectedRoom) setSelectedRoom(list[0])
+      }
+
+      if (dmRes.status === 'fulfilled' && dmRes.value.ok) {
+        const d = await dmRes.value.json()
+        const list = Array.isArray(d) ? d : (d.rooms ?? [])
+        setDms(list)
       }
     } catch {
-      setError('Failed to connect to chat')
+      setError('Failed to load chat')
     } finally {
       setLoadingRooms(false)
     }
   }
 
-  async function fetchMessages(roomId: string) {
-    setLoadingMessages(true)
+  async function fetchMessages(roomId: string, silent = false) {
+    if (!silent) setLoadingMessages(true)
     try {
-      const res = await fetch(`/api/chat/messages?roomId=${roomId}`)
+      const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=100`)
       if (res.ok) {
         const d = await res.json()
-        setMessages(Array.isArray(d) ? d : (d.messages ?? []))
-      } else {
-        setMessages([])
+        const msgs = Array.isArray(d) ? d : (d.messages ?? [])
+        setMessages(prev => {
+          if (silent && prev.length === msgs.length) return prev
+          return msgs
+        })
       }
-    } catch {
-      setMessages([])
-    } finally {
-      setLoadingMessages(false)
+    } catch { /* silent */ }
+    finally {
+      if (!silent) setLoadingMessages(false)
     }
   }
 
@@ -158,20 +221,25 @@ export default function ChatPage() {
       const res = await fetch('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, roomId: selectedRoom._id }),
+        body: JSON.stringify({
+          content,
+          roomId: selectedRoom._id,
+          senderName: currentUser?.name || 'You',
+        }),
       })
       if (res.ok) {
-        const msg = await res.json()
-        setMessages((prev) => [...prev, msg.message ?? msg])
+        const d = await res.json()
+        const msg = d.message ?? d
+        setMessages(prev => [...prev, msg])
       }
-    } catch {
-      // silently fail
-    } finally {
+    } catch { /* silent */ }
+    finally {
       setSending(false)
+      setTimeout(() => inputRef.current?.focus(), 50)
     }
   }
 
-  async function createRoom(e: React.FormEvent) {
+  async function createChannel(e: React.FormEvent) {
     e.preventDefault()
     if (!newRoomName.trim()) return
     setCreatingRoom(true)
@@ -184,179 +252,406 @@ export default function ChatPage() {
       if (res.ok) {
         const d = await res.json()
         const room = d.room ?? d
-        setRooms((prev) => [...prev, room])
+        setChannels(prev => [...prev, room])
         setSelectedRoom(room)
         setNewRoomName('')
         setShowNewRoom(false)
+      } else {
+        const e = await res.json()
+        setError(e.error || 'Could not create channel')
       }
-    } catch {
-      // silently fail
-    } finally {
+    } catch { /* silent */ }
+    finally {
       setCreatingRoom(false)
     }
+  }
+
+  async function startDM(emp: Employee) {
+    if (!currentUser) return
+    setStartingDM(true)
+    try {
+      const res = await fetch('/api/chat/dm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ withUserId: emp._id }),
+      })
+      if (res.ok) {
+        const d = await res.json()
+        const room: ChatRoom = { ...(d.room ?? d), type: 'DIRECT'}
+        // Add to DM list if not present
+        setDms(prev => {
+          if (prev.find(r => r._id === room._id)) return prev
+          return [...prev, room]
+        })
+        setSelectedRoom(room)
+        setShowDMs(true)
+      }
+    } catch {
+      setError('Could not start DM')
+    } finally {
+      setStartingDM(false)
+    }
+  }
+
+  const filteredEmployees = employees.filter(emp =>
+    searchQuery
+      ? (emp.name || emp.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+      : true
+  )
+
+  const getRoomDisplayName = useCallback((room: ChatRoom) => {
+    if (room.type === 'DIRECT' && currentUser) {
+      return getDMDisplayName(room, currentUser.id, employees)
+    }
+    return room.name
+  }, [currentUser, employees])
+
+  // Group messages by date
+  const grouped: { date: string; msgs: ChatMessage[] }[] = []
+  for (const msg of messages) {
+    const d = fmtDate(msg.createdAt)
+    const last = grouped[grouped.length - 1]
+    if (last && last.date === d) last.msgs.push(msg)
+    else grouped.push({ date: d, msgs: [msg] })
   }
 
   return (
     <div className="h-screen bg-gray-50 text-gray-900 flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-200 flex-shrink-0">
+      <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-200 bg-white flex-shrink-0">
         <button
           onClick={() => router.push('/admin')}
           className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
+        <MessageSquare className="w-5 h-5 text-gray-400" />
         <h1 className="text-lg font-semibold">Team Chat</h1>
+        {selectedRoom && (
+          <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
+            {selectedRoom.type === 'DIRECT' ? (
+              <Lock className="w-3.5 h-3.5" />
+            ) : (
+              <Hash className="w-3.5 h-3.5" />
+            )}
+            <span className="font-medium text-gray-700">{getRoomDisplayName(selectedRoom)}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar: Rooms + Team Members */}
-        <div className="w-64 border-r border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto">
+        {/* Sidebar */}
+        <div className="w-64 border-r border-gray-200 bg-white flex flex-col flex-shrink-0">
+
           {/* Channels section */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Channels</span>
+          <div>
             <button
-              onClick={() => setShowNewRoom((p) => !p)}
-              className="w-6 h-6 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition"
+              onClick={() => setShowChannels(p => !p)}
+              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition group"
             >
-              <Plus className="w-3 h-3 text-gray-500" />
-            </button>
-          </div>
-
-          {showNewRoom && (
-            <form onSubmit={createRoom} className="px-3 py-2 border-b border-gray-100">
-              <input
-                autoFocus
-                value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value)}
-                placeholder="Channel name..."
-                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-1.5"
-              />
+              <div className="flex items-center gap-1.5">
+                {showChannels ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
+                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Channels</span>
+              </div>
               <button
-                type="submit"
-                disabled={creatingRoom || !newRoomName.trim()}
-                className="w-full py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium disabled:opacity-50 hover:bg-gray-800 transition"
+                onClick={(e) => { e.stopPropagation(); setShowNewRoom(p => !p) }}
+                className="w-5 h-5 rounded flex items-center justify-center hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
               >
-                {creatingRoom ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Create Channel'}
+                <Plus className="w-3 h-3 text-gray-500" />
               </button>
-            </form>
-          )}
+            </button>
 
-          <div className="py-1">
-            {loadingRooms ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+            {showNewRoom && (
+              <form onSubmit={createChannel} className="px-3 py-2 border-b border-gray-100">
+                <input
+                  autoFocus
+                  value={newRoomName}
+                  onChange={e => setNewRoomName(e.target.value)}
+                  placeholder="channel-name"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-gray-400 mb-1.5"
+                />
+                <div className="flex gap-1.5">
+                  <button type="button" onClick={() => { setShowNewRoom(false); setNewRoomName('') }}
+                    className="flex-1 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={creatingRoom || !newRoomName.trim()}
+                    className="flex-1 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium disabled:opacity-50 hover:bg-gray-800 transition">
+                    {creatingRoom ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Create'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {showChannels && (
+              <div className="pb-1">
+                {loadingRooms ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                  </div>
+                ) : channels.length === 0 ? (
+                  <p className="text-xs text-gray-400 px-4 py-2">No channels yet</p>
+                ) : (
+                  channels.map(room => (
+                    <button
+                      key={room._id}
+                      onClick={() => setSelectedRoom(room)}
+                      className={`w-full text-left px-4 py-1.5 flex items-center gap-2 transition rounded-none ${
+                        selectedRoom?._id === room._id
+                          ? 'bg-gray-100 text-gray-900 font-medium'
+                          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                      }`}
+                    >
+                      <Hash className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
+                      <span className="text-sm truncate">{room.name}</span>
+                    </button>
+                  ))
+                )}
               </div>
-            ) : rooms.length === 0 ? (
-              <div className="px-4 py-6 text-center">
-                <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-xs text-gray-400">No channels yet.</p>
-                <p className="text-xs text-gray-400">Create one to get started.</p>
-              </div>
-            ) : (
-              rooms.map((room) => (
-                <button
-                  key={room._id}
-                  onClick={() => setSelectedRoom(room)}
-                  className={`w-full text-left px-4 py-2 flex items-center gap-2.5 transition ${
-                    selectedRoom?._id === room._id
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  <Hash className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
-                  <span className="text-sm truncate">{room.name}</span>
-                </button>
-              ))
             )}
           </div>
 
-          {/* Team Members section */}
-          <div className="border-t border-gray-100 mt-2">
-            <div className="flex items-center gap-2 px-4 py-3">
+          {/* DMs section */}
+          <div className="border-t border-gray-100">
+            <button
+              onClick={() => setShowDMs(p => !p)}
+              className="w-full flex items-center gap-1.5 px-4 py-2.5 hover:bg-gray-50 transition"
+            >
+              {showDMs ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Direct Messages</span>
+              {dms.length > 0 && (
+                <span className="ml-auto text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{dms.length}</span>
+              )}
+            </button>
+
+            {showDMs && (
+              <div className="pb-1">
+                {dms.length === 0 ? (
+                  <p className="text-xs text-gray-400 px-4 py-2">No DMs yet. Click a team member to start.</p>
+                ) : (
+                  dms.map(room => {
+                    const name = currentUser ? getDMDisplayName(room, currentUser.id, employees) : 'DM'
+                    return (
+                      <button
+                        key={room._id}
+                        onClick={() => setSelectedRoom(room)}
+                        className={`w-full text-left px-4 py-1.5 flex items-center gap-2 transition ${
+                          selectedRoom?._id === room._id
+                            ? 'bg-gray-100 text-gray-900 font-medium'
+                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0 ${avatarColor(name)}`}>
+                          {initials(name)}
+                        </div>
+                        <span className="text-sm truncate">{name}</span>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Team Members */}
+          <div className="border-t border-gray-100 flex-1 flex flex-col overflow-hidden mt-1">
+            <button
+              onClick={() => setShowMembers(p => !p)}
+              className="w-full flex items-center gap-1.5 px-4 py-2.5 hover:bg-gray-50 transition flex-shrink-0"
+            >
+              {showMembers ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
               <Users className="w-3 h-3 text-gray-400" />
-              <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Team Members</span>
-              <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">{employees.length}</span>
-            </div>
-            <div className="pb-3 space-y-0.5">
-              {employees.length === 0 ? (
-                <div className="px-4 py-3 text-center">
-                  <p className="text-xs text-gray-400">No team members found.</p>
-                </div>
-              ) : employees.map(emp => (
-                <div key={emp._id} className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${
-                    emp._id === currentUserId ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {initials(emp.name || emp.email || '?')}
+              <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Team</span>
+              <span className="ml-auto text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{employees.length}</span>
+            </button>
+
+            {showMembers && (
+              <>
+                {/* Search */}
+                <div className="px-3 pb-2 flex-shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                    <input
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search members..."
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-7 pr-2 py-1.5 text-xs outline-none focus:border-gray-400"
+                    />
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <X className="w-3 h-3 text-gray-400" />
+                      </button>
+                    )}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-gray-700 truncate font-medium">
-                      {emp.name || emp.email}
-                      {emp._id === currentUserId && <span className="text-gray-400 font-normal"> (you)</span>}
-                    </p>
-                    {emp.department && <p className="text-[10px] text-gray-400 truncate">{emp.department}</p>}
-                  </div>
-                  <Circle className="w-1.5 h-1.5 text-emerald-500 fill-emerald-500 flex-shrink-0" />
                 </div>
-              ))}
-            </div>
+
+                <div className="overflow-y-auto flex-1 pb-3 space-y-0.5">
+                  {filteredEmployees.length === 0 ? (
+                    <p className="text-xs text-gray-400 px-4 py-2">No members found.</p>
+                  ) : filteredEmployees.map(emp => {
+                    const name = emp.name || emp.email || '?'
+                    const isMe = emp._id === currentUser?.id
+                    return (
+                      <div
+                        key={emp._id}
+                        className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 transition group cursor-default"
+                      >
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${
+                          isMe ? 'bg-gray-900 text-white' : avatarColor(name)
+                        }`}>
+                          {initials(name)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-gray-700 truncate font-medium">
+                            {name}
+                            {isMe && <span className="text-gray-400 font-normal"> (you)</span>}
+                          </p>
+                          {emp.department && (
+                            <p className="text-[10px] text-gray-400 truncate">{emp.department}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Circle className="w-1.5 h-1.5 text-emerald-500 fill-emerald-500 flex-shrink-0" />
+                          {!isMe && (
+                            <button
+                              onClick={() => startDM(emp)}
+                              disabled={startingDM}
+                              title="Send DM"
+                              className="w-5 h-5 rounded flex items-center justify-center hover:bg-gray-200 transition opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            >
+                              {startingDM ? <Loader2 className="w-3 h-3 animate-spin text-gray-400" /> : <MessageSquare className="w-3 h-3 text-gray-500" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Messages area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
           {!selectedRoom ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-400">Select a room to start chatting</p>
+                <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">Select a channel or start a DM</p>
+                <p className="text-gray-400 text-sm mt-1">Click a team member to message them privately</p>
               </div>
             </div>
           ) : (
             <>
               {/* Room header */}
-              <div className="px-6 py-3 border-b border-gray-200 flex items-center gap-2">
-                <Hash className="w-4 h-4 text-gray-400" />
-                <span className="font-medium text-gray-900">{selectedRoom.name}</span>
+              <div className="px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-2">
+                {selectedRoom.type === 'DIRECT' ? (
+                  <>
+                    <Lock className="w-4 h-4 text-gray-400" />
+                    <span className="font-semibold text-gray-900">{getRoomDisplayName(selectedRoom)}</span>
+                    <span className="text-xs text-gray-400 ml-1">— Private Message</span>
+                  </>
+                ) : (
+                  <>
+                    <Hash className="w-4 h-4 text-gray-400" />
+                    <span className="font-semibold text-gray-900">{selectedRoom.name}</span>
+                    {selectedRoom.description && (
+                      <span className="text-xs text-gray-400 ml-1">— {selectedRoom.description}</span>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              <div className="flex-1 overflow-y-auto px-6 py-4">
                 {loadingMessages ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <MessageSquare className="w-10 h-10 text-gray-400 mb-3" />
-                    <p className="text-gray-400 text-sm">No messages yet. Start the conversation!</p>
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    {selectedRoom.type === 'DIRECT' ? (
+                      <>
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold mb-4 ${avatarColor(getRoomDisplayName(selectedRoom))}`}>
+                          {initials(getRoomDisplayName(selectedRoom))}
+                        </div>
+                        <p className="text-gray-700 font-medium">This is the beginning of your conversation with {getRoomDisplayName(selectedRoom)}</p>
+                        <p className="text-gray-400 text-sm mt-1">Messages are private between you two.</p>
+                      </>
+                    ) : (
+                      <>
+                        <Hash className="w-10 h-10 text-gray-300 mb-3" />
+                        <p className="text-gray-500 font-medium">Welcome to #{selectedRoom.name}!</p>
+                        <p className="text-gray-400 text-sm mt-1">This is the start of the channel. Send a message to begin.</p>
+                      </>
+                    )}
                   </div>
                 ) : (
-                  messages.map((msg) => (
-                    <div key={msg._id} className="flex flex-col gap-0.5">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium text-gray-900">{getSenderName(msg)}</span>
-                        <span className="text-xs text-gray-400">{fmtTime(msg.createdAt)}</span>
+                  <div className="space-y-4">
+                    {grouped.map(({ date, msgs }) => (
+                      <div key={date}>
+                        {/* Date divider */}
+                        <div className="flex items-center gap-3 my-4">
+                          <div className="flex-1 border-t border-gray-200" />
+                          <span className="text-xs text-gray-400 bg-gray-50 px-2">{date}</span>
+                          <div className="flex-1 border-t border-gray-200" />
+                        </div>
+                        <div className="space-y-3">
+                          {msgs.map((msg, i) => {
+                            const prevMsg = i > 0 ? msgs[i - 1] : null
+                            const senderName = getSenderName(msg)
+                            const prevSender = prevMsg ? getSenderName(prevMsg) : null
+                            const isGrouped = prevSender === senderName
+                            const isMe = msg.senderId === currentUser?.id || (typeof msg.senderId === 'object' && false)
+
+                            return (
+                              <div key={msg._id} className={`flex gap-3 ${isGrouped ? 'mt-0.5' : 'mt-3'}`}>
+                                {!isGrouped ? (
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${
+                                    isMe ? 'bg-gray-900 text-white' : avatarColor(senderName)
+                                  }`}>
+                                    {initials(senderName)}
+                                  </div>
+                                ) : (
+                                  <div className="w-8 flex-shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  {!isGrouped && (
+                                    <div className="flex items-baseline gap-2 mb-0.5">
+                                      <span className="text-sm font-semibold text-gray-900">{senderName}</span>
+                                      <span className="text-xs text-gray-400">{fmtTime(msg.createdAt)}</span>
+                                    </div>
+                                  )}
+                                  <p className="text-sm text-gray-700 leading-relaxed break-words">{msg.content}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-700 leading-relaxed">{msg.content}</p>
-                    </div>
-                  ))
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
                 )}
-                <div ref={messagesEndRef} />
               </div>
 
               {/* Message input */}
               <form
                 onSubmit={sendMessage}
-                className="px-6 py-4 border-t border-gray-200 flex items-center gap-3"
+                className="px-6 py-4 border-t border-gray-200 bg-white flex items-center gap-3"
               >
                 <input
+                  ref={inputRef}
                   type="text"
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder={`Message #${selectedRoom.name}`}
-                  className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400"
+                  onChange={e => setNewMessage(e.target.value)}
+                  placeholder={
+                    selectedRoom.type === 'DIRECT'
+                      ? `Message ${getRoomDisplayName(selectedRoom)}`
+                      : `Message #${selectedRoom.name}`
+                  }
+                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 focus:bg-white transition"
                 />
                 <button
                   type="submit"
@@ -372,8 +667,11 @@ export default function ChatPage() {
       </div>
 
       {error && (
-        <div className="fixed bottom-6 right-6 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 z-50">
+        <div className="fixed bottom-6 right-6 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 z-50 shadow-sm">
           {error}
+          <button onClick={() => setError(null)}>
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

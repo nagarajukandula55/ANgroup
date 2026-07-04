@@ -1,55 +1,74 @@
-import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import { ChatMessage, ChatRoom } from "@/models/ChatMessage";
+import { NextRequest, NextResponse } from 'next/server'
+import { connectDB } from '@/lib/mongodb'
+import mongoose from 'mongoose'
+import { ChatMessage, ChatRoom } from '@/models/ChatMessage'
 
-export async function GET(req: Request) {
+// GET /api/chat/messages?roomId=xxx&limit=50
+export async function GET(req: NextRequest) {
   try {
-    await connectDB();
-    const url = new URL(req.url);
-    const roomId = url.searchParams.get("roomId");
-    const before = url.searchParams.get("before");
-    const limit = parseInt(url.searchParams.get("limit") || "50");
+    await connectDB()
 
-    if (!roomId) return NextResponse.json({ success: false, message: "roomId required" }, { status: 400 });
+    const businessId = req.headers.get('x-active-business-id')
+    if (!businessId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    const filter: any = { roomId, isDeleted: false };
-    if (before) filter.createdAt = { $lt: new Date(before) };
+    const roomId = req.nextUrl.searchParams.get('roomId')
+    if (!roomId) {
+      return NextResponse.json({ error: 'roomId required' }, { status: 400 })
+    }
 
-    const messages = await ChatMessage.find(filter)
-      .sort({ createdAt: -1 })
+    const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '100'), 200)
+
+    const messages = await ChatMessage.find({
+      roomId: new mongoose.Types.ObjectId(roomId),
+      isDeleted: false,
+    })
+      .sort({ createdAt: 1 })
       .limit(limit)
-      .lean();
+      .lean()
 
-    return NextResponse.json({ success: true, messages: messages.reverse() });
-  } catch (e: any) {
-    return NextResponse.json({ success: false, message: e.message }, { status: 500 });
+    return NextResponse.json({ messages })
+  } catch (err) {
+    console.error('GET /api/chat/messages error:', err)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
 
-export async function POST(req: Request) {
+// POST /api/chat/messages — send a message
+export async function POST(req: NextRequest) {
   try {
-    await connectDB();
-    const userId = req.headers.get("x-user-id");
-    const userName = req.headers.get("x-user-name") || "User";
-    if (!userId) return NextResponse.json({ success: false, message: "Auth required" }, { status: 401 });
+    await connectDB()
 
-    const body = await req.json();
-    const { roomId, content, type = "TEXT", fileUrl, fileName, fileSize, replyTo } = body;
+    const businessId = req.headers.get('x-active-business-id')
+    const userId = req.headers.get('x-user-id')
 
-    if (!roomId || !content) {
-      return NextResponse.json({ success: false, message: "roomId and content required" }, { status: 400 });
+    if (!businessId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { content, roomId, senderName } = body
+
+    if (!content?.trim() || !roomId) {
+      return NextResponse.json({ error: 'content and roomId required' }, { status: 400 })
     }
 
     const message = await ChatMessage.create({
-      roomId, senderId: userId, senderName: userName,
-      content, type, fileUrl, fileName, fileSize, replyTo,
-    });
+      roomId: new mongoose.Types.ObjectId(roomId),
+      senderId: new mongoose.Types.ObjectId(userId),
+      senderName: senderName || 'Unknown',
+      content: content.trim(),
+      type: 'TEXT',
+      isDeleted: false,
+    })
 
-    // Update room's lastMessageAt
-    await ChatRoom.findByIdAndUpdate(roomId, { lastMessageAt: new Date() });
+    // Update lastMessageAt on the room
+    await ChatRoom.findByIdAndUpdate(roomId, { lastMessageAt: new Date() })
 
-    return NextResponse.json({ success: true, message });
-  } catch (e: any) {
-    return NextResponse.json({ success: false, message: e.message }, { status: 500 });
+    return NextResponse.json({ message }, { status: 201 })
+  } catch (err) {
+    console.error('POST /api/chat/messages error:', err)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
