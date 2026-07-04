@@ -97,4 +97,8 @@ const AgreementSchema = new Schema<IAgreement>(
   { timestamps: true }
 );
 
-export default mongoose.models.Agreement || mongoose.model<IAgreement>('Agreement', AgreementSchema);
+const Agreement: mongoose.Model<IAgreement> =
+  (mongoose.models.Agreement as mongoose.Model<IAgreement>) ||
+  mongoose.model<IAgreement>('Agreement', AgreementSchema);
+
+export default Agreement;

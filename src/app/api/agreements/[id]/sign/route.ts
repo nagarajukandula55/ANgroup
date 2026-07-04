@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import Agreement from '@/models/Agreement';
+import Agreement, { ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     const sigIndex = agreement.signatures.findIndex(
-      (s) => s.partyEmail === partyEmail
+      (s: ISignature) => s.partyEmail === partyEmail
     );
 
     if (sigIndex === -1) {
@@ -91,8 +91,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     agreement.signatures[sigIndex].otp = undefined;
     agreement.signatures[sigIndex].otpExpiry = undefined;
 
-    const allSigned = agreement.signatures.every((s) => s.signedAt);
-    const someSigned = agreement.signatures.some((s) => s.signedAt);
+    const allSigned = agreement.signatures.every((s: ISignature) => s.signedAt);
+    const someSigned = agreement.signatures.some((s: ISignature) => s.signedAt);
 
     if (allSigned) {
       agreement.status = 'FULLY_SIGNED';
