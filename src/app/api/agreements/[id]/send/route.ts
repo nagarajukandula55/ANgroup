@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import Agreement from '@/models/Agreement';
+import Agreement, { ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
 
@@ -53,16 +53,28 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const missingEmailParty = agreement.parties.find((p) => !p.email);
+    if (missingEmailParty) {
+      return NextResponse.json(
+        {
+          error: `Party "${missingEmailParty.name}" is missing an email address. All parties must have an email before the agreement can be sent for signing.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const signingLinks: { partyEmail: string; partyName: string; signingLink: string; otp: string }[] = [];
 
     for (const party of agreement.parties) {
+      const partyEmail: string = party.email as string;
+
       const rawOtp = generateOTP();
       const hashedOtp = await bcryptjs.hash(rawOtp, 10);
       const otpExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
       const sigIndex = agreement.signatures.findIndex(
-        (s) => s.partyEmail === party.email
+        (s: ISignature) => s.partyEmail === partyEmail
       );
 
       if (sigIndex >= 0) {
@@ -71,7 +83,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         agreement.signatures[sigIndex].otpVerified = false;
       } else {
         agreement.signatures.push({
-          partyEmail: party.email,
+          partyEmail,
           partyName: party.name,
           partyRole: party.role,
           otpVerified: false,
@@ -80,17 +92,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         });
       }
 
-      const signingLink = `${baseUrl}/agreements/${id}/sign?email=${encodeURIComponent(party.email)}`;
+      const signingLink = `${baseUrl}/agreements/${id}/sign?email=${encodeURIComponent(partyEmail)}`;
 
       signingLinks.push({
-        partyEmail: party.email,
+        partyEmail,
         partyName: party.name,
         signingLink,
         otp: rawOtp,
       });
 
       // In production, send email here
-      console.log(`[EMAIL SIMULATION] Sending signing invitation to ${party.email} (${party.name})`);
+      console.log(`[EMAIL SIMULATION] Sending signing invitation to ${partyEmail} (${party.name})`);
       console.log(`  Agreement: ${agreement.title}`);
       console.log(`  Signing Link: ${signingLink}`);
       console.log(`  OTP: ${rawOtp} (expires in 30 minutes)`);
