@@ -38,6 +38,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth/[...nextauth]",
   "/api/seed",
   "/api/health",
+  "/api/ping",
   "/api/vendors/apply",          // public vendor application submission
   "/api/businesses/public",      // public business name lookup for the form
   "/vendor-apply",               // public vendor application form page
