@@ -3,9 +3,10 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
+import Business from "@/models/Business";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
-import { buildInvoiceTemplate } from "@/services/invoiceTemplate.service";
-import { generateInvoiceHTML } from "@/services/invoice/htmlInvoice.service";
+import { renderInvoiceForBusiness } from "@/core/invoiceTemplates/service";
+import { buildRenderDataFromInvoice } from "@/core/invoiceTemplates/fromInvoiceDoc";
 import cloudinary from "@/lib/cloudinary";
 
 console.log("TEMPLATE VERSION: GST-V2");
@@ -44,22 +45,39 @@ export async function POST(req: Request) {
     const invoiceNumber = invoiceDoc.invoiceNumber;
 
     /* =========================================
-       BUILD HTML
+       BUILD HTML — same template registry the live invoice page and the
+       admin picker use, via the SAME mapper the view route effectively
+       builds inline (see core/invoiceTemplates/fromInvoiceDoc.ts). Was:
+       buildInvoiceTemplate()/generateInvoiceHTML() — an older, separate,
+       simpler pair that never reflected a business's chosen layout or
+       branding. Whatever renderInvoiceForBusiness() generates here is
+       EXACTLY what gets uploaded below — no second, different HTML is
+       ever produced for the same invoice.
     ========================================= */
-    const template = buildInvoiceTemplate({
-      ...order.toObject(),
-      invoice: { invoiceNumber },
-    });
+    const businessIdForTemplate = String(invoiceDoc.businessId || order.businessId || "");
+    const business = businessIdForTemplate
+      ? await Business.findById(businessIdForTemplate).lean()
+      : null;
 
-    const html = generateInvoiceHTML(template);
+    const renderData = buildRenderDataFromInvoice(
+      invoiceDoc.toObject ? invoiceDoc.toObject() : invoiceDoc,
+      { createdAt: order.createdAt, orderId: order.orderId, payment: order.payment },
+      business as any
+    );
+
+    const html = await renderInvoiceForBusiness(businessIdForTemplate, renderData);
 
     /* =========================================
-       UPLOAD TO CLOUDINARY (IMPORTANT FIX)
+       UPLOAD TO CLOUDINARY — uploads exactly the `html` generated above,
+       nothing else. Whatever renderInvoiceForBusiness() produced (the
+       business's chosen layout + branding/text customization, or the
+       platform default if none is saved) is the ONLY HTML this route ever
+       builds or uploads.
     ========================================= */
       const buffer = Buffer.from(html, "utf-8");
 
      console.log("HTML SIZE:", html.length);
-      
+
       const upload = await cloudinary.uploader.upload(
         `data:text/html;base64,${buffer.toString("base64")}`,
         {

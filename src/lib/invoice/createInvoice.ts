@@ -1,6 +1,7 @@
 import Invoice from "@/models/Invoice";
 import Order from "@/models/Order";
-import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
+import { getFinancialYear } from "@/core/numbering/financialYear";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 /**
  * CREATE INVOICE FOR ORDER
@@ -228,7 +229,7 @@ export async function createInvoiceForOrder(
         orderId: order._id,
 
         invoiceNumber:
-          await generateInvoiceNumber(),
+          (await generateDocumentNumber(String(order.businessId || ""), "INVOICE")).value,
 
         financialYear:
           getFinancialYear(),
@@ -358,19 +359,15 @@ export async function createInvoiceForOrder(
 }
 
 /**
- * SIMPLE INVOICE NUMBER
+ * REMOVED: a local generateInvoiceNumber() used to live here, deriving the
+ * next number from `Invoice.countDocuments({ financialYear: fy })` — a
+ * genuine race condition (two concurrent invoice generations for the same
+ * business/financial-year could read the same count and produce the same
+ * number), and it also hardcoded the "NA-" prefix regardless of what an
+ * admin configured in Settings > Document Numbers. Replaced with the
+ * canonical core/numbering/numberingService.ts's generateDocumentNumber(),
+ * which increments atomically via MongoDB's findOneAndUpdate + $inc and
+ * respects the business's actual DocumentNumberConfig. See
+ * core/numbering/types.ts for the full consolidation writeup — this was
+ * one of the six duplicate generators being replaced.
  */
-async function generateInvoiceNumber() {
-  const fy = getFinancialYear(); // "2026-27"
-
-  // convert 2026-27 → 2627
-  const fyCode = fy.replace("20", "").replace("-", "");
-
-  const count = await Invoice.countDocuments({
-    financialYear: fy,
-  });
-
-  const sequence = String(count + 1).padStart(5, "0");
-
-  return `NA-${fyCode}-${sequence}`;
-}

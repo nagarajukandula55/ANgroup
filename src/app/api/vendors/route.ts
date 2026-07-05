@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import VendorProfile from "@/models/VendorProfile";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
+import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 
 /* =========================================================
  * GET /api/vendors?businessId=...&search=...&page=&limit=
@@ -132,11 +133,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // vendorId is GLOBALLY unique in the schema, so count globally.
-    // (Counting per business made every business's first vendor VND-0001
-    // and the second create crashed with a duplicate-key error.)
-    const count = await VendorProfile.countDocuments();
-    const vendorId = `VND-${String(count + 1).padStart(4, "0")}`;
+    // vendorId is GLOBALLY unique in the schema (see VendorProfile.ts) —
+    // was `countDocuments()`-based (race-prone under concurrent creates;
+    // the comment here used to explain a real duplicate-key bug from an
+    // earlier attempt at per-business counting). Now uses the canonical
+    // numbering engine's global-scope variant (core/numbering/
+    // numberingService.ts's generateGlobalDocumentNumber), which is
+    // atomic and still lets this business's own DocumentNumberConfig
+    // control the prefix/format if configured.
+    const { value: vendorId } = await generateGlobalDocumentNumber("VENDOR", businessId);
 
     const vendor = await VendorProfile.create({
       businessId: new Types.ObjectId(businessId),

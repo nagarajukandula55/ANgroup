@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import StockAdjustment from "@/models/StockAdjustment";
 import InventoryItem from "@/models/InventoryItem";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 /* =========================================================
  * GET /api/stock/adjustments?businessId=&page=&limit=&inventoryItemId=
@@ -129,7 +130,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const previousQuantity: number = item.quantity ?? 0;
+    // NOTE: the Inventory/InventoryItem schema (models/Inventory.js) has no
+    // plain `quantity` field — this used to read `item.quantity`, which is
+    // always undefined on the real schema, so previousQuantity was silently
+    // defaulting to 0 on every adjustment regardless of actual stock level.
+    // Fixed to read the real field, `availableQuantity`, which is what this
+    // route's ADD/REMOVE/SET semantics were actually meant to operate on.
+    const previousQuantity: number = item.availableQuantity ?? 0;
     let newQuantity: number;
 
     switch (adjustmentType) {
@@ -146,9 +153,18 @@ export async function POST(req: NextRequest) {
         newQuantity = previousQuantity;
     }
 
+    // Generate the adjustment's document number via the canonical numbering
+    // engine. StockAdjustment previously had no number field at all — this
+    // was the one document type flagged as a gap during the numbering
+    // consolidation ("ensure whatever documents in the entire system that
+    // numbering should be controlled") — now every adjustment gets one,
+    // admin-configurable in Settings > Document Numbers like every other type.
+    const { value: adjustmentNumber } = await generateDocumentNumber(businessId, "STOCK_ADJUSTMENT");
+
     // Persist the adjustment record first
     const adjustment = await StockAdjustment.create({
       businessId: new Types.ObjectId(businessId),
+      adjustmentNumber,
       inventoryItemId: new Types.ObjectId(inventoryItemId),
       adjustmentType,
       quantityAdjusted: qty,
@@ -159,10 +175,13 @@ export async function POST(req: NextRequest) {
       adjustedBy: userId,
     });
 
-    // Update the inventory item quantity
+    // Update the inventory item quantity (same field-name fix as above —
+    // this used to write `quantity`, a field that doesn't exist on the real
+    // schema, so the update silently created a stray unused key and never
+    // actually changed stock levels).
     await InventoryItem.findByIdAndUpdate(
       new Types.ObjectId(inventoryItemId),
-      { $set: { quantity: newQuantity } }
+      { $set: { availableQuantity: newQuantity } }
     );
 
     return NextResponse.json(

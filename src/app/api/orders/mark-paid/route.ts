@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
-import { generateInvoiceNumber } from "@/lib/numbering/invoiceNumber";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +40,25 @@ export async function POST(req: Request) {
       }
     }
 
-    const invoiceNumber = await generateInvoiceNumber(order.businessId);
+    // Was lib/numbering/invoiceNumber.ts's generateInvoiceNumber() — a
+    // 12th previously-undiscovered duplicate/unsafe generator found while
+    // reconciling PROGRESS.md's stale "known duplicates" checklist against
+    // reality: it used Invoice.countDocuments() (the same race-condition
+    // anti-pattern already fixed at every other call site during the
+    // numbering-consolidation pass — two concurrent mark-paid calls for
+    // the same business/financial-year could read the same count and
+    // produce the same number), read its prefix from a different field
+    // (business.documents.invoices.numbering.prefix) than the canonical
+    // DocumentNumberConfig every other document type/admin UI actually
+    // uses, and via lib/invoice/generateInvoiceNumber.ts pulled the
+    // financial year from lib/invoice/getFinancialYear.ts — one of the 3
+    // duplicate FY calculators the numbering consolidation was supposed to
+    // eliminate. Fixed to use the canonical engine like every other
+    // document type.
+    const { value: invoiceNumber } = await generateDocumentNumber(
+      String(order.businessId),
+      "INVOICE"
+    );
 
     order.status = "PAID";
 

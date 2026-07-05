@@ -3,36 +3,26 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import StockTransfer from "@/models/StockTransfer";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Zero-padded sequential transfer number: ST-YYYYMMDD-XXXX */
-async function generateTransferNumber(): Promise<string> {
-  const date = new Date();
-  const dateStr =
-    date.getFullYear().toString() +
-    String(date.getMonth() + 1).padStart(2, "0") +
-    String(date.getDate()).padStart(2, "0");
-
-  const prefix = `ST-${dateStr}-`;
-
-  const last = await StockTransfer.findOne(
-    { transferNumber: { $regex: `^${prefix}` } },
-    { transferNumber: 1 },
-    { sort: { transferNumber: -1 } }
-  ).lean();
-
-  let seq = 1;
-  if (last && typeof last.transferNumber === "string") {
-    const parts = last.transferNumber.split("-");
-    const lastSeq = parseInt(parts[parts.length - 1], 10);
-    if (!isNaN(lastSeq)) seq = lastSeq + 1;
-  }
-
-  return `${prefix}${String(seq).padStart(4, "0")}`;
-}
+/**
+ * REMOVED: a local generateTransferNumber() used to live here — a SEVENTH
+ * previously-undiscovered duplicate number generator (beyond the six
+ * already flagged in PROGRESS.md), and one of the more fragile ones: it
+ * found the "last" transfer number by regex-matching today's date prefix
+ * and sorting transferNumber as a STRING (not numerically — "ST-...-0009"
+ * sorts after "ST-...-0010" lexicographically once past 9999, and even
+ * before that, string-sorted find-then-increment is a race condition under
+ * concurrent requests), hardcoded the "ST-" prefix ignoring any admin
+ * config, and queried StockTransfer globally rather than scoped to the
+ * requesting business (so two different businesses' transfers could
+ * collide on the same date-based counter). Replaced with the canonical
+ * core/numbering/numberingService.ts, same as every other document type.
+ */
 
 // ---------------------------------------------------------------------------
 // GET /api/stock/transfers?businessId=...&status=...&page=1&limit=20
@@ -200,7 +190,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const transferNumber = await generateTransferNumber();
+    const { value: transferNumber } = await generateDocumentNumber(businessId, "STOCK_TRANSFER");
 
     const transfer = await StockTransfer.create({
       transferNumber,

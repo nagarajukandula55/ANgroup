@@ -4,18 +4,22 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import ProductionOrder from "@/models/ProductionOrder";
 import ProductionOrderItem from "@/models/ProductionOrderItem";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
-async function getNextOrderNumber(): Promise<string> {
-  const last = await ProductionOrder.findOne(
-    {},
-    { orderNumber: 1 },
-    { sort: { createdAt: -1 } }
-  ).lean();
-  if (!last || !(last as any).orderNumber) return "PO-0001";
-  const match = ((last as any).orderNumber as string).match(/PO-(\d+)$/);
-  const num = match ? parseInt(match[1]) + 1 : 1;
-  return `PO-${String(num).padStart(4, "0")}`;
-}
+/**
+ * REMOVED: a local getNextOrderNumber() used to live here — an EIGHTH
+ * previously-undiscovered duplicate number generator, and one of the
+ * riskiest: it found the globally-last ProductionOrder (`findOne({}, ...)`
+ * — no businessId filter at all, so every business on the platform shared
+ * ONE counter), matched a "PO-" prefix via regex (colliding visually with
+ * Purchase Orders' own "PO-" prefix, a separate document type entirely),
+ * and derived the next number via find-highest-then-increment, a race
+ * condition under concurrent requests. Replaced with the canonical
+ * core/numbering/numberingService.ts, scoped per-business and using
+ * PRODUCTION_ORDER's own configured/default prefix ("MFG" by default —
+ * see core/numbering/types.ts's DEFAULT_PREFIXES) instead of colliding
+ * with Purchase Order's "PO-".
+ */
 
 export async function GET(req: NextRequest) {
   try {
@@ -124,7 +128,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const orderNumber = await getNextOrderNumber();
+    const { value: orderNumber } = await generateDocumentNumber(businessId, "PRODUCTION_ORDER");
 
     const order = await ProductionOrder.create({
       orderNumber,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 import SalesOrder from "@/models/SalesOrder";
 import PurchaseOrder from "@/models/PurchaseOrder";
 import Invoice from "@/models/Invoice";
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    requirePermission(session as any, "dashboard.view");
+    requirePermission(session as any, buildPermissionCode("dashboard", "view"));
 
     const businessId = new Types.ObjectId(
       session.business.businessId

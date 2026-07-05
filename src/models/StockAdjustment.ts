@@ -4,6 +4,17 @@ export type AdjustmentType = "ADD" | "REMOVE" | "SET";
 
 export interface IStockAdjustment extends Document {
   businessId: mongoose.Types.ObjectId;
+  /**
+   * Human-facing, admin-configurable document number (e.g. "SA-2025-26-0001"),
+   * generated via core/numbering/numberingService.ts's generateDocumentNumber()
+   * with the "STOCK_ADJUSTMENT" document type — same engine as every other
+   * document type. This field did not exist before ("ensure whatever
+   * documents in the entire system that numbering should be controlled"
+   * flagged this as a gap: adjustments were the one document type with no
+   * number at all). Optional/sparse so existing adjustment records created
+   * before this field existed don't fail validation.
+   */
+  adjustmentNumber?: string;
   inventoryItemId: mongoose.Types.ObjectId;
   adjustmentType: AdjustmentType;
   /** Quantity added, removed, or the absolute value to SET */
@@ -22,6 +33,7 @@ export interface IStockAdjustment extends Document {
 const StockAdjustmentSchema = new Schema<IStockAdjustment>(
   {
     businessId: { type: Schema.Types.ObjectId, required: true, index: true },
+    adjustmentNumber: { type: String, sparse: true, unique: true },
     inventoryItemId: {
       type: Schema.Types.ObjectId,
       required: true,

@@ -10,9 +10,14 @@ import {
   generatePurchaseOrderNumber,
 } from "@/services/numbering.service";
 
-function generatePONumber() {
-  return "PO-" + Date.now();
-}
+/**
+ * REMOVED: a private, unused `generatePONumber() { return "PO-" + Date.now() }`
+ * used to live here — dead code (createPurchaseOrder below already calls
+ * the real generatePurchaseOrderNumber() import above), but left in place
+ * long enough to look like a second, competing implementation. Deleted as
+ * part of the numbering consolidation (see core/numbering/types.ts) so
+ * nobody accidentally starts calling it later.
+ */
 
 /* ================= CREATE PO ================= */
 export async function createPurchaseOrder(payload: any) {

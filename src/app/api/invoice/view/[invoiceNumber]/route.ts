@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import Invoice from "@/models/Invoice";
 import Order from "@/models/Order";
+import Business from "@/models/Business";
 import { connectDB } from "@/lib/mongodb";
+import { getDefaultTemplate } from "@/core/invoiceTemplates/service";
+import { getStateCode } from "@/core/gst/stateCodes";
 
 export const runtime = "nodejs";
 
@@ -19,43 +22,14 @@ export async function GET(
         invoiceNumber,
       });
 
-const STATE_CODES: Record<string, string> = {
-      "Andhra Pradesh": "37",
-      "Arunachal Pradesh": "12",
-      "Assam": "18",
-      "Bihar": "10",
-      "Chhattisgarh": "22",
-      "Goa": "30",
-      "Gujarat": "24",
-      "Haryana": "06",
-      "Himachal Pradesh": "02",
-      "Jharkhand": "20",
-      "Karnataka": "29",
-      "Kerala": "32",
-      "Madhya Pradesh": "23",
-      "Maharashtra": "27",
-      "Manipur": "14",
-      "Meghalaya": "17",
-      "Mizoram": "15",
-      "Nagaland": "13",
-      "Odisha": "21",
-      "Punjab": "03",
-      "Rajasthan": "08",
-      "Sikkim": "11",
-      "Tamil Nadu": "33",
-      "Telangana": "36",
-      "Tripura": "16",
-      "Uttar Pradesh": "09",
-      "Uttarakhand": "05",
-      "West Bengal": "19",
-      "Delhi": "07",
-    };
-    
-const stateCode =
-  STATE_CODES[
-    invoice.customer?.state || ""
-  ] || "";
-    
+    // Was `invoice.customer?.state` read here BEFORE the `if (!invoice)`
+    // null-check below — if the invoiceNumber didn't match any document,
+    // this would throw reading `.customer` off `null` instead of returning
+    // the intended 404. Moved below the null-check, and the state-code
+    // lookup along with it. The 28-entry STATE_CODES map that used to be
+    // inlined here was extracted to core/gst/stateCodes.ts so the new
+    // Cloudinary-generation path (api/invoice/generate/route.ts) can use
+    // the same lookup instead of a second copy that would drift.
     if (!invoice) {
       return NextResponse.json(
         {
@@ -68,10 +42,30 @@ const stateCode =
       );
     }
 
+    const stateCode = getStateCode(invoice.customer?.state);
+
     const order =
       await Order.findOne({
         _id: invoice.orderId,
       });
+
+    // Was hardcoded to "Native" + env vars (COMPANY_ADDRESS1 etc.) here —
+    // meaning every business on this multi-tenant platform would show the
+    // SAME company name/GSTIN/address on every invoice, regardless of
+    // whose invoice it actually was. Fixed to read the real Business
+    // record via invoice.businessId, falling back to the old env-var
+    // values only if a business record can't be found (so this doesn't
+    // hard-break for any pre-existing invoice whose businessId is stale).
+    const business = invoice.businessId
+      ? await Business.findById(invoice.businessId).lean()
+      : null;
+
+    // Also pull this business's saved invoice-template branding (logo,
+    // tagline) if one exists — see core/invoiceTemplates/service.ts. Falls
+    // back to no logo / no override tagline if nothing's been configured.
+    const savedTemplate = invoice.businessId
+      ? await getDefaultTemplate(String(invoice.businessId)).catch(() => null)
+      : null;
 
     return NextResponse.json({
       success: true,
@@ -92,28 +86,63 @@ const stateCode =
         invoice.invoiceType,
 
       company: {
-        name: "Native",
+        name:
+          (business as any)?.name ||
+          (business as any)?.legalName ||
+          process.env.COMPANY_NAME ||
+          "Business",
+
         tagline:
-          "Eat Healthy, Stay Healthy",
+          savedTemplate?.branding?.tagline ||
+          process.env.COMPANY_TAGLINE ||
+          "",
 
         address1:
-          process.env.COMPANY_ADDRESS1 || "",
+          (business as any)?.address ||
+          process.env.COMPANY_ADDRESS1 ||
+          "",
 
         address2:
           process.env.COMPANY_ADDRESS2 || "",
 
         city:
-          process.env.COMPANY_CITY || "",
+          (business as any)?.city ||
+          process.env.COMPANY_CITY ||
+          "",
 
         state:
-          process.env.COMPANY_STATE || "",
+          (business as any)?.state ||
+          process.env.COMPANY_STATE ||
+          "",
 
         gstin:
-          process.env.COMPANY_GSTIN || "",
+          (business as any)?.compliance?.gstNumber ||
+          process.env.COMPANY_GSTIN ||
+          "",
 
         phone:
-          process.env.COMPANY_PHONE || "",
+          (business as any)?.phone ||
+          process.env.COMPANY_PHONE ||
+          "",
+
+        logoUrl:
+          savedTemplate?.branding?.logoUrl ||
+          (business as any)?.logo ||
+          "",
       },
+
+      templateLayoutKey: savedTemplate?.layoutKey || undefined,
+      templateConfig: savedTemplate
+        ? {
+            accentColor: savedTemplate.branding?.accentColor,
+            footerNote: savedTemplate.text?.footerNote,
+            declaration: savedTemplate.text?.declaration,
+            termsAndConditions: savedTemplate.text?.termsAndConditions,
+            showSignature: savedTemplate.text?.showSignature,
+            signatureImageUrl: savedTemplate.text?.signatureImageUrl,
+            signatoryLabel: savedTemplate.text?.signatoryLabel,
+          }
+        : undefined,
 
       customer: {
         name:

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 import AuditLog from "@/models/AuditLog";
 
 /* =========================================================
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    requirePermission(session as any, "audit.view");
+    requirePermission(session as any, buildPermissionCode("audit", "view"));
 
     const { searchParams } = new URL(req.url);
 
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    requirePermission(session as any, "audit.create");
+    requirePermission(session as any, buildPermissionCode("audit", "create"));
 
     const body = await req.json();
 

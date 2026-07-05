@@ -1,9 +1,19 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, X, Instagram, Linkedin, Twitter, Facebook, Loader2, Send, Clock, FileText } from 'lucide-react'
+import { ArrowLeft, Plus, X, Instagram, Linkedin, Twitter, Facebook, Loader2, Send, Clock, FileText, Sparkles } from 'lucide-react'
 
-interface Post { _id: string; caption: string; platforms: string[]; status: string; scheduledAt?: string; createdAt: string }
+interface Post {
+  _id: string
+  caption: string
+  platforms: string[]
+  imageUrl?: string
+  hashtags?: string[]
+  status: string
+  scheduledAt?: string
+  postedAt?: string
+  createdAt: string
+}
 
 const PLATFORM_STYLES: Record<string, { label: string; color: string }> = {
   instagram: { label: 'Instagram', color: 'bg-pink-50 text-pink-700' },
@@ -19,6 +29,15 @@ const STATUS_STYLES: Record<string, string> = {
   FAILED:    'bg-red-50 text-red-700',
 }
 
+interface FormState {
+  caption: string
+  platforms: string[]
+  scheduledAt: string
+  status: string
+  imageUrl: string
+  hashtags: string[]
+}
+
 export default function SocialPage() {
   const router = useRouter()
   const [posts, setPosts]           = useState<Post[]>([])
@@ -27,8 +46,12 @@ export default function SocialPage() {
   const [tab, setTab]               = useState('ALL')
   const [showForm, setShowForm]     = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({
-    caption: '', platforms: [] as string[], scheduledAt: '', status: 'DRAFT',
+  const [editingPost, setEditingPost] = useState<Post | null>(null)
+  const [publishing, setPublishing] = useState<string | null>(null)
+  const [aiCaptionLoading, setAiCaptionLoading] = useState(false)
+  const [hashtagInput, setHashtagInput] = useState('')
+  const [form, setForm] = useState<FormState>({
+    caption: '', platforms: [] as string[], scheduledAt: '', status: 'DRAFT', imageUrl: '', hashtags: [],
   })
 
   useEffect(() => {
@@ -50,32 +73,136 @@ export default function SocialPage() {
   }
 
   function togglePlatform(p: string) {
-    setForm(f => ({
-      ...f, platforms: f.platforms.includes(p) ? f.platforms.filter(x => x !== p) : [...f.platforms, p]
+    setForm((f: FormState) => ({
+      ...f, platforms: f.platforms.includes(p) ? f.platforms.filter((x: string) => x !== p) : [...f.platforms, p]
     }))
+  }
+
+  function resetForm() {
+    setForm({ caption: '', platforms: [], scheduledAt: '', status: 'DRAFT', imageUrl: '', hashtags: [] })
+    setHashtagInput('')
+    setEditingPost(null)
+  }
+
+  function openNewPost() {
+    resetForm()
+    setShowForm(true)
+  }
+
+  function openEdit(post: Post) {
+    setEditingPost(post)
+    setForm({
+      caption: post.caption,
+      platforms: post.platforms || [],
+      scheduledAt: post.scheduledAt ? new Date(post.scheduledAt).toISOString().slice(0, 16) : '',
+      status: post.status,
+      imageUrl: post.imageUrl || '',
+      hashtags: post.hashtags || [],
+    })
+    setHashtagInput('')
+    setShowForm(true)
+  }
+
+  function addHashtag() {
+    const tag = hashtagInput.trim().replace(/^#/, '')
+    if (tag && !form.hashtags.includes(tag)) {
+      setForm((f: FormState) => ({ ...f, hashtags: [...f.hashtags, tag] }))
+    }
+    setHashtagInput('')
+  }
+
+  function handleHashtagKeyDown(e: { key: string; preventDefault: () => void }) {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === ',') {
+      e.preventDefault()
+      addHashtag()
+    }
+  }
+
+  function removeHashtag(tag: string) {
+    setForm((f: FormState) => ({ ...f, hashtags: f.hashtags.filter((h: string) => h !== tag) }))
+  }
+
+  async function handleAICaption() {
+    if (!form.caption.trim() && form.platforms.length === 0) return
+    setAiCaptionLoading(true)
+    try {
+      const res = await fetch('/api/ai/caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context: form.caption || 'Create an engaging social media post for my business',
+          platform: form.platforms[0] || 'ALL',
+          tone: 'professional',
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setForm((f: FormState) => ({ ...f, caption: data.caption }))
+      }
+    } catch { } finally {
+      setAiCaptionLoading(false)
+    }
   }
 
   async function handleSubmit(status: string) {
     setSubmitting(true)
     try {
-      await fetch('/api/social/posts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, status, businessId }),
-      })
+      const body = { ...form, status, businessId }
+      let postId = editingPost?._id
+
+      if (editingPost) {
+        await fetch(`/api/social/posts/${editingPost._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      } else {
+        const r = await fetch('/api/social/posts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (r.ok) {
+          const d = await r.json()
+          postId = d.post?._id
+        }
+      }
+
+      if (status === 'PUBLISHED' && postId) {
+        await fetch('/api/social/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ postId, platforms: form.platforms }),
+        })
+      }
+
       setShowForm(false)
-      setForm({ caption: '', platforms: [], scheduledAt: '', status: 'DRAFT' })
+      resetForm()
       if (businessId) fetchPosts(businessId)
     } catch { } finally { setSubmitting(false) }
   }
 
+  async function handlePublish(post: Post) {
+    setPublishing(post._id)
+    try {
+      await fetch('/api/social/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId: post._id, platforms: post.platforms }),
+      })
+      if (businessId) fetchPosts(businessId)
+    } catch { } finally {
+      setPublishing(null)
+    }
+  }
+
   const tabs = ['ALL', 'PUBLISHED', 'SCHEDULED', 'DRAFT']
-  const filtered = tab === 'ALL' ? posts : posts.filter(p => p.status === tab)
+  const filtered = tab === 'ALL' ? posts : posts.filter((p: Post) => p.status === tab)
 
   const stats = {
     total: posts.length,
-    published: posts.filter(p => p.status === 'PUBLISHED').length,
-    scheduled: posts.filter(p => p.status === 'SCHEDULED').length,
-    drafts: posts.filter(p => p.status === 'DRAFT').length,
+    published: posts.filter((p: Post) => p.status === 'PUBLISHED').length,
+    scheduled: posts.filter((p: Post) => p.status === 'SCHEDULED').length,
+    drafts: posts.filter((p: Post) => p.status === 'DRAFT').length,
   }
 
   return (
@@ -89,14 +216,14 @@ export default function SocialPage() {
             <h1 className="text-xl font-semibold text-gray-900">Social Media</h1>
             <p className="text-sm text-gray-500">Design and publish posts across platforms</p>
           </div>
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-gray-900 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-800">
+          <button onClick={openNewPost} className="flex items-center gap-2 bg-gray-900 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-800">
             <Plus size={15} /> Create Post
           </button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-6">
-          {[['Total Posts', stats.total], ['Published', stats.published], ['Scheduled', stats.scheduled], ['Drafts', stats.drafts]].map(([l, v]) => (
+          {([['Total Posts', stats.total], ['Published', stats.published], ['Scheduled', stats.scheduled], ['Drafts', stats.drafts]] as [string, number][]).map(([l, v]) => (
             <div key={l} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
               <p className="text-sm text-gray-500">{l}</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{v}</p>
@@ -106,7 +233,7 @@ export default function SocialPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-xl p-1 w-fit shadow-sm">
-          {tabs.map(t => (
+          {tabs.map((t: string) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${tab === t ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
               {t.charAt(0) + t.slice(1).toLowerCase()}
@@ -131,15 +258,16 @@ export default function SocialPage() {
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Platforms</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Date</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map(p => (
+                {filtered.map((p: Post) => (
                   <tr key={p._id} className="hover:bg-gray-50">
                     <td className="px-5 py-4 text-gray-700 max-w-xs truncate">{p.caption}</td>
                     <td className="px-5 py-4">
                       <div className="flex gap-1 flex-wrap">
-                        {(p.platforms || []).map(pl => (
+                        {(p.platforms || []).map((pl: string) => (
                           <span key={pl} className={`rounded-full px-2 py-0.5 text-xs font-medium ${PLATFORM_STYLES[pl]?.color ?? 'bg-gray-100 text-gray-600'}`}>
                             {PLATFORM_STYLES[pl]?.label ?? pl}
                           </span>
@@ -150,6 +278,25 @@ export default function SocialPage() {
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[p.status] ?? 'bg-gray-100 text-gray-600'}`}>{p.status}</span>
                     </td>
                     <td className="px-5 py-4 text-gray-400 text-xs">{p.scheduledAt ? new Date(p.scheduledAt).toLocaleDateString() : new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex gap-2">
+                        {p.status !== 'PUBLISHED' && (
+                          <button
+                            onClick={() => handlePublish(p)}
+                            disabled={publishing === p._id}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            {publishing === p._id ? 'Publishing...' : 'Publish'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openEdit(p)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -158,28 +305,42 @@ export default function SocialPage() {
         </div>
       </div>
 
-      {/* Create Post Slide-over */}
+      {/* Create/Edit Post Slide-over */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={() => setShowForm(false)} />
           <div className="w-full max-w-md bg-white border-l border-gray-200 flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">Create Post</h2>
+              <h2 className="font-semibold text-gray-900">{editingPost ? 'Edit Post' : 'Create Post'}</h2>
               <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200">
                 <X size={15} className="text-gray-600" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Caption *</label>
-                <textarea rows={5} value={form.caption} onChange={e => setForm(f => ({ ...f, caption: e.target.value }))}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-gray-600 block">Caption *</label>
+                  <button
+                    onClick={handleAICaption}
+                    disabled={aiCaptionLoading}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {aiCaptionLoading ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={12} />
+                    )}
+                    AI Caption
+                  </button>
+                </div>
+                <textarea rows={5} value={form.caption} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((f: FormState) => ({ ...f, caption: e.target.value }))}
                   placeholder="Write your post caption here..."
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-gray-900/10" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-2">Platforms</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(PLATFORM_STYLES).map(([key, { label, color }]) => (
+                  {Object.entries(PLATFORM_STYLES).map(([key, { label, color }]: [string, { label: string; color: string }]) => (
                     <button key={key} onClick={() => togglePlatform(key)}
                       className={`px-3 py-2 rounded-lg border text-sm font-medium transition ${form.platforms.includes(key) ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                       {label}
@@ -188,14 +349,39 @@ export default function SocialPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Schedule (optional)</label>
-                <input type="datetime-local" value={form.scheduledAt} onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))}
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">Image URL (optional)</label>
+                <input type="url" value={form.imageUrl} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, imageUrl: e.target.value }))}
+                  placeholder="Paste image URL..."
                   className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10" />
+                {form.imageUrl && (
+                  <div className="mt-2 rounded-xl overflow-hidden border border-gray-200">
+                    <img src={form.imageUrl} alt="Preview" className="w-full h-32 object-cover" />
+                  </div>
+                )}
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Image (optional)</label>
-                <input type="file" accept="image/*"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1 file:text-sm file:font-medium" />
+                <label className="text-xs font-medium text-gray-600 block mb-2">Hashtags</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {form.hashtags.map((tag: string) => (
+                    <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs">
+                      #{tag}
+                      <button onClick={() => removeHashtag(tag)} className="hover:text-gray-900 transition-colors ml-1">×</button>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={hashtagInput}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHashtagInput(e.target.value)}
+                  onKeyDown={handleHashtagKeyDown}
+                  placeholder="Type # and press Enter to add tags"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1.5">Schedule (optional)</label>
+                <input type="datetime-local" value={form.scheduledAt} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, scheduledAt: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10" />
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-200 flex gap-2">

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import Employee from "@/models/Employee";
+import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 
 export async function GET(request: NextRequest) {
   try {
@@ -131,13 +132,15 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // Auto-generate employeeId: count all employees for this business (including deleted)
-    const existingCount = await Employee.countDocuments({
-      businessId: new mongoose.Types.ObjectId(businessId),
-    });
-
-    const nextNumber = existingCount + 1;
-    const employeeId = `EMP-${String(nextNumber).padStart(4, "0")}`;
+    // employeeId has a GLOBAL unique index (see models/Employee.ts —
+    // `{ employeeId: 1 }, { unique: true, sparse: true }`, no businessId
+    // in the index), but this used to count PER-BUSINESS — the same class
+    // of bug the vendor-ID generators had (two businesses' first employee
+    // would both compute EMP-0001 and the second create would crash on
+    // the unique-index violation). Now uses the canonical numbering
+    // engine's global-scope variant so employee IDs share one atomic
+    // counter across every business, same as vendor IDs.
+    const { value: employeeId } = await generateGlobalDocumentNumber("EMPLOYEE", businessId);
 
     const employee = await Employee.create({
       userId: userId ? new mongoose.Types.ObjectId(userId) : undefined,

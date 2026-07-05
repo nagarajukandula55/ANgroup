@@ -171,17 +171,25 @@ export default function BusinessListPage() {
                   )}
                 </div>
 
-                <button
-                  onClick={() => switchTo(biz)}
-                  disabled={isActive || switchingId === biz._id}
-                  className="mt-2 rounded border border-cyan-400/60 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {isActive
-                    ? "Currently Active"
-                    : switchingId === biz._id
-                    ? "Switching..."
-                    : "Switch to this business"}
-                </button>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => switchTo(biz)}
+                    disabled={isActive || switchingId === biz._id}
+                    className="flex-1 rounded border border-cyan-400/60 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isActive
+                      ? "Currently Active"
+                      : switchingId === biz._id
+                      ? "Switching..."
+                      : "Switch to this business"}
+                  </button>
+                  <Link
+                    href={`/admin/business/${biz._id}`}
+                    className="rounded border border-white/20 px-3 py-2 text-sm font-semibold text-white/70 hover:bg-white/10"
+                  >
+                    Edit
+                  </Link>
+                </div>
               </div>
             );
           })}

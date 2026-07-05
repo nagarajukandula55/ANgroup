@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,16 +18,28 @@ type AgreementType =
 
 type AgreementStatus =
   | 'DRAFT'
-  | 'SENT'
-  | 'SIGNED'
+  | 'PENDING_SIGNATURE'
   | 'PARTIALLY_SIGNED'
+  | 'FULLY_SIGNED'
   | 'DECLINED'
   | 'EXPIRED'
+  | 'CANCELLED'
 
 interface Party {
   name: string
   email: string
   role: string
+  phone?: string
+  address?: string
+  panNumber?: string
+}
+
+interface Signature {
+  partyEmail: string
+  partyName: string
+  partyRole?: string
+  signedAt?: string
+  otpVerified: boolean
 }
 
 interface Agreement {
@@ -36,10 +48,12 @@ interface Agreement {
   type: AgreementType
   status: AgreementStatus
   parties: Party[]
+  signatures?: Signature[]
   createdAt: string
   content: string
   governingLaw: string
   jurisdiction: string
+  expiresAt?: string
 }
 
 // ─── Agreement Templates ──────────────────────────────────────────────────────
@@ -977,11 +991,12 @@ const TYPE_CONFIG: Record<AgreementType, TypeConfigEntry> = {
 
 const STATUS_CONFIG: Record<AgreementStatus, { label: string; color: string }> = {
   DRAFT: { label: 'Draft', color: 'bg-gray-100 text-gray-700' },
-  SENT: { label: 'Sent', color: 'bg-blue-100 text-blue-700' },
-  SIGNED: { label: 'Signed', color: 'bg-green-100 text-green-700' },
+  PENDING_SIGNATURE: { label: 'Pending Signature', color: 'bg-blue-100 text-blue-700' },
   PARTIALLY_SIGNED: { label: 'Partially Signed', color: 'bg-yellow-100 text-yellow-700' },
+  FULLY_SIGNED: { label: 'Fully Signed', color: 'bg-green-100 text-green-700' },
   DECLINED: { label: 'Declined', color: 'bg-red-100 text-red-700' },
   EXPIRED: { label: 'Expired', color: 'bg-orange-100 text-orange-700' },
+  CANCELLED: { label: 'Cancelled', color: 'bg-red-50 text-red-500' },
 }
 
 const ALL_AGREEMENT_TYPES = Object.keys(TYPE_CONFIG) as AgreementType[]
@@ -1027,6 +1042,321 @@ const DEFAULT_FORM_DATA: FormData = {
   content: '',
 }
 
+// ─── Signing Modal ────────────────────────────────────────────────────────────
+
+type SigningModalStep = 'otp' | 'sign'
+
+interface SigningModalProps {
+  partyName: string
+  partyEmail: string
+  agreementId: string
+  onClose: () => void
+  onSigned: () => void
+}
+
+function SigningModal({ partyName, partyEmail, agreementId, onClose, onSigned }: SigningModalProps) {
+  const [modalStep, setModalStep] = useState<SigningModalStep>('otp')
+  const [otp, setOtp] = useState<string>('')
+  const [otpSent, setOtpSent] = useState<boolean>(false)
+  const [demoOtp, setDemoOtp] = useState<string>('')
+  const [otpLoading, setOtpLoading] = useState<boolean>(false)
+  const [otpError, setOtpError] = useState<string>('')
+  const [signatureConsent, setSignatureConsent] = useState<boolean>(false)
+  const [signError, setSignError] = useState<string>('')
+  const [signing, setSigning] = useState<boolean>(false)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isDrawing, setIsDrawing] = useState<boolean>(false)
+  const lastPos = useRef<{ x: number; y: number } | null>(null)
+
+  async function sendOtp() {
+    setOtpLoading(true)
+    setOtpError('')
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}/otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partyEmail }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setOtpSent(true)
+        setDemoOtp(data.otp || '')
+      } else {
+        setOtpError(data.error || 'Failed to send OTP')
+      }
+    } catch {
+      setOtpError('Failed to send OTP')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  function verifyOtp() {
+    if (!otp || otp.length !== 6) {
+      setOtpError('Please enter a 6-digit OTP')
+      return
+    }
+    // Actual verification happens at sign time on the server.
+    setModalStep('sign')
+  }
+
+  function getCanvasPos(
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ): { x: number; y: number } | null {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    if ('touches' in e) {
+      const touch = e.touches[0]
+      return {
+        x: (touch.clientX - rect.left) * scaleX,
+        y: (touch.clientY - rect.top) * scaleY,
+      }
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    }
+  }
+
+  function startDrawing(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault()
+    setIsDrawing(true)
+    lastPos.current = getCanvasPos(e)
+  }
+
+  function draw(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault()
+    if (!isDrawing) return
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!ctx || !canvas) return
+    const pos = getCanvasPos(e)
+    if (!pos || !lastPos.current) return
+    ctx.beginPath()
+    ctx.moveTo(lastPos.current.x, lastPos.current.y)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.strokeStyle = '#4338ca'
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.stroke()
+    lastPos.current = pos
+  }
+
+  function stopDrawing() {
+    setIsDrawing(false)
+    lastPos.current = null
+  }
+
+  function clearCanvas() {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!ctx || !canvas) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
+
+  function isCanvasEmpty(): boolean {
+    const canvas = canvasRef.current
+    if (!canvas) return true
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return true
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    return !data.some((v: number) => v !== 0)
+  }
+
+  async function submitSignature() {
+    if (!signatureConsent) {
+      setSignError('Please consent to the electronic signature terms')
+      return
+    }
+    if (isCanvasEmpty()) {
+      setSignError('Please draw your signature')
+      return
+    }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const signatureData = canvas.toDataURL('image/png')
+
+    setSigning(true)
+    setSignError('')
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}/sign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partyEmail, otp, signatureData }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        onSigned()
+      } else {
+        setSignError(data.error || 'Failed to submit signature')
+      }
+    } catch {
+      setSignError('Failed to submit signature')
+    } finally {
+      setSigning(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div>
+            <h3 className="text-gray-900 font-semibold text-sm">Sign Agreement</h3>
+            <p className="text-gray-500 text-xs">{partyName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex px-6 pt-4 gap-2">
+          <div className={`flex-1 h-1 rounded-full ${modalStep === 'otp' || modalStep === 'sign' ? 'bg-indigo-500' : 'bg-gray-200'}`} />
+          <div className={`flex-1 h-1 rounded-full ${modalStep === 'sign' ? 'bg-indigo-500' : 'bg-gray-200'}`} />
+        </div>
+
+        <div className="px-6 py-5">
+          {modalStep === 'otp' && (
+            <div className="space-y-4">
+              <div className="text-center py-2">
+                <p className="text-gray-900 font-medium text-sm">OTP Verification</p>
+                <p className="text-gray-500 text-xs mt-1">
+                  {otpSent
+                    ? `Enter the OTP sent to ${partyEmail}`
+                    : `We will send an OTP to ${partyEmail}`}
+                </p>
+              </div>
+
+              {demoOtp && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                  <p className="text-yellow-700 text-xs font-medium">Demo Mode - OTP</p>
+                  <p className="text-yellow-800 text-2xl font-mono font-bold tracking-widest mt-1">
+                    {demoOtp}
+                  </p>
+                  <p className="text-yellow-600 text-xs mt-1">In production, this would be sent via email only</p>
+                </div>
+              )}
+
+              {otpSent && (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1.5">Enter 6-digit OTP</label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-2xl font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
+
+              {otpError && <p className="text-red-600 text-sm text-center">{otpError}</p>}
+
+              <div className="flex gap-2">
+                {!otpSent ? (
+                  <button
+                    onClick={sendOtp}
+                    disabled={otpLoading}
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors text-sm"
+                  >
+                    {otpLoading ? 'Sending...' : 'Send OTP'}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={sendOtp}
+                      disabled={otpLoading}
+                      className="py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm transition-colors"
+                    >
+                      {otpLoading ? '...' : 'Resend'}
+                    </button>
+                    <button
+                      onClick={verifyOtp}
+                      disabled={otpLoading || otp.length !== 6}
+                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors text-sm"
+                    >
+                      Verify OTP
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {modalStep === 'sign' && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <p className="text-gray-900 font-medium text-sm">Draw Your Signature</p>
+                <p className="text-gray-500 text-xs mt-1">Use your mouse or finger to sign below</p>
+              </div>
+
+              <div className="relative bg-gray-50 border border-gray-300 rounded-lg overflow-hidden">
+                <canvas
+                  ref={canvasRef}
+                  width={420}
+                  height={160}
+                  className="w-full cursor-crosshair touch-none"
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                />
+                <button
+                  onClick={clearCanvas}
+                  className="absolute top-2 right-2 px-2 py-1 text-xs bg-white hover:bg-gray-100 text-gray-500 rounded-lg border border-gray-200 transition-colors"
+                >
+                  Clear
+                </button>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-1/2 border-b border-gray-400 pointer-events-none" />
+              </div>
+
+              <div
+                className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer"
+                onClick={() => setSignatureConsent(!signatureConsent)}
+              >
+                <div
+                  className={`w-5 h-5 rounded border flex-shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
+                    signatureConsent ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'
+                  }`}
+                >
+                  {signatureConsent && <span className="text-white text-xs">✓</span>}
+                </div>
+                <p className="text-gray-500 text-xs leading-relaxed">
+                  I agree that this electronic signature is legally binding under the{' '}
+                  <span className="text-indigo-600">Information Technology Act, 2000</span>, and the{' '}
+                  <span className="text-indigo-600">Indian Contract Act, 1872</span>. I confirm that I am
+                  authorised to sign this agreement.
+                </p>
+              </div>
+
+              {signError && <p className="text-red-600 text-sm text-center">{signError}</p>}
+
+              <button
+                onClick={submitSignature}
+                disabled={signing || !signatureConsent}
+                className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors text-sm"
+              >
+                {signing ? 'Submitting...' : 'Submit Signature'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AgreementsPage() {
@@ -1042,6 +1372,13 @@ export default function AgreementsPage() {
   const [selectedType, setSelectedType] = useState<AgreementType | null>(null)
   const [formData, setFormData] = useState<FormData>(DEFAULT_FORM_DATA)
   const [saving, setSaving] = useState<boolean>(false)
+
+  // Detail view / send / sign state
+  const [detailAgreement, setDetailAgreement] = useState<Agreement | null>(null)
+  const [detailLoading, setDetailLoading] = useState<boolean>(false)
+  const [actionLoading, setActionLoading] = useState<boolean>(false)
+  const [sendResult, setSendResult] = useState<Array<{ partyEmail: string; otp: string; signingLink: string }> | null>(null)
+  const [signingParty, setSigningParty] = useState<{ name: string; email: string } | null>(null)
 
   // Fetch business ID on mount
   useEffect(() => {
@@ -1082,14 +1419,16 @@ export default function AgreementsPage() {
 
   // Filtered agreements
   const filteredAgreements =
-    activeTab === 'ALL' ? agreements : agreements.filter((a) => a.status === activeTab)
+    activeTab === 'ALL' ? agreements : agreements.filter((a: Agreement) => a.status === activeTab)
 
   // Stats
   const stats = {
     total: agreements.length,
-    draft: agreements.filter((a) => a.status === 'DRAFT').length,
-    sent: agreements.filter((a) => a.status === 'SENT').length,
-    signed: agreements.filter((a) => a.status === 'SIGNED').length,
+    draft: agreements.filter((a: Agreement) => a.status === 'DRAFT').length,
+    sent: agreements.filter((a: Agreement) =>
+      ['PENDING_SIGNATURE', 'PARTIALLY_SIGNED'].includes(a.status)
+    ).length,
+    signed: agreements.filter((a: Agreement) => a.status === 'FULLY_SIGNED').length,
   }
 
   // ── Wizard helpers ──
@@ -1107,16 +1446,16 @@ export default function AgreementsPage() {
 
   function handleSelectType(type: AgreementType) {
     setSelectedType(type)
-    setFormData((prev) => ({ ...prev, content: AGREEMENT_TEMPLATES[type] }))
+    setFormData((prev: FormData) => ({ ...prev, content: AGREEMENT_TEMPLATES[type] }))
     setStep(2)
   }
 
   function handleFormChange(field: keyof FormData, value: string) {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev: FormData) => ({ ...prev, [field]: value }))
   }
 
   function handlePartyChange(index: number, field: keyof Party, value: string) {
-    setFormData((prev) => {
+    setFormData((prev: FormData) => {
       const parties = [...prev.parties]
       parties[index] = { ...parties[index], [field]: value }
       return { ...prev, parties }
@@ -1124,25 +1463,25 @@ export default function AgreementsPage() {
   }
 
   function addParty() {
-    setFormData((prev) => ({
+    setFormData((prev: FormData) => ({
       ...prev,
       parties: [...prev.parties, { ...DEFAULT_PARTY }],
     }))
   }
 
   function removeParty(index: number) {
-    setFormData((prev) => ({
+    setFormData((prev: FormData) => ({
       ...prev,
-      parties: prev.parties.filter((_, i) => i !== index),
+      parties: prev.parties.filter((_: Party, i: number) => i !== index),
     }))
   }
 
   function goNext() {
-    setStep((prev) => Math.min(prev + 1, 4) as 1 | 2 | 3 | 4)
+    setStep((prev: 1 | 2 | 3 | 4) => Math.min(prev + 1, 4) as 1 | 2 | 3 | 4)
   }
 
   function goBack() {
-    setStep((prev) => Math.max(prev - 1, 1) as 1 | 2 | 3 | 4)
+    setStep((prev: 1 | 2 | 3 | 4) => Math.max(prev - 1, 1) as 1 | 2 | 3 | 4)
   }
 
   async function handleSaveDraft() {
@@ -1153,10 +1492,10 @@ export default function AgreementsPage() {
         businessId,
         title:
           formData.title ||
-          `${TYPE_CONFIG[selectedType].label} — ${new Date().toLocaleDateString('en-IN')}`,
+          `${TYPE_CONFIG[selectedType as AgreementType].label} — ${new Date().toLocaleDateString('en-IN')}`,
         type: selectedType,
         status: 'DRAFT',
-        parties: formData.parties.filter((p) => p.name.trim()),
+        parties: formData.parties.filter((p: Party) => p.name.trim()),
         content: formData.content,
         governingLaw: formData.governingLaw,
         jurisdiction: formData.jurisdiction,
@@ -1170,7 +1509,7 @@ export default function AgreementsPage() {
       })
       if (!res.ok) throw new Error('Failed to save agreement')
       const created: Agreement = await res.json()
-      setAgreements((prev) => [created, ...prev])
+      setAgreements((prev: Agreement[]) => [created, ...prev])
       closeForm()
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Save failed')
@@ -1179,9 +1518,87 @@ export default function AgreementsPage() {
     }
   }
 
+  // ── Detail view / Send / Sign helpers ──
+
+  async function openDetail(agreementId: string) {
+    setDetailLoading(true)
+    setSendResult(null)
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}`)
+      const data = await res.json()
+      if (res.ok) {
+        setDetailAgreement(data.agreement)
+      } else {
+        alert(data.error || 'Failed to load agreement')
+      }
+    } catch {
+      alert('Failed to load agreement')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  function closeDetail() {
+    setDetailAgreement(null)
+    setSendResult(null)
+  }
+
+  async function refreshDetail(agreementId: string) {
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}`)
+      const data = await res.json()
+      if (res.ok) setDetailAgreement(data.agreement)
+    } catch {
+      // ignore — non-critical refresh
+    }
+  }
+
+  async function handleSendForSigning(agreementId: string) {
+    if (!confirm('Send this agreement to all parties for signing?')) return
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}/send`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setSendResult(data.signingLinks)
+        setAgreements((prev: Agreement[]) =>
+          prev.map((a: Agreement) => (a._id === agreementId ? { ...a, status: 'PENDING_SIGNATURE' as AgreementStatus } : a))
+        )
+        await refreshDetail(agreementId)
+      } else {
+        alert(data.error || 'Failed to send agreement')
+      }
+    } catch {
+      alert('Failed to send agreement')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleCancelAgreement(agreementId: string) {
+    if (!confirm('Are you sure you want to cancel this agreement?')) return
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/agreements/${agreementId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setAgreements((prev: Agreement[]) =>
+          prev.map((a: Agreement) => (a._id === agreementId ? { ...a, status: 'CANCELLED' as AgreementStatus } : a))
+        )
+        await refreshDetail(agreementId)
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to cancel agreement')
+      }
+    } catch {
+      alert('Failed to cancel agreement')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   // ── Sub-components ──
 
-  const typeConfig = selectedType ? TYPE_CONFIG[selectedType] : null
+  const typeConfig = selectedType ? TYPE_CONFIG[selectedType as AgreementType] : null
 
   function StepIndicator() {
     const steps = ['Choose Type', 'Details', 'Review Content', 'Preview']
@@ -1266,7 +1683,7 @@ export default function AgreementsPage() {
 
         {/* ── Tab Bar ── */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-          {(['ALL', 'DRAFT', 'SENT', 'SIGNED', 'EXPIRED'] as const).map((tab) => (
+          {(['ALL', 'DRAFT', 'PENDING_SIGNATURE', 'PARTIALLY_SIGNED', 'FULLY_SIGNED', 'EXPIRED'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1276,7 +1693,7 @@ export default function AgreementsPage() {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
+              {tab === 'ALL' ? 'All' : STATUS_CONFIG[tab].label}
             </button>
           ))}
         </div>
@@ -1317,7 +1734,7 @@ export default function AgreementsPage() {
         ) : (
           /* ── Agreement Cards Grid ── */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAgreements.map((agreement) => {
+            {filteredAgreements.map((agreement: Agreement) => {
               const tc = TYPE_CONFIG[agreement.type]
               const sc = STATUS_CONFIG[agreement.status]
               return (
@@ -1353,7 +1770,7 @@ export default function AgreementsPage() {
                       <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                         Parties
                       </p>
-                      {agreement.parties.slice(0, 3).map((party, i) => (
+                      {agreement.parties.slice(0, 3).map((party: Party, i: number) => (
                         <div key={i} className="flex items-center gap-2">
                           <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-semibold text-indigo-700 flex-shrink-0">
                             {(party.name || '?').charAt(0).toUpperCase()}
@@ -1378,16 +1795,26 @@ export default function AgreementsPage() {
                   <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-auto">
                     <span className="text-xs text-gray-400">{formatDate(agreement.createdAt)}</span>
                     <div className="flex items-center gap-1">
-                      <button className="text-xs text-gray-600 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors">
+                      <button
+                        onClick={() => openDetail(agreement._id)}
+                        className="text-xs text-gray-600 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
+                      >
                         View
                       </button>
                       {agreement.status === 'DRAFT' && (
-                        <button className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">
+                        <button
+                          onClick={() => handleSendForSigning(agreement._id)}
+                          disabled={actionLoading}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50"
+                        >
                           Send
                         </button>
                       )}
-                      {(agreement.status === 'SENT' || agreement.status === 'PARTIALLY_SIGNED') && (
-                        <button className="text-xs text-green-600 hover:text-green-700 font-medium px-2 py-1 rounded hover:bg-green-50 transition-colors">
+                      {(agreement.status === 'PENDING_SIGNATURE' || agreement.status === 'PARTIALLY_SIGNED') && (
+                        <button
+                          onClick={() => openDetail(agreement._id)}
+                          className="text-xs text-green-600 hover:text-green-700 font-medium px-2 py-1 rounded hover:bg-green-50 transition-colors"
+                        >
                           Sign
                         </button>
                       )}
@@ -1479,7 +1906,7 @@ export default function AgreementsPage() {
                     <input
                       type="text"
                       value={formData.title}
-                      onChange={(e) => handleFormChange('title', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFormChange('title', e.target.value)}
                       placeholder={`e.g. NDA with Acme Corp — 2025`}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
@@ -1497,7 +1924,7 @@ export default function AgreementsPage() {
                       </button>
                     </div>
                     <div className="space-y-3">
-                      {formData.parties.map((party, index) => (
+                      {formData.parties.map((party: Party, index: number) => (
                         <div
                           key={index}
                           className="p-3 border border-gray-200 rounded-lg bg-gray-50 space-y-2"
@@ -1519,21 +1946,21 @@ export default function AgreementsPage() {
                             <input
                               type="text"
                               value={party.name}
-                              onChange={(e) => handlePartyChange(index, 'name', e.target.value)}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePartyChange(index, 'name', e.target.value)}
                               placeholder="Full name"
                               className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                             <input
                               type="email"
                               value={party.email}
-                              onChange={(e) => handlePartyChange(index, 'email', e.target.value)}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePartyChange(index, 'email', e.target.value)}
                               placeholder="Email address"
                               className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                             <input
                               type="text"
                               value={party.role}
-                              onChange={(e) => handlePartyChange(index, 'role', e.target.value)}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePartyChange(index, 'role', e.target.value)}
                               placeholder={`Role (e.g. Party ${index + 1})`}
                               className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
@@ -1551,7 +1978,7 @@ export default function AgreementsPage() {
                     <input
                       type="date"
                       value={formData.expiresAt}
-                      onChange={(e) => handleFormChange('expiresAt', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFormChange('expiresAt', e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
@@ -1564,7 +1991,7 @@ export default function AgreementsPage() {
                     <input
                       type="text"
                       value={formData.jurisdiction}
-                      onChange={(e) => handleFormChange('jurisdiction', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFormChange('jurisdiction', e.target.value)}
                       placeholder="e.g. Mumbai, Maharashtra"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
@@ -1578,7 +2005,7 @@ export default function AgreementsPage() {
                     <input
                       type="text"
                       value={formData.governingLaw}
-                      onChange={(e) => handleFormChange('governingLaw', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFormChange('governingLaw', e.target.value)}
                       placeholder="Laws of India"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
@@ -1591,7 +2018,7 @@ export default function AgreementsPage() {
                     </label>
                     <textarea
                       value={formData.notes}
-                      onChange={(e) => handleFormChange('notes', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleFormChange('notes', e.target.value)}
                       placeholder="Add any internal notes or context about this agreement..."
                       rows={3}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
@@ -1614,7 +2041,7 @@ export default function AgreementsPage() {
                   </div>
                   <textarea
                     value={formData.content}
-                    onChange={(e) => handleFormChange('content', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleFormChange('content', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
                     style={{ minHeight: '24rem' }}
                   />
@@ -1662,15 +2089,15 @@ export default function AgreementsPage() {
                     </div>
 
                     {/* Parties */}
-                    {formData.parties.filter((p) => p.name || p.email).length > 0 && (
+                    {formData.parties.filter((p: Party) => p.name || p.email).length > 0 && (
                       <div className="mb-6">
                         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">
                           Parties to this Agreement
                         </h3>
                         <div className="space-y-2">
                           {formData.parties
-                            .filter((p) => p.name || p.email)
-                            .map((party, i) => (
+                            .filter((p: Party) => p.name || p.email)
+                            .map((party: Party, i: number) => (
                               <div
                                 key={i}
                                 className="flex items-start gap-3 p-3 bg-gray-50 rounded-md"
@@ -1758,6 +2185,217 @@ export default function AgreementsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Detail / Send / Sign Panel ── */}
+      {(detailAgreement || detailLoading) && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={closeDetail} />
+
+          {/* Panel */}
+          <div className="w-full md:w-2/3 lg:w-1/2 bg-white flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-base font-semibold text-gray-900">
+                {detailAgreement ? detailAgreement.title : 'Loading...'}
+              </h2>
+              <button
+                onClick={closeDetail}
+                className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {detailLoading && !detailAgreement ? (
+                <div className="flex justify-center py-20">
+                  <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : detailAgreement ? (
+                (() => {
+                  const da: Agreement = detailAgreement
+                  return (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_CONFIG[da.type].color}`}
+                    >
+                      {TYPE_CONFIG[da.type].icon} {TYPE_CONFIG[da.type].label}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[da.status].color}`}
+                    >
+                      {STATUS_CONFIG[da.status].label}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      Created {formatDate(da.createdAt)}
+                      {da.expiresAt && ` · Expires ${formatDate(da.expiresAt)}`}
+                    </span>
+                  </div>
+
+                  {/* Send Result Banner */}
+                  {sendResult && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-yellow-800">
+                          Agreement Sent for Signing
+                        </h3>
+                        <button
+                          onClick={() => setSendResult(null)}
+                          className="text-yellow-500 hover:text-yellow-700 text-sm"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <p className="text-xs text-yellow-700 mb-3">
+                        Demo Mode: OTPs are shown below. In production, these would be sent via email only.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {sendResult.map((r: { partyEmail: string; otp: string; signingLink: string }) => (
+                          <div key={r.partyEmail} className="bg-white border border-yellow-200 rounded-md p-2">
+                            <p className="text-xs font-medium text-gray-800">{r.partyEmail}</p>
+                            <p className="text-xs text-gray-500">
+                              OTP: <span className="font-mono font-semibold">{r.otp}</span>
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Content */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                      Agreement Content
+                    </h3>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-80 overflow-y-auto">
+                      <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                        {da.content}
+                      </pre>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      <span className="font-medium text-gray-500">Governing Law:</span>{' '}
+                      {da.governingLaw} ·{' '}
+                      <span className="font-medium text-gray-500">Jurisdiction:</span>{' '}
+                      {da.jurisdiction || 'Not specified'}
+                    </p>
+                  </div>
+
+                  {/* Parties & Signatures */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                      Parties & Signatures
+                    </h3>
+                    <div className="space-y-2">
+                      {da.parties.map((party: Party, i: number) => {
+                        const sig = da.signatures?.find((s: Signature) => s.partyEmail === party.email)
+                        const hasSigned = !!sig?.signedAt
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{party.name}</p>
+                              <p className="text-xs text-gray-500">{party.email}</p>
+                              <p className="text-xs text-gray-400">{party.role}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              {hasSigned ? (
+                                <div>
+                                  <span className="text-xs text-green-600 font-medium">Signed</span>
+                                  <p className="text-xs text-gray-400">
+                                    {sig?.signedAt ? formatDate(sig.signedAt) : ''}
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-yellow-600 font-medium">Pending</span>
+                              )}
+                              {!hasSigned &&
+                                ['PENDING_SIGNATURE', 'PARTIALLY_SIGNED'].includes(da.status) && (
+                                  <button
+                                    onClick={() => setSigningParty({ name: party.name, email: party.email })}
+                                    className="mt-1 block text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                                  >
+                                    Sign Now
+                                  </button>
+                                )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-100">
+                    {da.status === 'DRAFT' && (
+                      <button
+                        onClick={() => handleSendForSigning(da._id)}
+                        disabled={actionLoading}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading ? 'Sending...' : 'Send for Signing'}
+                      </button>
+                    )}
+                    {!['FULLY_SIGNED', 'CANCELLED', 'EXPIRED'].includes(da.status) && (
+                      <button
+                        onClick={() => handleCancelAgreement(da._id)}
+                        disabled={actionLoading}
+                        className="text-sm font-medium text-red-600 hover:text-red-700 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading ? 'Cancelling...' : 'Cancel Agreement'}
+                      </button>
+                    )}
+                    {da.status === 'FULLY_SIGNED' && (
+                      <button
+                        onClick={() =>
+                          alert(
+                            'PDF download would be available in production with a PDF generation service.'
+                          )
+                        }
+                        className="text-sm font-medium text-green-600 hover:text-green-700 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
+                      >
+                        Download Signed PDF
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                    <p className="text-xs font-medium text-indigo-700 mb-1">Legal Notice</p>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      Electronic signatures on this agreement are valid under Section 5 of the
+                      Information Technology Act, 2000, and are admissible as evidence under the
+                      Indian Evidence Act, 1872.
+                    </p>
+                  </div>
+                </div>
+                  )
+                })()
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Signing Modal ── */}
+      {signingParty && detailAgreement && (
+        <SigningModal
+          partyName={signingParty.name}
+          partyEmail={signingParty.email}
+          agreementId={detailAgreement._id}
+          onClose={() => setSigningParty(null)}
+          onSigned={() => {
+            setSigningParty(null)
+            refreshDetail(detailAgreement._id)
+            setAgreements((prev: Agreement[]) =>
+              prev.map((a: Agreement) =>
+                a._id === detailAgreement._id ? { ...a, status: 'PARTIALLY_SIGNED' as AgreementStatus } : a
+              )
+            )
+          }}
+        />
       )}
     </div>
   )

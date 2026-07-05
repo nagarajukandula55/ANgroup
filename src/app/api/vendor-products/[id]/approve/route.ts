@@ -5,6 +5,7 @@ import VendorProduct from "@/models/VendorProduct";
 import Product from "@/models/Product";
 import ProductVariant from "@/models/ProductVariant";
 import { generateSEO } from "@/services/seo.service";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 function generateSKU(productCode: string, variantCode: string) {
   return `${productCode}-${variantCode}`.toUpperCase();
@@ -56,7 +57,14 @@ export async function POST(req: Request, context: any) {
     /* =========================================================
        🧱 CREATE PRODUCT
     ========================================================= */
-    const productCode = `PRD-${Date.now()}`;
+    // Was `PRD-${Date.now()}` — collision-prone under concurrent approvals
+    // and not admin-configurable. Now uses the canonical numbering engine
+    // (core/numbering/numberingService.ts), same as every other document
+    // type, scoped to this vendor product's business.
+    const { value: productCode } = await generateDocumentNumber(
+      String(vendorProduct.businessId),
+      "PRODUCT"
+    );
 
     const product = await Product.create({
       companyId: vendorProduct.businessId,
@@ -87,7 +95,11 @@ export async function POST(req: Request, context: any) {
     /* =========================================================
        🧱 CREATE VARIANT
     ========================================================= */
-    const variantCode = `VAR-${Date.now()}`;
+    // Was `VAR-${Date.now()}` — same fix as productCode above.
+    const { value: variantCode } = await generateDocumentNumber(
+      String(vendorProduct.businessId),
+      "PRODUCT_VARIANT"
+    );
 
     const variant = await ProductVariant.create({
       companyId: vendorProduct.businessId,

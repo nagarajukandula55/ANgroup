@@ -461,6 +461,20 @@ const BusinessSchema = new mongoose.Schema(
       default: "",
     },
 
+    // e-Invoice (INV-01) readiness: the official e-invoice schema requires
+    // the supplier's 2-digit GST state code (e.g. "27" for Maharashtra),
+    // which is a distinct enumerated value from the free-text `state` name
+    // above — added additively here, same pattern as SalesInvoice.ts's own
+    // e-invoice-readiness fields, so this business's data is ready to map
+    // into an IRN request once an actual IRP integration is built. See
+    // PROGRESS.md's GST section for the decision to target only the
+    // official government e-invoice path and hold off on wiring a live
+    // integration for now.
+    gstStateCode: {
+      type: String,
+      default: "",
+    },
+
     country: {
       type: String,
       default: "India",

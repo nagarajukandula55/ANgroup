@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Agreement from "@/models/Agreement";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
-async function getNextNumber(): Promise<string> {
-  const last = await Agreement.findOne({}, {}, { sort: { createdAt: -1 } }).lean() as any;
-  const lastNum = last?.agreementNumber ? parseInt(last.agreementNumber.split('-')[1] || '0') : 0;
-  return `AGR-${String(lastNum + 1).padStart(4, '0')}`;
-}
+/**
+ * REMOVED: a local getNextNumber() used to live here — a TENTH
+ * previously-undiscovered duplicate number generator, and the least
+ * business-scoped of any of them: it found the single globally-last
+ * Agreement across EVERY business on the platform (`findOne({}, ...)` —
+ * no businessId filter whatsoever), sorted by `createdAt` rather than by
+ * `agreementNumber` itself (so "last created" and "highest numbered"
+ * could disagree if agreements were ever created out of order or backdated),
+ * and derived the next number by string-splitting on "-" — fragile if the
+ * prefix format ever changed. Replaced with the canonical
+ * core/numbering/numberingService.ts, scoped per-business via the new
+ * AGREEMENT document type (see core/numbering/types.ts).
+ */
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +24,12 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ success: false, message: "Auth required" }, { status: 401 });
 
     const body = await req.json();
-    const number = await getNextNumber();
+
+    if (!body?.businessId) {
+      return NextResponse.json({ success: false, message: "businessId is required" }, { status: 400 });
+    }
+
+    const { value: number } = await generateDocumentNumber(body.businessId, "AGREEMENT");
 
     const agreement = await Agreement.create({
       ...body,

@@ -6,7 +6,11 @@ import { ProductService } from "./product.service";
 import { PricingService } from "./pricing.service";
 
 // import { validateCoupon } from "@/lib/coupon";
-import { getFinancialYear } from "@/lib/invoice/getFinancialYear";
+// Was @/lib/invoice/getFinancialYear — one of 3 duplicate FY calculators
+// consolidated during the numbering-engine cleanup (see
+// core/numbering/financialYear.ts). Same "2026-27" output format, safe
+// drop-in replacement.
+import { getFinancialYear } from "@/core/numbering/financialYear";
 
 /* =========================================================
    RAZORPAY

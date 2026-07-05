@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 import PurchaseOrder from "@/models/PurchaseOrder";
 import { Types } from "mongoose";
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    requirePermission(session as any, "purchase.view");
+    requirePermission(session as any, buildPermissionCode("purchase", "view"));
 
     const orders = await PurchaseOrder.find({
       businessId: new Types.ObjectId(session.business.businessId),
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    requirePermission(session as any, "purchase.create");
+    requirePermission(session as any, buildPermissionCode("purchase", "create"));
 
     const body = await req.json();
 

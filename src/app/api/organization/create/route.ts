@@ -9,6 +9,7 @@ import Counter from "@/models/Counter";
 
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 /* =========================================================
    ORGANIZATION CODE GENERATOR (AN0001)
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    requirePermission(session, "organization.create");
+    requirePermission(session, buildPermissionCode("businesses", "create"));
 
     const body = await req.json();
 

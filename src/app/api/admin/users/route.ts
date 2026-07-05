@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService';
 
 // Dynamic imports to avoid model recompilation
 async function getModels() {
@@ -138,9 +139,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate and create EmployeeProfile
+    // employeeId/vendorId are BOTH globally unique (see EmployeeProfile.ts
+    // and VendorProfile.ts) — this used to countDocuments() globally with
+    // 3-digit padding and a "EMP-"/"VEN-" prefix, a THIRD and FOURTH
+    // distinct format from the ones in employees/route.ts (4-digit "EMP-")
+    // and vendors/route.ts, vendors/apply/route.ts, auth/register/vendor
+    // /route.ts (which used "VND-", not "VEN-"). All were race-prone.
+    // Consolidated onto the canonical numbering engine's global-scope
+    // variant, using the same VENDOR/EMPLOYEE types (and therefore the
+    // same "VND-"/"EMP-" default prefixes and shared atomic counters) as
+    // every other vendor/employee creation path in the app.
     if (role === 'EMPLOYEE') {
-      const count = await EmployeeProfile.countDocuments();
-      const employeeId = `EMP-${String(count + 1).padStart(3, '0')}`;
+      const { value: employeeId } = await generateGlobalDocumentNumber('EMPLOYEE', businessId || null);
       await EmployeeProfile.create({
         userId: user._id,
         businessId: businessId || new mongoose.Types.ObjectId(),
@@ -151,8 +161,7 @@ export async function POST(request: NextRequest) {
 
     // Generate and create VendorProfile
     if (role === 'VENDOR') {
-      const count = await VendorProfile.countDocuments();
-      const vendorId = `VEN-${String(count + 1).padStart(3, '0')}`;
+      const { value: vendorId } = await generateGlobalDocumentNumber('VENDOR', businessId || null);
       await VendorProfile.create({
         userId: user._id,
         businessId: businessId || new mongoose.Types.ObjectId(),

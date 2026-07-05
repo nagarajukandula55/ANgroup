@@ -1,22 +1,22 @@
 import mongoose, { Schema, Model, Document } from "mongoose";
+import { DOCUMENT_TYPES, type DocumentType } from "@/core/numbering/types";
 
 /* =========================================================
  * SUPPORTED DOCUMENT TYPES
+ *
+ * Re-exported from core/numbering/types.ts (the single canonical list,
+ * built during the numbering-engine consolidation — see that file's top
+ * comment) rather than declared separately here. This used to be its own
+ * independent list of 10 types; core/numbering/types.ts's list is a
+ * superset (adds PRODUCT, PRODUCT_VARIANT, VENDOR_PRODUCT,
+ * STOCK_ADJUSTMENT, STOCK_TRANSFER, BATCH, CUSTOMER_ORDER, RECEIPT — types
+ * that generate real documents elsewhere in the app but weren't
+ * admin-configurable before this consolidation). Re-exporting instead of
+ * duplicating means the admin UI (Settings > Document Numbers), this
+ * model, and the numbering engine can never drift out of sync again.
  * =======================================================*/
-export const DOCUMENT_TYPES = [
-  "INVOICE",
-  "SALES_ORDER",
-  "PURCHASE_ORDER",
-  "GRN",
-  "CREDIT_NOTE",
-  "DEBIT_NOTE",
-  "QUOTATION",
-  "DELIVERY_CHALLAN",
-  "PAYMENT_RECEIPT",
-  "PRODUCTION_ORDER",
-] as const;
-
-export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+export { DOCUMENT_TYPES };
+export type { DocumentType };
 
 /* =========================================================
  * DOCUMENT

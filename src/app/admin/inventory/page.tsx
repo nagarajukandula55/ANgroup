@@ -12,6 +12,7 @@ import {
   DollarSign,
   Search,
   ArrowRight,
+  ArrowUpDown,
 } from 'lucide-react'
 
 interface InventoryItem {
@@ -24,6 +25,10 @@ interface InventoryItem {
   reorderLevel?: number
   basePrice?: number
   status?: string
+  // Needed to post stock movements against the real /api/inventory/movements
+  // contract, which requires materialId + warehouseId (not just an item id).
+  materialId?: string
+  warehouseId?: string
 }
 
 const fmt = (n: number) =>
@@ -44,6 +49,22 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
+
+  // --- Stock adjustment state -------------------------------------------
+  // This whole feature (adjust modal + POST to /api/inventory/movements)
+  // used to live only in the orphaned src/app/inventory/page.tsx, a
+  // duplicate of this page that was never linked from the sidebar. Rather
+  // than leave that functionality stranded in dead code, it's consolidated
+  // here into the live page so stock can actually be adjusted from the UI
+  // that people can reach. The businessId it needs is resolved the same
+  // way the rest of this page already does (via /api/auth/me), not via
+  // localStorage like the orphaned version did.
+  const [adjustModal, setAdjustModal] = useState<InventoryItem | null>(null)
+  const [adjustQty, setAdjustQty] = useState(0)
+  const [adjustNote, setAdjustNote] = useState('')
+  const [adjustSaving, setAdjustSaving] = useState(false)
+  const [adjustError, setAdjustError] = useState<string | null>(null)
+  const [businessId, setBusinessId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchItems()
@@ -75,6 +96,11 @@ export default function InventoryPage() {
         return
       }
 
+      // Keep businessId around in state so the stock-adjustment modal
+      // (merged in below) can include it on movement POSTs without
+      // re-resolving it from /api/auth/me every time.
+      setBusinessId(businessId)
+
       const res = await fetch(`/api/inventory/items?businessId=${businessId}`, {
         headers: { 'x-active-business-id': businessId },
       })
@@ -92,7 +118,54 @@ export default function InventoryPage() {
     }
   }
 
-  const categories = ['ALL', ...Array.from(new Set(items.map((i) => i.category ?? 'Uncategorized').filter(Boolean)))]
+  // Posts a stock movement (IN/OUT) for the item currently open in the
+  // adjust modal, then refreshes the list so the new quantity is reflected.
+  // /api/inventory/movements requires materialId + warehouseId + type +
+  // quantity — the orphaned page only ever sent an itemId, which that
+  // route doesn't even accept, so this now uses the real contract.
+  async function adjustStock() {
+    if (!adjustModal) return
+    if (!adjustModal.materialId || !adjustModal.warehouseId) {
+      setAdjustError('This item is missing material/warehouse info and cannot be adjusted')
+      return
+    }
+    if (!businessId) {
+      setAdjustError('No active business selected')
+      return
+    }
+
+    setAdjustSaving(true)
+    setAdjustError(null)
+    try {
+      const res = await fetch('/api/inventory/movements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-active-business-id': businessId },
+        body: JSON.stringify({
+          materialId: adjustModal.materialId,
+          warehouseId: adjustModal.warehouseId,
+          type: adjustQty >= 0 ? 'IN' : 'OUT',
+          quantity: Math.abs(adjustQty),
+          notes: adjustNote,
+          businessId,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setAdjustModal(null)
+        setAdjustQty(0)
+        setAdjustNote('')
+        await fetchItems()
+      } else {
+        setAdjustError(data.error || 'Failed to adjust stock')
+      }
+    } catch {
+      setAdjustError('Failed to connect')
+    } finally {
+      setAdjustSaving(false)
+    }
+  }
+
+  const categories =['ALL', ...Array.from(new Set(items.map((i) => i.category ?? 'Uncategorized').filter(Boolean)))]
 
   const filtered = items.filter((item) => {
     const matchSearch =
@@ -237,7 +310,21 @@ export default function InventoryPage() {
                       <td className="px-6 py-3 font-medium text-gray-900">{item.name}</td>
                       <td className="px-6 py-3 text-gray-400 font-mono text-xs">{item.sku ?? '—'}</td>
                       <td className="px-6 py-3 text-gray-500">{item.category ?? '—'}</td>
-                      <td className="px-6 py-3 text-right text-gray-900">{item.quantity ?? 0}</td>
+                      <td className="px-6 py-3 text-right text-gray-900">
+                        <button
+                          onClick={() => {
+                            setAdjustModal(item)
+                            setAdjustQty(0)
+                            setAdjustNote('')
+                            setAdjustError(null)
+                          }}
+                          className="flex items-center gap-1.5 justify-end w-full hover:text-gray-600 transition"
+                          title="Adjust stock"
+                        >
+                          {item.quantity ?? 0}
+                          <ArrowUpDown className="w-3 h-3 text-gray-400" />
+                        </button>
+                      </td>
                       <td className="px-6 py-3 text-gray-500">{item.unit ?? '—'}</td>
                       <td className="px-6 py-3 text-right text-gray-400">{item.reorderLevel ?? 0}</td>
                       <td className="px-6 py-3 text-center">
@@ -253,6 +340,75 @@ export default function InventoryPage() {
           </table>
         </div>
       </div>
+
+      {/* Stock adjustment modal — this is the UI half of the movement-posting
+          feature merged in from the orphaned src/app/inventory/page.tsx. The
+          state (adjustModal/adjustQty/adjustNote) and the adjustStock() POST
+          to /api/inventory/movements already existed above; without this
+          modal there was no way to actually open/submit an adjustment, so
+          clicking the quantity in the table did nothing. */}
+      {adjustModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+          <div className="w-full max-w-sm bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+            <h2 className="text-gray-900 font-semibold flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4" /> Adjust Stock
+            </h2>
+            <p className="text-sm text-gray-500">
+              {adjustModal.name} · Current:{' '}
+              <strong className="text-gray-900">
+                {adjustModal.quantity} {adjustModal.unit ?? ''}
+              </strong>
+            </p>
+
+            {adjustError && (
+              <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                {adjustError}
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Adjustment (+/-)</label>
+              <input
+                type="number"
+                value={adjustQty}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAdjustQty(parseFloat(e.target.value) || 0)}
+                placeholder="+50 to add, -10 to remove"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                New total: {Math.max(0, (adjustModal.quantity ?? 0) + adjustQty)} {adjustModal.unit ?? ''}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Reason / Note</label>
+              <input
+                value={adjustNote}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAdjustNote(e.target.value)}
+                placeholder="Purchase, damage, return..."
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setAdjustModal(null)}
+                disabled={adjustSaving}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={adjustStock}
+                disabled={adjustQty === 0 || adjustSaving}
+                className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                {adjustSaving ? 'Saving...' : 'Apply'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

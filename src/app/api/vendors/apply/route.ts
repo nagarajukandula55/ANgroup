@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import Business from "@/models/Business";
 import { Types } from "mongoose";
+import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 
 /**
  * POST /api/vendors/apply — PUBLIC vendor application.
@@ -86,8 +87,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const count = await VendorProfile.countDocuments();
-    const vendorId = `VND-${String(count + 1).padStart(4, "0")}`;
+    // vendorId is globally unique (see VendorProfile.ts) — was
+    // countDocuments()-based (race-prone; two of the three vendor-ID
+    // generators found across this codebase used this exact pattern with
+    // different padding, see vendors/route.ts's comment for the full
+    // history). Now uses the canonical numbering engine's global-scope
+    // variant, same as vendors/route.ts, so vendor IDs created via either
+    // path share the same atomic counter and never collide.
+    const { value: vendorId } = await generateGlobalDocumentNumber("VENDOR", businessId);
 
     const vendor = await VendorProfile.create({
       businessId: new Types.ObjectId(businessId),

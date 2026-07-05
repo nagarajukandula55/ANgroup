@@ -1,9 +1,16 @@
 import SalesInvoice from "@/models/SalesInvoice";
 import { stockOut } from "@/services/stock.service";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
-function generateInvoiceNumber() {
-  return "INV-" + Date.now();
-}
+/**
+ * REMOVED: a private `generateInvoiceNumber() { return "INV-" + Date.now() }`
+ * used to live here — unsafe (Date.now() can collide under concurrent
+ * requests within the same millisecond) and completely bypassed the
+ * admin-configurable numbering format in Settings > Document Numbers. Now
+ * calls the canonical core/numbering/numberingService.ts, same as every
+ * other document type. See core/numbering/types.ts for the full
+ * consolidation writeup.
+ */
 
 /* =========================================================
 🔥 CREATE SALES INVOICE (CORE FLOW)
@@ -21,6 +28,10 @@ export async function createSalesInvoice(payload: any) {
     throw new Error("Items required");
   }
 
+  if (!businessId) {
+    throw new Error("businessId is required");
+  }
+
   /* ================= CALCULATE TOTAL ================= */
   let totalAmount = 0;
 
@@ -29,9 +40,12 @@ export async function createSalesInvoice(payload: any) {
     totalAmount += item.total;
   }
 
+  /* ================= GENERATE INVOICE NUMBER ================= */
+  const { value: invoiceNumber } = await generateDocumentNumber(businessId, "INVOICE");
+
   /* ================= CREATE INVOICE ================= */
   const invoice = await SalesInvoice.create({
-    invoiceNumber: generateInvoiceNumber(),
+    invoiceNumber,
     businessId,
     customerName,
     items,

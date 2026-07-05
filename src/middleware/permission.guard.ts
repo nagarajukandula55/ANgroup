@@ -1,6 +1,28 @@
 import { IAuthSession } from "@/lib/auth/session";
 
 /**
+ * CONVENTION MIGRATION — RESOLVED: every live requirePermission()/
+ * requireAnyPermission() call site (11 total, across finance/audit/
+ * logistics/inventory/purchase/organization/dashboard/analytics routes) has
+ * been migrated to call core/access/actions.ts's buildPermissionCode()
+ * instead of hand-typing lowercase-dot strings like "dashboard.view". That
+ * function is the ONE place the "MODULEKEY.ACTIONKEY" naming convention is
+ * defined, so every call site now derives its code from the same source the
+ * module-registry/permission-sync system uses to generate grantable
+ * permissions — no more drift between what a route checks for and what a
+ * seeded module actually grants.
+ *
+ * hasPermission() below still normalizes case before comparing. This is now
+ * pure defense-in-depth (tolerates any stray mixed-case permission code that
+ * might exist in older stored session/role data) rather than a load-bearing
+ * bridge between two live conventions — there is only one convention now.
+ */
+function hasPermission(session: IAuthSession, permission: string): boolean {
+  const wanted = permission.toUpperCase();
+  return session.permissions.some((p: string) => p.toUpperCase() === wanted);
+}
+
+/**
  * Generic permission guard for API routes
  */
 export function requirePermission(
@@ -13,7 +35,7 @@ export function requirePermission(
     throw error;
   }
 
-  if (!session.permissions.includes(permission)) {
+  if (!hasPermission(session, permission)) {
     const error = new Error(
       `Forbidden: Missing permission -> ${permission}`
     );
@@ -35,9 +57,7 @@ export function requireAnyPermission(
     throw error;
   }
 
-  const ok = permissions.some((p) =>
-    session.permissions.includes(p)
-  );
+  const ok = permissions.some((p) => hasPermission(session, p));
 
   if (!ok) {
     const error = new Error(

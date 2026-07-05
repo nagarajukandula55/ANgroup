@@ -1,18 +1,56 @@
 /**
  * SalesInvoice — canonical model for sales invoices.
  *
- * Previously this schema was defined inline in 4 separate API route files:
- *   - src/app/api/sales/invoices/route.ts
- *   - src/app/api/sales/invoices/[id]/route.ts
- *   - src/app/api/sales/invoices/[id]/share/route.ts
- *   - src/app/api/sales/invoices/[id]/mark-paid/route.ts
+ * This schema used to be defined inline, separately, in BOTH
+ * src/app/api/sales/invoices/route.ts and
+ * src/app/api/sales/invoices/[id]/route.ts (the only 2 route files under
+ * that path that actually exist — an earlier version of this comment
+ * claimed 4, including a [id]/share/route.ts and [id]/mark-paid/route.ts
+ * that don't exist in this codebase; corrected here). Both used
+ * `mongoose.models.SalesInvoice || mongoose.model("SalesInvoice", InvoiceSchema)`,
+ * which prevented Mongoose's OverwriteModelError but meant whichever route
+ * loaded first silently won the model registration for the whole app —
+ * the other file's schema definition was dead weight while still looking
+ * like it controlled its own data shape.
  *
- * All four used `mongoose.models.SalesInvoice || mongoose.model("SalesInvoice", InvoiceSchema)`,
- * which prevented Mongoose OverwriteModelError during hot-reload but duplicated schema
- * definitions across files. This central file is the single source of truth.
+ * IMPORTANT: the two inline copies weren't just textually duplicated —
+ * app/api/sales/invoices/route.ts's version had a materially DIFFERENT
+ * shape: a full India-GST split (supplyType, placeOfSupply, per-item
+ * hsnCode/cgstRate/cgstAmount/sgstRate/sgstAmount/igstRate/igstAmount, and
+ * invoice-level cgstTotal/sgstTotal/igstTotal), none of which existed on
+ * this canonical model's original flat taxTotal-only shape. Simply
+ * pointing that route at this file without extending it first would have
+ * silently dropped GST-breakdown data on every future invoice — a real
+ * data-loss risk, not just a style cleanup. All the GST-specific fields
+ * below were added (as optional, additive fields) specifically to make
+ * that route's actual data shape a strict subset of this schema before
+ * switching it over — see the tax-split fields marked "GST breakdown"
+ * below. Both routes now import this file instead of declaring their own
+ * copy — this really is the single source of truth now, not just
+ * documented as one.
  *
  * API routes can import this model via:
  *   import SalesInvoice from "@/models/SalesInvoice";
+ *
+ * ── e-Invoice (IRN) readiness ─────────────────────────────────────────
+ * Per explicit user decision: target ONLY the official government e-invoice
+ * (IRN) system for now — the free, government-authorized Invoice
+ * Registration Portal APIs (see PROGRESS.md's GST section for the research
+ * on NIC vs. IRIS/Clear IRP and turnover eligibility) — and hold off on
+ * wiring an actual IRP integration until that's revisited. This model was
+ * extended additively with every mandatory field the official e-invoice
+ * schema (FORM GST INV-01) requires that this schema didn't already have,
+ * so invoice data is READY to be mapped into an IRN request the moment
+ * that integration is built — no schema migration needed at that point.
+ * Nothing here calls any IRP; this is purely data-shape preparation.
+ * New fields: documentTypeCode, isService (invoice-level); recipient
+ * address/state code (needed for place-of-supply on the e-invoice JSON,
+ * distinct from the free-text `customer.address` already present);
+ * assessableValue (per item — INV-01's term for taxable value after
+ * discount, distinct from the pre-discount `total` this schema already
+ * tracks); and the post-filing response fields (irn, ackNumber, ackDate,
+ * signedQrCode, einvoiceStatus) that will hold the IRP's response once
+ * that integration exists.
  */
 
 import mongoose, { Schema, Model, Document } from "mongoose";
@@ -25,6 +63,19 @@ export interface ISalesInvoiceItem {
   taxRate: number;
   taxAmount: number;
   total: number;
+  // ── GST breakdown (optional — only populated by the India-GST-aware
+  // creation path in app/api/sales/invoices/route.ts; other callers can
+  // leave these unset and rely on taxRate/taxAmount alone) ──────────────
+  hsnCode?: string;
+  cgstRate?: number;
+  cgstAmount?: number;
+  sgstRate?: number;
+  sgstAmount?: number;
+  igstRate?: number;
+  igstAmount?: number;
+  // ── e-Invoice (INV-01) readiness — see this file's top comment ────────
+  /** INV-01's "Assessable Value": taxable value for this line after discount, before tax. */
+  assessableValue?: number;
 }
 
 export interface ISalesInvoice extends Document {
@@ -41,6 +92,11 @@ export interface ISalesInvoice extends Document {
     phone?: string;
     address?: string;
     gstin?: string;
+    // ── e-Invoice (INV-01) readiness — see this file's top comment ──────
+    /** Recipient's 2-digit GST state code, e.g. "27" for Maharashtra — distinct from the free-text `state` name. */
+    stateCode?: string;
+    state?: string;
+    pincode?: string;
   };
   items: ISalesInvoiceItem[];
   subtotal: number;
@@ -59,6 +115,23 @@ export interface ISalesInvoice extends Document {
   paidAmount?: number;
   paymentMethod?: string;
   paymentRef?: string;
+  // ── GST breakdown (optional — see ISalesInvoiceItem's comment above) ──
+  supplyType?: "INTRASTATE" | "INTERSTATE";
+  placeOfSupply?: string;
+  cgstTotal?: number;
+  sgstTotal?: number;
+  igstTotal?: number;
+  // ── e-Invoice (INV-01) readiness — see this file's top comment ────────
+  /** INV-01's Document Type Code: INV (regular), CRN (credit note), DBN (debit note). */
+  documentTypeCode?: "INV" | "CRN" | "DBN";
+  /** INV-01's Is_Service flag — whether this invoice is for a service rather than goods. */
+  isService?: boolean;
+  /** Populated once a real IRP integration files this invoice and returns a response. All undefined until then. */
+  irn?: string;
+  ackNumber?: string;
+  ackDate?: Date;
+  signedQrCode?: string;
+  einvoiceStatus?: "NOT_FILED" | "PENDING" | "FILED" | "FAILED" | "CANCELLED";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,6 +156,10 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
       phone: { type: String },
       address: { type: String },
       gstin: { type: String },
+      // e-Invoice (INV-01) readiness — see this file's top comment
+      stateCode: { type: String },
+      state: { type: String },
+      pincode: { type: String },
     },
 
     items: [
@@ -94,6 +171,16 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
         taxRate: { type: Number, default: 0 },
         taxAmount: { type: Number, default: 0 },
         total: { type: Number, default: 0 },
+        // GST breakdown — optional, see ISalesInvoiceItem's comment above
+        hsnCode: { type: String, default: "" },
+        cgstRate: { type: Number, default: 0 },
+        cgstAmount: { type: Number, default: 0 },
+        sgstRate: { type: Number, default: 0 },
+        sgstAmount: { type: Number, default: 0 },
+        igstRate: { type: Number, default: 0 },
+        igstAmount: { type: Number, default: 0 },
+        // e-Invoice (INV-01) readiness — see this file's top comment
+        assessableValue: { type: Number, default: 0 },
       },
     ],
 
@@ -121,6 +208,26 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
     paidAmount: { type: Number, default: 0 },
     paymentMethod: { type: String },
     paymentRef: { type: String },
+
+    // ── GST breakdown (optional) ──────────────────────────────────────
+    supplyType: { type: String, enum: ["INTRASTATE", "INTERSTATE"], default: "INTRASTATE" },
+    placeOfSupply: { type: String },
+    cgstTotal: { type: Number, default: 0 },
+    sgstTotal: { type: Number, default: 0 },
+    igstTotal: { type: Number, default: 0 },
+
+    // ── e-Invoice (INV-01) readiness (see this file's top comment) ─────
+    documentTypeCode: { type: String, enum: ["INV", "CRN", "DBN"], default: "INV" },
+    isService: { type: Boolean, default: false },
+    irn: { type: String, sparse: true, index: true },
+    ackNumber: { type: String },
+    ackDate: { type: Date },
+    signedQrCode: { type: String },
+    einvoiceStatus: {
+      type: String,
+      enum: ["NOT_FILED", "PENDING", "FILED", "FAILED", "CANCELLED"],
+      default: "NOT_FILED",
+    },
   },
   { timestamps: true }
 );

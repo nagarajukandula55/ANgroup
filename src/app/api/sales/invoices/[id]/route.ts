@@ -1,26 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
-import mongoose from "mongoose";
-import crypto from "crypto";
-
-const InvoiceSchema = new mongoose.Schema(
-  {
-    invoiceNumber: String,
-    businessId: mongoose.Schema.Types.ObjectId,
-    createdBy: mongoose.Schema.Types.ObjectId,
-    customer: { name: String, email: String, phone: String, address: String, gstin: String },
-    items: [{ description: String, quantity: Number, unit: String, unitPrice: Number, taxRate: Number, taxAmount: Number, total: Number }],
-    subtotal: Number, taxTotal: Number, discountAmount: Number, grandTotal: Number,
-    currency: String, notes: String, terms: String, dueDate: Date, issueDate: Date,
-    status: { type: String, enum: ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"], default: "DRAFT" },
-    shareToken: String, shareExpiry: Date,
-    paidAt: Date, paidAmount: Number, paymentMethod: String, paymentRef: String,
-  },
-  { timestamps: true }
-);
-
-const SalesInvoice = mongoose.models.SalesInvoice || mongoose.model("SalesInvoice", InvoiceSchema);
+// Was a locally-declared inline SalesInvoice schema (near-identical to, but
+// missing invoiceType/vendorId/sourceOrderId from, models/SalesInvoice.ts).
+// Mongoose registers models globally by name, so whichever of the 4 route
+// files defining "SalesInvoice" happened to load first silently won for
+// the whole app — the other 3 definitions became dead weight while still
+// creating the false impression each route controlled its own schema. Now
+// imports the single canonical model, matching what models/SalesInvoice.ts's
+// own top comment already (incorrectly, until now) claimed was already true.
+import SalesInvoice from "@/models/SalesInvoice";
 
 /* ── GET single invoice ──────────────────────────────────── */
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {

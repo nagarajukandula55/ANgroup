@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 import InventoryItem from "@/models/InventoryItem";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    requirePermission(session, "inventory.view");
+    requirePermission(session, buildPermissionCode("inventory", "view"));
 
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    requirePermission(session, "inventory.manage");
+    requirePermission(session, buildPermissionCode("inventory", "edit"));
 
     const body = await req.json();
 

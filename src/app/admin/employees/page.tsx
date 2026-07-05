@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -12,18 +12,43 @@ import {
   UserMinus,
   Calendar,
   Search,
+  Edit2,
+  Eye,
+  Trash2,
+  Phone,
+  Mail,
+  Briefcase,
+  IndianRupee,
+  AlertCircle,
 } from 'lucide-react'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+// Employee shape mirrors src/models/Employee.ts (the model actually backing
+// GET/POST /api/employees) — note this is a flat name/email/phone record,
+// NOT the separate EmployeeProfile/userId-populated model used by some
+// other UI attempts. We keep userId optional/loose here because the API
+// can return either a populated user object or a raw id/undefined.
+interface UserRef {
+  _id: string
+  name: string
+  email: string
+  phone?: string
+}
 
 interface Employee {
   _id: string
   employeeId?: string
   userId?: { name: string; email: string } | string
+  name?: string
+  email?: string
+  phone?: string
   department?: string
   designation?: string
   employmentType?: string
   status?: string
   joiningDate?: string
   salary?: number
+  emergencyContact?: { name?: string; phone?: string; relation?: string }
 }
 
 const statusColors: Record<string, string> = {
@@ -33,13 +58,27 @@ const statusColors: Record<string, string> = {
   TERMINATED: 'bg-red-500/20 text-red-400',
 }
 
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+const fmtDate = (d?: string) =>
+  d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
+const inr = (n: number) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
+
+// Employee name can come from a populated userId (legacy records created
+// through the old /employees flow) or from the flat name/email fields that
+// the current POST /api/employees route actually writes. Check both so
+// rows never render "Unknown" for employees created via the new form.
 function getEmpName(emp: Employee): string {
+  if (emp.name) return emp.name
   if (!emp.userId) return 'Unknown'
   if (typeof emp.userId === 'string') return emp.userId
   return emp.userId.name ?? emp.userId.email ?? 'Unknown'
+}
+
+function getEmpEmail(emp: Employee): string {
+  if (emp.email) return emp.email
+  if (emp.userId && typeof emp.userId !== 'string') return emp.userId.email ?? ''
+  return ''
 }
 
 export default function EmployeesPage() {
@@ -55,15 +94,74 @@ export default function EmployeesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  // View / edit / delete state — merged in from the orphaned root
+  // src/app/employees/page.tsx, which had a fuller CRUD flow than this
+  // page did. Kept as separate pieces of state (rather than one big modal
+  // union) to match this page's existing flat-state style.
+  const [viewEmployee, setViewEmployee] = useState<Employee | null>(null)
+  const [editEmployee, setEditEmployee] = useState<Employee | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const [form, setForm] = useState({
-    userId: '',
+    name: '',
+    email: '',
+    phone: '',
     department: '',
     designation: '',
     employmentType: 'FULL_TIME',
+    status: 'ACTIVE',
     joiningDate: '',
     salary: '',
   })
 
+  // User-search autocomplete, merged in from the root page. It calls
+  // /api/users?search=&limit=10 (admin-only endpoint) to look up an
+  // existing platform user so their name/email/phone can be prefilled
+  // into the employee form instead of retyped by hand. Selecting a user
+  // does NOT change the POST contract — /api/employees (Employee model)
+  // stores name/email/phone directly, it has no employeeUserId field —
+  // so this is purely a prefill convenience, not a foreign-key link.
+  const [userSearch, setUserSearch] = useState('')
+  const [userResults, setUserResults] = useState<UserRef[]>([])
+  const [userDropOpen, setUserDropOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserRef | null>(null)
+
+  const searchUsers = useCallback(async (q: string) => {
+    if (!q || q.length < 2) {
+      setUserResults([])
+      return
+    }
+    try {
+      const res = await fetch(`/api/users?search=${encodeURIComponent(q)}&limit=10`)
+      const d = await res.json()
+      if (d.success) setUserResults(d.users ?? [])
+    } catch {
+      setUserResults([])
+    }
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => searchUsers(userSearch), 300)
+    return () => clearTimeout(t)
+  }, [userSearch, searchUsers])
+
+  function pickUser(u: UserRef) {
+    setSelectedUser(u)
+    setUserDropOpen(false)
+    setUserSearch('')
+    // Prefill the flat fields the API actually persists.
+    setForm((p: typeof form) => ({ ...p, name: u.name ?? p.name, email: u.email ?? p.email, phone: u.phone ?? p.phone }))
+  }
+
+  function clearSelectedUser() {
+    setSelectedUser(null)
+    setUserSearch('')
+  }
+
+  // businessId resolution stays exactly as it was in this page — via
+  // /api/auth/me — so we don't introduce a second, competing mechanism
+  // (the root page used localStorage.getItem('businessId'), which is not
+  // this page's pattern and was deliberately NOT carried over).
   useEffect(() => {
     async function init() {
       try {
@@ -106,6 +204,21 @@ export default function EmployeesPage() {
     }
   }
 
+  function resetForm() {
+    setForm({
+      name: '',
+      email: '',
+      phone: '',
+      department: '',
+      designation: '',
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '',
+      salary: '',
+    })
+    clearSelectedUser()
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
@@ -114,14 +227,18 @@ export default function EmployeesPage() {
       const res = await fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, businessId, salary: parseFloat(form.salary) || 0 }),
+        body: JSON.stringify({
+          ...form,
+          businessId,
+          salary: parseFloat(form.salary) || 0,
+        }),
       })
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        throw new Error(d.message ?? 'Failed to add employee')
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || d.success === false) {
+        throw new Error(d.message ?? d.error ?? 'Failed to add employee')
       }
       setShowForm(false)
-      setForm({ userId: '', department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '', salary: '' })
+      resetForm()
       if (businessId) fetchEmployees(businessId)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
@@ -130,21 +247,97 @@ export default function EmployeesPage() {
     }
   }
 
+  // Edit flow, merged in from the root page's fuller CRUD. PATCHes
+  // /api/employees/[id]. Note: that route is backed by the EmployeeProfile
+  // model rather than the Employee model used by the list/create route —
+  // a pre-existing backend inconsistency, not something introduced here.
+  // It's still the only edit endpoint available, so we call it as-is;
+  // fixing that mismatch is a backend task outside this merge's scope.
+  const [editForm, setEditForm] = useState({
+    department: '',
+    designation: '',
+    employmentType: 'FULL_TIME',
+    status: 'ACTIVE',
+    joiningDate: '',
+    salary: '',
+  })
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  function openEdit(emp: Employee) {
+    setEditForm({
+      department: emp.department ?? '',
+      designation: emp.designation ?? '',
+      employmentType: emp.employmentType ?? 'FULL_TIME',
+      status: emp.status ?? 'ACTIVE',
+      joiningDate: emp.joiningDate ? emp.joiningDate.split('T')[0] : '',
+      salary: emp.salary?.toString() ?? '',
+    })
+    setEditError(null)
+    setEditEmployee(emp)
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editEmployee) return
+    setEditSubmitting(true)
+    setEditError(null)
+    try {
+      const res = await fetch(`/api/employees/${editEmployee._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          department: editForm.department || undefined,
+          designation: editForm.designation || undefined,
+          employmentType: editForm.employmentType,
+          joiningDate: editForm.joiningDate || undefined,
+          salary: editForm.salary || undefined,
+          status: editForm.status,
+        }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || d.success === false) {
+        throw new Error(d.error ?? 'Failed to save changes')
+      }
+      setEditEmployee(null)
+      if (businessId) fetchEmployees(businessId)
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setEditSubmitting(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Remove this employee profile?')) return
+    setDeletingId(id)
+    try {
+      await fetch(`/api/employees/${id}`, { method: 'DELETE' })
+      if (businessId) fetchEmployees(businessId)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const now = new Date()
   const total = employees.length
-  const active = employees.filter((e) => e.status === 'ACTIVE').length
-  const onLeave = employees.filter((e) => e.status === 'ON_LEAVE').length
-  const newThisMonth = employees.filter((e) => {
+  const active = employees.filter((e: Employee) => e.status === 'ACTIVE').length
+  const onLeave = employees.filter((e: Employee) => e.status === 'ON_LEAVE').length
+  const newThisMonth = employees.filter((e: Employee) => {
     if (!e.joiningDate) return false
     const d = new Date(e.joiningDate)
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   }).length
 
-  const departments = ['ALL', ...Array.from(new Set(employees.map((e) => e.department ?? '').filter(Boolean)))]
+  const departments: string[] = ['ALL', ...Array.from(new Set<string>(employees.map((e: Employee) => e.department ?? '').filter(Boolean)))]
 
-  const filtered = employees.filter((emp) => {
+  const filtered = employees.filter((emp: Employee) => {
     const name = getEmpName(emp).toLowerCase()
-    const matchSearch = !search || name.includes(search.toLowerCase()) || emp.employeeId?.toLowerCase().includes(search.toLowerCase())
+    const matchSearch =
+      !search ||
+      name.includes(search.toLowerCase()) ||
+      emp.employeeId?.toLowerCase().includes(search.toLowerCase()) ||
+      getEmpEmail(emp).toLowerCase().includes(search.toLowerCase())
     const matchDept = deptFilter === 'ALL' || emp.department === deptFilter
     const matchStatus = statusFilter === 'ALL' || emp.status === statusFilter
     return matchSearch && matchDept && matchStatus
@@ -231,16 +424,16 @@ export default function EmployeesPage() {
               type="text"
               placeholder="Search employees..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-white/20"
             />
           </div>
           <select
             value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setDeptFilter(e.target.value)}
             className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none"
           >
-            {departments.map((d) => (
+            {departments.map((d: string) => (
               <option key={d} value={d} className="bg-white">
                 {d === 'ALL' ? 'All Departments' : d}
               </option>
@@ -248,10 +441,10 @@ export default function EmployeesPage() {
           </select>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
             className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none"
           >
-            {['ALL', 'ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s) => (
+            {['ALL', 'ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s: string) => (
               <option key={s} value={s} className="bg-white">
                 {s === 'ALL' ? 'All Statuses' : s}
               </option>
@@ -270,17 +463,18 @@ export default function EmployeesPage() {
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Designation</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Type</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
+                <th className="text-right px-6 py-3 text-gray-400 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
                     No employees found
                   </td>
                 </tr>
               ) : (
-                filtered.map((emp) => (
+                filtered.map((emp: Employee) => (
                   <tr key={emp._id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-3 text-gray-400 font-mono text-xs">{emp.employeeId ?? emp._id.slice(-6)}</td>
                     <td className="px-6 py-3 font-medium text-gray-900">{getEmpName(emp)}</td>
@@ -291,6 +485,32 @@ export default function EmployeesPage() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[emp.status ?? ''] ?? 'bg-gray-100 text-gray-500'}`}>
                         {emp.status ?? 'UNKNOWN'}
                       </span>
+                    </td>
+                    <td className="px-6 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setViewEmployee(emp)}
+                          className="p-1.5 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition"
+                          title="View details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => openEdit(emp)}
+                          className="p-1.5 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(emp._id)}
+                          disabled={deletingId === emp._id}
+                          className="p-1.5 text-gray-500 hover:text-red-500 rounded-lg hover:bg-red-500/10 transition disabled:opacity-40"
+                          title="Remove"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -320,34 +540,150 @@ export default function EmployeesPage() {
                   {formError}
                 </div>
               )}
-              {([
-                { field: 'userId', label: 'User Email *', type: 'email', required: true, placeholder: 'employee@company.com' },
-                { field: 'department', label: 'Department *', type: 'text', required: true, placeholder: 'Engineering' },
-                { field: 'designation', label: 'Designation *', type: 'text', required: true, placeholder: 'Software Engineer' },
-                { field: 'joiningDate', label: 'Joining Date *', type: 'date', required: true, placeholder: '' },
-                { field: 'salary', label: 'Salary (₹)', type: 'number', required: false, placeholder: '50000' },
-              ] as const).map(({ field, label, type, required, placeholder }) => (
-                <div key={field}>
-                  <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
-                  <input
-                    type={type}
-                    required={required}
-                    placeholder={placeholder}
-                    value={form[field]}
-                    onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
-                  />
-                </div>
-              ))}
+
+              {/* User-search autocomplete: merged in from the orphaned root
+                  src/app/employees/page.tsx. Purely a lookup/prefill helper
+                  against /api/users — selecting a result fills name/email/
+                  phone below rather than sending a separate user reference,
+                  since the Employee model/POST route has no such field. */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Link Existing User (optional)</label>
+                {selectedUser ? (
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-xl">
+                    <div>
+                      <p className="text-sm text-gray-900">{selectedUser.name}</p>
+                      <p className="text-xs text-gray-500">{selectedUser.email}</p>
+                    </div>
+                    <button type="button" onClick={clearSelectedUser} className="text-gray-500 hover:text-gray-900">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={userSearch}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        setUserSearch(e.target.value)
+                        setUserDropOpen(true)
+                      }}
+                      onFocus={() => setUserDropOpen(true)}
+                      placeholder="Search by name or email…"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-white/20"
+                    />
+                    {userDropOpen && userResults.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xl">
+                        {userResults.map((u: UserRef) => (
+                          <button
+                            type="button"
+                            key={u._id}
+                            className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition"
+                            onClick={() => pickUser(u)}
+                          >
+                            <p className="text-sm text-gray-900">{u.name}</p>
+                            <p className="text-xs text-gray-500">{u.email}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Employee full name"
+                  value={form.name}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, name: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  placeholder="employee@company.com"
+                  value={form.email}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, email: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Phone</label>
+                <input
+                  type="text"
+                  placeholder="9876543210"
+                  value={form.phone}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, phone: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Department *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Engineering"
+                  value={form.department}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, department: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Designation *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Software Engineer"
+                  value={form.designation}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, designation: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Joining Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={form.joiningDate}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, joiningDate: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Salary (₹)</label>
+                <input
+                  type="number"
+                  placeholder="50000"
+                  value={form.salary}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, salary: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                />
+              </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Employment Type</label>
                 <select
                   value={form.employmentType}
-                  onChange={(e) => setForm((p) => ({ ...p, employmentType: e.target.value }))}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((p: typeof form) => ({ ...p, employmentType: e.target.value }))}
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                 >
-                  {['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t) => (
+                  {['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t: string) => (
                     <option key={t} value={t} className="bg-white">{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((p: typeof form) => ({ ...p, status: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                >
+                  {['ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s: string) => (
+                    <option key={s} value={s} className="bg-white">{s}</option>
                   ))}
                 </select>
               </div>
@@ -367,6 +703,166 @@ export default function EmployeesPage() {
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Add Employee
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View detail modal — merged in from the root page's ViewModal */}
+      {viewEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-gray-900">Employee Details</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    openEdit(viewEmployee)
+                    setViewEmployee(null)
+                  }}
+                  className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:text-gray-900 hover:border-gray-400 flex items-center gap-1.5"
+                >
+                  <Edit2 className="w-3 h-3" /> Edit
+                </button>
+                <button onClick={() => setViewEmployee(null)} className="text-gray-500 hover:text-gray-900">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="px-6 py-5 space-y-5 max-h-[75vh] overflow-y-auto">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-xl bg-gray-50 flex items-center justify-center text-xl font-bold text-gray-900">
+                  {getEmpName(viewEmployee)?.[0]?.toUpperCase() ?? '?'}
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-gray-900">{getEmpName(viewEmployee)}</p>
+                  <p className="text-sm text-gray-500">{viewEmployee.designation || '—'}</p>
+                  <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[viewEmployee.status ?? ''] ?? 'bg-gray-100 text-gray-500'}`}>
+                    {viewEmployee.status ?? 'UNKNOWN'}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { icon: <Briefcase className="w-3.5 h-3.5" />, label: 'Employee ID', value: viewEmployee.employeeId ?? '—' },
+                  { icon: <Users className="w-3.5 h-3.5" />, label: 'Department', value: viewEmployee.department || '—' },
+                  { icon: <Mail className="w-3.5 h-3.5" />, label: 'Email', value: getEmpEmail(viewEmployee) || '—' },
+                  { icon: <Phone className="w-3.5 h-3.5" />, label: 'Phone', value: viewEmployee.phone || '—' },
+                  { icon: <Calendar className="w-3.5 h-3.5" />, label: 'Joining Date', value: fmtDate(viewEmployee.joiningDate) },
+                  { icon: <IndianRupee className="w-3.5 h-3.5" />, label: 'Salary / Month', value: viewEmployee.salary ? inr(viewEmployee.salary) : '—' },
+                ].map((item, i) => (
+                  <div key={i} className="rounded-xl border border-gray-200 bg-white p-3">
+                    <div className="flex items-center gap-1.5 text-gray-500 mb-1">
+                      {item.icon}
+                      <span className="text-xs">{item.label}</span>
+                    </div>
+                    <p className="text-sm text-gray-900 font-medium truncate">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal — merged in from the root page's fuller edit flow.
+          PATCHes /api/employees/[id]; see comment above handleEditSubmit
+          about the pre-existing Employee/EmployeeProfile model mismatch. */}
+      {editEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-gray-900">Edit Employee</h2>
+              <button onClick={() => setEditEmployee(null)} className="text-gray-500 hover:text-gray-900">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {editError && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-700 text-xs">
+                  <AlertCircle className="w-3.5 h-3.5" /> {editError}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Department</label>
+                  <input
+                    value={editForm.department}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, department: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Designation</label>
+                  <input
+                    value={editForm.designation}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, designation: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Employment Type</label>
+                  <select
+                    value={editForm.employmentType}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setEditForm((p: typeof editForm) => ({ ...p, employmentType: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 outline-none"
+                  >
+                    {['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t: string) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setEditForm((p: typeof editForm) => ({ ...p, status: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 outline-none"
+                  >
+                    {['ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s: string) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Joining Date</label>
+                  <input
+                    type="date"
+                    value={editForm.joiningDate}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, joiningDate: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Monthly Salary (₹)</label>
+                  <input
+                    type="number"
+                    value={editForm.salary}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, salary: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
+                  />
+                </div>
+              </div>
+            </form>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setEditEmployee(null)}
+                className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                disabled={editSubmitting}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                {editSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save Changes
               </button>
             </div>
           </div>

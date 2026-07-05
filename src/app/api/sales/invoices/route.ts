@@ -3,78 +3,48 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import mongoose from "mongoose";
 import { notify } from "@/lib/notify";
-
-/* ── Inline schema — GST-compliant ───────────────────────────────── */
-const InvoiceSchema = new mongoose.Schema(
-  {
-    invoiceNumber: { type: String, unique: true },
-    businessId:    { type: mongoose.Schema.Types.ObjectId },
-    createdBy:     { type: mongoose.Schema.Types.ObjectId },
-
-    /* Supply type determines CGST+SGST vs IGST */
-    supplyType: { type: String, enum: ["INTRASTATE", "INTERSTATE"], default: "INTRASTATE" },
-    placeOfSupply: { type: String },
-
-    customer: {
-      name:    { type: String, required: true },
-      email:   { type: String },
-      phone:   { type: String },
-      address: { type: String },
-      gstin:   { type: String },
-    },
-
-    items: [{
-      description: String,
-      hsnCode:     { type: String, default: "" },    // HSN/SAC code
-      quantity:    { type: Number, default: 1 },
-      unit:        { type: String, default: "Nos" },
-      unitPrice:   { type: Number, default: 0 },
-      taxRate:     { type: Number, default: 0 },     // Total GST %
-      taxAmount:   { type: Number, default: 0 },     // Total GST ₹
-      cgstRate:    { type: Number, default: 0 },
-      cgstAmount:  { type: Number, default: 0 },
-      sgstRate:    { type: Number, default: 0 },
-      sgstAmount:  { type: Number, default: 0 },
-      igstRate:    { type: Number, default: 0 },
-      igstAmount:  { type: Number, default: 0 },
-      total:       { type: Number, default: 0 },     // Line total incl. tax
-    }],
-
-    subtotal:       { type: Number, default: 0 },   // Sum of taxable values
-    cgstTotal:      { type: Number, default: 0 },
-    sgstTotal:      { type: Number, default: 0 },
-    igstTotal:      { type: Number, default: 0 },
-    taxTotal:       { type: Number, default: 0 },   // Total GST
-    discountAmount: { type: Number, default: 0 },
-    grandTotal:     { type: Number, default: 0 },
-
-    currency: { type: String, default: "INR" },
-    notes:    { type: String },
-    terms:    { type: String },
-    dueDate:  { type: Date },
-    issueDate:{ type: Date, default: Date.now },
-
-    status: {
-      type: String,
-      enum: ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"],
-      default: "DRAFT",
-    },
-
-    shareToken:  { type: String, index: true, sparse: true },
-    shareExpiry: { type: Date },
-    paidAt:      { type: Date },
-    paidAmount:  { type: Number, default: 0 },
-    paymentMethod: { type: String },
-    paymentRef:    { type: String },
-  },
-  { timestamps: true }
-);
-
-const SalesInvoice =
-  mongoose.models.SalesInvoice || mongoose.model("SalesInvoice", InvoiceSchema);
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
+// Was a locally-declared inline "GST-compliant" SalesInvoice schema —
+// its GST-specific fields (supplyType, placeOfSupply, per-item hsnCode/
+// cgstRate/cgstAmount/sgstRate/sgstAmount/igstRate/igstAmount, and
+// invoice-level cgstTotal/sgstTotal/igstTotal) did NOT exist on
+// models/SalesInvoice.ts's original schema, so this couldn't be safely
+// switched over without first extending the canonical model — done, see
+// models/SalesInvoice.ts's top comment for the full writeup. This route
+// and app/api/sales/invoices/[id]/route.ts both now share the one real
+// model instead of each registering "SalesInvoice" under a different
+// shape (whichever loaded first used to silently win for the whole app).
+import SalesInvoice from "@/models/SalesInvoice";
 
 /* ── Invoice number generator ─────────────────────────────────────── */
-async function nextInvoiceNumber(key: string): Promise<string> {
+/**
+ * A NINTH previously-undiscovered duplicate number generator lived here —
+ * find-highest-then-increment via regex + string sort (same race-condition
+ * and lexicographic-sort-past-9999 issues as the stock-transfer and
+ * production-order generators fixed elsewhere in this consolidation pass;
+ * see core/numbering/types.ts's top comment for the full list), hardcoded
+ * "INV/" prefix ignoring any admin config. It also used to operate on a
+ * SEPARATE self-contained inline SalesInvoice schema, since resolved by
+ * extending and switching to models/SalesInvoice.ts (see that file's top
+ * comment and the import above) — no longer a live concern for this route.
+ *
+ * Fixed to use the canonical engine when a real businessId is available.
+ * This route's numbering key can ALSO be a bare userId (when no business
+ * context exists — see the `effectiveBizId || userId` fallback below,
+ * unchanged from the original behavior) — the canonical engine requires an
+ * actual businessId to scope DocumentNumberConfig/NumberSequence against,
+ * so that no-business edge case keeps the OLD per-key regex/sort logic
+ * rather than being forced through a per-business config that wouldn't
+ * apply to it. This is the one call site in this consolidation pass that
+ * couldn't be fully unified for that reason — flagged here and in
+ * PROGRESS.md rather than silently forcing it through.
+ */
+async function nextInvoiceNumber(key: string, businessId?: string): Promise<string> {
+  if (businessId) {
+    const { value } = await generateDocumentNumber(businessId, "INVOICE");
+    return value;
+  }
+
   const yr  = new Date().getFullYear()
   const mo  = String(new Date().getMonth() + 1).padStart(2, "0")
   const fy  = mo >= "04" ? `${yr}-${String(yr + 1).slice(2)}` : `${yr - 1}-${String(yr).slice(2)}`
@@ -206,7 +176,7 @@ export async function POST(req: NextRequest) {
     const taxTotal   = cgstTotal + sgstTotal + igstTotal
     const grandTotal = subtotal + taxTotal - discountAmount
 
-    const invoiceNumber = await nextInvoiceNumber(effectiveBizId || userId)
+    const invoiceNumber = await nextInvoiceNumber(effectiveBizId || userId, effectiveBizId)
 
     const invoice = await SalesInvoice.create({
       invoiceNumber,

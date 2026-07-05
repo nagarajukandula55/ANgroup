@@ -1,342 +1,93 @@
-import Sequence from "@/models/Sequence";
+/**
+ * numbering.service — LEGACY COMPATIBILITY SHIM.
+ *
+ * This file used to contain its own complete numbering engine (a private
+ * generateSequence() reading business.documents[type].numbering.prefix and
+ * writing to the OLD Sequence model). It is now a thin wrapper around the
+ * canonical core/numbering/numberingService.ts (which reads the SAME
+ * DocumentNumberConfig the Settings > Document Numbers admin UI uses, and
+ * writes to the single consolidated NumberSequence collection) — kept only
+ * so purchaseOrder.service.ts's existing import of
+ * `generatePurchaseOrderNumber` from here keeps working without an extra
+ * edit. See core/numbering/types.ts for the full consolidation writeup.
+ *
+ * New code should import generateDocumentNumber directly from
+ * core/numbering/numberingService instead of adding new wrappers here.
+ */
 
-/* =========================================================
-   RANDOM STRING
-========================================================= */
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
-function randomString(length = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-  let result = "";
-
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(
-      Math.floor(Math.random() * chars.length)
-    );
-  }
-
-  return result;
+export async function generatePurchaseOrderNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "PURCHASE_ORDER");
+  return value;
 }
 
-/* =========================================================
-   DATE
-========================================================= */
-
-function getDateCode() {
-  const d = new Date();
-
-  const yy = String(d.getFullYear()).slice(-2);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-
-  return `${yy}${mm}${dd}`;
+export async function generateGRNNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "GRN");
+  return value;
 }
 
-/* =========================================================
-   FINANCIAL YEAR
-========================================================= */
-
-function getFinancialYear() {
-  const now = new Date();
-
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-
-  if (month >= 4) {
-    return `${year}-${String(year + 1).slice(-2)}`;
-  }
-
-  return `${year - 1}-${String(year).slice(-2)}`;
+export async function generateSalesOrderNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "SALES_ORDER");
+  return value;
 }
 
-/* =========================================================
-   GENERIC SEQUENCE
-========================================================= */
-
-async function generateSequence(
-  business: any,
-  documentType: string,
-  defaultPrefix: string,
-  options?: {
-    includeDate?: boolean;
-    includeRandom?: boolean;
-    sequenceLength?: number;
-  }
-) {
-  if (!business?._id) {
-    throw new Error("Business is required");
-  }
-
-  const includeDate = options?.includeDate ?? false;
-  const includeRandom = options?.includeRandom ?? false;
-  const sequenceLength = options?.sequenceLength ?? 6;
-
-  const financialYear = getFinancialYear();
-  const dateKey = includeDate ? getDateCode() : "";
-
-  const prefix =
-    business?.documents?.[documentType]?.numbering?.prefix ||
-    defaultPrefix;
-
-  const seq = await Sequence.findOneAndUpdate(
-    {
-      businessId: business._id,
-      documentType,
-      financialYear,
-      dateKey,
-    },
-    {
-      $inc: {
-        value: 1,
-      },
-      $setOnInsert: {
-        businessId: business._id,
-        documentType,
-        prefix,
-        financialYear,
-        dateKey,
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-    }
-  );
-
-  const sequence = String(seq.value).padStart(
-    sequenceLength,
-    "0"
-  );
-
-  let number = `${prefix}-${sequence}`;
-
-  if (includeDate) {
-    number = `${prefix}-${dateKey}-${sequence}`;
-  }
-
-  if (includeRandom) {
-    number += `-${randomString(6)}`;
-  }
-
-  return number;
+export async function generateProductCode(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "PRODUCT");
+  return value;
 }
 
-/* =========================================================
-   PURCHASE ORDER
-========================================================= */
-
-export async function generatePurchaseOrderNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "PURCHASE_ORDER",
-    "PO"
-  );
+export async function generateVariantCode(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "PRODUCT_VARIANT");
+  return value;
 }
 
-/* =========================================================
-   GOODS RECEIPT
-========================================================= */
-
-export async function generateGRNNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "GOODS_RECEIPT",
-    "GRN"
-  );
+export async function generateVendorProductCode(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "VENDOR_PRODUCT");
+  return value;
 }
 
-/* =========================================================
-   SALES ORDER
-========================================================= */
-
-export async function generateSalesOrderNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "SALES_ORDER",
-    "SO"
-  );
+export async function generateStockAdjustmentNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "STOCK_ADJUSTMENT");
+  return value;
 }
 
-/* =========================================================
-   PRODUCT
-========================================================= */
-
-export async function generateProductCode(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "PRODUCT",
-    "PRD"
-  );
+export async function generateTransferNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "STOCK_TRANSFER");
+  return value;
 }
 
-/* =========================================================
-   PRODUCT VARIANT
-========================================================= */
-
-export async function generateVariantCode(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "PRODUCT_VARIANT",
-    "VAR"
-  );
+export async function generateProductionOrderNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "PRODUCTION_ORDER");
+  return value;
 }
 
-/* =========================================================
-   VENDOR PRODUCT
-========================================================= */
-
-export async function generateVendorProductCode(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "VENDOR_PRODUCT",
-    "VPRD"
-  );
+export async function generateBatchNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "BATCH");
+  return value;
 }
 
-/* =========================================================
-   STOCK ADJUSTMENT
-========================================================= */
-
-export async function generateStockAdjustmentNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "STOCK_ADJUSTMENT",
-    "SA"
-  );
+export async function generateCustomerOrderNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "CUSTOMER_ORDER");
+  return value;
 }
 
-/* =========================================================
-   STOCK TRANSFER
-========================================================= */
-
-export async function generateTransferNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "STOCK_TRANSFER",
-    "TRF"
-  );
+export async function generateCreditNoteNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "CREDIT_NOTE");
+  return value;
 }
 
-/* =========================================================
-   PRODUCTION ORDER
-========================================================= */
-
-export async function generateProductionOrderNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "PRODUCTION_ORDER",
-    "MO"
-  );
+export async function generateDebitNoteNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "DEBIT_NOTE");
+  return value;
 }
 
-/* =========================================================
-   BATCH
-========================================================= */
-
-export async function generateBatchNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "BATCH",
-    "BAT",
-    {
-      includeDate: true,
-    }
-  );
+export async function generateInvoiceNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "INVOICE");
+  return value;
 }
 
-/* =========================================================
-   CUSTOMER ORDER
-========================================================= */
-
-export async function generateCustomerOrderNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "CUSTOMER_ORDER",
-    "ORD"
-  );
-}
-
-/* =========================================================
-   CREDIT NOTE
-========================================================= */
-
-export async function generateCreditNoteNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "CREDIT_NOTE",
-    "CN"
-  );
-}
-
-/* =========================================================
-   DEBIT NOTE
-========================================================= */
-
-export async function generateDebitNoteNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "DEBIT_NOTE",
-    "DN"
-  );
-}
-
-/* =========================================================
-   INVOICE
-========================================================= */
-
-export async function generateInvoiceNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "INVOICE",
-    "INV",
-    {
-      includeDate: true,
-      includeRandom: true,
-    }
-  );
-}
-
-/* =========================================================
-   RECEIPT
-========================================================= */
-
-export async function generateReceiptNumber(
-  business: any
-) {
-  return generateSequence(
-    business,
-    "RECEIPT",
-    "RCT",
-    {
-      includeRandom: true,
-    }
-  );
+export async function generateReceiptNumber(business: any): Promise<string> {
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "RECEIPT");
+  return value;
 }

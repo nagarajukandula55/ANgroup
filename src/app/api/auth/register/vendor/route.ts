@@ -9,14 +9,19 @@ import Business from '@/models/Business'
 // business scoping, and self-registered vendors were created as orphans not
 // linked to any business ("vendors under which business??").
 import VendorProfile from '@/models/VendorProfile'
+import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService'
 
-async function generateVendorId(): Promise<string> {
-  const year = new Date().getFullYear()
-  // vendorId is globally unique in the schema, so count globally.
-  const count = await VendorProfile.countDocuments()
-  const seq = String(count + 1).padStart(4, '0')
-  return `VND-${year}-${seq}`
-}
+/**
+ * REMOVED: a local generateVendorId() used to live here, producing a
+ * THIRD distinct vendor-ID format ("VND-2026-0001", with a year segment)
+ * — different from BOTH other vendor-ID generators found in this codebase
+ * (vendors/route.ts and vendors/apply/route.ts each produced "VND-0001",
+ * no year, and used a different padding scheme again in admin/users/route.ts's
+ * "VEN-001"). All were also countDocuments()-based, i.e. race-prone.
+ * Consolidated onto the canonical numbering engine's global-scope variant
+ * (VendorProfile.vendorId is globally unique — see that model — so all
+ * vendor-creation paths must share ONE atomic counter, not one each).
+ */
 
 export async function POST(req: NextRequest) {
   try {
@@ -116,7 +121,7 @@ export async function POST(req: NextRequest) {
       authProvider: 'credentials',
     })
 
-    const vendorId = await generateVendorId()
+    const { value: vendorId } = await generateGlobalDocumentNumber('VENDOR', String(business._id))
 
     const vendorProfile = await VendorProfile.create({
       userId: user._id,

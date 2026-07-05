@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose, { Schema, Model } from 'mongoose'
 import { notify } from '@/lib/notify'
+import { generateDocumentNumber } from '@/core/numbering/numberingService'
 
 const SalesOrderSchema = new Schema({
   orderNumber: { type: String, unique: true },
@@ -31,12 +32,14 @@ SalesOrderSchema.index({ createdBy: 1, isDeleted: 1, createdAt: -1 })
 
 const SalesOrder: Model<any> = mongoose.models.SalesOrder || mongoose.model('SalesOrder', SalesOrderSchema)
 
-async function getNextOrderNumber(): Promise<string> {
-  const last = await SalesOrder.findOne({}, {}, { sort: { createdAt: -1 } })
-  if (!last?.orderNumber) return 'SO-0001'
-  const num = parseInt(last.orderNumber.split('-')[1] || '0') + 1
-  return `SO-${String(num).padStart(4, '0')}`
-}
+/**
+ * REMOVED: a local getNextOrderNumber() used to live here — an ELEVENTH
+ * previously-undiscovered duplicate number generator, globally-scoped
+ * (`findOne({}, ...)` with no businessId filter — every business shared
+ * one counter) and race-prone (find-highest-then-increment). Replaced
+ * with the canonical core/numbering/numberingService.ts, scoped per
+ * business via the existing SALES_ORDER document type.
+ */
 
 export async function GET(req: Request) {
   try {
@@ -83,7 +86,10 @@ export async function POST(req: Request) {
     await connectDB()
     const body = await req.json()
     const bizId = req.headers.get('x-active-business-id') || body.businessId
-    const orderNumber = await getNextOrderNumber()
+    if (!bizId) {
+      return NextResponse.json({ success: false, message: 'businessId is required' }, { status: 400 })
+    }
+    const { value: orderNumber } = await generateDocumentNumber(bizId, 'SALES_ORDER')
     const total = (body.items || []).reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0)
     const order = await SalesOrder.create({ ...body, businessId: bizId, orderNumber, totalAmount: total, createdBy: userId })
 

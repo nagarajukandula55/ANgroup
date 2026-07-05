@@ -1,42 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import mongoose, { Schema, Types } from "mongoose";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
-
-// Inline schema definition extending NativeProduct fields with SEO fields.
-// We reuse the same model name "NativeProduct" so it stays compatible with
-// existing documents in the collection.
-const ProductSchema = new Schema(
-  {
-    name: { type: String, required: true },
-    sku: { type: String },
-    description: { type: String },
-    category: { type: String },
-    businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true },
-    unit: { type: String },
-    basePrice: { type: Number, default: 0 },
-    taxRate: { type: Number, default: 0 }, // GST %
-    hsn: { type: String },
-    images: { type: [String], default: [] },
-    isActive: { type: Boolean, default: true },
-    isDeleted: { type: Boolean, default: false },
-    stock: { type: Number, default: 0 },
-    reorderLevel: { type: Number, default: 0 },
-    // SEO fields
-    metaTitle: { type: String },
-    metaDescription: { type: String },
-    keywords: { type: [String], default: [] },
-    slug: { type: String, unique: true, sparse: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-const Product =
-  mongoose.models.NativeProduct ||
-  mongoose.model("NativeProduct", ProductSchema);
+// Was a locally-declared inline schema registered under the SAME Mongoose
+// model name ("NativeProduct") as models/NativeProduct.ts, but on this
+// route's own registration call — whichever loaded first silently won for
+// the whole app (same bug class already fixed for SalesInvoice.ts). The
+// SEO fields this route's schema had (metaTitle/metaDescription/keywords/
+// slug) plus isDeleted were merged additively into models/NativeProduct.ts
+// — see that file's top comment for the full writeup on the 3 separate
+// "native product" things in this codebase (this is NOT the same as
+// models/"Native Product.ts", which is a real, separate, still-live system
+// against a different MongoDB connection — left untouched).
+import Product from "@/models/NativeProduct";
 
 function generateSku(name: string): string {
   const prefix = name.trim().slice(0, 3).toUpperCase();

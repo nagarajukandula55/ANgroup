@@ -1,29 +1,18 @@
 import jwt from "jsonwebtoken";
 
-// Secrets are read lazily (inside the functions that use them) rather than at
-// module load time. This module is imported by routes that only ever touch
-// the standard auth token (e.g. /api/auth/login) — throwing here at import
-// time for a missing SSO_SECRET would break every route that imports this
-// file, even ones that never sign or verify an SSO token.
-function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error(
-      "JWT_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
-    );
-  }
-  return secret;
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
+  );
+}
+if (!process.env.SSO_SECRET) {
+  throw new Error(
+    "SSO_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
+  );
 }
 
-function getSsoSecret(): string {
-  const secret = process.env.SSO_SECRET;
-  if (!secret) {
-    throw new Error(
-      "SSO_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
-    );
-  }
-  return secret;
-}
+const JWT_SECRET = process.env.JWT_SECRET;
+const SSO_SECRET = process.env.SSO_SECRET;
 
 export interface JWTPayload {
   id: string;
@@ -64,7 +53,7 @@ export interface SSOPayload {
  * Sign a standard auth JWT (7 days)
  */
 export function signToken(payload: Omit<JWTPayload, "iat" | "exp">): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
 /**
@@ -72,7 +61,7 @@ export function signToken(payload: Omit<JWTPayload, "iat" | "exp">): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, getJwtSecret()) as JWTPayload;
+    return jwt.verify(token, JWT_SECRET) as JWTPayload;
   } catch {
     return null;
   }
@@ -82,7 +71,7 @@ export function verifyToken(token: string): JWTPayload | null {
  * Sign an SSO token (valid for 1 hour, cross-app)
  */
 export function signSSOToken(payload: Omit<SSOPayload, "iat" | "exp">): string {
-  return jwt.sign(payload, getSsoSecret(), { expiresIn: "1h" });
+  return jwt.sign(payload, SSO_SECRET, { expiresIn: "1h" });
 }
 
 /**
@@ -90,7 +79,7 @@ export function signSSOToken(payload: Omit<SSOPayload, "iat" | "exp">): string {
  */
 export function verifySSOToken(token: string): SSOPayload | null {
   try {
-    return jwt.verify(token, getSsoSecret()) as SSOPayload;
+    return jwt.verify(token, SSO_SECRET) as SSOPayload;
   } catch {
     return null;
   }

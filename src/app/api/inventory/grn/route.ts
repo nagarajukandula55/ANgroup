@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 import InventoryMovement from "@/models/InventoryMovement";
 import PurchaseOrder from "@/models/PurchaseOrder";
 import InventoryItem from "@/models/InventoryItem";
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    requirePermission(session as any, "inventory.view");
+    requirePermission(session as any, buildPermissionCode("inventory", "view"));
 
     const { searchParams } = new URL(req.url);
     const purchaseOrderId = searchParams.get("purchaseOrderId");
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    requirePermission(session as any, "inventory.manage");
+    requirePermission(session as any, buildPermissionCode("inventory", "edit"));
 
     const body = await req.json();
 

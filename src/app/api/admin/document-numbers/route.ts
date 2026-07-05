@@ -4,7 +4,11 @@ import { connectDB } from "@/lib/mongodb";
 import DocumentNumberConfig, {
   DOCUMENT_TYPES,
 } from "@/models/DocumentNumberConfig";
-import { getFinancialYear } from "@/lib/accounting/getFinancialYear";
+// Was @/lib/accounting/getFinancialYear — one of 3 duplicate FY calculators
+// that didn't even agree on output format with each other (see
+// core/numbering/financialYear.ts's top comment). Now uses the canonical one.
+import { getFinancialYear } from "@/core/numbering/financialYear";
+import { DEFAULT_PREFIXES } from "@/core/numbering/types";
 
 /* helper: build the format preview string from config fields */
 function buildPreview(
@@ -45,23 +49,16 @@ export async function GET(req: NextRequest) {
       );
 
     const saved = await DocumentNumberConfig.find({ businessId }).lean();
-    const savedMap = new Map(saved.map((c) => [c.documentType, c]));
+    const savedMap = new Map(saved.map((c: any) => [c.documentType, c]));
 
-    // Build full list — saved config or sensible defaults per type
-    const defaults: Record<string, string> = {
-      INVOICE: "INV",
-      SALES_ORDER: "SO",
-      PURCHASE_ORDER: "PO",
-      GRN: "GRN",
-      CREDIT_NOTE: "CN",
-      DEBIT_NOTE: "DN",
-      QUOTATION: "QT",
-      DELIVERY_CHALLAN: "DC",
-      PAYMENT_RECEIPT: "PR",
-      PRODUCTION_ORDER: "MFG",
-    };
+    // Build full list — saved config or sensible defaults per type. Reuses
+    // DEFAULT_PREFIXES from the canonical numbering engine (core/numbering/
+    // types.ts) instead of a separately hand-maintained map, so this UI's
+    // defaults can never drift out of sync with what generateDocumentNumber()
+    // itself falls back to when a business hasn't configured a type yet.
+    const defaults: Record<string, string> = DEFAULT_PREFIXES;
 
-    const configs = DOCUMENT_TYPES.map((docType) => {
+    const configs = DOCUMENT_TYPES.map((docType: string) => {
       const existing = savedMap.get(docType);
       if (existing) return existing;
 

@@ -3,6 +3,28 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import QRCode from "qrcode";
+import { getLayout } from "@/core/invoiceTemplates/registry";
+import type { InvoiceRenderData } from "@/core/invoiceTemplates/types";
+
+/**
+ * Renders a non-default invoice layout (Minimal / Modern Color-block /
+ * any future addition) by calling that layout's pure renderHTML() function
+ * client-side and dropping the result into an iframe — same technique the
+ * admin template editor's live preview uses. Layouts have no server-only
+ * dependencies (just string templating), so this is safe to run in the
+ * browser bundle.
+ */
+function InvoiceLayoutFrame({ data }: { data: any }) {
+  const layout = getLayout(data.templateLayoutKey);
+  const html = layout.renderHTML(data as InvoiceRenderData);
+  return (
+    <iframe
+      srcDoc={html}
+      style={{ width: "100%", height: "100vh", border: "none" }}
+      title={`Invoice ${data.invoiceNumber}`}
+    />
+  );
+}
 
 export default function InvoicePage() {
   const { invoiceNumber } = useParams();
@@ -43,6 +65,19 @@ export default function InvoicePage() {
   
   if (!data) {
     return <div>Invoice not found</div>;
+  }
+
+  // If this business has chosen a template LAYOUT other than the platform
+  // default ("classic-gst" — this page's own original hardcoded JSX/CSS
+  // below, kept byte-identical so nothing changes for businesses that
+  // never touch Settings > Invoice Templates), render that layout's
+  // server-side HTML renderer in an iframe instead of this page's JSX.
+  // This keeps the change additive/low-risk: the default path below is
+  // completely untouched, and non-default layouts get their own real
+  // renderer (core/invoiceTemplates/layouts/*.ts) rather than trying to
+  // shoehorn 3 different designs into one JSX tree.
+  if (data.templateLayoutKey && data.templateLayoutKey !== "classic-gst") {
+    return <InvoiceLayoutFrame data={data} />;
   }
 
   return (
