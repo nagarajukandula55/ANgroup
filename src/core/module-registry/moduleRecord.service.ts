@@ -1,6 +1,17 @@
+import type { FlattenMaps, Types } from "mongoose";
 import ModuleRecord, { IModuleRecord } from "./ModuleRecord.model";
 import { getModuleDefinition } from "./moduleDefinition.service";
 import { validateRecord } from "./validateRecord";
+
+// .lean() returns plain objects shaped by FlattenMaps<T>, not the Document
+// interface itself — using IModuleRecord[] directly as a lean-query return
+// type doesn't match what Mongoose actually returns and fails `npm run
+// build` under strict mode (same issue fixed in moduleDefinition.service.ts's
+// LeanModuleDefinition).
+export type LeanModuleRecord = FlattenMaps<IModuleRecord> & {
+  _id: Types.ObjectId;
+  __v: number;
+};
 
 export class ModuleRecordValidationError extends Error {
   constructor(public errors: { field: string; message: string }[]) {
@@ -72,7 +83,7 @@ export async function listModuleRecords(
   moduleKey: string,
   businessId: string,
   options: { limit?: number; skip?: number } = {}
-): Promise<IModuleRecord[]> {
+): Promise<LeanModuleRecord[]> {
   return ModuleRecord.find({ moduleKey, businessId, isDeleted: false })
     .sort({ createdAt: -1 })
     .skip(options.skip ?? 0)

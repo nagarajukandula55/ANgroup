@@ -1,6 +1,19 @@
+import type { FlattenMaps, Types } from "mongoose";
 import ModuleDefinition, { IModuleDefinition } from "./ModuleDefinition.model";
 import type { FieldDefinition } from "./types";
 import { syncPermissionsForModule } from "@/core/access/permissionSync.service";
+
+// .lean() returns plain objects shaped by FlattenMaps<T>, not the Document
+// interface itself (Document-only members like .save()/.populate() aren't
+// present, and nested Map/subdoc fields are flattened) — using IModuleDefinition
+// directly as the return type here doesn't match what Mongoose actually
+// returns and fails `npm run build` under strict mode. This alias names the
+// real lean-query shape so callers still get real field types, just not the
+// (incorrect) promise of Document methods.
+export type LeanModuleDefinition = FlattenMaps<IModuleDefinition> & {
+  _id: Types.ObjectId;
+  __v: number;
+};
 
 export interface CreateModuleInput {
   key: string;
@@ -87,7 +100,7 @@ export async function createModuleDefinition(
  * does this business see," replacing the hardcoded route list currently in
  * sidebar.tsx.
  */
-export async function listModulesForBusiness(businessId: string): Promise<IModuleDefinition[]> {
+export async function listModulesForBusiness(businessId: string): Promise<LeanModuleDefinition[]> {
   return ModuleDefinition.find({
     $or: [{ businessId: null }, { businessId }],
     enabled: true,
@@ -99,7 +112,7 @@ export async function listModulesForBusiness(businessId: string): Promise<IModul
 export async function getModuleDefinition(
   key: string,
   businessId: string
-): Promise<IModuleDefinition | null> {
+): Promise<LeanModuleDefinition | null> {
   return ModuleDefinition.findOne({
     key,
     $or: [{ businessId: null }, { businessId }],
