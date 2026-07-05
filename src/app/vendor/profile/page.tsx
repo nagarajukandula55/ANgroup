@@ -48,11 +48,11 @@ function StarRating({ rating }: { rating: number }) {
           className={`h-4 w-4 ${
             star <= Math.round(rating)
               ? 'text-yellow-400 fill-yellow-400'
-              : 'text-zinc-700'
+              : 'text-gray-700'
           }`}
         />
       ))}
-      <span className="text-sm text-zinc-400 ml-1">{rating.toFixed(1)}</span>
+      <span className="text-sm text-gray-500 ml-1">{rating.toFixed(1)}</span>
     </div>
   )
 }
@@ -74,17 +74,17 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="block text-xs text-zinc-500 mb-1.5">{label}</label>
+      <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
       <input
         type={type}
         value={value}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         placeholder={placeholder}
         readOnly={readOnly}
-        className={`w-full bg-white/[0.03] border rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors ${
+        className={`w-full bg-white border rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-colors ${
           readOnly
-            ? 'border-white/[0.04] cursor-not-allowed text-zinc-500'
-            : 'border-white/[0.08] focus:border-violet-500/50'
+            ? 'border-gray-100 cursor-not-allowed text-gray-500'
+            : 'border-gray-200 focus:border-violet-500/50'
         }`}
       />
     </div>
@@ -187,7 +187,7 @@ export default function VendorProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-6 w-6 text-zinc-500 animate-spin" />
+        <Loader2 className="h-6 w-6 text-gray-500 animate-spin" />
       </div>
     )
   }
@@ -196,10 +196,10 @@ export default function VendorProfilePage() {
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div>
-        <p className="text-xs text-zinc-500 uppercase tracking-widest">
+        <p className="text-xs text-gray-500 uppercase tracking-widest">
           Vendor Portal
         </p>
-        <h1 className="text-2xl font-bold text-white mt-0.5">My Profile</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">My Profile</h1>
       </div>
 
       {/* Alerts */}
@@ -218,21 +218,21 @@ export default function VendorProfilePage() {
 
       {/* Read-only info banner */}
       {profile && (
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">
                 Vendor ID
               </p>
-              <p className="text-sm font-mono text-zinc-300">
+              <p className="text-sm font-mono text-gray-600">
                 {profile.vendorId}
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">
                 Member Since
               </p>
-              <p className="text-sm text-zinc-300">
+              <p className="text-sm text-gray-600">
                 {new Date(profile.createdAt).toLocaleDateString('en-IN', {
                   day: '2-digit',
                   month: 'short',
@@ -241,13 +241,13 @@ export default function VendorProfilePage() {
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">
                 Rating
               </p>
               <StarRating rating={profile.rating || 0} />
             </div>
             <div>
-              <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">
                 Status
               </p>
               {profile.isApproved ? (
@@ -267,16 +267,16 @@ export default function VendorProfilePage() {
       )}
 
       {/* Company Information */}
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
         <div className="flex items-center gap-2.5 mb-5">
           <div className="h-8 w-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
             <Building2 className="h-4 w-4 text-violet-400" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white">
+            <h2 className="text-sm font-semibold text-gray-900">
               Company Information
             </h2>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-gray-500">
               Basic business details
             </p>
           </div>
@@ -320,7 +320,7 @@ export default function VendorProfilePage() {
             placeholder="AAAAA0000A"
           />
           <div className="md:col-span-2">
-            <label className="block text-xs text-zinc-500 mb-1.5">
+            <label className="block text-xs text-gray-500 mb-1.5">
               Business Category
             </label>
             <select
@@ -328,30 +328,30 @@ export default function VendorProfilePage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, category: e.target.value }))
               }
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition-colors"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-500/50 transition-colors"
             >
-              <option value="" className="bg-zinc-900">
+              <option value="">
                 Select category
               </option>
-              <option value="MANUFACTURING" className="bg-zinc-900">
+              <option value="MANUFACTURING">
                 Manufacturing
               </option>
-              <option value="TRADING" className="bg-zinc-900">
+              <option value="TRADING">
                 Trading
               </option>
-              <option value="SERVICES" className="bg-zinc-900">
+              <option value="SERVICES">
                 Services
               </option>
-              <option value="LOGISTICS" className="bg-zinc-900">
+              <option value="LOGISTICS">
                 Logistics
               </option>
-              <option value="TECHNOLOGY" className="bg-zinc-900">
+              <option value="TECHNOLOGY">
                 Technology
               </option>
-              <option value="RETAIL" className="bg-zinc-900">
+              <option value="RETAIL">
                 Retail
               </option>
-              <option value="OTHER" className="bg-zinc-900">
+              <option value="OTHER">
                 Other
               </option>
             </select>
@@ -360,8 +360,8 @@ export default function VendorProfilePage() {
       </div>
 
       {/* Address */}
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-        <h2 className="text-sm font-semibold text-white mb-5">
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-5">
           Business Address
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -395,9 +395,9 @@ export default function VendorProfilePage() {
       </div>
 
       {/* Bank Details */}
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-        <h2 className="text-sm font-semibold text-white mb-1">Bank Details</h2>
-        <p className="text-xs text-zinc-500 mb-5">
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">Bank Details</h2>
+        <p className="text-xs text-gray-500 mb-5">
           Payment will be transferred to this account
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

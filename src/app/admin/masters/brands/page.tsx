@@ -228,12 +228,12 @@ export default function BrandsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Brands</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <h1 className="text-xl font-semibold text-gray-900">Brands</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
             Manage product brands and their details
           </p>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100">
+        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
           <Plus size={16} />
           Add Brand
         </button>
@@ -241,56 +241,56 @@ export default function BrandsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-gray-500 text-xs mb-2">
             <Layers size={14} />
             Total Brands
           </div>
-          <p className="text-2xl font-semibold text-white">{brands.length}</p>
+          <p className="text-2xl font-semibold text-gray-900">{brands.length}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-gray-500 text-xs mb-2">
             <CheckCircle size={14} />
             Active
           </div>
           <p className="text-2xl font-semibold text-emerald-400">{activeBrands.length}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-gray-500 text-xs mb-2">
             <Package size={14} />
             Inactive
           </div>
-          <p className="text-2xl font-semibold text-zinc-400">{inactiveBrands.length}</p>
+          <p className="text-2xl font-semibold text-gray-500">{inactiveBrands.length}</p>
         </div>
       </div>
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search brands…"
-          className="w-full pl-9 pr-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+          className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
         />
       </div>
 
       {/* Grid */}
       {loading ? (
-        <div className="p-12 text-center text-zinc-500">Loading…</div>
+        <div className="p-12 text-center text-gray-500">Loading…</div>
       ) : brands.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
-            <Tag size={24} className="text-zinc-600" />
+          <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center">
+            <Tag size={24} className="text-gray-600" />
           </div>
           <div className="text-center">
-            <p className="text-white font-medium">No brands found</p>
-            <p className="text-sm text-zinc-500 mt-1">
+            <p className="text-gray-900 font-medium">No brands found</p>
+            <p className="text-sm text-gray-500 mt-1">
               {search ? "Try a different search term." : "Get started by adding your first brand."}
             </p>
           </div>
           {!search && (
-            <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100">
+            <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
               <Plus size={16} />
               Add Brand
             </button>
@@ -339,28 +339,28 @@ export default function BrandsPage() {
       {/* Delete Modal */}
       {modal.type === "delete" && modal.brand && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
-              <h2 className="text-base font-semibold text-white">Delete Brand</h2>
-              <button onClick={closeModal} className="text-zinc-500 hover:text-white">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-base font-semibold text-gray-900">Delete Brand</h2>
+              <button onClick={closeModal} className="text-gray-500 hover:text-gray-900">
                 <X size={18} />
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-gray-500">
                 This action cannot be undone. Type{" "}
-                <span className="text-white font-medium">{modal.brand.name}</span>{" "}
+                <span className="text-gray-900 font-medium">{modal.brand.name}</span>{" "}
                 to confirm deletion.
               </p>
               <input
                 value={deleteConfirmName}
                 onChange={(e) => setDeleteConfirmName(e.target.value)}
                 placeholder={modal.brand.name}
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/40"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-red-500/40"
               />
             </div>
-            <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
-              <button onClick={closeModal} className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button onClick={closeModal} className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400">
                 Cancel
               </button>
               <button
@@ -392,10 +392,10 @@ function BrandCard({
   const [imgError, setImgError] = useState(false);
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col gap-3 hover:border-white/[0.10] transition-colors group">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col gap-3 hover:border-gray-300 transition-colors group">
       {/* Logo */}
       <div className="flex items-start justify-between">
-        <div className="w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center overflow-hidden flex-shrink-0">
+        <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
           {brand.logoUrl && !imgError ? (
             <img
               src={brand.logoUrl}
@@ -404,20 +404,20 @@ function BrandCard({
               onError={() => setImgError(true)}
             />
           ) : (
-            <ImageOff size={18} className="text-zinc-600" />
+            <ImageOff size={18} className="text-gray-600" />
           )}
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onEdit(brand)}
-            className="p-1.5 text-zinc-500 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             title="Edit"
           >
             <Edit2 size={13} />
           </button>
           <button
             onClick={() => onDelete(brand)}
-            className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
             title="Delete"
           >
             <Trash2 size={13} />
@@ -428,29 +428,29 @@ function BrandCard({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-sm font-medium text-white truncate">{brand.name}</h3>
+          <h3 className="text-sm font-medium text-gray-900 truncate">{brand.name}</h3>
         </div>
         {brand.description ? (
-          <p className="text-xs text-zinc-500 line-clamp-2">{brand.description}</p>
+          <p className="text-xs text-gray-500 line-clamp-2">{brand.description}</p>
         ) : (
-          <p className="text-xs text-zinc-700 italic">No description</p>
+          <p className="text-xs text-gray-700 italic">No description</p>
         )}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
         <button
           onClick={() => onToggleActive(brand)}
           className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
             brand.isActive
               ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
-              : "text-zinc-400 bg-white/[0.04] hover:bg-white/[0.08]"
+              : "text-gray-500 bg-white hover:bg-gray-100"
           }`}
           title={brand.isActive ? "Click to deactivate" : "Click to activate"}
         >
           {brand.isActive ? "Active" : "Inactive"}
         </button>
-        <span className="text-xs text-zinc-600">
+        <span className="text-xs text-gray-600">
           {new Date(brand.createdAt).toLocaleDateString("en-IN", {
             day: "numeric",
             month: "short",
@@ -487,10 +487,10 @@ function BrandModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+      <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -499,7 +499,7 @@ function BrandModal({
           {/* Logo preview */}
           {formData.logoUrl && (
             <div className="flex justify-center">
-              <div className="w-20 h-20 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center overflow-hidden">
+              <div className="w-20 h-20 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
                 {!logoPreviewError ? (
                   <img
                     src={formData.logoUrl}
@@ -509,8 +509,8 @@ function BrandModal({
                   />
                 ) : (
                   <div className="flex flex-col items-center gap-1">
-                    <ImageOff size={20} className="text-zinc-600" />
-                    <span className="text-xs text-zinc-600">Invalid URL</span>
+                    <ImageOff size={20} className="text-gray-600" />
+                    <span className="text-xs text-gray-600">Invalid URL</span>
                   </div>
                 )}
               </div>
@@ -518,36 +518,36 @@ function BrandModal({
           )}
 
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">
+            <label className="text-xs text-gray-500 block mb-1">
               Brand Name <span className="text-red-400">*</span>
             </label>
             <input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g. Tata, Bosch, Samsung"
-              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">Description</label>
+            <label className="text-xs text-gray-500 block mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Brief description of the brand…"
               rows={3}
-              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 resize-none"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 resize-none"
             />
           </div>
 
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">Logo URL (optional)</label>
+            <label className="text-xs text-gray-500 block mb-1">Logo URL (optional)</label>
             <input
               value={formData.logoUrl}
               onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
               placeholder="https://example.com/logo.png"
-              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
             />
           </div>
 
@@ -559,14 +559,14 @@ function BrandModal({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
-          <button onClick={onClose} className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20">
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400">
             Cancel
           </button>
           <button
             onClick={onSubmit}
             disabled={submitting}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? "Saving…" : title}
           </button>

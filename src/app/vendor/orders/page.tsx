@@ -102,25 +102,25 @@ export default function VendorOrdersPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div>
-        <p className="text-xs text-zinc-500 uppercase tracking-widest">
+        <p className="text-xs text-gray-500 uppercase tracking-widest">
           Vendor Portal
         </p>
-        <h1 className="text-2xl font-bold text-white mt-0.5">My Orders</h1>
-        <p className="text-sm text-zinc-500 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">My Orders</h1>
+        <p className="text-sm text-gray-500 mt-1">
           {total} order{total !== 1 ? 's' : ''} total
         </p>
       </div>
 
       {/* Tab Filter */}
-      <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] w-fit">
+      <div className="flex gap-1 p-1 rounded-xl bg-white border border-gray-200 w-fit">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => handleTabChange(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab
-                ? 'bg-white/[0.1] text-white'
-                : 'text-zinc-500 hover:text-zinc-300'
+                ? 'bg-gray-100 text-gray-900'
+                : 'text-gray-500 hover:text-gray-600'
             }`}
           >
             {tab}
@@ -131,20 +131,20 @@ export default function VendorOrdersPage() {
       {/* Orders */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 text-zinc-500 animate-spin" />
+          <Loader2 className="h-6 w-6 text-gray-500 animate-spin" />
         </div>
       ) : error ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-2" />
-            <p className="text-zinc-400">{error}</p>
+            <p className="text-gray-500">{error}</p>
           </div>
         </div>
       ) : orders.length === 0 ? (
-        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] py-20 text-center">
-          <ShoppingCart className="h-10 w-10 text-zinc-700 mx-auto mb-3" />
-          <p className="text-zinc-500">No orders found</p>
-          <p className="text-zinc-600 text-sm mt-1">
+        <div className="rounded-2xl border border-gray-200 bg-white py-20 text-center">
+          <ShoppingCart className="h-10 w-10 text-gray-700 mx-auto mb-3" />
+          <p className="text-gray-500">No orders found</p>
+          <p className="text-gray-600 text-sm mt-1">
             {activeTab !== 'All'
               ? `No ${activeTab.toLowerCase()} orders`
               : 'Orders will appear here once placed'}
@@ -155,7 +155,7 @@ export default function VendorOrdersPage() {
           {orders.map((order) => (
             <div
               key={order._id}
-              className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 hover:bg-white/[0.03] transition-all"
+              className="rounded-xl border border-gray-200 bg-white p-4 hover:bg-gray-50 transition-all"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
@@ -164,25 +164,25 @@ export default function VendorOrdersPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-mono font-semibold text-white">
+                      <p className="text-sm font-mono font-semibold text-gray-900">
                         {order.orderNumber}
                       </p>
                       <span
                         className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium border ${
                           statusColors[order.status] ||
-                          'bg-zinc-800 text-zinc-400 border-zinc-700'
+                          'bg-gray-100 text-gray-500 border-gray-200'
                         }`}
                       >
                         {order.status}
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       {formatDate(order.createdAt)} &middot;{' '}
                       {order.items?.length || 0} item
                       {(order.items?.length || 0) !== 1 ? 's' : ''}
                     </p>
                     {order.items?.length > 0 && (
-                      <p className="text-xs text-zinc-600 mt-1 truncate max-w-xs">
+                      <p className="text-xs text-gray-600 mt-1 truncate max-w-xs">
                         {order.items
                           .slice(0, 2)
                           .map((i) => i.name)
@@ -195,14 +195,14 @@ export default function VendorOrdersPage() {
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-gray-900">
                       {formatCurrency(order.totalAmount)}
                     </p>
-                    <p className="text-[10px] text-zinc-600 mt-0.5">Total</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">Total</p>
                   </div>
                   <Link
                     href={`/vendor/orders/${order._id}`}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-white/[0.08] text-xs text-zinc-400 hover:text-white hover:bg-white/[0.04] transition-all"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all"
                   >
                     Details
                     <ChevronRight className="h-3 w-3" />
@@ -217,21 +217,21 @@ export default function VendorOrdersPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-gray-500">
             Page {page} of {totalPages}
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-xs text-zinc-400 hover:text-white hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
               Previous
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-xs text-zinc-400 hover:text-white hover:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
               Next
             </button>

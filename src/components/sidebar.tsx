@@ -8,7 +8,7 @@ import {
   TrendingUp, DollarSign, Users, UserCheck, FileSignature, Share2,
   Sparkles, Plug, Shield, Bell, MessageSquare, Building2, UserCog,
   Key, UserPlus, ChevronDown, Check, LogOut, ShoppingBag,
-  Box, Hash, Truck,
+  Box, Hash, Truck, Activity,
 } from "lucide-react";
 
 const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
@@ -23,7 +23,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   LayoutDashboard, Package, ShoppingCart, TrendingUp, DollarSign,
   Users, UserCheck, FileSignature, Share2, Sparkles,
   Plug, Shield, Bell, MessageSquare, Building2, UserCog,
-  Key, UserPlus, ShoppingBag, Box, Hash, Truck,
+  Key, UserPlus, ShoppingBag, Box, Hash, Truck, Activity,
 };
 
 interface NavItem {
@@ -103,6 +103,7 @@ const NAV_GROUPS: NavGroup[] = [
     { key: "adm-config", label: "Configuration", items: [
       { key: "admin-intg", label: "Integrations", route: "/admin/integrations", icon: "Plug" },
       { key: "admin-sso",  label: "SSO / Auth",   route: "/admin/sso",          icon: "Key" },
+      { key: "admin-status", label: "System Status", route: "/admin/system-status", icon: "Activity" },
     ]},
   ]},
 ];

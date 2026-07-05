@@ -34,23 +34,23 @@ export default async function VendorLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-black text-white overflow-hidden">
+    <div className="flex min-h-screen bg-gray-50 text-gray-900 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 bg-zinc-950 border-r border-white/[0.06] flex flex-col">
+      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
         {/* Brand */}
-        <div className="p-5 border-b border-white/[0.06]">
-          <p className="text-[10px] uppercase tracking-[0.45em] text-zinc-600 mb-1">
+        <div className="p-5 border-b border-gray-100">
+          <p className="text-[10px] uppercase tracking-[0.45em] text-gray-400 mb-1">
             Vendor Portal
           </p>
           <div className="flex items-center gap-2.5 mt-3">
-            <div className="h-8 w-8 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
-              <Building2 className="h-4 w-4 text-violet-400" />
+            <div className="h-8 w-8 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center">
+              <Building2 className="h-4 w-4 text-violet-600" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white truncate max-w-[140px]">
+              <p className="text-sm font-semibold text-gray-900 truncate max-w-[140px]">
                 {userName}
               </p>
-              <p className="text-[10px] text-zinc-500">Vendor Account</p>
+              <p className="text-[10px] text-gray-500">Vendor Account</p>
             </div>
           </div>
         </div>
@@ -61,22 +61,22 @@ export default async function VendorLayout({
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200 transition-all duration-150 text-sm group"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-150 text-sm group"
             >
-              <item.icon className="h-4 w-4 flex-shrink-0 group-hover:text-violet-400 transition-colors" />
+              <item.icon className="h-4 w-4 flex-shrink-0 group-hover:text-violet-600 transition-colors" />
               {item.label}
             </Link>
           ))}
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/[0.06]">
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+        <div className="p-4 border-t border-gray-100">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
             <div className="flex items-center gap-2 mb-1">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <p className="text-xs text-zinc-400">Portal Active</p>
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-xs text-gray-600">Portal Active</p>
             </div>
-            <p className="text-[10px] text-zinc-600">AN Group Vendor System</p>
+            <p className="text-[10px] text-gray-400">AN Group Vendor System</p>
           </div>
         </div>
       </aside>

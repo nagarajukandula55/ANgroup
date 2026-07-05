@@ -222,14 +222,14 @@ export default function MaterialCategoriesPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">
+          <h1 className="text-xl font-semibold text-gray-900">
             Material Categories
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <p className="text-sm text-gray-500 mt-0.5">
             Manage categories used to classify materials and inventory items.
           </p>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100">
+        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
           <Plus size={15} />
           Add Category
         </button>
@@ -237,19 +237,19 @@ export default function MaterialCategoriesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <p className="text-xs text-zinc-500 mb-1">Total Categories</p>
-          <p className="text-2xl font-semibold text-white">{categories.length}</p>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500 mb-1">Total Categories</p>
+          <p className="text-2xl font-semibold text-gray-900">{categories.length}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <p className="text-xs text-zinc-500 mb-1">Active</p>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500 mb-1">Active</p>
           <p className="text-2xl font-semibold text-emerald-400">
             {categories.filter((c) => c.isActive).length}
           </p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <p className="text-xs text-zinc-500 mb-1">Inactive</p>
-          <p className="text-2xl font-semibold text-zinc-400">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500 mb-1">Inactive</p>
+          <p className="text-2xl font-semibold text-gray-500">
             {categories.filter((c) => !c.isActive).length}
           </p>
         </div>
@@ -257,48 +257,48 @@ export default function MaterialCategoriesPage() {
 
       {/* Search */}
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, code or description…"
-          className="w-full pl-9 pr-4 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+          className="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
         />
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/[0.06]">
-              <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">Name</th>
-              <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium hidden sm:table-cell">Code</th>
-              <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium hidden md:table-cell">Description</th>
-              <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium hidden lg:table-cell">Parent</th>
-              <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">Status</th>
-              <th className="px-4 py-3 text-right text-xs text-zinc-500 font-medium">Actions</th>
+            <tr className="border-b border-gray-200">
+              <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">Name</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium hidden sm:table-cell">Code</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium hidden md:table-cell">Description</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium hidden lg:table-cell">Parent</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">Status</th>
+              <th className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.03]">
+          <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
                 <td colSpan={6}>
-                  <div className="p-12 text-center text-zinc-500">Loading…</div>
+                  <div className="p-12 text-center text-gray-500">Loading…</div>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={6}>
                   <div className="p-12 text-center">
-                    <FolderTree size={32} className="mx-auto text-zinc-700 mb-3" />
-                    <p className="text-zinc-500 text-sm mb-4">
+                    <FolderTree size={32} className="mx-auto text-gray-700 mb-3" />
+                    <p className="text-gray-500 text-sm mb-4">
                       {search ? "No categories match your search." : "No material categories yet."}
                     </p>
                     {!search && (
                       <button
                         onClick={openAdd}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 mx-auto"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 mx-auto"
                       >
                         <Plus size={14} />
                         Add First Category
@@ -309,37 +309,37 @@ export default function MaterialCategoriesPage() {
               </tr>
             ) : (
               filtered.map((cat) => (
-                <tr key={cat._id} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={cat._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                         <Layers size={13} className="text-blue-400" />
                       </div>
-                      <span className="text-white font-medium">{cat.name}</span>
+                      <span className="text-gray-900 font-medium">{cat.name}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     {cat.code ? (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full text-zinc-400 bg-white/[0.04]">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full text-gray-500 bg-white">
                         {cat.code}
                       </span>
                     ) : (
-                      <span className="text-zinc-600 text-xs">—</span>
+                      <span className="text-gray-600 text-xs">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    <span className="text-zinc-400 text-xs line-clamp-1 max-w-xs">
-                      {cat.description || <span className="text-zinc-600">—</span>}
+                    <span className="text-gray-500 text-xs line-clamp-1 max-w-xs">
+                      {cat.description || <span className="text-gray-600">—</span>}
                     </span>
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
                     {cat.parentCategory ? (
-                      <div className="flex items-center gap-1 text-xs text-zinc-400">
-                        <ChevronRight size={12} className="text-zinc-600" />
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <ChevronRight size={12} className="text-gray-600" />
                         {cat.parentCategory.name}
                       </div>
                     ) : (
-                      <span className="text-zinc-600 text-xs">Root</span>
+                      <span className="text-gray-600 text-xs">Root</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -348,7 +348,7 @@ export default function MaterialCategoriesPage() {
                         Active
                       </span>
                     ) : (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full text-zinc-400 bg-white/[0.04]">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full text-gray-500 bg-white">
                         Inactive
                       </span>
                     )}
@@ -357,7 +357,7 @@ export default function MaterialCategoriesPage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(cat)}
-                        className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+                        className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
                       >
                         <Edit2 size={12} />
                       </button>
@@ -378,7 +378,7 @@ export default function MaterialCategoriesPage() {
 
       {/* Row count */}
       {!loading && filtered.length > 0 && (
-        <p className="text-xs text-zinc-600 text-right">
+        <p className="text-xs text-gray-600 text-right">
           Showing {filtered.length} of {categories.length} categories
         </p>
       )}
@@ -386,13 +386,13 @@ export default function MaterialCategoriesPage() {
       {/* ── Add / Edit Modal ─────────────────────────────── */}
       {(modal.type === "add" || modal.type === "edit") && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
-              <h2 className="text-sm font-semibold text-white">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-gray-900">
                 {modal.type === "add" ? "Add Material Category" : "Edit Material Category"}
               </h2>
-              <button onClick={closeModal} className="text-zinc-500 hover:text-white transition-colors">
+              <button onClick={closeModal} className="text-gray-500 hover:text-gray-900 transition-colors">
                 <X size={16} />
               </button>
             </div>
@@ -401,7 +401,7 @@ export default function MaterialCategoriesPage() {
             <div className="px-6 py-5 space-y-4">
               {/* Name */}
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">
+                <label className="text-xs text-gray-500 block mb-1">
                   Category Name <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -409,41 +409,41 @@ export default function MaterialCategoriesPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. Raw Materials"
-                  className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
 
               {/* Code */}
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">Code</label>
+                <label className="text-xs text-gray-500 block mb-1">Code</label>
                 <input
                   type="text"
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                   placeholder="e.g. RM-01"
-                  className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
 
               {/* Description */}
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">Description</label>
+                <label className="text-xs text-gray-500 block mb-1">Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Brief description of this category…"
                   rows={3}
-                  className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 resize-none"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 resize-none"
                 />
               </div>
 
               {/* Parent Category */}
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">Parent Category</label>
+                <label className="text-xs text-gray-500 block mb-1">Parent Category</label>
                 <select
                   value={formData.parentCategory}
                   onChange={(e) => setFormData({ ...formData, parentCategory: e.target.value })}
-                  className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
                 >
                   <option value="">None (Root Category)</option>
                   {parentOptions.map((c) => (
@@ -456,21 +456,21 @@ export default function MaterialCategoriesPage() {
 
               {/* Unit */}
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">Default Unit</label>
+                <label className="text-xs text-gray-500 block mb-1">Default Unit</label>
                 <input
                   type="text"
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                   placeholder="e.g. kg, pcs, m"
-                  className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
 
               {/* Active toggle */}
-              <div className="flex items-center justify-between rounded-lg border border-white/[0.06] px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
                 <div>
-                  <p className="text-sm text-white">Active</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">
+                  <p className="text-sm text-gray-900">Active</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
                     Inactive categories won&apos;t appear in material forms.
                   </p>
                 </div>
@@ -478,7 +478,7 @@ export default function MaterialCategoriesPage() {
                   type="button"
                   onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
                   className={`relative w-10 h-5 rounded-full transition-colors ${
-                    formData.isActive ? "bg-emerald-500" : "bg-zinc-700"
+                    formData.isActive ? "bg-emerald-500" : "bg-gray-300"
                   }`}
                 >
                   <span
@@ -499,14 +499,14 @@ export default function MaterialCategoriesPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
-              <button onClick={closeModal} className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button onClick={closeModal} className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400">
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
               >
                 {submitting
                   ? "Saving…"
@@ -522,11 +522,11 @@ export default function MaterialCategoriesPage() {
       {/* ── Delete Confirmation Modal ─────────────────────── */}
       {modal.type === "delete" && modal.category && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
-              <h2 className="text-sm font-semibold text-white">Delete Category</h2>
-              <button onClick={closeModal} className="text-zinc-500 hover:text-white transition-colors">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-gray-900">Delete Category</h2>
+              <button onClick={closeModal} className="text-gray-500 hover:text-gray-900 transition-colors">
                 <X size={16} />
               </button>
             </div>
@@ -536,12 +536,12 @@ export default function MaterialCategoriesPage() {
               <div className="flex items-start gap-3 p-4 bg-red-500/[0.06] border border-red-500/20 rounded-xl">
                 <AlertTriangle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm text-white font-medium mb-0.5">
+                  <p className="text-sm text-gray-900 font-medium mb-0.5">
                     This action cannot be undone
                   </p>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-gray-500">
                     Deleting{" "}
-                    <span className="text-white font-medium">
+                    <span className="text-gray-900 font-medium">
                       {modal.category.name}
                     </span>{" "}
                     will remove it permanently. Materials using this category may be
@@ -551,9 +551,9 @@ export default function MaterialCategoriesPage() {
               </div>
 
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">
+                <label className="text-xs text-gray-500 block mb-1">
                   Type{" "}
-                  <span className="text-white font-medium">
+                  <span className="text-gray-900 font-medium">
                     {modal.category.name}
                   </span>{" "}
                   to confirm
@@ -566,7 +566,7 @@ export default function MaterialCategoriesPage() {
                     setFormError("");
                   }}
                   placeholder="Category name"
-                  className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
 
@@ -579,17 +579,17 @@ export default function MaterialCategoriesPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button
                 onClick={closeModal}
-                className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+                className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={submitting || deleteConfirmName !== modal.category.name}
-                className="px-4 py-2.5 text-sm font-medium text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2.5 text-sm font-medium text-gray-900 bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {submitting ? "Deleting…" : "Delete Category"}
               </button>
@@ -603,8 +603,8 @@ export default function MaterialCategoriesPage() {
         <div
           className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm shadow-xl transition-all ${
             toast.ok
-              ? "bg-zinc-900 border-white/[0.08] text-white"
-              : "bg-red-950 border-red-500/30 text-red-300"
+              ? "bg-white border-gray-200 text-gray-900"
+              : "bg-red-50 border-red-200 text-red-700"
           }`}
         >
           {toast.ok ? (

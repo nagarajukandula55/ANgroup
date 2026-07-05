@@ -3,35 +3,35 @@
 @tailwind utilities;
 
 /* ==========================================
-   AN GROUP — DARK MINIMAL THEME
+   AN GROUP — LIGHT MINIMAL THEME
 ========================================== */
 
 :root {
-  /* Core palette — black/white with subtle greys */
-  --bg: #000000;
-  --surface: #0a0a0a;
-  --surface-2: #111111;
-  --surface-3: #1a1a1a;
+  /* Core palette — white/black with subtle greys */
+  --bg: #f9fafb;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #f3f4f6;
 
-  --border: rgba(255,255,255,0.08);
-  --border-strong: rgba(255,255,255,0.15);
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.15);
 
-  --text: #ffffff;
-  --text-2: #a1a1aa;
-  --text-3: #52525b;
-  --muted: #71717a;
+  --text: #111827;
+  --text-2: #4b5563;
+  --text-3: #9ca3af;
+  --muted: #6b7280;
 
-  --primary: #ffffff;
-  --primary-hover: #f4f4f5;
-  --primary-fg: #000000;
+  --primary: #111827;
+  --primary-hover: #1f2937;
+  --primary-fg: #ffffff;
 
-  --success: #22c55e;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --info: #3b82f6;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --info: #2563eb;
 
-  --shadow: 0 4px 24px rgba(0,0,0,0.4);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+  --shadow: 0 4px 24px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.1);
 }
 
 /* ==========================================
@@ -93,8 +93,8 @@ select {
 ========================================== */
 
 ::selection {
-  background: rgba(255,255,255,0.2);
-  color: #ffffff;
+  background: rgba(37,99,235,0.2);
+  color: #111827;
 }
 
 /* ==========================================
@@ -118,10 +118,10 @@ select {
    AN DESIGN SYSTEM COMPONENTS
 ========================================== */
 
-/* Glassmorphism panel */
+/* Glass panel (light, subtle) */
 .glass {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.02);
+  border: 1px solid rgba(0,0,0,0.06);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -137,17 +137,17 @@ select {
   letter-spacing: 0.02em;
 }
 
-.badge-active { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
-.badge-inactive { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.15); }
-.badge-pending { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.15); }
-.badge-info { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.15); }
+.badge-active { background: rgba(34,197,94,0.12); color: #15803d; border: 1px solid rgba(34,197,94,0.25); }
+.badge-inactive { background: rgba(239,68,68,0.1); color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+.badge-pending { background: rgba(245,158,11,0.1); color: #b45309; border: 1px solid rgba(245,158,11,0.2); }
+.badge-info { background: rgba(59,130,246,0.1); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.2); }
 
 /* Interactive table rows */
 .table-row-hover {
   transition: background 0.15s ease;
 }
 .table-row-hover:hover {
-  background: rgba(255,255,255,0.03);
+  background: rgba(0,0,0,0.02);
 }
 
 .section {
@@ -172,16 +172,16 @@ select {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #f3f4f6;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.15);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.25);
 }
 
 /* ==========================================
@@ -191,9 +191,9 @@ select {
 input,
 textarea,
 select {
-  background: rgba(255,255,255,0.04);
-  color: #ffffff;
-  border: 1px solid rgba(255,255,255,0.08);
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid rgba(0,0,0,0.12);
   border-radius: 10px;
   outline: none;
 }
@@ -201,13 +201,13 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: rgba(255,255,255,0.25);
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.05);
+  border-color: rgba(0,0,0,0.3);
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: rgba(255,255,255,0.2);
+  color: rgba(0,0,0,0.35);
 }
 
 /* ==========================================
@@ -215,8 +215,8 @@ textarea::placeholder {
 ========================================== */
 
 .btn-primary {
-  background: #ffffff;
-  color: #000000;
+  background: #111827;
+  color: #ffffff;
   border: none;
   border-radius: 10px;
   padding: 10px 18px;
@@ -226,14 +226,14 @@ textarea::placeholder {
 }
 
 .btn-primary:hover {
-  background: #f4f4f5;
+  background: #1f2937;
   transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background: rgba(255,255,255,0.06);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.05);
+  color: #111827;
+  border: 1px solid rgba(0,0,0,0.1);
   border-radius: 10px;
   padding: 10px 18px;
   font-weight: 500;
@@ -242,13 +242,13 @@ textarea::placeholder {
 }
 
 .btn-secondary:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.08);
 }
 
 .btn-success {
-  background: rgba(34,197,94,0.15);
-  color: #4ade80;
-  border: 1px solid rgba(34,197,94,0.2);
+  background: rgba(34,197,94,0.12);
+  color: #15803d;
+  border: 1px solid rgba(34,197,94,0.25);
   border-radius: 10px;
   padding: 10px 18px;
   font-weight: 500;
@@ -256,8 +256,8 @@ textarea::placeholder {
 }
 
 .btn-danger {
-  background: rgba(239,68,68,0.12);
-  color: #f87171;
+  background: rgba(239,68,68,0.1);
+  color: #b91c1c;
   border: 1px solid rgba(239,68,68,0.2);
   border-radius: 10px;
   padding: 10px 18px;
@@ -274,8 +274,8 @@ table {
 }
 
 th {
-  background: rgba(255,255,255,0.04);
-  color: #a1a1aa;
+  background: rgba(0,0,0,0.03);
+  color: #6b7280;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -285,13 +285,13 @@ th {
 
 td {
   padding: 12px 16px;
-  color: #e4e4e7;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: #1f2937;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
 td,
 th {
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(0,0,0,0.08);
 }
 
 /* Remove double borders */

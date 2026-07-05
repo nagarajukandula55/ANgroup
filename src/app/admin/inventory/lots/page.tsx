@@ -80,7 +80,7 @@ function daysUntilExpiry(date?: string): number | null {
 }
 
 function ExpiryBadge({ date }: { date?: string }) {
-  if (!date) return <span className="text-xs text-zinc-600">—</span>;
+  if (!date) return <span className="text-xs text-gray-600">—</span>;
   const days = daysUntilExpiry(date)!;
   const label = new Date(date).toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -99,7 +99,7 @@ function ExpiryBadge({ date }: { date?: string }) {
         {label} · {days}d left
       </span>
     );
-  return <span className="text-xs text-zinc-400">{label}</span>;
+  return <span className="text-xs text-gray-500">{label}</span>;
 }
 
 function StatusBadge({ status }: { status: InventoryLot["status"] }) {
@@ -107,7 +107,7 @@ function StatusBadge({ status }: { status: InventoryLot["status"] }) {
     ACTIVE:
       "text-xs font-medium px-2 py-0.5 rounded-full text-emerald-400 bg-emerald-500/10",
     EXHAUSTED:
-      "text-xs font-medium px-2 py-0.5 rounded-full text-zinc-400 bg-white/[0.04]",
+      "text-xs font-medium px-2 py-0.5 rounded-full text-gray-500 bg-white",
     EXPIRED:
       "text-xs font-medium px-2 py-0.5 rounded-full text-red-400 bg-red-500/10",
     QUARANTINE:
@@ -289,12 +289,12 @@ export default function InventoryLotsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Inventory Lots</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <h1 className="text-xl font-semibold text-gray-900">Inventory Lots</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
             Track batch lots, expiry dates and supplier batches
           </p>
         </div>
-        <button onClick={openModal} className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100">
+        <button onClick={openModal} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
           <Plus size={15} /> Add Lot
         </button>
       </div>
@@ -305,7 +305,7 @@ export default function InventoryLotsPage() {
           {
             label: "Total Lots",
             value: totalLots,
-            icon: <Layers size={16} className="text-zinc-400" />,
+            icon: <Layers size={16} className="text-gray-500" />,
             cls: "",
           },
           {
@@ -327,12 +327,12 @@ export default function InventoryLotsPage() {
             cls: "text-red-400",
           },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex items-center gap-2 mb-2">
               {s.icon}
-              <span className="text-xs text-zinc-500">{s.label}</span>
+              <span className="text-xs text-gray-500">{s.label}</span>
             </div>
-            <p className={`text-2xl font-semibold ${s.cls || "text-white"}`}>
+            <p className={`text-2xl font-semibold ${s.cls || "text-gray-900"}`}>
               {s.value}
             </p>
           </div>
@@ -343,12 +343,12 @@ export default function InventoryLotsPage() {
       <div className="flex flex-wrap gap-3 items-center">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search lots, items, batches…"
-            className="w-full pl-9 pr-4 py-2 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
           />
         </div>
 
@@ -356,7 +356,7 @@ export default function InventoryLotsPage() {
         <select
           value={filterItemId}
           onChange={(e) => setFilterItemId(e.target.value)}
-          className="px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-zinc-300 focus:outline-none"
+          className="px-3 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none"
         >
           <option value="">All Items</option>
           {items.map((it) => (
@@ -370,7 +370,7 @@ export default function InventoryLotsPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-zinc-300 focus:outline-none"
+          className="px-3 py-2 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none"
         >
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active</option>
@@ -385,7 +385,7 @@ export default function InventoryLotsPage() {
           className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border transition-colors ${
             filterExpiringSoon
               ? "text-amber-400 border-amber-500/30 bg-amber-500/10"
-              : "text-zinc-400 border-white/[0.08] hover:text-white hover:border-white/20"
+              : "text-gray-500 border-gray-200 hover:text-gray-900 hover:border-gray-400"
           }`}
         >
           <AlertTriangle size={12} />
@@ -401,7 +401,7 @@ export default function InventoryLotsPage() {
               setFilterStatus("");
               setFilterExpiringSoon(false);
             }}
-            className="flex items-center gap-1 px-3 py-2 text-xs text-zinc-500 hover:text-white rounded-xl border border-white/[0.06] hover:border-white/20"
+            className="flex items-center gap-1 px-3 py-2 text-xs text-gray-500 hover:text-gray-900 rounded-xl border border-gray-200 hover:border-gray-400"
           >
             <X size={11} /> Clear
           </button>
@@ -409,13 +409,13 @@ export default function InventoryLotsPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="rounded-xl border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-zinc-500">Loading…</div>
+          <div className="p-12 text-center text-gray-500">Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
-            <Package size={32} className="text-zinc-700 mx-auto mb-3" />
-            <p className="text-zinc-500 mb-4">
+            <Package size={32} className="text-gray-700 mx-auto mb-3" />
+            <p className="text-gray-500 mb-4">
               {lots.length === 0
                 ? "No lots recorded yet. Add your first inventory lot."
                 : "No lots match the current filters."}
@@ -423,7 +423,7 @@ export default function InventoryLotsPage() {
             {lots.length === 0 && (
               <button
                 onClick={openModal}
-                className="px-4 py-2 bg-white text-black rounded-xl text-sm font-medium"
+                className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium"
               >
                 Add Lot
               </button>
@@ -431,7 +431,7 @@ export default function InventoryLotsPage() {
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="border-b border-white/[0.06]">
+            <thead className="border-b border-gray-200">
               <tr>
                 {[
                   "Lot Number",
@@ -445,14 +445,14 @@ export default function InventoryLotsPage() {
                 ].map((h) => (
                   <th
                     key={h}
-                    className="px-4 py-3 text-left text-xs text-zinc-500 font-medium"
+                    className="px-4 py-3 text-left text-xs text-gray-500 font-medium"
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.03]">
+            <tbody className="divide-y divide-gray-100">
               {filtered.map((lot) => {
                 const days = daysUntilExpiry(lot.expiryDate);
                 const rowWarning =
@@ -463,7 +463,7 @@ export default function InventoryLotsPage() {
                 return (
                   <tr
                     key={lot._id}
-                    className={`hover:bg-white/[0.02] transition-colors ${rowWarning ? "bg-amber-500/[0.02]" : ""}`}
+                    className={`hover:bg-gray-50 transition-colors ${rowWarning ? "bg-amber-500/[0.02]" : ""}`}
                   >
                     {/* Lot Number */}
                     <td className="px-4 py-3">
@@ -478,7 +478,7 @@ export default function InventoryLotsPage() {
                             }
                           />
                         )}
-                        <span className="font-mono text-sm text-white font-medium">
+                        <span className="font-mono text-sm text-gray-900 font-medium">
                           {lot.lotNumber}
                         </span>
                       </div>
@@ -488,37 +488,37 @@ export default function InventoryLotsPage() {
                     <td className="px-4 py-3">
                       {lot.itemId ? (
                         <div>
-                          <p className="text-white font-medium">
+                          <p className="text-gray-900 font-medium">
                             {lot.itemId.name}
                           </p>
                           {lot.itemId.sku && (
-                            <p className="text-xs text-zinc-500 font-mono">
+                            <p className="text-xs text-gray-500 font-mono">
                               {lot.itemId.sku}
                             </p>
                           )}
                         </div>
                       ) : (
-                        <span className="text-zinc-600">—</span>
+                        <span className="text-gray-600">—</span>
                       )}
                     </td>
 
                     {/* Qty */}
                     <td className="px-4 py-3">
-                      <p className="text-white font-semibold">
+                      <p className="text-gray-900 font-semibold">
                         {lot.remainingQuantity.toLocaleString("en-IN")}
-                        <span className="text-xs text-zinc-500 font-normal ml-1">
+                        <span className="text-xs text-gray-500 font-normal ml-1">
                           {lot.itemId?.unit || ""}
                         </span>
                       </p>
                       {lot.remainingQuantity !== lot.quantity && (
-                        <p className="text-xs text-zinc-600">
+                        <p className="text-xs text-gray-600">
                           of {lot.quantity.toLocaleString("en-IN")} original
                         </p>
                       )}
                     </td>
 
                     {/* Unit Cost */}
-                    <td className="px-4 py-3 text-zinc-300">
+                    <td className="px-4 py-3 text-gray-600">
                       {fmt(lot.unitCost)}
                     </td>
 
@@ -530,16 +530,16 @@ export default function InventoryLotsPage() {
                     {/* Supplier Batch */}
                     <td className="px-4 py-3">
                       {lot.batchNumber ? (
-                        <span className="font-mono text-xs text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full">
+                        <span className="font-mono text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full">
                           {lot.batchNumber}
                         </span>
                       ) : (
-                        <span className="text-zinc-600 text-xs">—</span>
+                        <span className="text-gray-600 text-xs">—</span>
                       )}
                     </td>
 
                     {/* Received */}
-                    <td className="px-4 py-3 text-xs text-zinc-400">
+                    <td className="px-4 py-3 text-xs text-gray-500">
                       {new Date(lot.receivedDate).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
@@ -561,7 +561,7 @@ export default function InventoryLotsPage() {
 
       {/* Results count */}
       {!loading && filtered.length > 0 && (
-        <p className="text-xs text-zinc-600 text-right">
+        <p className="text-xs text-gray-600 text-right">
           Showing {filtered.length} of {lots.length} lots
         </p>
       )}
@@ -569,15 +569,15 @@ export default function InventoryLotsPage() {
       {/* ─── Add Lot Modal ─────────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {/* Modal header */}
-            <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
-              <h2 className="text-white font-semibold flex items-center gap-2">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-gray-900 font-semibold flex items-center gap-2">
                 <Layers size={16} /> Add Inventory Lot
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-zinc-500 hover:text-white transition-colors"
+                className="text-gray-500 hover:text-gray-900 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -587,13 +587,13 @@ export default function InventoryLotsPage() {
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
               {/* Item search */}
               <div className="relative">
-                <label className="text-xs text-zinc-500 block mb-1">
+                <label className="text-xs text-gray-500 block mb-1">
                   Inventory Item *
                 </label>
                 <div className="relative">
                   <Package
                     size={14}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                   />
                   <input
                     value={form.itemSearch}
@@ -607,7 +607,7 @@ export default function InventoryLotsPage() {
                     }}
                     onFocus={() => setItemDropdown(true)}
                     placeholder="Search item name or SKU…"
-                    className="w-full pl-9 pr-4 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                   />
                   {form.itemId && (
                     <CheckCircle
@@ -617,16 +617,16 @@ export default function InventoryLotsPage() {
                   )}
                 </div>
                 {itemDropdown && filteredItemOptions.length > 0 && (
-                  <div className="absolute z-10 top-full mt-1 left-0 right-0 bg-zinc-900 border border-white/[0.08] rounded-lg overflow-hidden shadow-xl max-h-44 overflow-y-auto">
+                  <div className="absolute z-10 top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg overflow-hidden shadow-xl max-h-44 overflow-y-auto">
                     {filteredItemOptions.slice(0, 15).map((it) => (
                       <button
                         key={it._id}
                         onClick={() => selectItem(it)}
-                        className="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/[0.06] flex items-center justify-between"
+                        className="w-full px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-100 flex items-center justify-between"
                       >
                         <span>{it.name}</span>
                         {it.sku && (
-                          <span className="text-xs text-zinc-600 font-mono">
+                          <span className="text-xs text-gray-600 font-mono">
                             {it.sku}
                           </span>
                         )}
@@ -645,13 +645,13 @@ export default function InventoryLotsPage() {
               {/* Lot Number + Batch Number */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-zinc-500 block mb-1">
+                  <label className="text-xs text-gray-500 block mb-1">
                     Lot Number *
                   </label>
                   <div className="relative">
                     <Hash
                       size={13}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                     />
                     <input
                       value={form.lotNumber}
@@ -659,18 +659,18 @@ export default function InventoryLotsPage() {
                         setForm((f) => ({ ...f, lotNumber: e.target.value }))
                       }
                       placeholder="e.g. LOT-2024-001"
-                      className="w-full pl-8 pr-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-500 block mb-1">
+                  <label className="text-xs text-gray-500 block mb-1">
                     Supplier Batch #
                   </label>
                   <div className="relative">
                     <Box
                       size={13}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                     />
                     <input
                       value={form.batchNumber}
@@ -678,7 +678,7 @@ export default function InventoryLotsPage() {
                         setForm((f) => ({ ...f, batchNumber: e.target.value }))
                       }
                       placeholder="Supplier's batch code"
-                      className="w-full pl-8 pr-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                     />
                   </div>
                 </div>
@@ -687,7 +687,7 @@ export default function InventoryLotsPage() {
               {/* Quantity + Unit Cost */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-zinc-500 block mb-1">
+                  <label className="text-xs text-gray-500 block mb-1">
                     Quantity *
                   </label>
                   <input
@@ -698,11 +698,11 @@ export default function InventoryLotsPage() {
                       setForm((f) => ({ ...f, quantity: e.target.value }))
                     }
                     placeholder="0"
-                    className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-500 block mb-1">
+                  <label className="text-xs text-gray-500 block mb-1">
                     Unit Cost (₹) *
                   </label>
                   <input
@@ -714,16 +714,16 @@ export default function InventoryLotsPage() {
                       setForm((f) => ({ ...f, unitCost: e.target.value }))
                     }
                     placeholder="0.00"
-                    className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                   />
                 </div>
               </div>
 
               {/* Total cost preview */}
               {form.quantity && form.unitCost && (
-                <div className="px-3 py-2 bg-white/[0.02] border border-white/[0.04] rounded-lg flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">Total Cost</span>
-                  <span className="text-sm font-semibold text-white">
+                <div className="px-3 py-2 bg-white border border-gray-100 rounded-lg flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Total Cost</span>
+                  <span className="text-sm font-semibold text-gray-900">
                     {fmt(
                       (parseFloat(form.quantity) || 0) *
                         (parseFloat(form.unitCost) || 0)
@@ -735,7 +735,7 @@ export default function InventoryLotsPage() {
               {/* Dates */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs text-zinc-500 block mb-1">
+                  <label className="text-xs text-gray-500 block mb-1">
                     Received Date
                   </label>
                   <input
@@ -744,11 +744,11 @@ export default function InventoryLotsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, receivedDate: e.target.value }))
                     }
-                    className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-white/20"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-500 block mb-1">
+                  <label className="text-xs text-gray-500 block mb-1">
                     Manufactured Date
                   </label>
                   <input
@@ -760,11 +760,11 @@ export default function InventoryLotsPage() {
                         manufacturedDate: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-white/20"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-500 block mb-1">
+                  <label className="text-xs text-gray-500 block mb-1">
                     Expiry Date
                   </label>
                   <input
@@ -773,7 +773,7 @@ export default function InventoryLotsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, expiryDate: e.target.value }))
                     }
-                    className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-white/20"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
                   />
                 </div>
               </div>
@@ -781,14 +781,14 @@ export default function InventoryLotsPage() {
               {/* Expiry warning preview */}
               {form.expiryDate && (
                 <div className="flex items-center gap-2">
-                  <Calendar size={13} className="text-zinc-500" />
+                  <Calendar size={13} className="text-gray-500" />
                   <ExpiryBadge date={form.expiryDate} />
                 </div>
               )}
 
               {/* Notes */}
               <div>
-                <label className="text-xs text-zinc-500 block mb-1">
+                <label className="text-xs text-gray-500 block mb-1">
                   Notes
                 </label>
                 <textarea
@@ -798,7 +798,7 @@ export default function InventoryLotsPage() {
                   }
                   rows={2}
                   placeholder="Optional notes about this lot…"
-                  className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 resize-none"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 resize-none"
                 />
               </div>
 
@@ -811,17 +811,17 @@ export default function InventoryLotsPage() {
             </div>
 
             {/* Modal footer */}
-            <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={saveLot}
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? (
                   <>

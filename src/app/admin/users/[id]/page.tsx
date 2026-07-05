@@ -51,20 +51,20 @@ const ROLE_COLORS: Record<string, { bg: string; text: string; border: string }> 
   MANAGER: { bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/30' },
   EMPLOYEE: { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30' },
   VENDOR: { bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/30' },
-  CUSTOMER: { bg: 'bg-zinc-500/20', text: 'text-zinc-300', border: 'border-zinc-500/30' },
+  CUSTOMER: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-300' },
 };
 
 const AVATAR_COLORS = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-red-500', 'bg-indigo-500'];
 
 function getRoleColor(code: string) {
-  return ROLE_COLORS[code] || { bg: 'bg-zinc-500/20', text: 'text-zinc-300', border: 'border-zinc-500/30' };
+  return ROLE_COLORS[code] || { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-300' };
 }
 
 function InfoRow({ label, value }: { label: string; value?: string | number }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <span className="text-sm text-white">{value || '—'}</span>
+      <span className="text-xs text-gray-500">{label}</span>
+      <span className="text-sm text-gray-900">{value || '—'}</span>
     </div>
   );
 }
@@ -73,7 +73,7 @@ function StarRating({ rating }: { rating: number }) {
   return (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((star) => (
-        <span key={star} className={star <= rating ? 'text-yellow-400' : 'text-zinc-600'}>★</span>
+        <span key={star} className={star <= rating ? 'text-yellow-400' : 'text-gray-600'}>★</span>
       ))}
     </div>
   );
@@ -142,7 +142,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -150,9 +150,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-zinc-400 text-lg">User not found</p>
+          <p className="text-gray-500 text-lg">User not found</p>
           <a href="/admin/users" className="text-blue-400 hover:text-blue-300 text-sm mt-2 inline-block">← Back to Users</a>
         </div>
       </div>
@@ -176,9 +176,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   });
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-6">
+    <div className="min-h-screen bg-gray-50 text-gray-900 p-6">
       {/* Back button */}
-      <a href="/admin/users" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-sm mb-6 transition-colors">
+      <a href="/admin/users" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 text-sm mb-6 transition-colors">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
@@ -186,14 +186,14 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       </a>
 
       {/* User header card */}
-      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
         <div className="flex items-start gap-5">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0 ${avatarColor}`}>
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center text-gray-900 text-xl font-bold flex-shrink-0 ${avatarColor}`}>
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-white">{user.name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
               {primaryRole && (
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${roleColor.bg} ${roleColor.text} ${roleColor.border}`}>
                   {primaryRole.code}
@@ -203,18 +203,18 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 {user.status}
               </span>
             </div>
-            <p className="text-zinc-400 mt-1">{user.email}</p>
+            <p className="text-gray-500 mt-1">{user.email}</p>
             {user.employeeProfile?.employeeId && (
-              <p className="text-xs text-zinc-500 mt-1 font-mono">{user.employeeProfile.employeeId}</p>
+              <p className="text-xs text-gray-500 mt-1 font-mono">{user.employeeProfile.employeeId}</p>
             )}
             {user.vendorProfile?.vendorId && (
-              <p className="text-xs text-zinc-500 mt-1 font-mono">{user.vendorProfile.vendorId}</p>
+              <p className="text-xs text-gray-500 mt-1 font-mono">{user.vendorProfile.vendorId}</p>
             )}
           </div>
           <a
             href={`/admin/users`}
             onClick={(e) => { e.preventDefault(); /* edit inline */ }}
-            className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -224,12 +224,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-0 border-b border-white/[0.08] mb-6">
+      <div className="flex gap-0 border-b border-gray-200 mb-6">
         {(['profile', 'access', 'activity'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-3 text-sm font-medium capitalize transition-colors relative ${activeTab === tab ? 'text-blue-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+            className={`px-5 py-3 text-sm font-medium capitalize transition-colors relative ${activeTab === tab ? 'text-blue-400' : 'text-gray-500 hover:text-gray-900'}`}
           >
             {tab === 'access' ? 'Access & Roles' : tab === 'activity' ? 'Activity Log' : 'Profile'}
             {activeTab === tab && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full" />}
@@ -240,8 +240,8 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       {/* Profile Tab */}
       {activeTab === 'profile' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">Basic Information</h3>
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">Basic Information</h3>
             <div className="space-y-4">
               <InfoRow label="Full Name" value={user.name} />
               <InfoRow label="Email Address" value={user.email} />
@@ -253,10 +253,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </div>
 
           {user.employeeProfile && (
-            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+            <div className="bg-white border border-gray-200 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Employee Details</h3>
+                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Employee Details</h3>
               </div>
               <div className="space-y-4">
                 <InfoRow label="Employee ID" value={user.employeeProfile.employeeId} />
@@ -271,10 +271,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           )}
 
           {user.vendorProfile && (
-            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
+            <div className="bg-white border border-gray-200 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Vendor Details</h3>
+                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Vendor Details</h3>
               </div>
               <div className="space-y-4">
                 <InfoRow label="Vendor ID" value={user.vendorProfile.vendorId} />
@@ -284,11 +284,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 <InfoRow label="Payment Terms" value={user.vendorProfile.paymentTerms} />
                 <InfoRow label="Category" value={user.vendorProfile.category} />
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-zinc-500">Rating</span>
+                  <span className="text-xs text-gray-500">Rating</span>
                   <StarRating rating={user.vendorProfile.rating || 0} />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-zinc-500">Approval Status</span>
+                  <span className="text-xs text-gray-500">Approval Status</span>
                   <span className={`text-sm font-medium ${user.vendorProfile.isApproved ? 'text-green-400' : 'text-yellow-400'}`}>
                     {user.vendorProfile.isApproved ? 'Approved' : 'Pending Approval'}
                   </span>
@@ -302,10 +302,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       {/* Access & Roles Tab */}
       {activeTab === 'access' && (
         <div className="space-y-6">
-          <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">Current Roles</h3>
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">Current Roles</h3>
             {user.roles.length === 0 ? (
-              <p className="text-zinc-500 text-sm">No roles assigned yet.</p>
+              <p className="text-gray-500 text-sm">No roles assigned yet.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {user.roles.map((role) => {
@@ -328,13 +328,13 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
             )}
           </div>
 
-          <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">Assign Role</h3>
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">Assign Role</h3>
             <div className="flex gap-3">
               <select
                 value={selectedRoleToAssign}
                 onChange={(e) => setSelectedRoleToAssign(e.target.value)}
-                className="flex-1 bg-zinc-800 border border-white/[0.08] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500/50"
+                className="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-blue-500/50"
               >
                 <option value="">Select a role...</option>
                 {availableRoles
@@ -346,7 +346,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <button
                 onClick={assignRole}
                 disabled={!selectedRoleToAssign || assigning}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-lg font-medium transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 text-sm rounded-lg font-medium transition-colors"
               >
                 {assigning ? 'Assigning...' : 'Assign'}
               </button>
@@ -354,18 +354,18 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </div>
 
           {uniquePermissions.length > 0 && (
-            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
+            <div className="bg-white border border-gray-200 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">
                 Permissions
-                <span className="ml-2 text-xs font-normal text-zinc-500 normal-case">({uniquePermissions.length} total)</span>
+                <span className="ml-2 text-xs font-normal text-gray-500 normal-case">({uniquePermissions.length} total)</span>
               </h3>
               <div className="space-y-4">
                 {Object.entries(permissionsByModule).map(([module, perms]) => (
                   <div key={module}>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">{module}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{module}</p>
                     <div className="flex flex-wrap gap-2">
                       {perms.map((perm) => (
-                        <span key={perm} className="text-xs bg-white/[0.05] border border-white/[0.08] text-zinc-300 px-2.5 py-1 rounded-full font-mono">
+                        <span key={perm} className="text-xs bg-white border border-gray-200 text-gray-600 px-2.5 py-1 rounded-full font-mono">
                           {perm}
                         </span>
                       ))}
@@ -380,12 +380,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Activity Log Tab */}
       {activeTab === 'activity' && (
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-12 flex flex-col items-center justify-center">
-          <svg className="w-12 h-12 text-zinc-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-white border border-gray-200 rounded-xl p-12 flex flex-col items-center justify-center">
+          <svg className="w-12 h-12 text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-zinc-400 font-medium">No activity recorded yet</p>
-          <p className="text-zinc-600 text-sm mt-1">User actions and login history will appear here once activity logging is enabled.</p>
+          <p className="text-gray-500 font-medium">No activity recorded yet</p>
+          <p className="text-gray-600 text-sm mt-1">User actions and login history will appear here once activity logging is enabled.</p>
         </div>
       )}
     </div>

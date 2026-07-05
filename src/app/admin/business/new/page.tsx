@@ -92,20 +92,20 @@ export default function NewBusinessPage() {
   }
 
   return (
-    <div className="p-10 text-white bg-[#07111f] min-h-screen">
+    <div className="p-10 text-gray-900 bg-gray-50 min-h-screen">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Create Business</h1>
 
         <Link
           href="/admin/business"
-          className="text-sm text-cyan-400 hover:text-cyan-300"
+          className="text-sm text-cyan-700 hover:text-cyan-800"
         >
           &larr; Back to Businesses
         </Link>
       </div>
 
       {error && (
-        <div className="mt-4 rounded border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mt-4 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -113,7 +113,7 @@ export default function NewBusinessPage() {
       <div className="grid grid-cols-2 gap-4 mt-6">
         {Object.keys(form).map((key) => (
           <div key={key} className="flex flex-col gap-1">
-            <label className="text-xs text-white/50">
+            <label className="text-xs text-gray-500">
               {FIELD_LABELS[key] ?? key}
             </label>
             <input
@@ -121,7 +121,7 @@ export default function NewBusinessPage() {
               value={(form as any)[key]}
               placeholder={FIELD_LABELS[key] ?? key}
               onChange={handleChange}
-              className="p-3 bg-black border border-white/20 rounded"
+              className="p-3 bg-white text-gray-900 border border-gray-200 rounded placeholder:text-gray-400"
             />
           </div>
         ))}
@@ -130,7 +130,7 @@ export default function NewBusinessPage() {
       <button
         onClick={createBusiness}
         disabled={saving}
-        className="mt-6 bg-cyan-500 px-6 py-3 text-black font-bold rounded disabled:opacity-50"
+        className="mt-6 bg-cyan-600 hover:bg-cyan-700 px-6 py-3 text-white font-bold rounded disabled:opacity-50"
       >
         {saving ? "Creating..." : "Create Business"}
       </button>

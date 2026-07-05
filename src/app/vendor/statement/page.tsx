@@ -50,9 +50,9 @@ function formatDate(dateStr: string) {
 }
 
 const typeColors: Record<string, string> = {
-  Invoice: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  Payment: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  Credit: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+  Invoice: 'bg-blue-50 text-blue-700 border-blue-200',
+  Payment: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Credit: 'bg-violet-50 text-violet-700 border-violet-200',
 }
 
 export default function VendorStatementPage() {
@@ -103,10 +103,10 @@ export default function VendorStatementPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-widest">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">
             Vendor Portal
           </p>
-          <h1 className="text-2xl font-bold text-white mt-0.5">
+          <h1 className="text-2xl font-bold text-gray-900 mt-0.5">
             Financial Statement
           </h1>
         </div>
@@ -120,33 +120,33 @@ export default function VendorStatementPage() {
       </div>
 
       {/* Date Range Picker */}
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">
           Date Range
         </p>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-zinc-400 w-8">From</label>
+            <label className="text-sm text-gray-500 w-8">From</label>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/50 [color-scheme:dark]"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-violet-500"
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm text-zinc-400 w-4">To</label>
+            <label className="text-sm text-gray-500 w-4">To</label>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="bg-white/[0.05] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/50 [color-scheme:dark]"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-violet-500"
             />
           </div>
           <button
             onClick={fetchStatement}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-white/[0.07] hover:bg-white/[0.1] text-white transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-gray-50 hover:bg-gray-100 text-gray-900 transition-all disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -160,50 +160,50 @@ export default function VendorStatementPage() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-zinc-500">Total Invoiced</p>
-              <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <FileText className="h-3.5 w-3.5 text-blue-400" />
+              <p className="text-xs text-gray-500">Total Invoiced</p>
+              <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                <FileText className="h-3.5 w-3.5 text-blue-700" />
               </div>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-xl font-bold text-gray-900">
               {formatCurrency(summary.totalInvoiced)}
             </p>
           </div>
 
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-zinc-500">Total Paid</p>
-              <div className="h-7 w-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+              <p className="text-xs text-gray-500">Total Paid</p>
+              <div className="h-7 w-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-700" />
               </div>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-xl font-bold text-gray-900">
               {formatCurrency(summary.totalPaid)}
             </p>
           </div>
 
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-zinc-500">Outstanding</p>
-              <div className="h-7 w-7 rounded-lg bg-red-500/10 flex items-center justify-center">
-                <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+              <p className="text-xs text-gray-500">Outstanding</p>
+              <div className="h-7 w-7 rounded-lg bg-red-50 flex items-center justify-center">
+                <TrendingDown className="h-3.5 w-3.5 text-red-700" />
               </div>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-xl font-bold text-gray-900">
               {formatCurrency(summary.outstanding)}
             </p>
           </div>
 
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-zinc-500">Credit Balance</p>
-              <div className="h-7 w-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                <CreditCard className="h-3.5 w-3.5 text-violet-400" />
+              <p className="text-xs text-gray-500">Credit Balance</p>
+              <div className="h-7 w-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                <CreditCard className="h-3.5 w-3.5 text-violet-700" />
               </div>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-xl font-bold text-gray-900">
               {formatCurrency(summary.creditBalance)}
             </p>
           </div>
@@ -211,10 +211,10 @@ export default function VendorStatementPage() {
       )}
 
       {/* Transactions Table */}
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.06]">
-          <h2 className="text-sm font-semibold text-white">Transactions</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
+      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-200">
+          <h2 className="text-sm font-semibold text-gray-900">Transactions</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
             {fromDate && toDate
               ? `${formatDate(fromDate)} — ${formatDate(toDate)}`
               : 'All transactions'}
@@ -223,40 +223,40 @@ export default function VendorStatementPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 text-zinc-500 animate-spin" />
+            <Loader2 className="h-6 w-6 text-gray-500 animate-spin" />
           </div>
         ) : error ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-2" />
-              <p className="text-zinc-400">{error}</p>
+              <AlertCircle className="h-8 w-8 text-red-700 mx-auto mb-2" />
+              <p className="text-gray-500">{error}</p>
             </div>
           </div>
         ) : transactions.length === 0 ? (
           <div className="py-16 text-center">
-            <DollarSign className="h-10 w-10 text-zinc-700 mx-auto mb-3" />
-            <p className="text-zinc-500">No transactions in this period</p>
+            <DollarSign className="h-10 w-10 text-gray-700 mx-auto mb-3" />
+            <p className="text-gray-500">No transactions in this period</p>
           </div>
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/[0.04]">
-                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-zinc-600">
+              <tr className="border-b border-gray-100">
+                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-gray-600">
                   Date
                 </th>
-                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-zinc-600">
+                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-gray-600">
                   Type
                 </th>
-                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-zinc-600">
+                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-gray-600">
                   Reference
                 </th>
-                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-zinc-600 hidden md:table-cell">
+                <th className="px-5 py-3 text-left text-[10px] uppercase tracking-wider text-gray-600 hidden md:table-cell">
                   Description
                 </th>
-                <th className="px-5 py-3 text-right text-[10px] uppercase tracking-wider text-zinc-600">
+                <th className="px-5 py-3 text-right text-[10px] uppercase tracking-wider text-gray-600">
                   Amount
                 </th>
-                <th className="px-5 py-3 text-right text-[10px] uppercase tracking-wider text-zinc-600">
+                <th className="px-5 py-3 text-right text-[10px] uppercase tracking-wider text-gray-600">
                   Balance
                 </th>
               </tr>
@@ -265,38 +265,38 @@ export default function VendorStatementPage() {
               {transactions.map((tx, idx) => (
                 <tr
                   key={idx}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-5 py-3 text-sm text-zinc-400">
+                  <td className="px-5 py-3 text-sm text-gray-500">
                     {formatDate(tx.date)}
                   </td>
                   <td className="px-5 py-3">
                     <span
                       className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium border ${
                         typeColors[tx.type] ||
-                        'bg-zinc-800 text-zinc-400 border-zinc-700'
+                        'bg-gray-100 text-gray-600 border-gray-200'
                       }`}
                     >
                       {tx.type}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-sm font-mono text-zinc-300">
+                  <td className="px-5 py-3 text-sm font-mono text-gray-600">
                     {tx.reference}
                   </td>
-                  <td className="px-5 py-3 text-sm text-zinc-500 hidden md:table-cell max-w-xs truncate">
+                  <td className="px-5 py-3 text-sm text-gray-500 hidden md:table-cell max-w-xs truncate">
                     {tx.description}
                   </td>
                   <td
                     className={`px-5 py-3 text-sm text-right font-medium ${
                       tx.type === 'Invoice'
-                        ? 'text-blue-400'
-                        : 'text-emerald-400'
+                        ? 'text-blue-700'
+                        : 'text-emerald-700'
                     }`}
                   >
                     {tx.type !== 'Payment' ? '+' : '-'}
                     {formatCurrency(Math.abs(tx.amount))}
                   </td>
-                  <td className="px-5 py-3 text-sm text-right text-white font-mono">
+                  <td className="px-5 py-3 text-sm text-right text-gray-900 font-mono">
                     {formatCurrency(tx.balance)}
                   </td>
                 </tr>

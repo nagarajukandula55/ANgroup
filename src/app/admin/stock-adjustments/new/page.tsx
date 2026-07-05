@@ -128,10 +128,10 @@ export default function NewStockAdjustmentPage() {
           <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} className="text-emerald-400" />
           </div>
-          <h2 className="text-lg font-semibold text-white mb-2">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
             Adjustment Created
           </h2>
-          <p className="text-sm text-zinc-500 mb-6">
+          <p className="text-sm text-gray-500 mb-6">
             Stock adjustment has been recorded successfully.
           </p>
           <div className="flex gap-3 justify-center">
@@ -149,14 +149,14 @@ export default function NewStockAdjustmentPage() {
                   date: new Date().toISOString().slice(0, 10),
                 });
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
             >
               <Plus size={14} />
               New Adjustment
             </button>
             <Link
               href="/admin/stock-adjustments"
-              className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20 flex items-center"
+              className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400 flex items-center"
             >
               View All
             </Link>
@@ -172,15 +172,15 @@ export default function NewStockAdjustmentPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/admin/stock-adjustments"
-          className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.04] transition-colors"
+          className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
         >
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold text-white">
+          <h1 className="text-xl font-semibold text-gray-900">
             New Stock Adjustment
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <p className="text-sm text-gray-500 mt-0.5">
             Record an inventory quantity change
           </p>
         </div>
@@ -195,23 +195,23 @@ export default function NewStockAdjustmentPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Item Selection */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-          <h3 className="text-sm font-medium text-white">Select Item</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+          <h3 className="text-sm font-medium text-gray-900">Select Item</h3>
 
           {selectedItem ? (
-            <div className="flex items-center justify-between p-4 rounded-xl border border-white/20 bg-white/[0.04]">
+            <div className="flex items-center justify-between p-4 rounded-xl border border-gray-300 bg-white">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/[0.06] flex items-center justify-center">
-                  <Package size={18} className="text-zinc-400" />
+                <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                  <Package size={18} className="text-gray-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-gray-900">
                     {selectedItem.name}
                   </p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-gray-500">
                     {selectedItem.sku && `SKU: ${selectedItem.sku} · `}
                     Current stock:{" "}
-                    <span className="text-zinc-300">
+                    <span className="text-gray-600">
                       {selectedItem.quantity ?? 0}
                     </span>{" "}
                     {selectedItem.unit || "units"}
@@ -224,7 +224,7 @@ export default function NewStockAdjustmentPage() {
                   setSelectedItem(null);
                   setItemSearch("");
                 }}
-                className="text-xs text-zinc-500 hover:text-white border border-white/[0.08] px-3 py-1.5 rounded-lg hover:border-white/20 transition-colors"
+                className="text-xs text-gray-500 hover:text-gray-900 border border-gray-200 px-3 py-1.5 rounded-lg hover:border-gray-400 transition-colors"
               >
                 Change
               </button>
@@ -234,22 +234,22 @@ export default function NewStockAdjustmentPage() {
               <div className="relative mb-3">
                 <Search
                   size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                 />
                 <input
                   type="text"
                   placeholder="Search by name, SKU, or category..."
                   value={itemSearch}
                   onChange={(e) => setItemSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                  className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
               {loading ? (
-                <p className="text-xs text-zinc-500 text-center py-4">
+                <p className="text-xs text-gray-500 text-center py-4">
                   Loading items…
                 </p>
               ) : (
-                <div className="max-h-56 overflow-y-auto rounded-lg border border-white/[0.06] divide-y divide-white/[0.04]">
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-white/[0.04]">
                   {(itemSearch ? filteredItems : inventoryItems)
                     .slice(0, 20)
                     .map((it) => (
@@ -260,30 +260,30 @@ export default function NewStockAdjustmentPage() {
                           setSelectedItem(it);
                           setItemSearch("");
                         }}
-                        className="w-full text-left px-4 py-3 hover:bg-white/[0.04] transition-colors flex items-center justify-between group"
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group"
                       >
                         <div>
-                          <p className="text-sm text-white group-hover:text-white">
+                          <p className="text-sm text-gray-900 group-hover:text-gray-900">
                             {it.name}
                           </p>
-                          <p className="text-xs text-zinc-600">
+                          <p className="text-xs text-gray-600">
                             {it.sku && `${it.sku} · `}
                             {it.category && `${it.category} · `}
                             Stock: {it.quantity ?? 0}
                           </p>
                         </div>
-                        <span className="text-xs text-zinc-600 group-hover:text-zinc-400">
+                        <span className="text-xs text-gray-600 group-hover:text-gray-500">
                           Select →
                         </span>
                       </button>
                     ))}
                   {!itemSearch && inventoryItems.length === 0 && (
-                    <p className="text-xs text-zinc-500 text-center py-4">
+                    <p className="text-xs text-gray-500 text-center py-4">
                       No inventory items found
                     </p>
                   )}
                   {itemSearch && filteredItems.length === 0 && (
-                    <p className="text-xs text-zinc-500 text-center py-4">
+                    <p className="text-xs text-gray-500 text-center py-4">
                       No items match your search
                     </p>
                   )}
@@ -294,12 +294,12 @@ export default function NewStockAdjustmentPage() {
         </div>
 
         {/* Adjustment Details */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-5">
-          <h3 className="text-sm font-medium text-white">Adjustment Details</h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-5">
+          <h3 className="text-sm font-medium text-gray-900">Adjustment Details</h3>
 
           {/* Type */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-2">
+            <label className="text-xs text-gray-500 block mb-2">
               Adjustment Type <span className="text-red-400">*</span>
             </label>
             <div className="grid grid-cols-3 gap-3">
@@ -311,7 +311,7 @@ export default function NewStockAdjustmentPage() {
                 className={`py-3 rounded-xl border text-sm font-medium transition-colors flex flex-col items-center gap-1.5 ${
                   form.adjustmentType === "ADD"
                     ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
-                    : "bg-white/[0.02] border-white/[0.08] text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+                    : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-600"
                 }`}
               >
                 <PackagePlus size={18} />
@@ -325,7 +325,7 @@ export default function NewStockAdjustmentPage() {
                 className={`py-3 rounded-xl border text-sm font-medium transition-colors flex flex-col items-center gap-1.5 ${
                   form.adjustmentType === "REMOVE"
                     ? "bg-red-500/20 border-red-500/40 text-red-400"
-                    : "bg-white/[0.02] border-white/[0.08] text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+                    : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-600"
                 }`}
               >
                 <PackageMinus size={18} />
@@ -339,7 +339,7 @@ export default function NewStockAdjustmentPage() {
                 className={`py-3 rounded-xl border text-sm font-medium transition-colors flex flex-col items-center gap-1.5 ${
                   form.adjustmentType === "SET"
                     ? "bg-blue-500/20 border-blue-500/40 text-blue-400"
-                    : "bg-white/[0.02] border-white/[0.08] text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+                    : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-600"
                 }`}
               >
                 <Package size={18} />
@@ -350,7 +350,7 @@ export default function NewStockAdjustmentPage() {
 
           {/* Quantity */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">
+            <label className="text-xs text-gray-500 block mb-1">
               Quantity <span className="text-red-400">*</span>
             </label>
             <input
@@ -366,12 +366,12 @@ export default function NewStockAdjustmentPage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, quantity: e.target.value }))
               }
-              className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               required
             />
             {selectedItem && form.quantity && Number(form.quantity) > 0 && (
-              <div className="mt-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
-                <span className="text-xs text-zinc-500">Resulting stock:</span>
+              <div className="mt-2 px-3 py-2 rounded-lg bg-white border border-gray-200 flex items-center justify-between">
+                <span className="text-xs text-gray-500">Resulting stock:</span>
                 <span
                   className={`text-sm font-medium ${
                     newQuantity > (selectedItem.quantity ?? 0)
@@ -390,7 +390,7 @@ export default function NewStockAdjustmentPage() {
 
           {/* Reason */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">Reason</label>
+            <label className="text-xs text-gray-500 block mb-1">Reason</label>
             <input
               type="text"
               placeholder="e.g. Physical count correction, damaged goods, supplier return..."
@@ -398,13 +398,13 @@ export default function NewStockAdjustmentPage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, reason: e.target.value }))
               }
-              className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
             />
           </div>
 
           {/* Warehouse */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">
+            <label className="text-xs text-gray-500 block mb-1">
               Warehouse / Location
             </label>
             <input
@@ -414,13 +414,13 @@ export default function NewStockAdjustmentPage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, warehouse: e.target.value }))
               }
-              className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
             />
           </div>
 
           {/* Notes */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">
+            <label className="text-xs text-gray-500 block mb-1">
               Additional Notes
             </label>
             <textarea
@@ -430,20 +430,20 @@ export default function NewStockAdjustmentPage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, notes: e.target.value }))
               }
-              className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 resize-none"
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 resize-none"
             />
           </div>
 
           {/* Date */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">Date</label>
+            <label className="text-xs text-gray-500 block mb-1">Date</label>
             <input
               type="date"
               value={form.date}
               onChange={(e) =>
                 setForm((f) => ({ ...f, date: e.target.value }))
               }
-              className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-gray-400"
             />
           </div>
         </div>
@@ -452,14 +452,14 @@ export default function NewStockAdjustmentPage() {
         <div className="flex items-center justify-between">
           <Link
             href="/admin/stock-adjustments"
-            className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+            className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={submitting || !selectedItem}
-            className="flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <>

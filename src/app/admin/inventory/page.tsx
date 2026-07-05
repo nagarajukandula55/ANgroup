@@ -188,7 +188,7 @@ export default function InventoryPage() {
               placeholder="Search items, SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-white/20"
+              className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400"
             />
           </div>
           <div className="flex gap-1 flex-wrap">
@@ -198,7 +198,7 @@ export default function InventoryPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                   categoryFilter === cat
-                    ? 'bg-gray-900 text-gray-900'
+                    ? 'bg-gray-900 text-white'
                     : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
                 }`}
               >

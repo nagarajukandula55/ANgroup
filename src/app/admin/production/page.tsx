@@ -62,7 +62,7 @@ function fmtDate(d?: string) {
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   const map: Record<OrderStatus, string> = {
-    DRAFT: "text-zinc-400 bg-white/[0.04]",
+    DRAFT: "text-gray-500 bg-gray-100",
     PLANNED: "text-blue-400 bg-blue-500/10",
     IN_PROGRESS: "text-amber-400 bg-amber-500/10",
     COMPLETED: "text-emerald-400 bg-emerald-500/10",
@@ -84,7 +84,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 
 function PriorityBadge({ priority }: { priority: Priority }) {
   const map: Record<Priority, string> = {
-    LOW: "text-zinc-400 bg-white/[0.04]",
+    LOW: "text-gray-500 bg-gray-100",
     NORMAL: "text-blue-400 bg-blue-500/10",
     HIGH: "text-amber-400 bg-amber-500/10",
     URGENT: "text-red-400 bg-red-500/10",
@@ -155,14 +155,14 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
+      <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
           <div>
-            <h2 className="text-sm font-semibold text-white">New Production Order</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">Schedule a new manufacturing run</p>
+            <h2 className="text-sm font-semibold text-gray-900">New Production Order</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Schedule a new manufacturing run</p>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -177,9 +177,9 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="text-xs text-zinc-500 block mb-1">Output Product *</label>
+              <label className="text-xs text-gray-500 block mb-1">Output Product *</label>
               <input
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
                 placeholder="e.g. Steel Bracket Type A"
                 value={form.productName}
                 onChange={(e) => set("productName", e.target.value)}
@@ -188,9 +188,9 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
             </div>
 
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">SKU / Code</label>
+              <label className="text-xs text-gray-500 block mb-1">SKU / Code</label>
               <input
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
                 placeholder="SKU-001"
                 value={form.productSku}
                 onChange={(e) => set("productSku", e.target.value)}
@@ -198,19 +198,19 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
             </div>
 
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Planned Quantity *</label>
+              <label className="text-xs text-gray-500 block mb-1">Planned Quantity *</label>
               <div className="flex gap-2">
                 <input
                   type="number"
                   min="1"
-                  className="flex-1 px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
                   placeholder="100"
                   value={form.plannedQuantity}
                   onChange={(e) => set("plannedQuantity", e.target.value)}
                   required
                 />
                 <select
-                  className="w-20 px-2 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none"
+                  className="w-20 px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
                   value={form.unit}
                   onChange={(e) => set("unit", e.target.value)}
                 >
@@ -222,9 +222,9 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
             </div>
 
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Priority</label>
+              <label className="text-xs text-gray-500 block mb-1">Priority</label>
               <select
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
                 value={form.priority}
                 onChange={(e) => set("priority", e.target.value as Priority)}
               >
@@ -236,9 +236,9 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
             </div>
 
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Initial Status</label>
+              <label className="text-xs text-gray-500 block mb-1">Initial Status</label>
               <select
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-zinc-300 focus:outline-none"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
                 value={form.status}
                 onChange={(e) => set("status", e.target.value as OrderStatus)}
               >
@@ -248,29 +248,29 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
             </div>
 
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Start Date</label>
+              <label className="text-xs text-gray-500 block mb-1">Start Date</label>
               <input
                 type="date"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
                 value={form.plannedStartDate}
                 onChange={(e) => set("plannedStartDate", e.target.value)}
               />
             </div>
 
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">End Date</label>
+              <label className="text-xs text-gray-500 block mb-1">End Date</label>
               <input
                 type="date"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
                 value={form.plannedEndDate}
                 onChange={(e) => set("plannedEndDate", e.target.value)}
               />
             </div>
 
             <div className="col-span-2">
-              <label className="text-xs text-zinc-500 block mb-1">BOM ID (optional)</label>
+              <label className="text-xs text-gray-500 block mb-1">BOM ID (optional)</label>
               <input
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
                 placeholder="Link existing Bill of Materials ID"
                 value={form.bomId}
                 onChange={(e) => set("bomId", e.target.value)}
@@ -278,10 +278,10 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
             </div>
 
             <div className="col-span-2">
-              <label className="text-xs text-zinc-500 block mb-1">Notes</label>
+              <label className="text-xs text-gray-500 block mb-1">Notes</label>
               <textarea
                 rows={3}
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 resize-none"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 resize-none"
                 placeholder="Additional instructions or notes..."
                 value={form.notes}
                 onChange={(e) => set("notes", e.target.value)}
@@ -291,17 +291,17 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
         </form>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+            className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit as any}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
           >
             {loading ? (
               <RefreshCw size={14} className="animate-spin" />
@@ -362,13 +362,13 @@ function CompleteModal({ order, onClose, onDone }: CompleteModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
+      <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
           <div>
-            <h2 className="text-sm font-semibold text-white">Complete Production Order</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">{order.orderNumber} — {order.productName}</p>
+            <h2 className="text-sm font-semibold text-gray-900">Complete Production Order</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{order.orderNumber} — {order.productName}</p>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900">
             <X size={18} />
           </button>
         </div>
@@ -382,21 +382,21 @@ function CompleteModal({ order, onClose, onDone }: CompleteModalProps) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Produced Qty ({order.unit})</label>
+              <label className="text-xs text-gray-500 block mb-1">Produced Qty ({order.unit})</label>
               <input
                 type="number"
                 min="0"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
                 value={producedQty}
                 onChange={(e) => setProducedQty(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Rejected Qty ({order.unit})</label>
+              <label className="text-xs text-gray-500 block mb-1">Rejected Qty ({order.unit})</label>
               <input
                 type="number"
                 min="0"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
                 value={rejectedQty}
                 onChange={(e) => setRejectedQty(e.target.value)}
               />
@@ -411,16 +411,16 @@ function CompleteModal({ order, onClose, onDone }: CompleteModalProps) {
               onChange={(e) => setQualityChecked(e.target.checked)}
               className="rounded"
             />
-            <label htmlFor="qc" className="text-xs text-zinc-400 cursor-pointer">
+            <label htmlFor="qc" className="text-xs text-gray-500 cursor-pointer">
               Quality check completed
             </label>
           </div>
 
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">Completion Notes</label>
+            <label className="text-xs text-gray-500 block mb-1">Completion Notes</label>
             <textarea
               rows={2}
-              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 resize-none"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 resize-none"
               placeholder="Any remarks about this production run..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -432,17 +432,17 @@ function CompleteModal({ order, onClose, onDone }: CompleteModalProps) {
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+            className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
           >
             Cancel
           </button>
           <button
             onClick={handleComplete}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
           >
             {loading ? <RefreshCw size={14} className="animate-spin" /> : <CheckCheck size={14} />}
             Mark Complete
@@ -574,8 +574,8 @@ export default function ProductionOrdersPage() {
       label: "Pending / Planned",
       value: stats.planned,
       icon: ListTodo,
-      color: "text-zinc-400",
-      bg: "bg-white/[0.04]",
+      color: "text-gray-500",
+      bg: "bg-white",
     },
   ];
 
@@ -590,21 +590,21 @@ export default function ProductionOrdersPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Production Orders</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <h1 className="text-xl font-semibold text-gray-900">Production Orders</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
             Manage and track manufacturing production runs
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchOrders}
-            className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+            className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
           <button
             onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
           >
             <Plus size={16} />
             New Order
@@ -615,29 +615,29 @@ export default function ProductionOrdersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {statCards.map((s) => (
-          <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-zinc-500">{s.label}</span>
+              <span className="text-xs text-gray-500">{s.label}</span>
               <div className={`p-1.5 rounded-lg ${s.bg}`}>
                 <s.icon size={14} className={s.color} />
               </div>
             </div>
-            <p className="text-2xl font-semibold text-white">{s.value}</p>
+            <p className="text-2xl font-semibold text-gray-900">{s.value}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs + Search */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl">
+        <div className="flex items-center gap-1 p-1 bg-white border border-gray-200 rounded-xl">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                 tab === t.key
-                  ? "bg-white text-black font-medium"
-                  : "text-zinc-500 hover:text-white"
+                  ? "bg-gray-900 text-white font-medium"
+                  : "text-gray-500 hover:text-gray-900"
               }`}
             >
               {t.label}
@@ -648,10 +648,10 @@ export default function ProductionOrdersPage() {
         <div className="relative w-full sm:w-64">
           <Search
             size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
           />
           <input
-            className="w-full px-3 py-2 pl-9 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+            className="w-full px-3 py-2 pl-9 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
             placeholder="Search orders..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -660,9 +660,9 @@ export default function ProductionOrdersPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full">
-          <thead className="bg-white/[0.02]">
+          <thead className="bg-white">
             <tr>
               {[
                 "Order #",
@@ -676,17 +676,17 @@ export default function ProductionOrdersPage() {
               ].map((h) => (
                 <th
                   key={h}
-                  className="px-4 py-3 text-left text-xs text-zinc-500 font-medium"
+                  className="px-4 py-3 text-left text-xs text-gray-500 font-medium"
                 >
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.03]">
+          <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-zinc-500 text-sm">
+                <td colSpan={8} className="px-4 py-12 text-center text-gray-500 text-sm">
                   Loading...
                 </td>
               </tr>
@@ -694,13 +694,13 @@ export default function ProductionOrdersPage() {
               <tr>
                 <td colSpan={8}>
                   <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-                      <Factory size={28} className="text-zinc-600" />
+                    <div className="p-4 rounded-2xl bg-white border border-gray-200">
+                      <Factory size={28} className="text-gray-600" />
                     </div>
-                    <p className="text-sm text-zinc-500">No production orders found</p>
+                    <p className="text-sm text-gray-500">No production orders found</p>
                     <button
                       onClick={() => setShowNewModal(true)}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
                     >
                       <Plus size={14} />
                       Create First Order
@@ -712,7 +712,7 @@ export default function ProductionOrdersPage() {
               filtered.map((order) => (
                 <tr
                   key={order._id}
-                  className="hover:bg-white/[0.02] transition-colors"
+                  className="hover:bg-gray-50 transition-colors"
                 >
                   {/* Order # */}
                   <td className="px-4 py-3">
@@ -724,15 +724,15 @@ export default function ProductionOrdersPage() {
                   {/* Product */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-white/[0.04]">
-                        <Package size={12} className="text-zinc-400" />
+                      <div className="p-1.5 rounded-lg bg-white">
+                        <Package size={12} className="text-gray-500" />
                       </div>
                       <div>
-                        <p className="text-sm text-white leading-tight">
+                        <p className="text-sm text-gray-900 leading-tight">
                           {order.productName}
                         </p>
                         {order.productSku && (
-                          <p className="text-xs text-zinc-500">{order.productSku}</p>
+                          <p className="text-xs text-gray-500">{order.productSku}</p>
                         )}
                       </div>
                     </div>
@@ -741,10 +741,10 @@ export default function ProductionOrdersPage() {
                   {/* Qty */}
                   <td className="px-4 py-3">
                     <div>
-                      <span className="text-sm text-white font-medium">
+                      <span className="text-sm text-gray-900 font-medium">
                         {order.plannedQuantity}
                       </span>
-                      <span className="text-xs text-zinc-500 ml-1">{order.unit}</span>
+                      <span className="text-xs text-gray-500 ml-1">{order.unit}</span>
                       {order.producedQuantity > 0 && (
                         <p className="text-xs text-emerald-400">
                           {order.producedQuantity} produced
@@ -765,9 +765,9 @@ export default function ProductionOrdersPage() {
 
                   {/* Start Date */}
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
                       {order.plannedStartDate && (
-                        <CalendarDays size={11} className="text-zinc-600" />
+                        <CalendarDays size={11} className="text-gray-600" />
                       )}
                       {fmtDate(order.actualStartDate || order.plannedStartDate)}
                     </div>
@@ -775,9 +775,9 @@ export default function ProductionOrdersPage() {
 
                   {/* End Date */}
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
                       {order.plannedEndDate && (
-                        <CalendarDays size={11} className="text-zinc-600" />
+                        <CalendarDays size={11} className="text-gray-600" />
                       )}
                       {fmtDate(order.actualEndDate || order.plannedEndDate)}
                     </div>
@@ -832,7 +832,7 @@ export default function ProductionOrdersPage() {
 
                       {(order.status === "COMPLETED" ||
                         order.status === "CANCELLED") && (
-                        <span className="text-xs text-zinc-600 italic">—</span>
+                        <span className="text-xs text-gray-600 italic">—</span>
                       )}
                     </div>
                   </td>
@@ -844,8 +844,8 @@ export default function ProductionOrdersPage() {
 
         {/* Table footer */}
         {filtered.length > 0 && (
-          <div className="px-4 py-3 border-t border-white/[0.04] flex items-center justify-between">
-            <p className="text-xs text-zinc-600">
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-xs text-gray-600">
               Showing {filtered.length} of {orders.length} orders
             </p>
           </div>

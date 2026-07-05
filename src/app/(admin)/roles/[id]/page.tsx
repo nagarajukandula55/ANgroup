@@ -79,24 +79,24 @@ export default function RolePermissionPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-zinc-400">Loading permissions...</div>
+        <div className="text-gray-500">Loading permissions...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-6 lg:p-10">
+    <div className="min-h-screen bg-gray-50 text-gray-900 p-6 lg:p-10">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <button onClick={() => history.back()} className="text-zinc-500 text-sm mb-2 hover:text-white transition">← Back to Roles</button>
+            <button onClick={() => history.back()} className="text-gray-500 text-sm mb-2 hover:text-gray-900 transition">← Back to Roles</button>
             <h1 className="text-2xl font-semibold">Role Permissions</h1>
-            <p className="text-zinc-500 text-sm mt-1">Configure what this role can access</p>
+            <p className="text-gray-500 text-sm mt-1">Configure what this role can access</p>
           </div>
           <button
             onClick={savePermissions}
             disabled={saving}
-            className="px-6 py-2.5 bg-white text-black rounded-xl font-medium hover:bg-zinc-100 transition disabled:opacity-50"
+            className="px-6 py-2.5 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -107,16 +107,16 @@ export default function RolePermissionPage({
             const allSelected = group.permissions.every(p => selected.has(p.id));
             const someSelected = group.permissions.some(p => selected.has(p.id));
             return (
-              <div key={index} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
+              <div key={index} className="rounded-2xl border border-gray-200 bg-white p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="text-xs text-zinc-500 uppercase tracking-wider">{group.module}</span>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">{group.module}</span>
                     <h3 className="font-medium mt-0.5">{group.group}</h3>
                   </div>
                   <button
                     onClick={() => toggleGroup(group.permissions)}
                     className={`text-xs px-3 py-1.5 rounded-lg border transition ${
-                      allSelected ? "bg-white text-black border-white" : someSelected ? "border-white/30 text-zinc-300" : "border-white/10 text-zinc-500 hover:border-white/30"
+                      allSelected ? "bg-gray-900 text-white border-white" : someSelected ? "border-gray-300 text-gray-600" : "border-gray-200 text-gray-500 hover:border-gray-300"
                     }`}
                   >
                     {allSelected ? "Deselect All" : "Select All"}
@@ -124,14 +124,14 @@ export default function RolePermissionPage({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {group.permissions.map((perm) => (
-                    <label key={perm.id} className="flex items-center gap-3 p-3 rounded-xl border border-white/[0.05] hover:border-white/20 cursor-pointer transition">
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition ${selected.has(perm.id) ? "bg-white border-white" : "border-zinc-600"}`}>
+                    <label key={perm.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-400 cursor-pointer transition">
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition ${selected.has(perm.id) ? "bg-white border-white" : "border-gray-300"}`}>
                         {selected.has(perm.id) && <svg className="w-2.5 h-2.5 text-black" fill="currentColor" viewBox="0 0 12 12"><path d="M10 3L5 8.5 2 5.5 1 6.5l4 4 6-7z"/></svg>}
                       </div>
                       <input type="checkbox" className="hidden" checked={selected.has(perm.id)} onChange={() => togglePermission(perm.id)} />
                       <div>
                         <div className="text-sm font-medium">{perm.name}</div>
-                        <div className="text-xs text-zinc-600">{perm.code}</div>
+                        <div className="text-xs text-gray-600">{perm.code}</div>
                       </div>
                     </label>
                   ))}

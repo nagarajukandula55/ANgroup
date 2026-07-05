@@ -283,14 +283,14 @@ export default function VendorsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Vendors</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <h1 className="text-xl font-semibold text-gray-900">Vendors</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
             Manage supplier and vendor accounts
           </p>
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100"
+          className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
         >
           <Plus size={16} />
           Add Vendor
@@ -299,15 +299,15 @@ export default function VendorsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-gray-500 text-xs mb-2">
             <Users size={14} />
             Total Vendors
           </div>
-          <p className="text-2xl font-semibold text-white">{vendors.length}</p>
+          <p className="text-2xl font-semibold text-gray-900">{vendors.length}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <div className="flex items-center gap-2 text-zinc-500 text-xs mb-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-gray-500 text-xs mb-2">
             <UserCheck size={14} />
             Active Vendors
           </div>
@@ -321,27 +321,27 @@ export default function VendorsPage() {
       <div className="relative max-w-sm">
         <Search
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
         />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or email…"
-          className="w-full pl-9 pr-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+          className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
         />
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="p-12 text-center text-zinc-500">Loading…</div>
+        <div className="p-12 text-center text-gray-500">Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
-            <Building2 size={24} className="text-zinc-600" />
+          <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center">
+            <Building2 size={24} className="text-gray-600" />
           </div>
           <div className="text-center">
-            <p className="text-white font-medium">No vendors found</p>
-            <p className="text-sm text-zinc-500 mt-1">
+            <p className="text-gray-900 font-medium">No vendors found</p>
+            <p className="text-sm text-gray-500 mt-1">
               {search
                 ? "Try a different search term."
                 : "Get started by adding your first vendor."}
@@ -350,7 +350,7 @@ export default function VendorsPage() {
           {!search && (
             <button
               onClick={openAdd}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
             >
               <Plus size={16} />
               Add Vendor
@@ -358,79 +358,79 @@ export default function VendorsPage() {
           )}
         </div>
       ) : (
-        <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+        <div className="rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">
+              <tr className="border-b border-gray-200 bg-white">
+                <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">
                   Vendor Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">
+                <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">
                   Email
                 </th>
-                <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">
+                <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">
                   Phone
                 </th>
-                <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">
+                <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">
                   GST Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">
+                <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">
                   Address
                 </th>
-                <th className="px-4 py-3 text-left text-xs text-zinc-500 font-medium">
+                <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">
                   Status
                 </th>
-                <th className="px-4 py-3 text-right text-xs text-zinc-500 font-medium">
+                <th className="px-4 py-3 text-right text-xs text-gray-500 font-medium">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.03]">
+            <tbody className="divide-y divide-gray-100">
               {filtered.map((vendor) => (
                 <tr
                   key={vendor._id}
-                  className="hover:bg-white/[0.02] transition-colors"
+                  className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
-                        <Building2 size={14} className="text-zinc-500" />
+                      <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                        <Building2 size={14} className="text-gray-500" />
                       </div>
-                      <span className="text-sm text-white font-medium">
+                      <span className="text-sm text-gray-900 font-medium">
                         {vendor.companyName}
                       </span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     {vendor.email ? (
-                      <div className="flex items-center gap-1.5 text-sm text-zinc-400">
-                        <Mail size={12} className="text-zinc-600 flex-shrink-0" />
+                      <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                        <Mail size={12} className="text-gray-600 flex-shrink-0" />
                         {vendor.email}
                       </div>
                     ) : (
-                      <span className="text-sm text-zinc-700">—</span>
+                      <span className="text-sm text-gray-700">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     {vendor.phone ? (
-                      <div className="flex items-center gap-1.5 text-sm text-zinc-400">
-                        <Phone size={12} className="text-zinc-600 flex-shrink-0" />
+                      <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                        <Phone size={12} className="text-gray-600 flex-shrink-0" />
                         {vendor.phone}
                       </div>
                     ) : (
-                      <span className="text-sm text-zinc-700">—</span>
+                      <span className="text-sm text-gray-700">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     {vendor.gstNumber ? (
                       <div className="flex items-center gap-1.5">
-                        <FileText size={12} className="text-zinc-600 flex-shrink-0" />
-                        <span className="text-sm text-zinc-300 font-mono">
+                        <FileText size={12} className="text-gray-600 flex-shrink-0" />
+                        <span className="text-sm text-gray-600 font-mono">
                           {vendor.gstNumber}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-sm text-zinc-700">—</span>
+                      <span className="text-sm text-gray-700">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 max-w-[200px]">
@@ -438,14 +438,14 @@ export default function VendorsPage() {
                       <div className="flex items-start gap-1.5">
                         <MapPin
                           size={12}
-                          className="text-zinc-600 flex-shrink-0 mt-0.5"
+                          className="text-gray-600 flex-shrink-0 mt-0.5"
                         />
-                        <span className="text-sm text-zinc-400 truncate">
+                        <span className="text-sm text-gray-500 truncate">
                           {formatAddress(vendor)}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-sm text-zinc-700">—</span>
+                      <span className="text-sm text-gray-700">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -454,7 +454,7 @@ export default function VendorsPage() {
                       className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
                         vendor.isApproved
                           ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
-                          : "text-zinc-400 bg-white/[0.04] hover:bg-white/[0.08]"
+                          : "text-gray-500 bg-white hover:bg-gray-100"
                       }`}
                     >
                       {vendor.isApproved ? "Active" : "Inactive"}
@@ -464,14 +464,14 @@ export default function VendorsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => openEdit(vendor)}
-                        className="p-1.5 text-zinc-500 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+                        className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                         title="Edit vendor"
                       >
                         <Edit2 size={13} />
                       </button>
                       <button
                         onClick={() => openDelete(vendor)}
-                        className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                         title="Delete vendor"
                       >
                         <Trash2 size={13} />
@@ -501,22 +501,22 @@ export default function VendorsPage() {
       {/* Delete Confirmation Modal */}
       {modal.type === "delete" && modal.vendor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center">
-              <h2 className="text-base font-semibold text-white">
+          <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-base font-semibold text-gray-900">
                 Delete Vendor
               </h2>
               <button
                 onClick={closeModal}
-                className="text-zinc-500 hover:text-white transition-colors"
+                className="text-gray-500 hover:text-gray-900 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-gray-500">
                 This action cannot be undone. Type{" "}
-                <span className="text-white font-medium">
+                <span className="text-gray-900 font-medium">
                   {modal.vendor.companyName}
                 </span>{" "}
                 to confirm deletion.
@@ -525,13 +525,13 @@ export default function VendorsPage() {
                 value={deleteConfirmName}
                 onChange={(e) => setDeleteConfirmName(e.target.value)}
                 placeholder={modal.vendor.companyName}
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500/40"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-red-500/40"
               />
             </div>
-            <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button
                 onClick={closeModal}
-                className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+                className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
               >
                 Cancel
               </button>
@@ -574,12 +574,12 @@ function VendorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-zinc-950 border border-white/[0.08] rounded-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="px-6 py-4 border-b border-white/[0.06] flex justify-between items-center flex-shrink-0">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
+      <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
+          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-white transition-colors"
+            className="text-gray-500 hover:text-gray-900 transition-colors"
           >
             <X size={18} />
           </button>
@@ -588,7 +588,7 @@ function VendorModal({
         <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
           {/* Vendor Name */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">
+            <label className="text-xs text-gray-500 block mb-1">
               Vendor Name <span className="text-red-400">*</span>
             </label>
             <input
@@ -596,36 +596,36 @@ function VendorModal({
               onChange={(e) => update("companyName", e.target.value)}
               placeholder="e.g. Acme Supplies Pvt. Ltd."
               autoFocus
-              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
             />
           </div>
 
           {/* Email & Phone */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Email</label>
+              <label className="text-xs text-gray-500 block mb-1">Email</label>
               <input
                 value={formData.email}
                 onChange={(e) => update("email", e.target.value)}
                 type="email"
                 placeholder="vendor@example.com"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">Phone</label>
+              <label className="text-xs text-gray-500 block mb-1">Phone</label>
               <input
                 value={formData.phone}
                 onChange={(e) => update("phone", e.target.value)}
                 placeholder="+91 98765 43210"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
             </div>
           </div>
 
           {/* GST Number */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">
+            <label className="text-xs text-gray-500 block mb-1">
               GST Number
             </label>
             <input
@@ -635,44 +635,44 @@ function VendorModal({
               }
               placeholder="22AAAAA0000A1Z5"
               maxLength={15}
-              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20 font-mono"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 font-mono"
             />
           </div>
 
           {/* Address */}
           <div>
-            <label className="text-xs text-zinc-500 block mb-1">
+            <label className="text-xs text-gray-500 block mb-1">
               Street Address
             </label>
             <input
               value={formData.addressStreet}
               onChange={(e) => update("addressStreet", e.target.value)}
               placeholder="123 Industrial Area, Phase 2"
-              className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">City</label>
+              <label className="text-xs text-gray-500 block mb-1">City</label>
               <input
                 value={formData.addressCity}
                 onChange={(e) => update("addressCity", e.target.value)}
                 placeholder="Mumbai"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">State</label>
+              <label className="text-xs text-gray-500 block mb-1">State</label>
               <input
                 value={formData.addressState}
                 onChange={(e) => update("addressState", e.target.value)}
                 placeholder="Maharashtra"
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 block mb-1">
+              <label className="text-xs text-gray-500 block mb-1">
                 Pincode
               </label>
               <input
@@ -680,7 +680,7 @@ function VendorModal({
                 onChange={(e) => update("addressPincode", e.target.value)}
                 placeholder="400001"
                 maxLength={6}
-                className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-white/20"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
             </div>
           </div>
@@ -693,17 +693,17 @@ function VendorModal({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3 flex-shrink-0">
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-3 py-2 text-xs text-zinc-400 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/20"
+            className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400"
           >
             Cancel
           </button>
           <button
             onClick={onSubmit}
             disabled={submitting}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? "Saving…" : title}
           </button>

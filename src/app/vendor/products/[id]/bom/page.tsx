@@ -83,7 +83,7 @@ export default function BOMPage({
       {/* ADD ITEM */}
       <div className="grid grid-cols-5 gap-2">
         <select
-          className="border p-2"
+          className="border p-2 bg-white text-gray-900"
           onChange={(e) =>
             setForm((p) => ({
               ...p,
@@ -102,7 +102,7 @@ export default function BOMPage({
         <input
           placeholder="Qty"
           type="number"
-          className="border p-2"
+          className="border p-2 bg-white text-gray-900 placeholder:text-gray-400"
           onChange={(e) =>
             setForm((p) => ({
               ...p,
@@ -115,7 +115,7 @@ export default function BOMPage({
 
         <input
           placeholder="Unit"
-          className="border p-2"
+          className="border p-2 bg-white text-gray-900 placeholder:text-gray-400"
           onChange={(e) =>
             setForm((p) => ({
               ...p,
@@ -127,7 +127,7 @@ export default function BOMPage({
         <input
           placeholder="Rate"
           type="number"
-          className="border p-2"
+          className="border p-2 bg-white text-gray-900 placeholder:text-gray-400"
           onChange={(e) =>
             setForm((p) => ({
               ...p,
@@ -140,7 +140,7 @@ export default function BOMPage({
 
         <button
           onClick={addItem}
-          className="bg-black text-white"
+          className="bg-gray-900 text-white rounded-lg px-4 py-2 hover:bg-gray-800 transition"
         >
           Add
         </button>

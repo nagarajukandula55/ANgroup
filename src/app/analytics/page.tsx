@@ -51,46 +51,46 @@ export default function AnalyticsPage() {
       <div className="space-y-5 max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-zinc-500 uppercase tracking-widest">Insights</p>
-            <h1 className="text-2xl font-bold text-white">Analytics</h1>
+            <p className="text-xs text-gray-500 uppercase tracking-widest">Insights</p>
+            <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
           </div>
           <div className="flex items-center gap-2">
             {(['7d', '30d', '90d'] as const).map(p => (
               <button key={p} onClick={() => setPeriod(p)}
-                className={`rounded-xl px-3 py-1.5 text-xs transition-all ${period === p ? 'bg-white text-black font-semibold' : 'border border-white/10 text-zinc-400 hover:text-white'}`}>
+                className={`rounded-xl px-3 py-1.5 text-xs transition-all ${period === p ? 'bg-gray-900 text-white font-semibold' : 'border border-gray-200 text-gray-500 hover:text-gray-900'}`}>
                 {p === '7d' ? 'Week' : p === '30d' ? 'Month' : 'Quarter'}
               </button>
             ))}
-            <button onClick={load} className="rounded-xl border border-white/10 p-1.5 text-zinc-400 hover:text-white transition-all">
+            <button onClick={load} className="rounded-xl border border-gray-200 p-1.5 text-gray-500 hover:text-gray-900 transition-all">
               <RefreshCw size={13} />
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-zinc-600 text-sm">Loading analytics…</div>
+          <div className="py-16 text-center text-gray-600 text-sm">Loading analytics…</div>
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {kpis.map((k, i) => (
-                <div key={i} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+                <div key={i} className="rounded-xl border border-gray-200 bg-white p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-zinc-500">{k.icon}</span>
+                    <span className="text-gray-500">{k.icon}</span>
                     {k.growth !== null && (
-                      <span className="flex items-center gap-1 text-xs text-green-400">
+                      <span className="flex items-center gap-1 text-xs text-green-700">
                         <TrendingUp size={11} /> {k.growth}%
                       </span>
                     )}
                   </div>
-                  <p className="text-xl font-bold text-white">{k.value}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">{k.label}</p>
+                  <p className="text-xl font-bold text-gray-900">{k.value}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{k.label}</p>
                 </div>
               ))}
             </div>
 
             {/* Revenue trend bar chart (visual) */}
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
-              <h3 className="text-sm font-semibold text-white mb-6">Revenue Trend</h3>
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-6">Revenue Trend</h3>
               <div className="flex items-end gap-2 h-32">
                 {(data?.revenue?.trend || []).map((v: number, i: number) => {
                   const max = Math.max(...(data?.revenue?.trend || [1]))
@@ -99,11 +99,11 @@ export default function AnalyticsPage() {
                     <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
                       <div className="relative w-full">
                         <div
-                          className="w-full rounded-t-lg bg-white/20 group-hover:bg-white/40 transition-all"
+                          className="w-full rounded-t-lg bg-blue-500 group-hover:bg-blue-600 transition-all"
                           style={{ height: `${height}px` }}
                         />
                       </div>
-                      <span className="text-[9px] text-zinc-600">D{i + 1}</span>
+                      <span className="text-[9px] text-gray-600">D{i + 1}</span>
                     </div>
                   )
                 })}
@@ -111,8 +111,8 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Top businesses */}
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
-              <h3 className="text-sm font-semibold text-white mb-4">Business Performance</h3>
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Business Performance</h3>
               <div className="space-y-3">
                 {(data?.topBusinesses || []).map((biz: any, i: number) => {
                   const maxRev = Math.max(...(data?.topBusinesses || []).map((b: any) => b.revenue))
@@ -120,14 +120,14 @@ export default function AnalyticsPage() {
                   return (
                     <div key={i} className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-zinc-300">{biz.name}</span>
+                        <span className="text-xs text-gray-600">{biz.name}</span>
                         <div className="flex items-center gap-3">
-                          <span className="text-xs text-green-400">+{biz.growth}%</span>
-                          <span className="text-xs font-semibold text-white">₹{(biz.revenue / 100000).toFixed(1)}L</span>
+                          <span className="text-xs text-green-700">+{biz.growth}%</span>
+                          <span className="text-xs font-semibold text-gray-900">₹{(biz.revenue / 100000).toFixed(1)}L</span>
                         </div>
                       </div>
-                      <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
-                        <div className="h-full rounded-full bg-white/30 transition-all duration-700" style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 w-full rounded-full bg-gray-50 overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500 transition-all duration-700" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   )

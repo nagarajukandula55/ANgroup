@@ -55,7 +55,7 @@ export default function VendorProductsPage() {
 
         <a
           href="/vendor/products/new"
-          className="rounded-lg bg-black px-4 py-2 text-white"
+          className="rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-800 transition"
         >
           New Product
         </a>

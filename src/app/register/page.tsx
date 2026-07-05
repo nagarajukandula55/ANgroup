@@ -53,19 +53,19 @@ function PasswordField({
   const [show, setShow] = useState(false)
   return (
     <div>
-      <label className="block text-xs text-zinc-500 mb-1.5">{label}</label>
+      <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
       <div className="relative">
         <input
           type={show ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder || '••••••••'}
-          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 pr-10 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-violet-500/50 transition-colors"
+          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-400 transition-colors"
         />
         <button
           type="button"
           onClick={() => setShow(!show)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
@@ -91,15 +91,15 @@ function InputField({
 }) {
   return (
     <div>
-      <label className="block text-xs text-zinc-500 mb-1.5">
-        {label} {required && <span className="text-red-400">*</span>}
+      <label className="block text-xs text-gray-500 mb-1.5">
+        {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-violet-500/50 transition-colors"
+        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-400 transition-colors"
       />
     </div>
   )
@@ -265,34 +265,29 @@ export default function RegisterPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      {/* Background grid */}
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
-      />
-      <div className="fixed inset-0 bg-gradient-to-br from-violet-950/20 via-transparent to-blue-950/10 pointer-events-none" />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      {/* Background glow */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-1/4 top-1/4 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-100/40 blur-[120px]" />
+        <div className="absolute right-1/4 bottom-1/4 h-80 w-80 rounded-full bg-blue-100/30 blur-[100px]" />
+      </div>
 
       <div className="relative w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-12 w-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 items-center justify-center mb-4">
-            <span className="text-xl font-bold text-violet-400">AN</span>
+          <div className="inline-flex h-12 w-12 rounded-2xl bg-violet-50 border border-violet-200 items-center justify-center mb-4">
+            <span className="text-xl font-bold text-violet-600">AN</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">Create an account</h1>
-          <p className="text-zinc-500 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
+          <p className="text-gray-500 text-sm mt-1">
             Join the AN Group platform
           </p>
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl border border-white/[0.07] bg-white/[0.03] backdrop-blur-2xl p-6 shadow-2xl">
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           {/* Tab selector */}
-          <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-6">
+          <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 mb-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -303,8 +298,8 @@ export default function RegisterPage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-all ${
                   activeTab === tab.id
-                    ? 'bg-white/[0.1] text-white'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {tab.icon}
@@ -315,13 +310,13 @@ export default function RegisterPage() {
 
           {/* Error / Success */}
           {error && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm mb-4">
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm mb-4">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {error}
             </div>
           )}
           {success && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm mb-4">
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm mb-4">
               <CheckCircle className="h-4 w-4 flex-shrink-0" />
               {success}
             </div>
@@ -369,7 +364,7 @@ export default function RegisterPage() {
                   className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
                     custTerms
                       ? 'bg-violet-600 border-violet-600'
-                      : 'border-white/20 bg-white/[0.03]'
+                      : 'border-gray-300 bg-white'
                   }`}
                 >
                   {custTerms && (
@@ -387,10 +382,10 @@ export default function RegisterPage() {
                     </svg>
                   )}
                 </div>
-                <span className="text-xs text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                <span className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">
                   I agree to the{' '}
-                  <span className="text-violet-400">Terms of Service</span> and{' '}
-                  <span className="text-violet-400">Privacy Policy</span>
+                  <span className="text-violet-600">Terms of Service</span> and{' '}
+                  <span className="text-violet-600">Privacy Policy</span>
                 </span>
               </label>
             </div>
@@ -450,19 +445,19 @@ export default function RegisterPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-zinc-500 mb-1.5">
+                <label className="block text-xs text-gray-500 mb-1.5">
                   Business Category
                 </label>
                 <select
                   value={vendCategory}
                   onChange={(e) => setVendCategory(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition-colors"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
                 >
-                  <option value="" className="bg-zinc-900">
+                  <option value="">
                     Select category
                   </option>
                   {BUSINESS_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat.toUpperCase()} className="bg-zinc-900">
+                    <option key={cat} value={cat.toUpperCase()}>
                       {cat}
                     </option>
                   ))}
@@ -476,17 +471,17 @@ export default function RegisterPage() {
                   placeholder="Mumbai"
                 />
                 <div>
-                  <label className="block text-xs text-zinc-500 mb-1.5">
+                  <label className="block text-xs text-gray-500 mb-1.5">
                     State
                   </label>
                   <select
                     value={vendState}
                     onChange={(e) => setVendState(e.target.value)}
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition-colors"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
                   >
-                    <option value="" className="bg-zinc-900">State</option>
+                    <option value="">State</option>
                     {INDIAN_STATES.map((s) => (
-                      <option key={s} value={s} className="bg-zinc-900">
+                      <option key={s} value={s}>
                         {s}
                       </option>
                     ))}
@@ -499,8 +494,8 @@ export default function RegisterPage() {
                   placeholder="400001"
                 />
               </div>
-              <div className="rounded-xl bg-yellow-500/5 border border-yellow-500/20 px-4 py-3">
-                <p className="text-xs text-yellow-400">
+              <div className="rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3">
+                <p className="text-xs text-yellow-700">
                   Your account will be reviewed and approved within 24 hours.
                   You will receive an email notification once approved.
                 </p>
@@ -511,8 +506,8 @@ export default function RegisterPage() {
           {/* Employee Form */}
           {activeTab === 'employee' && (
             <div className="space-y-4">
-              <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 mb-2">
-                <p className="text-xs text-blue-400">
+              <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 mb-2">
+                <p className="text-xs text-blue-700">
                   Use the Employee ID provided by your HR department to create
                   your account.
                 </p>
@@ -562,11 +557,11 @@ export default function RegisterPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-zinc-600 mt-6">
+        <p className="text-center text-sm text-gray-500 mt-6">
           Already have an account?{' '}
           <Link
             href="/login"
-            className="text-zinc-400 hover:text-white transition-colors"
+            className="text-gray-600 hover:text-gray-900 transition-colors"
           >
             Sign in
           </Link>

@@ -361,7 +361,7 @@ function SocialPlatformPanel({
             {icon}
           </div>
           <div>
-            <h2 className="font-semibold text-white">{title}</h2>
+            <h2 className="font-semibold text-gray-900">{title}</h2>
             <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
           </div>
         </div>
@@ -781,7 +781,7 @@ export default function IntegrationsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Toast */}
       {toast && (
         <div
@@ -798,7 +798,7 @@ export default function IntegrationsPage() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Integrations</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Integrations</h1>
           <p className="mt-1 text-sm text-gray-400">
             Connect messaging platforms and social channels to receive real-time ERP notifications.
           </p>
@@ -833,7 +833,7 @@ export default function IntegrationsPage() {
                     ✈️
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white">Telegram</h2>
+                    <h2 className="font-semibold text-gray-900">Telegram</h2>
                     <p className="text-xs text-gray-500 mt-0.5">
                       Send notifications via Telegram Bot API
                     </p>
@@ -918,7 +918,7 @@ export default function IntegrationsPage() {
                           >
                             {checked && (
                               <svg
-                                className="w-2.5 h-2.5 text-white"
+                                className="w-2.5 h-2.5 text-gray-900"
                                 viewBox="0 0 10 10"
                                 fill="none"
                               >
@@ -970,7 +970,7 @@ export default function IntegrationsPage() {
                     📞
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white">WhatsApp Business</h2>
+                    <h2 className="font-semibold text-gray-900">WhatsApp Business</h2>
                     <p className="text-xs text-gray-500 mt-0.5">
                       Send notifications via WhatsApp Business API
                     </p>
@@ -1089,7 +1089,7 @@ export default function IntegrationsPage() {
                           >
                             {checked && (
                               <svg
-                                className="w-2.5 h-2.5 text-white"
+                                className="w-2.5 h-2.5 text-gray-900"
                                 viewBox="0 0 10 10"
                                 fill="none"
                               >
@@ -1258,7 +1258,7 @@ export default function IntegrationsPage() {
                     ✉️
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white">Email Provider</h2>
+                    <h2 className="font-semibold text-gray-900">Email Provider</h2>
                     <p className="text-xs text-gray-500 mt-0.5">
                       Send transactional emails — invoices, alerts, agreements
                     </p>

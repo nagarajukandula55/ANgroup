@@ -124,10 +124,10 @@ const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
 }
 
 const TYPE_COLORS: Record<NotificationType, string> = {
-  success: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-  warning: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-  error: 'text-red-400 bg-red-500/10 border-red-500/20',
-  info: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+  success: 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20',
+  warning: 'text-amber-700 bg-amber-500/10 border-amber-500/20',
+  error: 'text-red-700 bg-red-500/10 border-red-500/20',
+  info: 'text-blue-700 bg-blue-500/10 border-blue-500/20',
 }
 
 const TYPE_DOT: Record<NotificationType, string> = {
@@ -203,16 +203,16 @@ export default function NotificationsPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-white flex items-center gap-3">
+            <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-3">
               <Bell size={24} />
               Notifications
               {unreadCount > 0 && (
-                <span className="text-xs font-medium bg-white text-black rounded-full px-2 py-0.5">
+                <span className="text-xs font-medium bg-gray-900 text-white rounded-full px-2 py-0.5">
                   {unreadCount}
                 </span>
               )}
             </h1>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-gray-500">
               Stay updated on all platform activity
             </p>
           </div>
@@ -220,7 +220,7 @@ export default function NotificationsPage() {
             {selectedIds.size > 0 && (
               <button
                 onClick={deleteSelected}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 border border-red-500/20 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-red-700 border border-red-500/20 bg-red-500/10 rounded-xl hover:bg-red-500/20 transition"
               >
                 <Trash2 size={14} />
                 Delete ({selectedIds.size})
@@ -229,7 +229,7 @@ export default function NotificationsPage() {
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-400 border border-white/10 bg-white/[0.04] rounded-xl hover:bg-white/[0.08] transition"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 border border-gray-200 bg-white rounded-xl hover:bg-gray-100 transition"
               >
                 <CheckCheck size={14} />
                 Mark all read
@@ -246,12 +246,12 @@ export default function NotificationsPage() {
             { label: 'Warnings', value: notifications.filter(n => n.type === 'warning').length, icon: <AlertTriangle size={15} /> },
             { label: 'Errors', value: notifications.filter(n => n.type === 'error').length, icon: <Info size={15} /> },
           ].map(stat => (
-            <div key={stat.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="flex items-center gap-2 text-zinc-500 mb-2">
+            <div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-4">
+              <div className="flex items-center gap-2 text-gray-500 mb-2">
                 {stat.icon}
                 <span className="text-xs">{stat.label}</span>
               </div>
-              <p className="text-2xl font-semibold text-white">{stat.value}</p>
+              <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
             </div>
           ))}
         </div>
@@ -262,7 +262,7 @@ export default function NotificationsPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-xs rounded-lg transition capitalize ${filter === f ? 'bg-white text-black' : 'text-zinc-400 border border-white/10 hover:border-white/20'}`}
+              className={`px-3 py-1.5 text-xs rounded-lg transition capitalize ${filter === f ? 'bg-gray-900 text-white' : 'text-gray-500 border border-gray-200 hover:border-gray-400'}`}
             >
               {f}
             </button>
@@ -271,7 +271,7 @@ export default function NotificationsPage() {
             <button
               key={cat.key}
               onClick={() => setFilter(cat.key)}
-              className={`px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition ${filter === cat.key ? 'bg-white text-black' : 'text-zinc-400 border border-white/10 hover:border-white/20'}`}
+              className={`px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition ${filter === cat.key ? 'bg-gray-900 text-white' : 'text-gray-500 border border-gray-200 hover:border-gray-400'}`}
             >
               {CATEGORY_ICONS[cat.key]}
               {cat.label}
@@ -282,7 +282,7 @@ export default function NotificationsPage() {
         {/* Notifications List */}
         <div className="space-y-2">
           {filtered.length === 0 && (
-            <div className="text-center py-16 text-zinc-600">
+            <div className="text-center py-16 text-gray-600">
               <Bell size={40} className="mx-auto mb-3 opacity-30" />
               <p>No notifications</p>
             </div>
@@ -292,8 +292,8 @@ export default function NotificationsPage() {
               key={notification.id}
               className={`relative rounded-xl border transition-all ${
                 notification.isRead
-                  ? 'border-white/[0.06] bg-white/[0.02]'
-                  : 'border-white/[0.12] bg-white/[0.05]'
+                  ? 'border-gray-200 bg-white'
+                  : 'border-white/[0.12] bg-white'
               }`}
             >
               <div className="flex items-start gap-4 p-4">
@@ -303,7 +303,7 @@ export default function NotificationsPage() {
                   className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition ${
                     selectedIds.has(notification.id)
                       ? 'bg-white border-white'
-                      : 'border-white/20 hover:border-white/40'
+                      : 'border-gray-300 hover:border-white/40'
                   }`}
                 >
                   {selectedIds.has(notification.id) && <Check size={10} className="text-black" />}
@@ -323,25 +323,25 @@ export default function NotificationsPage() {
                         {notification.category}
                       </span>
                       {!notification.isRead && (
-                        <span className="text-xs text-blue-400 font-medium">New</span>
+                        <span className="text-xs text-blue-700 font-medium">New</span>
                       )}
                     </div>
-                    <span className="text-xs text-zinc-600 whitespace-nowrap">
+                    <span className="text-xs text-gray-600 whitespace-nowrap">
                       {timeAgo(notification.timestamp)}
                     </span>
                   </div>
 
-                  <h3 className={`mt-1.5 text-sm font-medium ${notification.isRead ? 'text-zinc-400' : 'text-white'}`}>
+                  <h3 className={`mt-1.5 text-sm font-medium ${notification.isRead ? 'text-gray-500' : 'text-gray-900'}`}>
                     {notification.title}
                   </h3>
-                  <p className="mt-0.5 text-xs text-zinc-500 leading-relaxed">
+                  <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
                     {notification.message}
                   </p>
 
                   {notification.action && (
                     <a
                       href={notification.action.href}
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white hover:underline underline-offset-2 transition"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 hover:underline underline-offset-2 transition"
                     >
                       {notification.action.label} →
                     </a>
@@ -353,7 +353,7 @@ export default function NotificationsPage() {
                   {!notification.isRead && (
                     <button
                       onClick={() => markRead(notification.id)}
-                      className="p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.06] rounded-lg transition"
+                      className="p-1.5 text-gray-600 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
                       title="Mark as read"
                     >
                       <Check size={13} />
@@ -361,7 +361,7 @@ export default function NotificationsPage() {
                   )}
                   <button
                     onClick={() => deleteNotification(notification.id)}
-                    className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
+                    className="p-1.5 text-gray-600 hover:text-red-700 hover:bg-red-500/10 rounded-lg transition"
                     title="Delete"
                   >
                     <X size={13} />
@@ -373,12 +373,12 @@ export default function NotificationsPage() {
         </div>
 
         {/* Preferences hint */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex items-center justify-between">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-zinc-400">Notification preferences</p>
-            <p className="text-xs text-zinc-600 mt-0.5">Control which alerts you receive and how</p>
+            <p className="text-sm text-gray-500">Notification preferences</p>
+            <p className="text-xs text-gray-600 mt-0.5">Control which alerts you receive and how</p>
           </div>
-          <a href="/settings" className="text-xs text-zinc-400 border border-white/10 rounded-xl px-3 py-2 hover:bg-white/[0.06] transition">
+          <a href="/settings" className="text-xs text-gray-500 border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-100 transition">
             Configure →
           </a>
         </div>

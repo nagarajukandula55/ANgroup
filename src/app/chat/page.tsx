@@ -203,35 +203,35 @@ export default function ChatPage() {
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-6rem)] rounded-2xl border border-white/[0.07] overflow-hidden">
+      <div className="flex h-[calc(100vh-6rem)] rounded-2xl border border-gray-200 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 flex-shrink-0 border-r border-white/[0.06] flex flex-col bg-black/30">
-          <div className="p-4 border-b border-white/[0.06]">
+        <div className="w-64 flex-shrink-0 border-r border-gray-200 flex flex-col bg-black/30">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-white">Channels</h3>
-              <button onClick={() => setShowCreateRoom(true)} className="text-zinc-500 hover:text-white transition-all">
+              <h3 className="text-sm font-semibold text-gray-900">Channels</h3>
+              <button onClick={() => setShowCreateRoom(true)} className="text-gray-500 hover:text-gray-900 transition-all">
                 <Plus size={14} />
               </button>
             </div>
-            <div className="flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-1.5">
-              <Search size={11} className="text-zinc-600" />
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-1.5">
+              <Search size={11} className="text-gray-600" />
               <input value={searchRooms} onChange={e => setSearchRooms(e.target.value)}
                 placeholder="Search channels..."
-                className="flex-1 bg-transparent text-xs text-white placeholder:text-zinc-600 outline-none" />
+                className="flex-1 bg-transparent text-xs text-gray-900 placeholder:text-gray-400 outline-none" />
             </div>
           </div>
 
           {showCreateRoom && (
-            <form onSubmit={createRoom} className="p-3 border-b border-white/[0.06] bg-white/[0.02]">
+            <form onSubmit={createRoom} className="p-3 border-b border-gray-200 bg-white">
               <input value={newRoomName} onChange={e => setNewRoomName(e.target.value)} required
                 placeholder="Channel name" autoFocus
-                className="w-full rounded-lg bg-white/[0.06] px-3 py-2 text-xs text-white outline-none mb-2 border border-white/10" />
+                className="w-full rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none mb-2 border border-gray-200" />
               <input value={newRoomDesc} onChange={e => setNewRoomDesc(e.target.value)}
                 placeholder="Description (optional)"
-                className="w-full rounded-lg bg-white/[0.06] px-3 py-2 text-xs text-white outline-none mb-2 border border-white/10" />
+                className="w-full rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none mb-2 border border-gray-200" />
               <div className="flex gap-2">
-                <button type="submit" className="flex-1 rounded-lg bg-white text-black text-xs py-1.5 font-medium">Create</button>
-                <button type="button" onClick={() => setShowCreateRoom(false)} className="px-2 text-zinc-500 hover:text-white"><X size={12} /></button>
+                <button type="submit" className="flex-1 rounded-lg bg-gray-900 text-white text-xs py-1.5 font-medium">Create</button>
+                <button type="button" onClick={() => setShowCreateRoom(false)} className="px-2 text-gray-500 hover:text-gray-900"><X size={12} /></button>
               </div>
             </form>
           )}
@@ -240,7 +240,7 @@ export default function ChatPage() {
             {filteredRooms.map(room => (
               <button key={room._id} onClick={() => setActiveRoom(room)}
                 className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all ${
-                  activeRoom?._id === room._id ? 'bg-white/[0.08] text-white' : 'text-zinc-500 hover:bg-white/[0.04] hover:text-white'
+                  activeRoom?._id === room._id ? 'bg-gray-50 text-gray-900' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                 }`}>
                 <Hash size={13} className="flex-shrink-0" />
                 <span className="text-xs font-medium truncate">{room.name}</span>
@@ -249,16 +249,16 @@ export default function ChatPage() {
           </div>
 
           {/* User */}
-          <div className="border-t border-white/[0.06] p-3">
+          <div className="border-t border-gray-200 p-3">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center text-xs font-bold text-white">
+              <div className="h-7 w-7 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-900">
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-white truncate">{user?.name || 'Loading...'}</p>
+                <p className="text-xs font-medium text-gray-900 truncate">{user?.name || 'Loading...'}</p>
                 <div className="flex items-center gap-1">
                   <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                  <span className="text-[9px] text-zinc-600">Online</span>
+                  <span className="text-[9px] text-gray-600">Online</span>
                 </div>
               </div>
             </div>
@@ -269,11 +269,11 @@ export default function ChatPage() {
         {activeRoom ? (
           <div className="flex-1 flex flex-col">
             {/* Header */}
-            <div className="flex items-center gap-3 border-b border-white/[0.06] px-5 py-3">
-              <Hash size={15} className="text-zinc-500" />
+            <div className="flex items-center gap-3 border-b border-gray-200 px-5 py-3">
+              <Hash size={15} className="text-gray-500" />
               <div>
-                <h3 className="text-sm font-semibold text-white">{activeRoom.name}</h3>
-                {activeRoom.description && <p className="text-xs text-zinc-600">{activeRoom.description}</p>}
+                <h3 className="text-sm font-semibold text-gray-900">{activeRoom.name}</h3>
+                {activeRoom.description && <p className="text-xs text-gray-600">{activeRoom.description}</p>}
               </div>
             </div>
 
@@ -281,17 +281,17 @@ export default function ChatPage() {
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
               {grouped.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center">
-                  <Hash size={32} className="text-zinc-700 mb-3" />
-                  <p className="text-sm font-semibold text-zinc-500">Welcome to #{activeRoom.name}</p>
-                  <p className="text-xs text-zinc-700 mt-1">Be the first to send a message!</p>
+                  <Hash size={32} className="text-gray-700 mb-3" />
+                  <p className="text-sm font-semibold text-gray-500">Welcome to #{activeRoom.name}</p>
+                  <p className="text-xs text-gray-700 mt-1">Be the first to send a message!</p>
                 </div>
               ) : (
                 grouped.map(({ date, msgs }) => (
                   <div key={date}>
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="flex-1 h-px bg-white/[0.05]" />
-                      <span className="text-[10px] text-zinc-600 bg-black px-3 py-1 rounded-full border border-white/[0.06]">{date}</span>
-                      <div className="flex-1 h-px bg-white/[0.05]" />
+                      <div className="flex-1 h-px bg-white" />
+                      <span className="text-[10px] text-gray-600 bg-gray-50 px-3 py-1 rounded-full border border-gray-200">{date}</span>
+                      <div className="flex-1 h-px bg-white" />
                     </div>
                     <div className="space-y-3">
                       {msgs.map((msg, i) => {
@@ -301,7 +301,7 @@ export default function ChatPage() {
                         return (
                           <div key={msg._id} className={`flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
                             {!sameUser && (
-                              <div className="h-7 w-7 flex-shrink-0 rounded-xl bg-white/10 flex items-center justify-center text-xs font-bold text-white mt-0.5">
+                              <div className="h-7 w-7 flex-shrink-0 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-900 mt-0.5">
                                 {msg.senderName?.[0]?.toUpperCase()}
                               </div>
                             )}
@@ -309,29 +309,29 @@ export default function ChatPage() {
                             <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
                               {!sameUser && (
                                 <div className={`flex items-center gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                  <span className="text-xs font-semibold text-white">{isMe ? 'You' : msg.senderName}</span>
-                                  <span className="text-[10px] text-zinc-600">{formatTime(msg.createdAt)}</span>
+                                  <span className="text-xs font-semibold text-gray-900">{isMe ? 'You' : msg.senderName}</span>
+                                  <span className="text-[10px] text-gray-600">{formatTime(msg.createdAt)}</span>
                                 </div>
                               )}
                               {msg.type === 'FILE' || msg.type === 'IMAGE' ? (
-                                <div className={`rounded-xl border px-4 py-3 ${isMe ? 'bg-white/10 border-white/20' : 'bg-white/[0.04] border-white/[0.08]'}`}>
+                                <div className={`rounded-xl border px-4 py-3 ${isMe ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-200'}`}>
                                   {msg.type === 'IMAGE' && msg.fileUrl && (
                                     <img src={msg.fileUrl} alt={msg.fileName} className="max-w-[200px] rounded-lg mb-2" />
                                   )}
                                   <div className="flex items-center gap-2">
-                                    <Upload size={12} className="text-zinc-400" />
-                                    <span className="text-xs text-zinc-300">{msg.fileName}</span>
+                                    <Upload size={12} className="text-gray-500" />
+                                    <span className="text-xs text-gray-600">{msg.fileName}</span>
                                   </div>
                                   {msg.fileUrl && msg.type === 'FILE' && (
                                     <a href={msg.fileUrl} download={msg.fileName}
-                                      className="text-[10px] text-blue-400 hover:underline mt-1 block">
+                                      className="text-[10px] text-blue-700 hover:underline mt-1 block">
                                       Download
                                     </a>
                                   )}
                                 </div>
                               ) : (
                                 <div className={`rounded-xl px-4 py-2.5 text-sm ${
-                                  isMe ? 'bg-white text-black font-medium' : 'bg-white/[0.06] text-zinc-200 border border-white/[0.06]'
+                                  isMe ? 'bg-gray-900 text-white font-medium' : 'bg-gray-50 text-gray-700 border border-gray-200'
                                 }`}>
                                   {msg.content}
                                 </div>
@@ -348,24 +348,24 @@ export default function ChatPage() {
             </div>
 
             {/* Input */}
-            <div className="border-t border-white/[0.06] px-5 py-4">
+            <div className="border-t border-gray-200 px-5 py-4">
               <form onSubmit={sendMessage} className="flex items-end gap-3">
                 <input type="file" ref={fileInputRef} onChange={uploadFile} className="hidden" />
                 <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="text-zinc-600 hover:text-zinc-300 transition-all flex-shrink-0 p-1">
+                  className="text-gray-600 hover:text-gray-600 transition-all flex-shrink-0 p-1">
                   <Upload size={16} />
                 </button>
-                <div className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] flex items-center px-4 gap-2">
+                <div className="flex-1 rounded-xl border border-gray-200 bg-white flex items-center px-4 gap-2">
                   <input
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage(e as any))}
                     placeholder={`Message #${activeRoom.name}`}
-                    className="flex-1 bg-transparent py-3 text-sm text-white placeholder:text-zinc-600 outline-none"
+                    className="flex-1 bg-transparent py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none"
                   />
                 </div>
                 <button type="submit" disabled={!input.trim() || sending}
-                  className="rounded-xl bg-white p-3 disabled:opacity-30 hover:bg-zinc-100 transition-all flex-shrink-0">
+                  className="rounded-xl bg-white p-3 disabled:opacity-30 hover:bg-gray-800 transition-all flex-shrink-0">
                   <Send size={14} className="text-black" />
                 </button>
               </form>
@@ -374,8 +374,8 @@ export default function ChatPage() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <MessageSquare size={40} className="mx-auto text-zinc-700 mb-4" />
-              <p className="text-sm text-zinc-500">Select a channel to start chatting</p>
+              <MessageSquare size={40} className="mx-auto text-gray-700 mb-4" />
+              <p className="text-sm text-gray-500">Select a channel to start chatting</p>
             </div>
           </div>
         )}
