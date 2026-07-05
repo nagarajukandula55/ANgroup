@@ -1,7 +1,18 @@
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "AN_GROUP_ENTERPRISE_SECRET";
-const SSO_SECRET = process.env.SSO_SECRET || "AN_GROUP_SSO_SECRET_2024";
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
+  );
+}
+if (!process.env.SSO_SECRET) {
+  throw new Error(
+    "SSO_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
+  );
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const SSO_SECRET = process.env.SSO_SECRET;
 
 export interface JWTPayload {
   id: string;
