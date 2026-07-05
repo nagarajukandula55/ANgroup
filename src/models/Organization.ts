@@ -216,7 +216,9 @@ const OrganizationSchema = new Schema<IOrganization>(
 ========================================================= */
 
 OrganizationSchema.index({ name: 1 });
-OrganizationSchema.index({ code: 1 });
+// code already gets an index via `unique: true` + `index: true` on its field
+// definition above — this was an exact duplicate and triggered Mongoose's
+// "duplicate schema index" warning at startup.
 OrganizationSchema.index({ sysCode: 1 });
 OrganizationSchema.index({ slug: 1 });
 OrganizationSchema.index({ isActive: 1 });

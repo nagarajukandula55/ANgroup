@@ -241,8 +241,10 @@ UserSchema.index({ email: 1 });
 UserSchema.index({ username: 1 });
 UserSchema.index({ phone: 1 });
 UserSchema.index({ isActive: 1 });
-UserSchema.index({ defaultBusinessId: 1 });
-UserSchema.index({ defaultOrganizationId: 1 });
+// defaultBusinessId/defaultOrganizationId already get an index via
+// `index: true` on their field definitions above — the explicit
+// .index() calls that used to be here were exact duplicates and
+// triggered Mongoose's "duplicate schema index" warning at startup.
 
 /* =========================================================
  * VIRTUALS

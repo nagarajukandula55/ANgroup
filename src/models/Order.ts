@@ -711,17 +711,16 @@ OrderSchema.index({
   "payment.status": 1,
 });
 
-OrderSchema.index({
-  "payment.gatewayPaymentId": 1,
-});
+// payment.gatewayPaymentId already gets an index via `index: true` on its
+// field definition in PaymentSchema above — this was an exact duplicate
+// and triggered Mongoose's "duplicate schema index" warning at startup.
 
 OrderSchema.index({
   "shipping.awbNumber": 1,
 });
 
-OrderSchema.index({
-  expiresAt: 1,
-});
+// expiresAt already gets an index via `index: true` on its field
+// definition above — same duplicate-index warning as gatewayPaymentId.
 
 OrderSchema.index({
   "address.phone": 1,
