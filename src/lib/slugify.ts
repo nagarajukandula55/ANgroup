@@ -17,13 +17,13 @@ export function slugify(input: string): string {
 }
 
 /** Builds a working suggestion like "amul-butter-500g" from name + variant. */
-export function suggestSlug(productName: string, variantName?: string): string {
+export function suggestSlug(productName?: string, variantName?: string): string {
   const parts = [productName, variantName].filter(Boolean).join(" ");
   return slugify(parts);
 }
 
 /** Builds a short SEO title suggestion, capped to a sane length. */
-export function suggestSeoTitle(productName: string, variantName?: string, brandName?: string): string {
+export function suggestSeoTitle(productName?: string, variantName?: string, brandName?: string): string {
   const parts = [brandName, productName, variantName].filter(Boolean).join(" ");
   return parts.slice(0, 70);
 }
