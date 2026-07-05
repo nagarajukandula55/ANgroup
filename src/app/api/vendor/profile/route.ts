@@ -137,11 +137,11 @@ export async function PUT(req: NextRequest) {
 
     await connectDB()
 
-    const updated = await VendorProfile.findOneAndUpdate(
+    const updated = (await VendorProfile.findOneAndUpdate(
       { userId },
       { $set: allowedUpdate },
       { new: true, runValidators: true }
-    ).lean()
+    ).lean()) as (Record<string, any> & { _id?: mongoose.Types.ObjectId }) | null
 
     if (!updated) {
       return NextResponse.json(
@@ -153,7 +153,7 @@ export async function PUT(req: NextRequest) {
     logAction({
       action: "UPDATE",
       entity: "VendorProfile",
-      entityId: updated?._id?.toString(),
+      entityId: updated._id?.toString(),
       after: updated,
       req,
     });
