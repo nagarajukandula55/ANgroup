@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 function Field({
@@ -305,7 +305,21 @@ function VendorApplyForm() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Pincode"><input className={inputCls} value={form.pincode} onChange={(e) => set("pincode", e.target.value)} /></Field>
+            <Field label="Pincode">
+              <PincodeInput
+                value={form.pincode}
+                onChange={(value) => set("pincode", value)}
+                onResolved={({ state, city }) => {
+                  // Only autofill if not already set — don't clobber a deliberate user choice
+                  setForm((prev) => ({
+                    ...prev,
+                    state: prev.state || state,
+                    city: prev.city || city,
+                  }));
+                }}
+                className={inputCls}
+              />
+            </Field>
           </div>
         </div>
 

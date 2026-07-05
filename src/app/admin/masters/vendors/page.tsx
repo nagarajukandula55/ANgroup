@@ -17,8 +17,10 @@ import {
   MapPin,
   FileText,
 } from "lucide-react";
-import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+import { VendorDetailModal, VendorDetailData } from "@/components/shared/VendorDetailModal";
+import { Eye } from "lucide-react";
 
 interface Vendor {
   _id: string;
@@ -79,6 +81,7 @@ export default function VendorsPage() {
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [gstWarning, setGstWarning] = useState<string | null>(null);
+  const [viewVendor, setViewVendor] = useState<Vendor | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -507,6 +510,13 @@ export default function VendorsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <button
+                        onClick={() => setViewVendor(vendor)}
+                        className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="View vendor details"
+                      >
+                        <Eye size={13} />
+                      </button>
+                      <button
                         onClick={() => openEdit(vendor)}
                         className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                         title="Edit vendor"
@@ -593,6 +603,24 @@ export default function VendorsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {viewVendor && (
+        <VendorDetailModal
+          // This page's Vendor type is narrower than VendorDetailData (no
+          // status/businessId/bankDetails/documents in its own form/API) —
+          // adapt on the fly rather than widening this page's own model,
+          // since admin/masters/vendors is a lighter "vendor master" list
+          // distinct from admin/vendors' full onboarding+review workflow.
+          vendor={viewVendor as unknown as VendorDetailData}
+          onClose={() => setViewVendor(null)}
+          onUpdated={(patch) => {
+            setVendors((prev) =>
+              prev.map((v) => (v._id === viewVendor._id ? { ...v, ...(patch as Partial<Vendor>) } : v))
+            );
+            setViewVendor((prev) => (prev ? { ...prev, ...(patch as Partial<Vendor>) } : prev));
+          }}
+        />
       )}
     </div>
   );
@@ -731,11 +759,18 @@ function VendorModal({
               <label className="text-xs text-gray-500 block mb-1">
                 Pincode
               </label>
-              <input
+              <PincodeInput
                 value={formData.addressPincode}
-                onChange={(e) => update("addressPincode", e.target.value)}
+                onChange={(value) => update("addressPincode", value)}
+                onResolved={({ state, city }) =>
+                  setFormData({
+                    ...formData,
+                    // Only autofill if not already set — don't clobber a deliberate user choice
+                    addressState: formData.addressState || state,
+                    addressCity: formData.addressCity || city,
+                  })
+                }
                 placeholder="400001"
-                maxLength={6}
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
             </div>

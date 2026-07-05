@@ -6,27 +6,11 @@ import {
   ArrowLeft, Loader2, Plus, X, Building2, CheckCircle,
   Clock, Star, ChevronRight, ChevronLeft, Truck,
 } from 'lucide-react'
-import { StateSelect, CitySelect } from '@/components/shared/LocationSelect'
+import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { validateGSTINAgainstState } from '@/lib/validation/gst'
+import { VendorDetailModal, VendorDetailData } from '@/components/shared/VendorDetailModal'
 
-interface Vendor {
-  _id: string
-  vendorId?: string
-  companyName: string
-  contactPerson?: string
-  email?: string
-  phone?: string
-  gstNumber?: string
-  panNumber?: string
-  category?: string
-  paymentTerms?: string
-  creditLimit?: number
-  rating?: number
-  status?: string
-  isApproved?: boolean
-  address?: { street?: string; city?: string; state?: string; pincode?: string }
-  bankDetails?: { accountName?: string; accountNumber?: string; ifscCode?: string; bankName?: string }
-}
+type Vendor = VendorDetailData
 
 const CATEGORIES = [
   'Raw Materials','Packaging','Electronics','Machinery','Services',
@@ -76,10 +60,10 @@ export default function VendorsPage() {
   const [showForm, setShowForm]   = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [approvingId, setApprovingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('Basic Info')
   const [form, setForm]           = useState({ ...emptyForm })
   const [gstWarning, setGstWarning] = useState<string | null>(null)
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -105,17 +89,13 @@ export default function VendorsPage() {
     finally { setLoading(false) }
   }
 
-  async function handleApprove(id: string) {
-    setApprovingId(id)
-    try {
-      const res = await fetch(`/api/vendors/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isApproved: true, status: 'APPROVED' }),
-      })
-      if (res.ok) setVendors(p => p.map(v => v._id === id ? { ...v, isApproved: true, status: 'APPROVED' } : v))
-    } catch { /* silent */ }
-    finally { setApprovingId(null) }
+  // Approve/Reject now live inside VendorDetailModal, wired to the richer
+  // /api/vendors/[id]/review flow (audit trail + agreement generation)
+  // instead of this bare PUT — see handleVendorUpdated below for how the
+  // list reflects the result.
+  function handleVendorUpdated(id: string, patch: Partial<Vendor>) {
+    setVendors(p => p.map(v => (v._id === id ? { ...v, ...patch } : v)))
+    setSelectedVendor(prev => (prev && prev._id === id ? { ...prev, ...patch } : prev))
   }
 
   function handleGstBlur() {
@@ -314,7 +294,7 @@ export default function VendorsPage() {
                   const isApproved = v.isApproved || v.status === 'APPROVED'
                   const statusKey  = isApproved ? 'APPROVED' : (v.status ?? 'PENDING')
                   return (
-                    <tr key={v._id} className="hover:bg-gray-50 transition">
+                    <tr key={v._id} onClick={() => setSelectedVendor(v)} className="hover:bg-gray-50 transition cursor-pointer">
                       <td className="px-6 py-3">
                         <p className="font-medium text-gray-900">{v.companyName}</p>
                         {v.address?.city && <p className="text-xs text-gray-400">{v.address.city}{v.address.state ? `, ${v.address.state}` : ''}</p>}
@@ -335,12 +315,12 @@ export default function VendorsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-3 text-right">
-                        {!isApproved && (
-                          <button onClick={() => handleApprove(v._id)} disabled={approvingId === v._id}
-                            className="px-3 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 text-xs font-medium hover:bg-green-100 transition disabled:opacity-50">
-                            {approvingId === v._id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
-                          </button>
-                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedVendor(v) }}
+                          className="px-3 py-1 rounded-lg bg-gray-50 text-gray-700 border border-gray-200 text-xs font-medium hover:bg-gray-100 transition"
+                        >
+                          View
+                        </button>
                       </td>
                     </tr>
                   )
@@ -429,7 +409,24 @@ export default function VendorsPage() {
                         className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
                       />
                     </div>
-                    {field('pincode', 'Pincode', { placeholder: '400001', hint: '6-digit PIN code' })}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">Pincode</label>
+                      <PincodeInput
+                        value={form.pincode}
+                        onChange={(value) => setForm(p => ({ ...p, pincode: value }))}
+                        onResolved={({ state, city }) =>
+                          setForm(p => ({
+                            ...p,
+                            // Only autofill if not already set — don't clobber a deliberate user choice
+                            state: p.state || state,
+                            city: p.city || city,
+                          }))
+                        }
+                        placeholder="400001"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">6-digit PIN code</p>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1.5">State</label>
@@ -510,6 +507,14 @@ export default function VendorsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedVendor && (
+        <VendorDetailModal
+          vendor={selectedVendor}
+          onClose={() => setSelectedVendor(null)}
+          onUpdated={(patch) => handleVendorUpdated(selectedVendor._id, patch)}
+        />
       )}
     </div>
   )

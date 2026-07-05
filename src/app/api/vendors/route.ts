@@ -59,6 +59,13 @@ export async function GET(req: NextRequest) {
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
+        // Populate businessId so the vendor detail popup can show which
+        // business this vendor is being onboarded into by name, not a raw
+        // ObjectId — the list is already scoped to one business via the
+        // query filter above, but confirming the tag in the UI still
+        // matters (e.g. when the admin manages several businesses and
+        // wants to double check they're looking at the right one).
+        .populate("businessId", "name legalName brandName")
         .lean(),
       VendorProfile.countDocuments(query),
     ]);

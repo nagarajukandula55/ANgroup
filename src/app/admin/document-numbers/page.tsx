@@ -4,6 +4,13 @@ import React, { useState, useEffect } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+// Previously only these 10 types were listed here even though the
+// canonical numbering engine (src/core/numbering/types.ts) already
+// supports 21 — this page is supposed to be the single place admins see
+// EVERY numbering format the system uses, so it was silently hiding 11 of
+// them (products, batches, stock moves, vendor/employee IDs, agreements,
+// etc.) from view even though those types were already fully
+// admin-configurable via the underlying API, just not surfaced in this UI.
 type DocumentType =
   | "INVOICE"
   | "SALES_ORDER"
@@ -14,7 +21,18 @@ type DocumentType =
   | "QUOTATION"
   | "DELIVERY_CHALLAN"
   | "PAYMENT_RECEIPT"
-  | "PRODUCTION_ORDER";
+  | "PRODUCTION_ORDER"
+  | "PRODUCT"
+  | "PRODUCT_VARIANT"
+  | "VENDOR_PRODUCT"
+  | "STOCK_ADJUSTMENT"
+  | "STOCK_TRANSFER"
+  | "BATCH"
+  | "CUSTOMER_ORDER"
+  | "RECEIPT"
+  | "AGREEMENT"
+  | "VENDOR"
+  | "EMPLOYEE";
 
 interface DocumentConfig {
   documentType: DocumentType;
@@ -49,6 +67,17 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   DELIVERY_CHALLAN: "Delivery Challan",
   PAYMENT_RECEIPT: "Payment Receipt",
   PRODUCTION_ORDER: "Production Order",
+  PRODUCT: "Product Code",
+  PRODUCT_VARIANT: "Product Variant Code",
+  VENDOR_PRODUCT: "Vendor Product Code",
+  STOCK_ADJUSTMENT: "Stock Adjustment",
+  STOCK_TRANSFER: "Stock Transfer",
+  BATCH: "Batch Number",
+  CUSTOMER_ORDER: "Customer Order",
+  RECEIPT: "Receipt",
+  AGREEMENT: "Agreement Number",
+  VENDOR: "Vendor ID",
+  EMPLOYEE: "Employee ID",
 };
 
 const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
@@ -152,6 +181,120 @@ const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
     suffix: "",
     startFrom: 1,
   },
+  // Prefixes below match src/core/numbering/types.ts's DEFAULT_PREFIXES —
+  // the canonical numbering engine's own defaults — so this admin UI's
+  // preview matches what the engine actually generates before a business
+  // has explicitly saved its own override.
+  PRODUCT: {
+    documentType: "PRODUCT",
+    prefix: "PRD",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 5,
+    suffix: "",
+    startFrom: 1,
+  },
+  PRODUCT_VARIANT: {
+    documentType: "PRODUCT_VARIANT",
+    prefix: "VAR",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 5,
+    suffix: "",
+    startFrom: 1,
+  },
+  VENDOR_PRODUCT: {
+    documentType: "VENDOR_PRODUCT",
+    prefix: "VPRD",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 5,
+    suffix: "",
+    startFrom: 1,
+  },
+  STOCK_ADJUSTMENT: {
+    documentType: "STOCK_ADJUSTMENT",
+    prefix: "SA",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  STOCK_TRANSFER: {
+    documentType: "STOCK_TRANSFER",
+    prefix: "TRF",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  BATCH: {
+    documentType: "BATCH",
+    prefix: "BAT",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 5,
+    suffix: "",
+    startFrom: 1,
+  },
+  CUSTOMER_ORDER: {
+    documentType: "CUSTOMER_ORDER",
+    prefix: "ORD",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  RECEIPT: {
+    documentType: "RECEIPT",
+    prefix: "RCT",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  AGREEMENT: {
+    documentType: "AGREEMENT",
+    prefix: "AGR",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  VENDOR: {
+    documentType: "VENDOR",
+    prefix: "VND",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  EMPLOYEE: {
+    documentType: "EMPLOYEE",
+    prefix: "EMP",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
 };
 
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -165,6 +308,17 @@ const DOCUMENT_TYPES: DocumentType[] = [
   "DELIVERY_CHALLAN",
   "PAYMENT_RECEIPT",
   "PRODUCTION_ORDER",
+  "PRODUCT",
+  "PRODUCT_VARIANT",
+  "VENDOR_PRODUCT",
+  "STOCK_ADJUSTMENT",
+  "STOCK_TRANSFER",
+  "BATCH",
+  "CUSTOMER_ORDER",
+  "RECEIPT",
+  "AGREEMENT",
+  "VENDOR",
+  "EMPLOYEE",
 ];
 
 // ─── Preview Builder ──────────────────────────────────────────────────────────

@@ -54,6 +54,20 @@ export interface IVendorProfile extends Document {
     ifscCode?:     string;
     bankName?:     string;
   };
+  /**
+   * Vendor-uploaded compliance/verification documents — previously
+   * completely absent from this model (Vendor.js, the OTHER legacy vendor
+   * model, has a `documents[]` array with a documentType enum incl.
+   * CANCELLED_CHEQUE/GST, but that model isn't the one any live form/route
+   * actually uses; VendorProfile is). Stored as Cloudinary URLs via the
+   * existing /api/assets/upload pipeline (extended to accept PDFs).
+   */
+  documents?: {
+    passbookUrl?:        string; // bank passbook / cancelled cheque, for account+IFSC confirmation
+    passbookUploadedAt?: Date;
+    gstCertificateUrl?:       string;
+    gstCertificateUploadedAt?: Date;
+  };
   creditLimit: number;
   paymentTerms: string;
   category?: string;
@@ -97,6 +111,12 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
       accountNumber: { type: String },
       ifscCode:      { type: String },
       bankName:      { type: String },
+    },
+    documents: {
+      passbookUrl:              { type: String, default: null },
+      passbookUploadedAt:       { type: Date, default: null },
+      gstCertificateUrl:        { type: String, default: null },
+      gstCertificateUploadedAt: { type: Date, default: null },
     },
     creditLimit:  { type: Number, default: 0 },
     paymentTerms: { type: String, default: '30 days' },

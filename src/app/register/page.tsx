@@ -13,7 +13,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react'
-import { StateSelect, CitySelect } from '@/components/shared/LocationSelect'
+import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { validateGSTINAgainstState } from '@/lib/validation/gst'
 
 type Tab = 'customer' | 'vendor' | 'employee'
@@ -513,12 +513,22 @@ export default function RegisterPage() {
                     className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
                   />
                 </div>
-                <InputField
-                  label="Pincode"
-                  value={vendPincode}
-                  onChange={setVendPincode}
-                  placeholder="400001"
-                />
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">
+                    Pincode
+                  </label>
+                  <PincodeInput
+                    value={vendPincode}
+                    onChange={setVendPincode}
+                    onResolved={({ state, city }) => {
+                      // Only autofill if not already set — don't clobber a deliberate user choice
+                      setVendState((prev) => prev || state)
+                      setVendCity((prev) => prev || city)
+                    }}
+                    placeholder="400001"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-400 transition-colors"
+                  />
+                </div>
               </div>
               <div className="rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3">
                 <p className="text-xs text-yellow-700">

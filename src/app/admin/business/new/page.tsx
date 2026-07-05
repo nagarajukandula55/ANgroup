@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
-import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 export default function NewBusinessPage() {
@@ -269,12 +269,19 @@ export default function NewBusinessPage() {
 
         <div className="flex flex-col gap-1">
           <label className={labelClass}>Pincode</label>
-          <input
-            name="pincode"
+          <PincodeInput
             value={form.pincode}
-            placeholder="6-digit PIN code"
-            maxLength={6}
-            onChange={handleChange}
+            onChange={(value) => setForm((prev) => ({ ...prev, pincode: value }))}
+            onResolved={({ state, city }) =>
+              setForm((prev) => ({
+                ...prev,
+                // Only autofill state/city if the user hasn't already
+                // picked something themselves — a typed pincode shouldn't
+                // silently overwrite a deliberate choice.
+                state: prev.state || state,
+                city: prev.city || city,
+              }))
+            }
             className={inputClass}
           />
         </div>

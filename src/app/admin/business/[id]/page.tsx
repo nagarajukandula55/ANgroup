@@ -14,7 +14,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
-import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 interface Business {
@@ -366,12 +366,21 @@ export default function BusinessDetailPage() {
           </div>
           <div>
             <label className={labelCls}>Pincode</label>
-            <input
-              className={inputCls}
+            <PincodeInput
               value={form.pincode}
-              maxLength={6}
-              onChange={(e) => setForm({ ...form, pincode: e.target.value })}
-              placeholder="6-digit PIN code"
+              onChange={(value) => setForm({ ...form, pincode: value })}
+              onResolved={({ state, city }) =>
+                setForm((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        state: prev.state || state,
+                        city: prev.city || city,
+                      }
+                    : prev
+                )
+              }
+              className={inputCls}
             />
           </div>
         </section>
