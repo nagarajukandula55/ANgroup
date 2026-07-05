@@ -29,14 +29,16 @@ export interface LogActionInput {
   /** Pass the request when available so IP/UA/path can be captured. */
   req?: Request;
   /** Override actor identity — needed in routes (like switch-business) that
-   *  read the JWT directly instead of going through getEnrichedSession(). */
+   *  read the JWT directly instead of going through getEnrichedSession().
+   *  Fields accept `null` as well as `undefined` since the common source —
+   *  `req.headers.get(...)` — returns `string | null`, not `string | undefined`. */
   actor?: {
-    id?: string;
-    email?: string;
-    name?: string;
-    isSuperAdmin?: boolean;
-    businessId?: string;
-    organizationId?: string;
+    id?: string | null;
+    email?: string | null;
+    name?: string | null;
+    isSuperAdmin?: boolean | null;
+    businessId?: string | null;
+    organizationId?: string | null;
   };
 }
 
