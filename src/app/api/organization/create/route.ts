@@ -10,6 +10,7 @@ import Counter from "@/models/Counter";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 /* =========================================================
    ORGANIZATION CODE GENERATOR (AN0001)
@@ -88,6 +89,19 @@ export async function POST(req: NextRequest) {
         { error: "Organization name is required" },
         { status: 400 }
       );
+    }
+
+    // Server-side GSTIN re-validation — mirrors the check in
+    // /api/businesses/create so a bypassed client-side check (direct API
+    // call, disabled JS, etc.) can't slip an invalid/mismatched GSTIN in.
+    if (gstNumber && String(gstNumber).trim()) {
+      const gstResult = validateGSTINAgainstState(gstNumber, state);
+      if (!gstResult.valid) {
+        return NextResponse.json(
+          { error: gstResult.reason || "Invalid GSTIN" },
+          { status: 400 }
+        );
+      }
     }
 
     /* =========================================================

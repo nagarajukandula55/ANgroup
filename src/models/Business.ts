@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { BUSINESS_TYPES, INDUSTRIES } from "@/data/businessConstants";
 
 /* =========================================================
    ACCESS
@@ -412,13 +413,25 @@ const BusinessSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Constrained to INDUSTRIES (src/data/businessConstants.ts) rather than
+    // free text — previously any string was accepted here, which meant the
+    // same industry could be entered a dozen different ways across
+    // businesses (e.g. "IT", "It Services", "software") with no way to
+    // filter/report on it reliably.
     industry: {
       type: String,
+      enum: [...INDUSTRIES, ""],
       default: "",
     },
 
+    // Constrained to BUSINESS_TYPES (src/data/businessConstants.ts) — same
+    // reasoning as `industry` above. Named `type` (not `businessType`) to
+    // match the existing field name already used by forms/APIs; the
+    // shared constant is still called BUSINESS_TYPES for clarity at the
+    // call site.
     type: {
       type: String,
+      enum: [...BUSINESS_TYPES, ""],
       default: "",
     },
 

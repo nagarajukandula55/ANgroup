@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { BusinessService } from "@/services/business.service";
 import Business from "@/models/Business";
+import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 export async function GET(req: Request, context: any) {
   try {
@@ -60,6 +61,15 @@ const EDITABLE_FIELDS = [
   // field. Added here so it's actually editable through the Settings UI,
   // not just present on the schema with no way to set it.
   "gstStateCode",
+  // Business Type / Industry enums + address fields — the edit form used
+  // to only show city/state/pincode read-only (they were never actually
+  // saveable), and type/industry weren't editable post-creation at all.
+  "industry",
+  "type",
+  "address",
+  "city",
+  "state",
+  "pincode",
 ] as const;
 
 export async function PATCH(req: Request, context: any) {
@@ -85,6 +95,30 @@ export async function PATCH(req: Request, context: any) {
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ success: false, message: "No editable fields provided" }, { status: 400 });
+    }
+
+    // Server-side GSTIN re-validation, mirroring the create-route check —
+    // compliance.gstNumber can arrive here via PATCH just as easily as via
+    // POST /api/businesses/create, so the same guarantee has to apply.
+    const gstNumber = (updates.compliance as any)?.gstNumber;
+    if (gstNumber && String(gstNumber).trim()) {
+      const stateForCheck =
+        (updates.state as string | undefined) ??
+        (await Business.findById(id).select("state").lean().then((b: any) => b?.state));
+      const gstResult = validateGSTINAgainstState(gstNumber, stateForCheck);
+      if (!gstResult.valid) {
+        return NextResponse.json(
+          { success: false, message: gstResult.reason || "Invalid GSTIN" },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (updates.pincode && !/^[1-9][0-9]{5}$/.test(String(updates.pincode).trim())) {
+      return NextResponse.json(
+        { success: false, message: "Pincode must be a valid 6-digit Indian PIN code" },
+        { status: 400 }
+      );
     }
 
     const business = await Business.findByIdAndUpdate(id, { $set: updates }, { new: true }).lean();

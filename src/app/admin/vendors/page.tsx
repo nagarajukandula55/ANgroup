@@ -6,6 +6,8 @@ import {
   ArrowLeft, Loader2, Plus, X, Building2, CheckCircle,
   Clock, Star, ChevronRight, ChevronLeft, Truck,
 } from 'lucide-react'
+import { StateSelect, CitySelect } from '@/components/shared/LocationSelect'
+import { validateGSTINAgainstState } from '@/lib/validation/gst'
 
 interface Vendor {
   _id: string
@@ -25,15 +27,6 @@ interface Vendor {
   address?: { street?: string; city?: string; state?: string; pincode?: string }
   bankDetails?: { accountName?: string; accountNumber?: string; ifscCode?: string; bankName?: string }
 }
-
-const INDIAN_STATES = [
-  'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh',
-  'Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka',
-  'Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram',
-  'Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana',
-  'Tripura','Uttar Pradesh','Uttarakhand','West Bengal',
-  'Delhi','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry',
-]
 
 const CATEGORIES = [
   'Raw Materials','Packaging','Electronics','Machinery','Services',
@@ -86,6 +79,7 @@ export default function VendorsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('Basic Info')
   const [form, setForm]           = useState({ ...emptyForm })
+  const [gstWarning, setGstWarning] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -124,9 +118,25 @@ export default function VendorsPage() {
     finally { setApprovingId(null) }
   }
 
+  function handleGstBlur() {
+    if (!form.gstNumber.trim()) {
+      setGstWarning(null)
+      return
+    }
+    const result = validateGSTINAgainstState(form.gstNumber, form.state || undefined)
+    setGstWarning(result.valid ? null : result.reason || 'Invalid GSTIN')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.companyName.trim()) { setFormError('Company name is required'); return }
+    if (form.gstNumber.trim()) {
+      const gstResult = validateGSTINAgainstState(form.gstNumber, form.state || undefined)
+      if (!gstResult.valid) { setFormError(gstResult.reason || 'Invalid GSTIN'); return }
+    }
+    if (form.pincode.trim() && !/^[1-9][0-9]{5}$/.test(form.pincode.trim())) {
+      setFormError('Pincode must be a valid 6-digit Indian PIN code'); return
+    }
     if (form.accountNumber && form.accountNumber !== form.confirmAccount) {
       setFormError('Account numbers do not match'); return
     }
@@ -179,9 +189,9 @@ export default function VendorsPage() {
   }
 
   function field(name: keyof typeof emptyForm, label: string, opts: {
-    type?: string; required?: boolean; placeholder?: string; hint?: string
+    type?: string; required?: boolean; placeholder?: string; hint?: string; onBlur?: () => void
   } = {}) {
-    const { type = 'text', required = false, placeholder, hint } = opts
+    const { type = 'text', required = false, placeholder, hint, onBlur } = opts
     return (
       <div key={name}>
         <label className="block text-xs font-medium text-gray-500 mb-1.5">
@@ -193,6 +203,7 @@ export default function VendorsPage() {
           value={form[name]}
           placeholder={placeholder}
           onChange={e => setForm(p => ({ ...p, [name]: e.target.value }))}
+          onBlur={onBlur}
           className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
         />
         {hint && <p className="text-[10px] text-gray-400 mt-1">{hint}</p>}
@@ -389,7 +400,7 @@ export default function VendorsPage() {
                   </div>
                   {field('email', 'Email Address', { type: 'email', placeholder: 'vendor@company.com' })}
                   <div className="grid grid-cols-2 gap-4">
-                    {field('gstNumber', 'GSTIN', { placeholder: '27AABCU9603R1ZX', hint: '15-digit GST Identification Number' })}
+                    {field('gstNumber', 'GSTIN', { placeholder: '27AABCU9603R1ZX', hint: gstWarning || '15-digit GST Identification Number', onBlur: handleGstBlur })}
                     {field('panNumber', 'PAN Number', { placeholder: 'AABCU9603R', hint: '10-character PAN' })}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -409,10 +420,25 @@ export default function VendorsPage() {
                       className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition resize-none" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    {field('city', 'City', { placeholder: 'Mumbai' })}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">City</label>
+                      <CitySelect
+                        value={form.city}
+                        state={form.state}
+                        onChange={(value) => setForm(p => ({ ...p, city: value }))}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+                      />
+                    </div>
                     {field('pincode', 'Pincode', { placeholder: '400001', hint: '6-digit PIN code' })}
                   </div>
-                  {select('state', 'State', INDIAN_STATES)}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1.5">State</label>
+                    <StateSelect
+                      value={form.state}
+                      onChange={(value) => setForm(p => ({ ...p, state: value, city: '' }))}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 transition appearance-none"
+                    />
+                  </div>
                   <div className="mt-2 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-500">
                     Country is set to <strong>India</strong> by default.
                   </div>

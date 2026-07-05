@@ -13,6 +13,8 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react'
+import { StateSelect, CitySelect } from '@/components/shared/LocationSelect'
+import { validateGSTINAgainstState } from '@/lib/validation/gst'
 
 type Tab = 'customer' | 'vendor' | 'employee'
 
@@ -28,15 +30,6 @@ const BUSINESS_CATEGORIES = [
   'Healthcare',
   'Education',
   'Other',
-]
-
-const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  'Delhi', 'Jammu & Kashmir', 'Ladakh', 'Chandigarh', 'Puducherry',
 ]
 
 function PasswordField({
@@ -81,6 +74,7 @@ function InputField({
   placeholder,
   type = 'text',
   required,
+  onBlur,
 }: {
   label: string
   value: string
@@ -88,6 +82,7 @@ function InputField({
   placeholder?: string
   type?: string
   required?: boolean
+  onBlur?: () => void
 }) {
   return (
     <div>
@@ -98,6 +93,7 @@ function InputField({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-400 transition-colors"
       />
@@ -132,6 +128,7 @@ export default function RegisterPage() {
   const [vendCity, setVendCity] = useState('')
   const [vendState, setVendState] = useState('')
   const [vendPincode, setVendPincode] = useState('')
+  const [vendGstWarning, setVendGstWarning] = useState<string | null>(null)
 
   // Employee form
   const [empId, setEmpId] = useState('')
@@ -178,9 +175,29 @@ export default function RegisterPage() {
     }
   }
 
+  function handleVendGstBlur() {
+    if (!vendGst.trim()) {
+      setVendGstWarning(null)
+      return
+    }
+    const result = validateGSTINAgainstState(vendGst, vendState || undefined)
+    setVendGstWarning(result.valid ? null : result.reason || 'Invalid GSTIN')
+  }
+
   const handleVendorRegister = async () => {
     if (!vendCompany || !vendContact || !vendEmail || !vendPassword) {
       setError('Please fill in all required fields')
+      return
+    }
+    if (vendGst.trim()) {
+      const result = validateGSTINAgainstState(vendGst, vendState || undefined)
+      if (!result.valid) {
+        setError(result.reason || 'Invalid GSTIN')
+        return
+      }
+    }
+    if (vendPincode.trim() && !/^[1-9][0-9]{5}$/.test(vendPincode.trim())) {
+      setError('Pincode must be a valid 6-digit Indian PIN code')
       return
     }
     setLoading(true)
@@ -431,12 +448,20 @@ export default function RegisterPage() {
                 type="tel"
               />
               <div className="grid grid-cols-2 gap-3">
-                <InputField
-                  label="GST Number (optional)"
-                  value={vendGst}
-                  onChange={setVendGst}
-                  placeholder="22AAAAA0000A1Z5"
-                />
+                <div>
+                  <InputField
+                    label="GST Number (optional)"
+                    value={vendGst}
+                    onChange={setVendGst}
+                    onBlur={handleVendGstBlur}
+                    placeholder="22AAAAA0000A1Z5"
+                  />
+                  {vendGstWarning && (
+                    <span className="text-xs text-red-500 mt-1 block">
+                      {vendGstWarning}
+                    </span>
+                  )}
+                </div>
                 <InputField
                   label="PAN Number (optional)"
                   value={vendPan}
@@ -464,28 +489,29 @@ export default function RegisterPage() {
                 </select>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <InputField
-                  label="City"
-                  value={vendCity}
-                  onChange={setVendCity}
-                  placeholder="Mumbai"
-                />
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5">
+                    City
+                  </label>
+                  <CitySelect
+                    value={vendCity}
+                    state={vendState}
+                    onChange={setVendCity}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1.5">
                     State
                   </label>
-                  <select
+                  <StateSelect
                     value={vendState}
-                    onChange={(e) => setVendState(e.target.value)}
+                    onChange={(value) => {
+                      setVendState(value)
+                      setVendCity('')
+                    }}
                     className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
-                  >
-                    <option value="">State</option>
-                    {INDIAN_STATES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <InputField
                   label="Pincode"

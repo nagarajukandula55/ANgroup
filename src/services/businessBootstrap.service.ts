@@ -1,4 +1,5 @@
 import Business from "@/models/Business";
+import { getStateCode } from "@/core/gst/stateCodes";
 
 /* ================= DEFAULT MODULES ================= */
 const DEFAULT_MODULES = [
@@ -77,6 +78,17 @@ export async function bootstrapBusiness(payload: any) {
     email: payload.email,
     phone: payload.phone,
     website: payload.website,
+
+    // These were being collected by nothing before (the create form never
+    // even had inputs for them) and, separately, weren't being passed
+    // through here even though Business.ts's schema has always supported
+    // them — both gaps are fixed together now that the form has real
+    // address/state/city/pincode inputs.
+    address: payload.address,
+    city: payload.city,
+    state: payload.state,
+    pincode: payload.pincode,
+    gstStateCode: payload.gstStateCode || getStateCode(payload.state),
 
     isActive: true,
 

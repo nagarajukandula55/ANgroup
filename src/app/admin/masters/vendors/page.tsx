@@ -17,6 +17,8 @@ import {
   MapPin,
   FileText,
 } from "lucide-react";
+import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 interface Vendor {
   _id: string;
@@ -76,6 +78,7 @@ export default function VendorsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [gstWarning, setGstWarning] = useState<string | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -106,6 +109,7 @@ export default function VendorsPage() {
   const openAdd = () => {
     setFormData(emptyForm);
     setFormError("");
+    setGstWarning(null);
     setModal({ type: "add" });
   };
 
@@ -121,6 +125,7 @@ export default function VendorsPage() {
       gstNumber: vendor.gstNumber || "",
     });
     setFormError("");
+    setGstWarning(null);
     setModal({ type: "edit", vendor });
   };
 
@@ -133,6 +138,18 @@ export default function VendorsPage() {
     setModal({ type: null });
     setFormError("");
   };
+
+  function handleGstBlur() {
+    if (!formData.gstNumber.trim()) {
+      setGstWarning(null);
+      return;
+    }
+    const result = validateGSTINAgainstState(
+      formData.gstNumber,
+      formData.addressState || undefined
+    );
+    setGstWarning(result.valid ? null : result.reason || "Invalid GSTIN");
+  }
 
   const buildPayload = () => ({
     companyName: formData.companyName.trim(),
@@ -149,9 +166,31 @@ export default function VendorsPage() {
     businessId,
   });
 
+  function validateAddressFields(): string | null {
+    if (formData.gstNumber.trim()) {
+      const gstResult = validateGSTINAgainstState(
+        formData.gstNumber,
+        formData.addressState || undefined
+      );
+      if (!gstResult.valid) return gstResult.reason || "Invalid GSTIN";
+    }
+    if (
+      formData.addressPincode.trim() &&
+      !/^[1-9][0-9]{5}$/.test(formData.addressPincode.trim())
+    ) {
+      return "Pincode must be a valid 6-digit Indian PIN code";
+    }
+    return null;
+  }
+
   const handleSubmitAdd = async () => {
     if (!formData.companyName.trim()) {
       setFormError("Vendor name is required.");
+      return;
+    }
+    const validationError = validateAddressFields();
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
     setSubmitting(true);
@@ -180,6 +219,11 @@ export default function VendorsPage() {
   const handleSubmitEdit = async () => {
     if (!formData.companyName.trim()) {
       setFormError("Vendor name is required.");
+      return;
+    }
+    const validationError = validateAddressFields();
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
     if (!modal.vendor) return;
@@ -495,6 +539,8 @@ export default function VendorsPage() {
           submitting={submitting}
           onClose={closeModal}
           onSubmit={modal.type === "add" ? handleSubmitAdd : handleSubmitEdit}
+          gstWarning={gstWarning}
+          onGstBlur={handleGstBlur}
         />
       )}
 
@@ -560,6 +606,8 @@ function VendorModal({
   submitting,
   onClose,
   onSubmit,
+  gstWarning,
+  onGstBlur,
 }: {
   title: string;
   formData: FormData;
@@ -568,6 +616,8 @@ function VendorModal({
   submitting: boolean;
   onClose: () => void;
   onSubmit: () => void;
+  gstWarning: string | null;
+  onGstBlur: () => void;
 }) {
   const update = (key: keyof FormData, value: string) =>
     setFormData({ ...formData, [key]: value });
@@ -633,10 +683,14 @@ function VendorModal({
               onChange={(e) =>
                 update("gstNumber", e.target.value.toUpperCase())
               }
+              onBlur={onGstBlur}
               placeholder="22AAAAA0000A1Z5"
               maxLength={15}
               className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 font-mono"
             />
+            {gstWarning && (
+              <p className="text-xs text-red-500 mt-1">{gstWarning}</p>
+            )}
           </div>
 
           {/* Address */}
@@ -654,20 +708,22 @@ function VendorModal({
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">City</label>
-              <input
-                value={formData.addressCity}
-                onChange={(e) => update("addressCity", e.target.value)}
-                placeholder="Mumbai"
-                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+              <label className="text-xs text-gray-500 block mb-1">State</label>
+              <StateSelect
+                value={formData.addressState}
+                onChange={(value) => {
+                  update("addressState", value);
+                  update("addressCity", "");
+                }}
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">State</label>
-              <input
-                value={formData.addressState}
-                onChange={(e) => update("addressState", e.target.value)}
-                placeholder="Maharashtra"
+              <label className="text-xs text-gray-500 block mb-1">City</label>
+              <CitySelect
+                value={formData.addressCity}
+                state={formData.addressState}
+                onChange={(value) => update("addressCity", value)}
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
             </div>

@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 function Field({
   label,
@@ -60,6 +62,7 @@ function VendorApplyForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [gstWarning, setGstWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (!businessId) {
@@ -80,6 +83,15 @@ function VendorApplyForm() {
     if (error) setError(null);
   }
 
+  function handleGstBlur() {
+    if (!form.gstNumber.trim()) {
+      setGstWarning(null);
+      return;
+    }
+    const result = validateGSTINAgainstState(form.gstNumber, form.state || undefined);
+    setGstWarning(result.valid ? null : result.reason || "Invalid GSTIN");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.companyName.trim()) return setError("Company name is required");
@@ -90,6 +102,12 @@ function VendorApplyForm() {
       return setError("GSTIN is required for GST-registered vendors");
     if (!form.gstRegistered && !form.panNumber.trim())
       return setError("PAN is required for vendors without GST");
+    if (form.gstNumber.trim()) {
+      const gstResult = validateGSTINAgainstState(form.gstNumber, form.state || undefined);
+      if (!gstResult.valid) return setError(gstResult.reason || "Invalid GSTIN");
+    }
+    if (form.pincode.trim() && !/^[1-9][0-9]{5}$/.test(form.pincode.trim()))
+      return setError("Pincode must be a valid 6-digit Indian PIN code");
     if (form.accountNumber && form.accountNumber !== form.confirmAccount)
       return setError("Account numbers do not match");
 
@@ -249,8 +267,14 @@ function VendorApplyForm() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {form.gstRegistered && (
-            <Field label="GSTIN" required hint="15-character GST identification number">
-              <input className={inputCls} value={form.gstNumber} onChange={(e) => set("gstNumber", e.target.value)} placeholder="22AAAAA0000A1Z5" />
+            <Field label="GSTIN" required hint={gstWarning || "15-character GST identification number"}>
+              <input
+                className={inputCls}
+                value={form.gstNumber}
+                onChange={(e) => set("gstNumber", e.target.value)}
+                onBlur={handleGstBlur}
+                placeholder="22AAAAA0000A1Z5"
+              />
             </Field>
           )}
           <Field label="PAN" required={!form.gstRegistered} hint={form.gstRegistered ? "Optional when GSTIN is provided" : "Required for vendors without GST"}>
@@ -263,8 +287,24 @@ function VendorApplyForm() {
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Registered Address</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Street"><input className={inputCls} value={form.street} onChange={(e) => set("street", e.target.value)} /></Field>
-            <Field label="City"><input className={inputCls} value={form.city} onChange={(e) => set("city", e.target.value)} /></Field>
-            <Field label="State"><input className={inputCls} value={form.state} onChange={(e) => set("state", e.target.value)} /></Field>
+            <Field label="State">
+              <StateSelect
+                value={form.state}
+                onChange={(value) => {
+                  set("state", value);
+                  set("city", "");
+                }}
+                className={inputCls}
+              />
+            </Field>
+            <Field label="City">
+              <CitySelect
+                value={form.city}
+                state={form.state}
+                onChange={(value) => set("city", value)}
+                className={inputCls}
+              />
+            </Field>
             <Field label="Pincode"><input className={inputCls} value={form.pincode} onChange={(e) => set("pincode", e.target.value)} /></Field>
           </div>
         </div>

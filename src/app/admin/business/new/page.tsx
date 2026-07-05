@@ -3,19 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const FIELD_LABELS: Record<string, string> = {
-  name: "Business Name *",
-  legalName: "Legal Name",
-  brandName: "Brand Name",
-  industry: "Industry",
-  type: "Business Type",
-  email: "Email",
-  phone: "Phone",
-  website: "Website",
-  gstNumber: "GST Number",
-  pan: "PAN",
-};
+import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
+import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 export default function NewBusinessPage() {
   const router = useRouter();
@@ -31,21 +21,51 @@ export default function NewBusinessPage() {
     website: "",
     gstNumber: "",
     pan: "",
+    address: "",
+    state: "",
+    city: "",
+    pincode: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gstWarning, setGstWarning] = useState<string | null>(null);
 
   function handleChange(e: any) {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+      // Changing state invalidates whatever city was picked for the old state.
+      ...(name === "state" ? { city: "" } : {}),
+    }));
     if (error) setError(null);
+  }
+
+  function handleGstBlur() {
+    if (!form.gstNumber.trim()) {
+      setGstWarning(null);
+      return;
+    }
+    const result = validateGSTINAgainstState(form.gstNumber, form.state || undefined);
+    setGstWarning(result.valid ? null : result.reason || "Invalid GSTIN");
   }
 
   async function createBusiness() {
     if (!form.name.trim()) {
       setError("Business name is required");
+      return;
+    }
+
+    if (form.gstNumber.trim()) {
+      const result = validateGSTINAgainstState(form.gstNumber, form.state || undefined);
+      if (!result.valid) {
+        setError(result.reason || "Invalid GSTIN");
+        return;
+      }
+    }
+
+    if (form.pincode.trim() && !/^[1-9][0-9]{5}$/.test(form.pincode.trim())) {
+      setError("Pincode must be a valid 6-digit Indian PIN code");
       return;
     }
 
@@ -91,6 +111,10 @@ export default function NewBusinessPage() {
     }
   }
 
+  const inputClass =
+    "p-3 bg-white text-gray-900 border border-gray-200 rounded placeholder:text-gray-400 w-full";
+  const labelClass = "text-xs text-gray-500";
+
   return (
     <div className="p-10 text-gray-900 bg-gray-50 min-h-screen">
       <div className="flex items-center justify-between">
@@ -111,20 +135,175 @@ export default function NewBusinessPage() {
       )}
 
       <div className="grid grid-cols-2 gap-4 mt-6">
-        {Object.keys(form).map((key) => (
-          <div key={key} className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">
-              {FIELD_LABELS[key] ?? key}
-            </label>
-            <input
-              name={key}
-              value={(form as any)[key]}
-              placeholder={FIELD_LABELS[key] ?? key}
-              onChange={handleChange}
-              className="p-3 bg-white text-gray-900 border border-gray-200 rounded placeholder:text-gray-400"
-            />
-          </div>
-        ))}
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Business Name *</label>
+          <input
+            name="name"
+            value={form.name}
+            placeholder="Business Name *"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Legal Name</label>
+          <input
+            name="legalName"
+            value={form.legalName}
+            placeholder="Legal Name"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Brand Name</label>
+          <input
+            name="brandName"
+            value={form.brandName}
+            placeholder="Brand Name"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Business Type</label>
+          <select
+            name="type"
+            value={form.type}
+            onChange={handleChange}
+            className={inputClass}
+          >
+            <option value="">Select business type…</option>
+            {BUSINESS_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Industry</label>
+          <select
+            name="industry"
+            value={form.industry}
+            onChange={handleChange}
+            className={inputClass}
+          >
+            <option value="">Select industry…</option>
+            {INDUSTRY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Email</label>
+          <input
+            name="email"
+            value={form.email}
+            placeholder="Email"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Phone</label>
+          <input
+            name="phone"
+            value={form.phone}
+            placeholder="Phone"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Website</label>
+          <input
+            name="website"
+            value={form.website}
+            placeholder="Website"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1 col-span-2">
+          <label className={labelClass}>Address</label>
+          <input
+            name="address"
+            value={form.address}
+            placeholder="Street address"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>State</label>
+          <StateSelect
+            value={form.state}
+            onChange={(value) =>
+              setForm((prev) => ({ ...prev, state: value, city: "" }))
+            }
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>City</label>
+          <CitySelect
+            value={form.city}
+            state={form.state}
+            onChange={(value) => setForm((prev) => ({ ...prev, city: value }))}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Pincode</label>
+          <input
+            name="pincode"
+            value={form.pincode}
+            placeholder="6-digit PIN code"
+            maxLength={6}
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>GST Number</label>
+          <input
+            name="gstNumber"
+            value={form.gstNumber}
+            placeholder="e.g. 27AAPFU0939F1ZV"
+            onChange={handleChange}
+            onBlur={handleGstBlur}
+            className={inputClass}
+          />
+          {gstWarning && (
+            <span className="text-xs text-red-600 mt-1">{gstWarning}</span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>PAN</label>
+          <input
+            name="pan"
+            value={form.pan}
+            placeholder="PAN"
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </div>
       </div>
 
       <button

@@ -13,6 +13,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
+import { StateSelect, CitySelect } from "@/components/shared/LocationSelect";
+import { validateGSTINAgainstState } from "@/lib/validation/gst";
 
 interface Business {
   _id: string;
@@ -25,8 +28,10 @@ interface Business {
   email?: string;
   phone?: string;
   website?: string;
+  address?: string;
   city?: string;
   state?: string;
+  pincode?: string;
   isActive?: boolean;
   compliance?: {
     gstNumber?: string;
@@ -52,6 +57,12 @@ type EditableForm = {
   legalName: string;
   brandName: string;
   businessCode: string;
+  industry: string;
+  type: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
   gstStateCode: string;
   compliance: {
     gstNumber: string;
@@ -77,6 +88,12 @@ function toForm(biz: Business): EditableForm {
     legalName: biz.legalName || "",
     brandName: biz.brandName || "",
     businessCode: biz.businessCode || "",
+    industry: biz.industry || "",
+    type: biz.type || "",
+    address: biz.address || "",
+    city: biz.city || "",
+    state: biz.state || "",
+    pincode: biz.pincode || "",
     gstStateCode: biz.gstStateCode || "",
     compliance: {
       gstNumber: biz.compliance?.gstNumber || "",
@@ -138,6 +155,23 @@ export default function BusinessDetailPage() {
 
   async function save() {
     if (!form) return;
+
+    if (form.compliance.gstNumber.trim()) {
+      const gstResult = validateGSTINAgainstState(
+        form.compliance.gstNumber,
+        form.state || undefined
+      );
+      if (!gstResult.valid) {
+        setError(gstResult.reason || "Invalid GSTIN");
+        return;
+      }
+    }
+
+    if (form.pincode.trim() && !/^[1-9][0-9]{5}$/.test(form.pincode.trim())) {
+      setError("Pincode must be a valid 6-digit Indian PIN code");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSaved(false);
@@ -263,16 +297,82 @@ export default function BusinessDetailPage() {
             />
           </div>
 
+          <div>
+            <label className={labelCls}>Business Type</label>
+            <select
+              className={inputCls}
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+            >
+              <option value="">Select business type…</option>
+              {BUSINESS_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Industry</label>
+            <select
+              className={inputCls}
+              value={form.industry}
+              onChange={(e) => setForm({ ...form, industry: e.target.value })}
+            >
+              <option value="">Select industry…</option>
+              {INDUSTRY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="pt-2 text-xs text-white/40 space-y-1">
             {business.email && <div>Email: {business.email}</div>}
             {business.phone && <div>Phone: {business.phone}</div>}
             {business.website && <div>Website: {business.website}</div>}
-            {(business.city || business.state) && (
-              <div>
-                Location:{" "}
-                {[business.city, business.state].filter(Boolean).join(", ")}
-              </div>
-            )}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4">
+          <h2 className="font-bold text-lg">Address</h2>
+          <div>
+            <label className={labelCls}>Street Address</label>
+            <input
+              className={inputCls}
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>State</label>
+              <StateSelect
+                value={form.state}
+                onChange={(value) => setForm({ ...form, state: value, city: "" })}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>City</label>
+              <CitySelect
+                value={form.city}
+                state={form.state}
+                onChange={(value) => setForm({ ...form, city: value })}
+                className={inputCls}
+              />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Pincode</label>
+            <input
+              className={inputCls}
+              value={form.pincode}
+              maxLength={6}
+              onChange={(e) => setForm({ ...form, pincode: e.target.value })}
+              placeholder="6-digit PIN code"
+            />
           </div>
         </section>
 
