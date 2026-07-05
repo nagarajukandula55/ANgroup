@@ -5,6 +5,7 @@ import { Types } from "mongoose";
 import StockAdjustment from "@/models/StockAdjustment";
 import InventoryItem from "@/models/InventoryItem";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET /api/stock/adjustments?businessId=&page=&limit=&inventoryItemId=
@@ -183,6 +184,15 @@ export async function POST(req: NextRequest) {
       new Types.ObjectId(inventoryItemId),
       { $set: { availableQuantity: newQuantity } }
     );
+
+    logAction({
+      action: "CREATE",
+      entity: "StockAdjustment",
+      entityId: adjustment._id?.toString(),
+      after: adjustment,
+      req,
+      actor: { id: userId, businessId },
+    });
 
     return NextResponse.json(
       {

@@ -12,6 +12,7 @@ import WebhookLog from "@/models/WebhookLog";
 import {
   reserveStock,
 } from "@/lib/order/reserveStock";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
    HELPERS
@@ -436,6 +437,14 @@ if (!order.stockReserved) {
 
     await session.commitTransaction();
 
+    logAction({
+      action: "VERIFY",
+      entity: "Order",
+      entityId: order._id?.toString(),
+      after: { status: order.status, payment: order.payment },
+      actor: { businessId: order?.businessId?.toString() },
+    });
+
     return NextResponse.json({
       success: true,
     });
@@ -696,6 +705,14 @@ export async function POST(req: Request) {
       });
 
       await order.save();
+
+      logAction({
+        action: "UPDATE",
+        entity: "Order",
+        entityId: order._id?.toString(),
+        after: { status: order.status, payment: order.payment },
+        actor: { businessId: order?.businessId?.toString() },
+      });
 
       webhookLog.processed = true;
 

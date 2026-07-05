@@ -15,6 +15,7 @@ import { generateDocumentNumber } from "@/core/numbering/numberingService";
 // model instead of each registering "SalesInvoice" under a different
 // shape (whichever loaded first used to silently win for the whole app).
 import SalesInvoice from "@/models/SalesInvoice";
+import { logAction } from "@/lib/audit/logAction";
 
 /* ── Invoice number generator ─────────────────────────────────────── */
 /**
@@ -198,6 +199,15 @@ export async function POST(req: NextRequest) {
       dueDate: dueDate ? new Date(dueDate) : undefined,
       status,
     })
+
+    logAction({
+      action: "CREATE",
+      entity: "SalesInvoice",
+      entityId: invoice._id?.toString(),
+      after: invoice,
+      req,
+      actor: { id: userId, businessId: effectiveBizId },
+    });
 
     notify({
       event:   "NEW_INVOICE",

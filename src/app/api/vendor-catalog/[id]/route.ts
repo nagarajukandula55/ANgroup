@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/mongodb";
 
 import VendorCatalog from "@/models/VendorCatalog";
 
+import { logAction } from "@/lib/audit/logAction";
+
 export async function GET(
   req: Request,
   context: any
@@ -52,6 +54,14 @@ export async function PUT(
         }
       );
 
+    logAction({
+      action: "UPDATE",
+      entity: "VendorCatalog",
+      entityId: (await context.params).id,
+      after: record,
+      req,
+    });
+
     return NextResponse.json({
       success: true,
       data: record,
@@ -81,6 +91,13 @@ export async function DELETE(
         status: "INACTIVE",
       }
     );
+
+    logAction({
+      action: "DELETE",
+      entity: "VendorCatalog",
+      entityId: (await context.params).id,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

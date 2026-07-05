@@ -5,6 +5,7 @@ import {
   updatePurchaseOrder,
   approvePurchaseOrder,
 } from "@/services/purchaseOrder.service";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
 GET PURCHASE ORDER
@@ -43,6 +44,14 @@ export async function PUT(req: Request, { params }: any) {
 
     const data = await updatePurchaseOrder(params.id, body);
 
+    logAction({
+      action: "UPDATE",
+      entity: "PurchaseOrder",
+      entityId: params.id,
+      after: data,
+      req,
+    });
+
     return NextResponse.json({
       success: true,
       data,
@@ -74,6 +83,15 @@ export async function PATCH(req: Request, { params }: any) {
       id: params.id,
       action,
       userId: userId || "ADMIN",
+    });
+
+    logAction({
+      action: action || "UPDATE",
+      entity: "PurchaseOrder",
+      entityId: params.id,
+      after: data,
+      req,
+      actor: { id: userId },
     });
 
     return NextResponse.json({

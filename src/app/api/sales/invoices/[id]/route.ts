@@ -10,6 +10,7 @@ import { connectDB } from "@/lib/mongodb";
 // imports the single canonical model, matching what models/SalesInvoice.ts's
 // own top comment already (incorrectly, until now) claimed was already true.
 import SalesInvoice from "@/models/SalesInvoice";
+import { logAction } from "@/lib/audit/logAction";
 
 /* ── GET single invoice ──────────────────────────────────── */
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -53,6 +54,16 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     const invoice = await SalesInvoice.findByIdAndUpdate(id, { $set: body }, { new: true }).lean();
+
+    logAction({
+      action: "UPDATE",
+      entity: "SalesInvoice",
+      entityId: id,
+      after: invoice,
+      req,
+      actor: { id: userId },
+    });
+
     return NextResponse.json({ success: true, invoice });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -69,6 +80,15 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const { id } = await context.params;
     await connectDB();
     await SalesInvoice.findByIdAndDelete(id);
+
+    logAction({
+      action: "DELETE",
+      entity: "SalesInvoice",
+      entityId: id,
+      req,
+      actor: { id: userId },
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

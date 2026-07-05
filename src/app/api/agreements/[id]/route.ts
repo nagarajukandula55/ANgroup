@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Agreement from '@/models/Agreement';
 import mongoose from 'mongoose';
+import { logAction } from "@/lib/audit/logAction";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -94,6 +95,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     await agreement.save();
 
+    logAction({
+      action: "UPDATE",
+      entity: "Agreement",
+      entityId: id,
+      after: body,
+      req,
+      actor: { id: userId },
+    });
+
     return NextResponse.json({ agreement });
   } catch (error) {
     console.error('PUT /api/agreements/[id] error:', error);
@@ -132,6 +142,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     await agreement.save();
 
     console.log(`Agreement ${id} cancelled by user ${userId}`);
+
+    logAction({
+      action: "DELETE",
+      entity: "Agreement",
+      entityId: id,
+      after: { status: 'CANCELLED' },
+      req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({ message: 'Agreement cancelled successfully', agreement });
   } catch (error) {

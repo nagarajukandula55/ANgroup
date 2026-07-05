@@ -4,6 +4,7 @@ import VendorProfile from "@/models/VendorProfile";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET /api/vendors?businessId=...&search=...&page=&limit=
@@ -168,6 +169,15 @@ export async function POST(req: NextRequest) {
       notes,
       status: "PENDING",
       isApproved: false,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "VendorProfile",
+      entityId: vendor._id?.toString(),
+      after: vendor,
+      req,
+      actor: { id: userId },
     });
 
     return NextResponse.json({ success: true, vendor, data: vendor }, { status: 201 });

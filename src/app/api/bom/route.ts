@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 
 import BOM from "@/models/BOM";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET() {
   try {
@@ -44,6 +45,14 @@ export async function POST(
 
     const bom =
       await BOM.create(body);
+
+    logAction({
+      action: "CREATE",
+      entity: "BOM",
+      entityId: bom?._id?.toString(),
+      after: body,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import Agreement, { ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
+import { logAction } from "@/lib/audit/logAction";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -77,6 +78,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     console.log(`  OTP: ${rawOtp} (expires in 30 minutes)`);
     console.log(`  Subject: Your OTP for signing "${agreement.title}"`);
     console.log(`  Body: Dear ${partyName}, your OTP to sign the agreement "${agreement.title}" is: ${rawOtp}. This OTP is valid for 30 minutes.`);
+
+    logAction({
+      action: "REQUEST_OTP",
+      entity: "Agreement",
+      entityId: id,
+      after: { partyEmail },
+      req,
+    });
 
     return NextResponse.json({
       sent: true,

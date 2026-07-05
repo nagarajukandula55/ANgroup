@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { bootstrapBusiness } from "@/services/businessBootstrap.service";
 import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
   try {
@@ -61,6 +62,14 @@ export async function POST(req: Request) {
       status: BusinessMemberStatus.ACTIVE,
       memberType: "OWNER",
       isDefaultBusiness: existingMemberships === 0,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Business",
+      entityId: business._id?.toString(),
+      after: business,
+      req,
     });
 
     return NextResponse.json({

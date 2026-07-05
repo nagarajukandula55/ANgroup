@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose, { Schema, Document, Model } from 'mongoose'
+import { logAction } from '@/lib/audit/logAction'
 
 // Re-use the same schema definition (Next.js may import this separately)
 const LeadSchema = new Schema(
@@ -53,6 +54,15 @@ export async function PATCH(
       return NextResponse.json({ success: false, message: 'Lead not found' }, { status: 404 })
     }
 
+    logAction({
+      action: "UPDATE",
+      entity: "Lead",
+      entityId: id,
+      after: updates,
+      req,
+      actor: { id: userId },
+    })
+
     return NextResponse.json({ success: true, lead })
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 })
@@ -73,6 +83,14 @@ export async function DELETE(
     await connectDB()
 
     await Lead.findByIdAndUpdate(id, { isDeleted: true })
+
+    logAction({
+      action: "DELETE",
+      entity: "Lead",
+      entityId: id,
+      req,
+      actor: { id: userId },
+    })
 
     return NextResponse.json({ success: true, message: 'Lead deleted' })
   } catch (error: any) {

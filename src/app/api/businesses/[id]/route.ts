@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { BusinessService } from "@/services/business.service";
 import Business from "@/models/Business";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(req: Request, context: any) {
   try {
@@ -125,6 +126,14 @@ export async function PATCH(req: Request, context: any) {
     if (!business) {
       return NextResponse.json({ success: false, message: "Business not found" }, { status: 404 });
     }
+
+    logAction({
+      action: "UPDATE",
+      entity: "Business",
+      entityId: id,
+      after: updates,
+      req,
+    });
 
     return NextResponse.json({ success: true, business });
   } catch (err: any) {

@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import StockTransfer from "@/models/StockTransfer";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -217,6 +218,15 @@ export async function POST(req: NextRequest) {
       requestedBy: new Types.ObjectId(userId),
       transferredAt: transferredAt ? new Date(transferredAt) : undefined,
       completedAt: status === "COMPLETED" ? new Date() : undefined,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "StockTransfer",
+      entityId: transfer._id?.toString(),
+      after: transfer,
+      req,
+      actor: { id: userId, businessId },
     });
 
     return NextResponse.json(

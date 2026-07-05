@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import InventoryItem from "@/models/InventoryItem";
+import { logAction } from "@/lib/audit/logAction";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,14 @@ export async function PUT(req: NextRequest, context: Ctx) {
       { new: true, runValidators: false }
     ).lean();
 
+    logAction({
+      action: "UPDATE",
+      entity: "InventoryItem",
+      entityId: id,
+      after: body,
+      req,
+    });
+
     return NextResponse.json({ success: true, item });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
@@ -46,6 +55,14 @@ export async function DELETE(req: NextRequest, context: Ctx) {
     await connectDB();
     const { id } = await context.params;
     await InventoryItem.findByIdAndDelete(id);
+
+    logAction({
+      action: "DELETE",
+      entity: "InventoryItem",
+      entityId: id,
+      req,
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });

@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/mongodb";
 
 import VendorCatalog from "@/models/VendorCatalog";
 
+import { logAction } from "@/lib/audit/logAction";
+
 export async function GET() {
   try {
     await connectDB();
@@ -46,6 +48,14 @@ export async function POST(
       await VendorCatalog.create(
         body
       );
+
+    logAction({
+      action: "CREATE",
+      entity: "VendorCatalog",
+      entityId: record?._id?.toString(),
+      after: record,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

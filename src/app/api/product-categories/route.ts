@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import ProductCategory from "@/models/ProductCategory";
 import NativeProduct from "@/models/NativeProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/product-categories?businessId=...&search=...
 export async function GET(req: NextRequest) {
@@ -108,6 +109,15 @@ export async function POST(req: NextRequest) {
       imageUrl: imageUrl?.trim() || undefined,
       businessId: new Types.ObjectId(businessId),
       createdBy: new Types.ObjectId(userId),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "ProductCategory",
+      entityId: category._id?.toString(),
+      after: category,
+      req,
+      actor: { id: userId, businessId },
     });
 
     return NextResponse.json({ success: true, category }, { status: 201 });

@@ -38,6 +38,13 @@ const VendorProductSchema = new mongoose.Schema(
 
   description: String,
 
+  slug: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    index: true,
+  },
+
   images: [String],
 
   categoryId: {
@@ -181,6 +188,7 @@ const VendorProductSchema = new mongoose.Schema(
   seo: {
     customTitle: String,
     customDescription: String,
+    keywords: [String],
   },
 
   /* =========================================================

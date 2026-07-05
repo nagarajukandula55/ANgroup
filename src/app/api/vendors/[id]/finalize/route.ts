@@ -7,6 +7,7 @@ import VendorProfile from "@/models/VendorProfile";
 import Agreement from "@/models/Agreement";
 import User from "@/models/User";
 import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
+import { logAction } from "@/lib/audit/logAction";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -121,6 +122,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
     vendor.finalApprovedBy = adminId as any;
     vendor.finalApprovedAt = new Date();
     await vendor.save();
+
+    logAction({
+      action: "APPROVE",
+      entity: "VendorProfile",
+      entityId: id,
+      after: vendor,
+      req,
+      actor: { id: adminId },
+    });
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import UserService from "@/services/user/user.service";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * ASSIGN ROLE TO USER
@@ -36,6 +37,14 @@ export async function POST(
       roleId,
       businessMemberId,
       assignedBy: session.user.id,
+    });
+
+    logAction({
+      action: "UPDATE",
+      entity: "User",
+      entityId: userId,
+      after: { roleId, businessMemberId },
+      req,
     });
 
     return NextResponse.json({

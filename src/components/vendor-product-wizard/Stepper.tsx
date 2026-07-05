@@ -8,6 +8,7 @@ export default function Stepper({
   const steps = [
     "Basic Info",
     "Commercial",
+    "Structure",
     "BOM",
     "Packaging",
     "Compliance",

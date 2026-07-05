@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
 import SocialPost from '@/models/SocialPost';
+import { logAction } from "@/lib/audit/logAction";
 
 interface IntegrationConfig {
   accessToken?: string;
@@ -344,6 +345,14 @@ export async function POST(request: NextRequest) {
               .join('; ')
           : null,
       },
+    });
+
+    logAction({
+      action: "PUBLISH",
+      entity: "SocialPost",
+      entityId: postId,
+      after: { status: newStatus, results },
+      req: request,
     });
 
     return NextResponse.json({

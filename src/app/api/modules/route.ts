@@ -5,6 +5,7 @@ import {
   createModuleDefinition,
   listModulesForBusiness,
 } from "@/core/module-registry/moduleDefinition.service";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/modules?businessId=... — list every module (system + this
 // business's custom ones) for nav/UI rendering. This is what should drive
@@ -62,6 +63,15 @@ export async function POST(req: NextRequest) {
       businessId,
       fields: fields ?? [],
       createdBy: userId,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "ModuleDefinition",
+      entityId: moduleDef?._id?.toString(),
+      after: moduleDef,
+      req,
+      actor: { businessId },
     });
 
     return NextResponse.json({ success: true, module: moduleDef }, { status: 201 });

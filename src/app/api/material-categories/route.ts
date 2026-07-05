@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import MaterialCategory from "@/models/MaterialCategory";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET  /api/material-categories?businessId=xxx
@@ -95,6 +96,14 @@ export async function POST(req: NextRequest) {
       isActive: isActive !== undefined ? isActive : true,
       isDeleted: false,
       createdBy: new Types.ObjectId(userId),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "MaterialCategory",
+      entityId: category?._id?.toString(),
+      after: category,
+      req,
     });
 
     return NextResponse.json({ success: true, data: category }, { status: 201 });

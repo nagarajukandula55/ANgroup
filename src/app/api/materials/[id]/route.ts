@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Material from "@/models/Material";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(
   req: Request,
@@ -47,6 +48,14 @@ export async function PUT(
         }
       );
 
+    logAction({
+      action: "UPDATE",
+      entity: "Material",
+      entityId: params.id,
+      after: material,
+      req,
+    });
+
     return NextResponse.json({
       success: true,
       data: material,
@@ -72,6 +81,13 @@ export async function DELETE(
     await Material.findByIdAndDelete(
       params.id
     );
+
+    logAction({
+      action: "DELETE",
+      entity: "Material",
+      entityId: params.id,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

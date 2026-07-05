@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import mongoose from 'mongoose';
+import { logAction } from '@/lib/audit/logAction';
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,6 +57,14 @@ export async function POST(request: NextRequest) {
       isDeleted: false,
     });
 
+    logAction({
+      action: "CREATE",
+      entity: "Role",
+      entityId: role._id?.toString(),
+      after: role,
+      req: request,
+    });
+
     return NextResponse.json({ role }, { status: 201 });
   } catch (error) {
     console.error('POST /api/admin/roles error:', error);
@@ -84,6 +93,14 @@ export async function PUT(request: NextRequest) {
     if (!role) {
       return NextResponse.json({ error: 'Role not found' }, { status: 404 });
     }
+
+    logAction({
+      action: "UPDATE",
+      entity: "Role",
+      entityId: id,
+      after: { name, description, permissions },
+      req: request,
+    });
 
     return NextResponse.json({ role });
   } catch (error) {

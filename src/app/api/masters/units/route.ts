@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Unit from "@/models/Unit";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/masters/units?businessId=xxx
 export async function GET(req: NextRequest) {
@@ -78,6 +79,14 @@ export async function POST(req: NextRequest) {
       description: description?.trim(),
       type: type || "other",
       createdBy: new Types.ObjectId(userId),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Unit",
+      entityId: unit?._id?.toString(),
+      after: unit,
+      req,
     });
 
     return NextResponse.json({ success: true, data: unit }, { status: 201 });

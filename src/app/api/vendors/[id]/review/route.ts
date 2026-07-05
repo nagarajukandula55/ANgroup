@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import Business from "@/models/Business";
 import Agreement from "@/models/Agreement";
+import { logAction } from "@/lib/audit/logAction";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -41,6 +42,16 @@ export async function POST(req: NextRequest, context: RouteContext) {
       vendor.reviewedBy = userId as any;
       vendor.reviewedAt = new Date();
       await vendor.save();
+
+      logAction({
+        action: "REJECT",
+        entity: "VendorProfile",
+        entityId: id,
+        after: vendor,
+        req,
+        actor: { id: userId },
+      });
+
       return NextResponse.json({ success: true, vendor });
     }
 
@@ -118,6 +129,15 @@ By signing below, both parties agree to the terms above.`;
     vendor.reviewedBy = userId as any;
     vendor.reviewedAt = new Date();
     await vendor.save();
+
+    logAction({
+      action: "APPROVE",
+      entity: "VendorProfile",
+      entityId: id,
+      after: vendor,
+      req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({
       success: true,

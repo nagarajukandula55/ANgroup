@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProductBOM from "@/models/VendorProductBOM";
 import VendorProduct from "@/models/VendorProduct";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request, context: any) {
   try {
@@ -71,7 +73,37 @@ export async function POST(req: Request, context: any) {
     // lock snapshot for audit + admin view
     vendorProduct.priceSnapshot = snapshot;
 
+    // Auto-generate the internal SKU via the canonical numbering engine
+    // (same engine every other document type in the system uses) rather
+    // than any ad-hoc scheme, and only once — resubmission after a
+    // NEEDS_REVISION cycle should keep the SKU it was already assigned.
+    if (!vendorProduct.internalSku && vendorProduct.businessId) {
+      try {
+        const { value } = await generateDocumentNumber(
+          vendorProduct.businessId.toString(),
+          "PRODUCT"
+        );
+        vendorProduct.internalSku = value;
+      } catch (skuErr) {
+        console.error("[vendor-products/submit] SKU generation failed:", skuErr);
+        // Non-fatal — submission still proceeds without a pre-assigned SKU;
+        // admin approval flow can assign one if this ever happens.
+      }
+    }
+
     await vendorProduct.save();
+
+    logAction({
+      action: "SUBMIT",
+      entity: "VendorProduct",
+      entityId: vendorProduct._id.toString(),
+      after: {
+        status: vendorProduct.approvalStatus,
+        internalSku: vendorProduct.internalSku,
+      },
+      req,
+      actor: { businessId: vendorProduct.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,
@@ -80,6 +112,7 @@ export async function POST(req: Request, context: any) {
         id: vendorProduct._id,
         status: vendorProduct.approvalStatus,
         priceFrozen: vendorProduct.priceFrozen,
+        internalSku: vendorProduct.internalSku,
       },
     });
   } catch (err: any) {

@@ -6,6 +6,8 @@ import { connectDB } from '@/lib/mongodb'
 
 import User from '@/models/User'
 
+import { logAction } from "@/lib/audit/logAction";
+
 export async function POST(req: Request) {
   try {
     await connectDB()
@@ -25,6 +27,15 @@ export async function POST(req: Request) {
       permissions: body.permissions,
       businessId: body.businessId,
     })
+
+    logAction({
+      action: "CREATE",
+      entity: "User",
+      entityId: user._id?.toString(),
+      after: user,
+      req,
+      actor: { businessId: body?.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

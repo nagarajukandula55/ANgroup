@@ -5,6 +5,7 @@ import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import Invoice from "@/models/Invoice";
 import SalesOrder from "@/models/SalesOrder";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET INVOICES
@@ -114,6 +115,15 @@ export async function POST(req: NextRequest) {
       totalAmount,
       status: "DRAFT",
       createdBy: session.user.id,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: invoice._id?.toString(),
+      after: invoice,
+      req,
+      actor: { id: session.user.id, businessId },
     });
 
     return NextResponse.json({

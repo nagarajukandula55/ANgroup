@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(
   req: Request,
@@ -42,12 +43,23 @@ export async function PUT(
 
     const body = await req.json();
 
+    const productId = (await context.params).id;
+
     const product =
       await VendorProduct.findByIdAndUpdate(
-        (await context.params).id,
+        productId,
         body,
         { new: true }
       );
+
+    logAction({
+      action: "UPDATE",
+      entity: "VendorProduct",
+      entityId: productId,
+      after: body,
+      req,
+      actor: { businessId: product?.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,
@@ -71,12 +83,21 @@ export async function DELETE(
   try {
     await connectDB();
 
+    const productId = (await context.params).id;
+
     await VendorProduct.findByIdAndUpdate(
-      (await context.params).id,
+      productId,
       {
         active: false,
       }
     );
+
+    logAction({
+      action: "DELETE",
+      entity: "VendorProduct",
+      entityId: productId,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import MaterialCategory from "@/models/MaterialCategory";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET /api/material-categories/[id]
@@ -119,6 +120,14 @@ export async function PUT(
 
     await category.save();
 
+    logAction({
+      action: "UPDATE",
+      entity: "MaterialCategory",
+      entityId: id,
+      after: category,
+      req,
+    });
+
     return NextResponse.json({ success: true, data: category });
   } catch (error: any) {
     return NextResponse.json(
@@ -167,6 +176,13 @@ export async function DELETE(
 
     category.isDeleted = true;
     await category.save();
+
+    logAction({
+      action: "DELETE",
+      entity: "MaterialCategory",
+      entityId: id,
+      req,
+    });
 
     return NextResponse.json({ success: true, message: "Category deleted successfully" });
   } catch (error: any) {

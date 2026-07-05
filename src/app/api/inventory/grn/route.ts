@@ -6,6 +6,7 @@ import { buildPermissionCode } from "@/core/access/actions";
 import InventoryMovement from "@/models/InventoryMovement";
 import PurchaseOrder from "@/models/PurchaseOrder";
 import InventoryItem from "@/models/InventoryItem";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET GRN LIST (OPTIONAL TRACKING VIEW)
@@ -161,6 +162,15 @@ export async function POST(req: NextRequest) {
      */
     po.status = "COMPLETED";
     await po.save();
+
+    logAction({
+      action: "CREATE",
+      entity: "InventoryMovement",
+      entityId: purchaseOrderId,
+      after: { count: movements.length, purchaseOrderId },
+      req,
+      actor: { id: session.user.id, businessId },
+    });
 
     return NextResponse.json({
       success: true,

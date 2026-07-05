@@ -6,6 +6,8 @@ import { connectDB } from "@/lib/mongodb";
 
 import Order from "@/models/Order";
 
+import { logAction } from "@/lib/audit/logAction";
+
 export async function POST(req: Request) {
   try {
     await connectDB();
@@ -60,6 +62,14 @@ export async function POST(req: Request) {
     });
 
     await order.save();
+
+    logAction({
+      action: "GENERATE",
+      entity: "Order",
+      entityId: order._id?.toString(),
+      after: order,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

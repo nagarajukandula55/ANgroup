@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function PATCH(req: Request, context: any) {
   try {
@@ -15,6 +16,15 @@ export async function PATCH(req: Request, context: any) {
       body,
       { new: true }
     );
+
+    logAction({
+      action: "UPDATE",
+      entity: "VendorProduct",
+      entityId: id,
+      after: body,
+      req,
+      actor: { businessId: updated?.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

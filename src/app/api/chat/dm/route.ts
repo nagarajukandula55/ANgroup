@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { ChatRoom } from '@/models/ChatMessage'
+import { logAction } from '@/lib/audit/logAction'
 
 // GET /api/chat/dm?with=<userId>
 // POST /api/chat/dm { withUserId }
 // Returns (or creates) the DIRECT room between the current user and the target user.
 
-async function getOrCreateDM(businessId: string, userId: string, withUserId: string) {
+async function getOrCreateDM(businessId: string, userId: string, withUserId: string, req?: Request) {
   const members = [
     new mongoose.Types.ObjectId(userId),
     new mongoose.Types.ObjectId(withUserId),
@@ -31,6 +32,15 @@ async function getOrCreateDM(businessId: string, userId: string, withUserId: str
       createdBy: new mongoose.Types.ObjectId(userId),
       isActive: true,
     })
+
+    logAction({
+      action: "CREATE",
+      entity: "ChatRoom",
+      entityId: room?._id?.toString(),
+      after: { businessId, type: 'DIRECT', members: memberStrings },
+      req,
+      actor: { id: userId, businessId },
+    })
   }
 
   return room
@@ -52,7 +62,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing `with` param' }, { status: 400 })
     }
 
-    const room = await getOrCreateDM(businessId, userId, withUserId)
+    const room = await getOrCreateDM(businessId, userId, withUserId, req)
     return NextResponse.json({ room })
   } catch (err) {
     console.error('GET /api/chat/dm error:', err)
@@ -78,7 +88,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing withUserId' }, { status: 400 })
     }
 
-    const room = await getOrCreateDM(businessId, userId, withUserId)
+    const room = await getOrCreateDM(businessId, userId, withUserId, req)
     return NextResponse.json({ room })
   } catch (err) {
     console.error('POST /api/chat/dm error:', err)

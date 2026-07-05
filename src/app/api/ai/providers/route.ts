@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import AIConfig from '@/models/AIConfig'
+import { logAction } from '@/lib/audit/logAction'
 
 function maskApiKey(key: string | undefined): string | null {
   if (!key) return null
@@ -126,11 +127,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await AIConfig.findOneAndUpdate(
+  const updatedConfig = await AIConfig.findOneAndUpdate(
     { businessId },
     { $set: updateFields },
     { upsert: true, new: true }
   )
+
+  logAction({
+    action: "UPDATE",
+    entity: "AIConfig",
+    entityId: updatedConfig?._id?.toString(),
+    after: updateFields,
+    req,
+    actor: { businessId },
+  });
 
   return NextResponse.json({ success: true })
 }

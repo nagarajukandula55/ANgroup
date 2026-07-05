@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose, { Schema, Document, Model } from 'mongoose'
+import { logAction } from '@/lib/audit/logAction'
 
 /* =========================================================
  * Inline Lead model (to avoid extra model file dependency)
@@ -155,6 +156,15 @@ export async function POST(req: Request) {
       notes,
       tags: tags || [],
       createdBy: userId,
+    })
+
+    logAction({
+      action: "CREATE",
+      entity: "Lead",
+      entityId: lead?._id?.toString(),
+      after: body,
+      req,
+      actor: { id: userId },
     })
 
     return NextResponse.json({ success: true, lead }, { status: 201 })

@@ -7,6 +7,7 @@ import { queueFiling, listPendingFilings } from "@/core/gst/gstFilingService";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET /api/gst/filings?businessId=&status=pending
@@ -74,6 +75,15 @@ export async function POST(req: NextRequest) {
     }
 
     const filing = await queueFiling({ businessId, invoiceId, returnType, period, submittedBy: userId });
+
+    logAction({
+      action: "CREATE",
+      entity: "GstFiling",
+      entityId: filing?._id?.toString(),
+      after: filing,
+      req,
+    });
+
     return NextResponse.json({ success: true, data: filing }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error";

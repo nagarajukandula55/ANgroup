@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import Order from "@/models/Order";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
   try {
@@ -104,6 +105,15 @@ export async function POST(req: Request) {
     });
 
     await order.save();
+
+    logAction({
+      action: "VERIFY",
+      entity: "Order",
+      entityId: order._id?.toString(),
+      after: { status: order.status, payment: order.payment, invoice: order.invoice },
+      req,
+      actor: { businessId: order?.businessId?.toString() },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

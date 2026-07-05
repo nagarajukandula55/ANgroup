@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
     const body = await req.json().catch(() => ({}));
+
+    if (!body.businessId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "No active business context — please select a business before creating a product draft.",
+        },
+        { status: 400 }
+      );
+    }
 
     const draft = await VendorProduct.create({
       productName: "",
@@ -31,8 +43,17 @@ export async function POST(req: NextRequest) {
       status: "DRAFT",
       active: true,
 
-      businessId: body.businessId ?? "TEMP",
-      createdBy: body.createdBy ?? "SYSTEM",
+      businessId: body.businessId,
+      createdBy: body.createdBy || undefined,
+    });
+
+    logAction({
+      action: "SAVE_DRAFT",
+      entity: "VendorProduct",
+      entityId: draft._id?.toString(),
+      after: draft,
+      req,
+      actor: { businessId: body.businessId, id: body.createdBy },
     });
 
     return NextResponse.json({

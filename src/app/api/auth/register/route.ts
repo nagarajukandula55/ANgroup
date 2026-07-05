@@ -3,6 +3,7 @@ import bcryptjs from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
 import mongoose from 'mongoose'
+import { logAction } from '@/lib/audit/logAction'
 
 // Inline BusinessMember schema since no separate model file exists
 const BusinessMemberSchema = new mongoose.Schema(
@@ -121,6 +122,14 @@ export async function POST(req: NextRequest) {
     } catch {
       // Non-fatal: proceed even if BusinessMember creation fails
     }
+
+    logAction({
+      action: "CREATE",
+      entity: "User",
+      entityId: user._id.toString(),
+      after: { name: user.name, email: user.email, role: user.role },
+      req,
+    });
 
     return NextResponse.json(
       {

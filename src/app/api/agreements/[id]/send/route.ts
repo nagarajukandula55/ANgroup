@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import Agreement, { IParty, ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
+import { logAction } from "@/lib/audit/logAction";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -112,6 +113,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     agreement.status = 'PENDING_SIGNATURE';
     await agreement.save();
+
+    logAction({
+      action: "SEND",
+      entity: "Agreement",
+      entityId: id,
+      after: { status: agreement.status },
+      req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({
       message: 'Agreement sent for signing successfully',

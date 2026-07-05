@@ -6,6 +6,7 @@ import {
   softDeleteModuleRecord,
   ModuleRecordValidationError,
 } from "@/core/module-registry/moduleRecord.service";
+import { logAction } from "@/lib/audit/logAction";
 
 // PATCH /api/modules/:key/records/:recordId
 export async function PATCH(
@@ -30,6 +31,15 @@ export async function PATCH(
 
     await connectDB();
     const record = await updateModuleRecord(recordId, businessId, data, userId);
+
+    logAction({
+      action: "UPDATE",
+      entity: "ModuleRecord",
+      entityId: recordId,
+      after: data,
+      req,
+      actor: { businessId },
+    });
 
     return NextResponse.json({ success: true, record });
   } catch (error: unknown) {
@@ -63,6 +73,14 @@ export async function DELETE(
 
     await connectDB();
     await softDeleteModuleRecord(recordId, businessId);
+
+    logAction({
+      action: "DELETE",
+      entity: "ModuleRecord",
+      entityId: recordId,
+      req,
+      actor: { businessId },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

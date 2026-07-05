@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import mongoose, { Schema, Model } from "mongoose";
+import { logAction } from "@/lib/audit/logAction";
 
 const InvoiceSchema = new Schema(
   {
@@ -58,6 +59,14 @@ export async function PATCH(
     const invoice = await Invoice.findByIdAndUpdate(id, update, { new: true }).lean();
     if (!invoice)
       return NextResponse.json({ success: false, message: "Invoice not found" }, { status: 404 });
+
+    logAction({
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: id,
+      after: update,
+      req,
+    });
 
     return NextResponse.json({ success: true, invoice });
   } catch (error: any) {

@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService';
+import { logAction } from "@/lib/audit/logAction";
 
 // Dynamic imports to avoid model recompilation
 async function getModels() {
@@ -173,6 +174,16 @@ export async function POST(request: NextRequest) {
     }
 
     const createdUser = await User.findById(user._id).select('-password').lean();
+
+    logAction({
+      action: "CREATE",
+      entity: "User",
+      entityId: user._id?.toString(),
+      after: createdUser,
+      req: request,
+      actor: { businessId },
+    });
+
     return NextResponse.json({ user: createdUser }, { status: 201 });
   } catch (error) {
     console.error('POST /api/admin/users error:', error);

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Integration from '@/models/Integration';
+import { logAction } from '@/lib/audit/logAction';
 
 interface RouteContext {
   params: Promise<{ provider: string }>;
@@ -54,6 +55,14 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     { $set: updateFields },
     { new: true, upsert: true, runValidators: true }
   );
+
+  logAction({
+    action: "UPDATE",
+    entity: "Integration",
+    entityId: provider,
+    after: integration,
+    req,
+  });
 
   return NextResponse.json({ success: true, integration });
 }

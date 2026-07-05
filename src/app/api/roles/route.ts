@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RoleService } from "@/services/role/role.service";
 import { auth } from "@/lib/auth/auth";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET ROLES
@@ -86,6 +87,14 @@ export async function POST(req: NextRequest) {
       code,
       description,
       createdBy: session.user.id,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Role",
+      entityId: (role as any)?._id?.toString(),
+      after: role,
+      req,
     });
 
     return NextResponse.json({

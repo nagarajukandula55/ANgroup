@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Coupon from "@/models/Coupon";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/coupons/[id]
 export async function GET(
@@ -92,6 +93,14 @@ export async function PUT(
 
     if (!coupon) return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
 
+    logAction({
+      action: "UPDATE",
+      entity: "Coupon",
+      entityId: id,
+      after: body,
+      req,
+    });
+
     return NextResponse.json({ success: true, coupon });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -125,6 +134,13 @@ export async function DELETE(
 
     const coupon = await Coupon.findByIdAndDelete(id).lean();
     if (!coupon) return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
+
+    logAction({
+      action: "DELETE",
+      entity: "Coupon",
+      entityId: id,
+      req: _req,
+    });
 
     return NextResponse.json({ success: true, message: "Coupon deleted" });
   } catch (error: unknown) {

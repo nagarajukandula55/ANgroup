@@ -5,6 +5,7 @@ import VendorProductBOM from "@/models/VendorProductBOM";
 import Material from "@/models/Material";
 import VendorProduct from "@/models/VendorProduct";
 import { recalcVendorProductCost } from "@/services/costEngine.service";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
 GET BOM
@@ -113,6 +114,15 @@ export async function POST(
           body.createdBy,
       });
 
+    logAction({
+      action: "UPDATE",
+      entity: "VendorProductBOM",
+      entityId: item._id?.toString(),
+      after: item,
+      req,
+      actor: { businessId: body.businessId },
+    });
+
     return NextResponse.json({
       success: true,
       data: item,
@@ -149,6 +159,14 @@ export async function PUT(
           new: true,
         }
       );
+
+    logAction({
+      action: "UPDATE",
+      entity: "VendorProductBOM",
+      entityId: body.bomId,
+      after: item,
+      req,
+    });
 
     return NextResponse.json({
       success: true,
@@ -199,6 +217,13 @@ export async function DELETE(
         active: false,
       }
     );
+
+    logAction({
+      action: "DELETE",
+      entity: "VendorProductBOM",
+      entityId: bomId,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
+import { logAction } from "@/lib/audit/logAction";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -46,6 +47,15 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: false, error: "Vendor not found" }, { status: 404 });
     }
 
+    logAction({
+      action: "UPDATE",
+      entity: "VendorProfile",
+      entityId: id,
+      after: body,
+      req,
+      actor: { id: userId },
+    });
+
     return NextResponse.json({ success: true, data: vendor });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Internal Server Error";
@@ -64,6 +74,14 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
     await VendorProfile.findByIdAndUpdate(id, { isDeleted: true });
+
+    logAction({
+      action: "DELETE",
+      entity: "VendorProfile",
+      entityId: id,
+      req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

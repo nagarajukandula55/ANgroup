@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
+import { logAction } from '@/lib/audit/logAction'
 
 export async function GET(
   req: Request,
@@ -95,6 +96,14 @@ export async function PATCH(
       return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 })
     }
 
+    logAction({
+      action: "UPDATE",
+      entity: "User",
+      entityId: id,
+      after: updates,
+      req,
+    })
+
     return NextResponse.json({ success: true, user })
   } catch (error: any) {
     if (error.code === 11000) {
@@ -130,6 +139,13 @@ export async function DELETE(
       deletedAt: new Date(),
       deletedBy: requesterId,
       isActive: false,
+    })
+
+    logAction({
+      action: "DELETE",
+      entity: "User",
+      entityId: id,
+      req,
     })
 
     return NextResponse.json({ success: true, message: 'User deleted' })

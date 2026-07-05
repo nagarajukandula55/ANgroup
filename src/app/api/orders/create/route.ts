@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { connectNativeDB } from "@/lib/native-mongodb";
 import { OrderService } from "@/services/order.service";
+import { logAction } from "@/lib/audit/logAction";
 
 const allowedOrigins = [
   "https://shopnative.in",
@@ -68,6 +69,14 @@ export async function POST(req: Request) {
       "ORDER CREATED:",
       result.orderId
     );
+
+    logAction({
+      action: "CREATE",
+      entity: "Order",
+      entityId: result.orderId,
+      after: body,
+      req,
+    });
 
     return NextResponse.json(
       {

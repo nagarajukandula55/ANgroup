@@ -6,6 +6,8 @@ import { connectDB } from "@/lib/mongodb";
 
 import { createShipment } from "@/lib/shipping/create-shipment";
 
+import { logAction } from "@/lib/audit/logAction";
+
 export async function POST(req: Request) {
   try {
     await connectDB();
@@ -41,6 +43,14 @@ export async function POST(req: Request) {
       length,
       width,
       height,
+    });
+
+    logAction({
+      action: "CREATE_SHIPMENT",
+      entity: "Order",
+      entityId: result?.order?._id?.toString(),
+      after: result?.order,
+      req,
     });
 
     return NextResponse.json(result);

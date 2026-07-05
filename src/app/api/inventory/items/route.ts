@@ -6,6 +6,7 @@ import InventoryItem from "@/models/InventoryItem";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import { notify } from "@/lib/notify";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET INVENTORY ITEMS
@@ -110,6 +111,15 @@ export async function POST(req: NextRequest) {
       event: 'NEW_PRODUCT',
       message: `📦 New inventory item added.\nMaterial ID: ${materialId}\nWarehouse: ${warehouseId}\nQty: ${quantity || 0} ${unit || ''}`.trim(),
     }).catch(() => {});
+
+    logAction({
+      action: "CREATE",
+      entity: "InventoryItem",
+      entityId: item._id?.toString(),
+      after: item,
+      req,
+      actor: { id: session.user.id, businessId },
+    });
 
     return NextResponse.json({
       success: true,

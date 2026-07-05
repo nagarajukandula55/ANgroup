@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import Employee from "@/models/Employee";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(request: NextRequest) {
   try {
@@ -154,6 +155,15 @@ export async function POST(request: NextRequest) {
       employmentType: employmentType || "FULL_TIME",
       joiningDate: joiningDate ? new Date(joiningDate) : undefined,
       salary: typeof salary === "number" ? salary : 0,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Employee",
+      entityId: employee._id?.toString(),
+      after: employee,
+      req: request,
+      actor: { businessId },
     });
 
     return NextResponse.json(

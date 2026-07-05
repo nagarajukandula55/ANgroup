@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Material from "@/models/Material";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET() {
   try {
@@ -33,6 +34,14 @@ export async function POST(req: Request) {
 
     const material =
       await Material.create(body);
+
+    logAction({
+      action: "CREATE",
+      entity: "Material",
+      entityId: material?._id?.toString(),
+      after: material,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

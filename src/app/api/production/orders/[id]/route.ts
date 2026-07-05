@@ -5,6 +5,7 @@ import { Types } from "mongoose";
 import ProductionOrder from "@/models/ProductionOrder";
 import ProductionOrderItem from "@/models/ProductionOrderItem";
 import ProductionBatch from "@/models/ProductionBatch";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(
   req: NextRequest,
@@ -104,6 +105,15 @@ export async function PUT(
       { new: true }
     ).lean();
 
+    logAction({
+      action: "UPDATE",
+      entity: "ProductionOrder",
+      entityId: id,
+      after: updated,
+      req,
+      actor: { id: userId },
+    });
+
     return NextResponse.json({ success: true, data: updated });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
@@ -146,6 +156,14 @@ export async function DELETE(
     // Soft delete / cancel
     await ProductionOrder.findByIdAndUpdate(id, {
       $set: { status: "CANCELLED", isDeleted: true },
+    });
+
+    logAction({
+      action: "CANCEL",
+      entity: "ProductionOrder",
+      entityId: id,
+      req,
+      actor: { id: userId },
     });
 
     return NextResponse.json({

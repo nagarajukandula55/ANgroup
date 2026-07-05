@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import ProductVariant from "@/models/ProductVariant";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET() {
   await connectDB();
@@ -23,6 +24,14 @@ export async function POST(req: Request) {
 
   const variant =
     await ProductVariant.create(body);
+
+  logAction({
+    action: "CREATE",
+    entity: "ProductVariant",
+    entityId: variant._id?.toString(),
+    after: variant,
+    req,
+  });
 
   return NextResponse.json({
     success: true,

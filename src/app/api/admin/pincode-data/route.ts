@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import PincodeEntry from "@/models/PincodeEntry";
 import PincodeDatasetMeta from "@/models/PincodeDatasetMeta";
 import { convertPincodeCSV } from "@/lib/pincodeImport";
+import { logAction } from "@/lib/audit/logAction";
 
 /**
  * GET /api/admin/pincode-data — dataset status for the admin upload page
@@ -113,11 +114,19 @@ export async function POST(req: NextRequest) {
     }
 
     await PincodeDatasetMeta.deleteMany({});
-    await PincodeDatasetMeta.create({
+    const meta = await PincodeDatasetMeta.create({
       totalPincodes: entries.length,
       sourceFileName: file.name,
       uploadedBy: userId,
       uploadedAt: new Date(),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "PincodeDatasetMeta",
+      entityId: meta._id?.toString(),
+      after: { totalPincodes: entries.length, sourceFileName: file.name },
+      req,
     });
 
     return NextResponse.json({

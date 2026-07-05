@@ -3,6 +3,7 @@ import bcryptjs from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
 import mongoose from 'mongoose'
+import { logAction } from '@/lib/audit/logAction'
 
 const EmployeeProfileSchema = new mongoose.Schema(
   {
@@ -119,6 +120,15 @@ export async function POST(req: NextRequest) {
     await EmployeeProfile.findByIdAndUpdate(employeeProfile._id, {
       $set: { userId: user._id },
     })
+
+    logAction({
+      action: 'CREATE',
+      entity: 'User',
+      entityId: user._id?.toString(),
+      after: { email: user.email, role: user.role },
+      req,
+      actor: { id: user._id?.toString(), email: user.email },
+    });
 
     return NextResponse.json(
       {

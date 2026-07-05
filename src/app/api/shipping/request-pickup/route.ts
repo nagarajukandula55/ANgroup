@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { requestPickup } from "@/lib/shipping/request-pickup";
 
+import { logAction } from "@/lib/audit/logAction";
+
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
@@ -19,6 +21,14 @@ export async function POST(req: Request) {
     }
 
     const result = await requestPickup(orderId);
+
+    logAction({
+      action: "REQUEST_PICKUP",
+      entity: "Order",
+      entityId: orderId,
+      after: result,
+      req,
+    });
 
     return NextResponse.json(result);
   } catch (error: any) {

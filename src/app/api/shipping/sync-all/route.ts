@@ -11,7 +11,9 @@ import Order from "@/models/Order";
 import { syncTracking }
 from "@/lib/shipping/sync-tracking";
 
-export async function POST() {
+import { logAction } from "@/lib/audit/logAction";
+
+export async function POST(req: Request) {
   try {
     await connectDB();
 
@@ -46,6 +48,13 @@ export async function POST() {
         );
       }
     }
+
+    logAction({
+      action: "SYNC",
+      entity: "Order",
+      after: { processed: results.length },
+      req,
+    });
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { ChatMessage, ChatRoom } from '@/models/ChatMessage'
+import { logAction } from '@/lib/audit/logAction'
 
 // GET /api/chat/messages?roomId=xxx&limit=50
 export async function GET(req: NextRequest) {
@@ -65,6 +66,15 @@ export async function POST(req: NextRequest) {
 
     // Update lastMessageAt on the room
     await ChatRoom.findByIdAndUpdate(roomId, { lastMessageAt: new Date() })
+
+    logAction({
+      action: "CREATE",
+      entity: "ChatMessage",
+      entityId: message?._id?.toString(),
+      after: { roomId, content: content.trim(), type: 'TEXT' },
+      req,
+      actor: { id: userId, businessId },
+    })
 
     return NextResponse.json({ message }, { status: 201 })
   } catch (err) {

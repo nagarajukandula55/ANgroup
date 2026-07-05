@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET() {
   try {
@@ -36,6 +37,15 @@ export async function POST(req: Request) {
 
     const product =
       await VendorProduct.create(body);
+
+    logAction({
+      action: "CREATE",
+      entity: "VendorProduct",
+      entityId: product._id?.toString(),
+      after: product,
+      req,
+      actor: { businessId: body.businessId },
+    });
 
     return NextResponse.json({
       success: true,

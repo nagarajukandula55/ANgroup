@@ -6,6 +6,7 @@ import { connectDB } from '@/lib/mongodb'
 import mongoose, { Schema, Model } from 'mongoose'
 import { notify } from '@/lib/notify'
 import { generateDocumentNumber } from '@/core/numbering/numberingService'
+import { logAction } from '@/lib/audit/logAction'
 
 const SalesOrderSchema = new Schema({
   orderNumber: { type: String, unique: true },
@@ -92,6 +93,15 @@ export async function POST(req: Request) {
     const { value: orderNumber } = await generateDocumentNumber(bizId, 'SALES_ORDER')
     const total = (body.items || []).reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0)
     const order = await SalesOrder.create({ ...body, businessId: bizId, orderNumber, totalAmount: total, createdBy: userId })
+
+    logAction({
+      action: 'CREATE',
+      entity: 'SalesOrder',
+      entityId: order?._id?.toString(),
+      after: order,
+      req,
+      actor: { businessId: bizId },
+    })
 
     // Fire notification (non-blocking)
     notify({

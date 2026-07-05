@@ -3,6 +3,7 @@ import { verifyToken, signToken } from "@/lib/auth/jwt";
 import { connectDB } from "@/lib/mongodb";
 import BusinessMember from "@/models/BusinessMember";
 import Business from "@/models/Business";
+import { logAction, actorFromPayload } from "@/lib/audit/logAction";
 
 /**
  * POST /api/auth/switch-business
@@ -88,6 +89,16 @@ export async function POST(req: Request) {
       sameSite: "lax",
       maxAge:   60 * 60 * 24 * 7,
       path:     "/",
+    });
+
+    // Fire-and-forget audit log — never blocks or fails the actual switch.
+    logAction({
+      action: "SWITCH_BUSINESS",
+      entity: "Business",
+      entityId: businessId,
+      metadata: { fromActiveBusinessId: payload.activeBusinessId || null },
+      req,
+      actor: { ...actorFromPayload(payload), businessId },
     });
 
     return res;

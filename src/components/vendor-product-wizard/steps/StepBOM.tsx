@@ -187,21 +187,6 @@ export default function StepBOM({
     await fetchBOM();
   };
 
-  /* ================= SUBMIT ================= */
-
-  const submit = async () => {
-    await fetch(
-      `/api/vendor-products/${draftId}/submit`,
-      {
-        method: "POST",
-      }
-    );
-
-    alert("Submitted Successfully");
-
-    next();
-  };
-
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold">
@@ -250,21 +235,14 @@ export default function StepBOM({
           Back
         </button>
 
-        <div className="space-x-3">
-          <button
-            onClick={submit}
-            className="rounded bg-purple-600 px-4 py-2 text-white"
-          >
-            Submit
-          </button>
-
-          <button
-            onClick={next}
-            className="rounded bg-green-600 px-4 py-2 text-white"
-          >
-            Continue
-          </button>
-        </div>
+        <button
+          onClick={next}
+          disabled={rows.length === 0}
+          title={rows.length === 0 ? "Add at least one material first" : undefined}
+          className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+        >
+          Save & Continue
+        </button>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { Types } from "mongoose";
 import ProductionOrder from "@/models/ProductionOrder";
 import ProductionOrderItem from "@/models/ProductionOrderItem";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 /**
  * REMOVED: a local getNextOrderNumber() used to live here — an EIGHTH
@@ -167,6 +168,15 @@ export async function POST(req: NextRequest) {
       }));
       createdItems = await ProductionOrderItem.insertMany(itemDocs);
     }
+
+    logAction({
+      action: "CREATE",
+      entity: "ProductionOrder",
+      entityId: order._id?.toString(),
+      after: order,
+      req,
+      actor: { id: userId, businessId },
+    });
 
     return NextResponse.json(
       { success: true, data: order, items: createdItems },

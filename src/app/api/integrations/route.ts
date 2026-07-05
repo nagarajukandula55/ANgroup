@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Integration, { IntegrationConfig, TelegramConfig, WhatsAppConfig, EmailConfig } from '@/models/Integration';
+import { logAction } from '@/lib/audit/logAction';
 
 function maskConfig(provider: string, config: IntegrationConfig): IntegrationConfig {
   if (!config) return config;
@@ -105,6 +106,14 @@ export async function POST(req: NextRequest) {
     },
     { upsert: true, new: true, runValidators: true }
   );
+
+  logAction({
+    action: "CREATE",
+    entity: "Integration",
+    entityId: integration?._id?.toString(),
+    after: integration,
+    req,
+  });
 
   return NextResponse.json({ success: true, integration });
 }

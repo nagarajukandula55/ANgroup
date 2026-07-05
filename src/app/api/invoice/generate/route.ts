@@ -8,6 +8,7 @@ import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { renderInvoiceForBusiness } from "@/core/invoiceTemplates/service";
 import { buildRenderDataFromInvoice } from "@/core/invoiceTemplates/fromInvoiceDoc";
 import cloudinary from "@/lib/cloudinary";
+import { logAction } from "@/lib/audit/logAction";
 
 console.log("TEMPLATE VERSION: GST-V2");
 
@@ -109,6 +110,15 @@ export async function POST(req: Request) {
     };
 
     await order.save();
+
+    logAction({
+      action: "GENERATE",
+      entity: "Order",
+      entityId: order._id?.toString(),
+      after: order,
+      req,
+      actor: { businessId: businessIdForTemplate },
+    });
 
     return NextResponse.json({
       success: true,

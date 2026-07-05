@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Agreement from "@/models/Agreement";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
   try {
@@ -36,6 +37,15 @@ export async function POST(req: Request) {
       { $set: update },
       { new: true }
     ).lean();
+
+    logAction({
+      action: "SIGN",
+      entity: "Agreement",
+      entityId: agreementId,
+      after: update,
+      req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({ success: true, agreement });
   } catch (e: any) {

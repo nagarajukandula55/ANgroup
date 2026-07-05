@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Coupon from "@/models/Coupon";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/coupons?businessId=...&status=...&search=...
 export async function GET(req: NextRequest) {
@@ -111,6 +112,14 @@ export async function POST(req: NextRequest) {
         : [],
       applicableCategories: applicableCategories ?? [],
       createdBy: new Types.ObjectId(userId),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Coupon",
+      entityId: coupon?._id?.toString(),
+      after: body,
+      req,
     });
 
     return NextResponse.json({ success: true, coupon }, { status: 201 });

@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
+import { logAction } from '@/lib/audit/logAction'
 
 const SALT_ROUNDS = 12
 const MIN_LENGTH = 6
@@ -72,6 +73,14 @@ export async function POST(req: Request) {
     user.password = hashed
     user.passwordChangedAt = new Date()
     await user.save()
+
+    logAction({
+      action: "CHANGE_PASSWORD",
+      entity: "User",
+      entityId: userId,
+      req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({
       success: true,

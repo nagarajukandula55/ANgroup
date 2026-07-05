@@ -13,6 +13,7 @@ import { connectDB } from "@/lib/mongodb";
 // models/"Native Product.ts", which is a real, separate, still-live system
 // against a different MongoDB connection — left untouched).
 import Product from "@/models/NativeProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 function generateSku(name: string): string {
   const prefix = name.trim().slice(0, 3).toUpperCase();
@@ -203,6 +204,15 @@ export async function POST(request: NextRequest) {
       keywords: Array.isArray(keywords) ? keywords : [],
       slug: resolvedSlug,
       createdBy: new mongoose.Types.ObjectId(userId),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Product",
+      entityId: product._id?.toString(),
+      after: product,
+      req: request,
+      actor: { id: userId, businessId },
     });
 
     return NextResponse.json(

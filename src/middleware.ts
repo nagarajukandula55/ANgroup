@@ -39,6 +39,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth/logout",
   "/api/auth/register",
   "/api/auth/switch-business",   // reads its own cookie
+  "/api/auth/exit-business",     // reads its own cookie
   "/api/auth/[...nextauth]",
   "/api/seed",
   "/api/health",

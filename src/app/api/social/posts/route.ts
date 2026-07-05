@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
 import SocialPost from '@/models/SocialPost';
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(request: NextRequest) {
   try {
@@ -123,6 +124,14 @@ export async function POST(request: NextRequest) {
       status,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       createdBy: new mongoose.Types.ObjectId(userId),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "SocialPost",
+      entityId: post._id?.toString(),
+      after: post,
+      req: request,
     });
 
     return NextResponse.json({ post }, { status: 201 });

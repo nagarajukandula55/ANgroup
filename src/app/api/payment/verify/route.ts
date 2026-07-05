@@ -9,6 +9,7 @@ import { sendOrderNotification }
 from "@/lib/telegram/sendOrderNotification";
 import { sendInvoiceEmail }
 from "@/services/email/resend.service";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
    CORS
@@ -281,6 +282,15 @@ export async function POST(req: Request) {
       order.amount;
 
     await order.save();
+
+    logAction({
+      action: "VERIFY",
+      entity: "Order",
+      entityId: order._id?.toString(),
+      after: { status: order.status, payment: order.payment },
+      req,
+      actor: { businessId: order?.businessId?.toString() },
+    });
 
    /* ==========================================
       UPDATE COUPON USAGE

@@ -5,6 +5,7 @@ import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import InventoryMovement from "@/models/InventoryMovement";
 import InventoryItem from "@/models/InventoryItem";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET INVENTORY MOVEMENTS (LEDGER)
@@ -143,6 +144,15 @@ export async function POST(req: NextRequest) {
         createdBy: session.user.id,
       });
     }
+
+    logAction({
+      action: "CREATE",
+      entity: "InventoryMovement",
+      entityId: movement._id?.toString(),
+      after: movement,
+      req,
+      actor: { id: session.user.id, businessId },
+    });
 
     return NextResponse.json({
       success: true,

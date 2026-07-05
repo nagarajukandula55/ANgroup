@@ -5,6 +5,7 @@ import {
   getAllGRNs,
 } from "@/services/grn.service";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
   try {
@@ -27,6 +28,15 @@ export async function POST(req: Request) {
     const { value: grnNumber } = await generateDocumentNumber(body.businessId, "GRN");
 
     const data = await createGRN({ ...body, grnNumber });
+
+    logAction({
+      action: "CREATE",
+      entity: "GRN",
+      entityId: (data as any)?._id?.toString(),
+      after: data,
+      req,
+      actor: { businessId: body?.businessId?.toString() },
+    });
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {

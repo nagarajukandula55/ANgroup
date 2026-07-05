@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { ChatRoom } from '@/models/ChatMessage'
+import { logAction } from '@/lib/audit/logAction'
 
 // GET /api/chat/rooms?type=CHANNEL|DIRECT
 export async function GET(req: NextRequest) {
@@ -65,6 +66,15 @@ export async function POST(req: NextRequest) {
       createdBy: new mongoose.Types.ObjectId(userId),
       members: [new mongoose.Types.ObjectId(userId)],
       isActive: true,
+    })
+
+    logAction({
+      action: "CREATE",
+      entity: "ChatRoom",
+      entityId: room?._id?.toString(),
+      after: { businessId, name: name.trim().toLowerCase(), type: 'CHANNEL', description },
+      req,
+      actor: { id: userId, businessId },
     })
 
     return NextResponse.json({ room }, { status: 201 })

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 
 import BOM from "@/models/BOM";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(
   req: Request,
@@ -56,6 +57,14 @@ export async function PUT(
         }
       );
 
+    logAction({
+      action: "UPDATE",
+      entity: "BOM",
+      entityId: params.id,
+      after: body,
+      req,
+    });
+
     return NextResponse.json({
       success: true,
       data: bom,
@@ -83,6 +92,13 @@ export async function DELETE(
     await BOM.findByIdAndDelete(
       params.id
     );
+
+    logAction({
+      action: "DELETE",
+      entity: "BOM",
+      entityId: params.id,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

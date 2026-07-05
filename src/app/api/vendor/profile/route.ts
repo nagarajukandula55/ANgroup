@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
+import { logAction } from "@/lib/audit/logAction";
 
 const VendorProfileSchema = new mongoose.Schema(
   {
@@ -148,6 +149,14 @@ export async function PUT(req: NextRequest) {
         { status: 404 }
       )
     }
+
+    logAction({
+      action: "UPDATE",
+      entity: "VendorProfile",
+      entityId: updated?._id?.toString(),
+      after: updated,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

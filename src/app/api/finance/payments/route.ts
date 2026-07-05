@@ -5,6 +5,7 @@ import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import Payment from "@/models/Payment";
 import Invoice from "@/models/Invoice";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET PAYMENTS
@@ -133,6 +134,15 @@ export async function POST(req: NextRequest) {
     }
 
     await invoice.save();
+
+    logAction({
+      action: "CREATE",
+      entity: "Payment",
+      entityId: payment?._id?.toString(),
+      after: payment,
+      req,
+      actor: { id: session.user.id, businessId: businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

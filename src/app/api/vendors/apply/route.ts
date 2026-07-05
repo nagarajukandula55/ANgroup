@@ -4,6 +4,7 @@ import VendorProfile from "@/models/VendorProfile";
 import Business from "@/models/Business";
 import { Types } from "mongoose";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 /**
  * POST /api/vendors/apply — PUBLIC vendor application.
@@ -113,6 +114,14 @@ export async function POST(req: NextRequest) {
       notes,
       status: "APPLIED",
       isApproved: false,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "VendorProfile",
+      entityId: vendor._id?.toString(),
+      after: vendor,
+      req,
     });
 
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(
   req: Request,
@@ -33,6 +34,15 @@ export async function POST(
       body.reason || "";
 
     await vendorProduct.save();
+
+    logAction({
+      action: "REJECT",
+      entity: "VendorProduct",
+      entityId: (await context.params).id,
+      after: { rejectionReason: vendorProduct.rejectionReason },
+      req,
+      actor: { businessId: vendorProduct.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

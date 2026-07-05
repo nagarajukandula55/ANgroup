@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
 import SocialPost from '@/models/SocialPost';
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(
   request: NextRequest,
@@ -94,6 +95,14 @@ export async function PUT(
       { new: true, runValidators: true }
     ).lean();
 
+    logAction({
+      action: "UPDATE",
+      entity: "SocialPost",
+      entityId: id,
+      after: updatedPost,
+      req: request,
+    });
+
     return NextResponse.json({ post: updatedPost });
   } catch (error) {
     console.error('PUT /api/social/posts/[id] error:', error);
@@ -129,6 +138,14 @@ export async function DELETE(
     }
 
     await SocialPost.findByIdAndUpdate(id, { $set: { status: 'DELETED' } });
+
+    logAction({
+      action: "DELETE",
+      entity: "SocialPost",
+      entityId: id,
+      before: post,
+      req: request,
+    });
 
     return NextResponse.json({ message: 'Post deleted successfully' });
   } catch (error) {

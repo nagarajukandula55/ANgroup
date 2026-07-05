@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import StockTransfer from "@/models/StockTransfer";
+import { logAction } from "@/lib/audit/logAction";
 
 // ---------------------------------------------------------------------------
 // PATCH /api/stock/transfers/[id]
@@ -57,6 +58,15 @@ export async function PATCH(
     if (!transfer) {
       return NextResponse.json({ error: "Transfer not found" }, { status: 404 });
     }
+
+    logAction({
+      action: "UPDATE",
+      entity: "StockTransfer",
+      entityId: id,
+      after: update,
+      req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({ success: true, data: transfer });
   } catch (error: unknown) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +34,14 @@ export async function POST(request: NextRequest) {
       content: body.content || "",
       image: body.image || "",
       category: body.category || "General",
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Blog",
+      entityId: blog._id.toString(),
+      after: blog,
+      req: request,
     });
 
     return NextResponse.json({

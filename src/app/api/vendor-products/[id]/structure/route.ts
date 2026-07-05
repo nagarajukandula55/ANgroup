@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
+import { logAction } from "@/lib/audit/logAction";
 
 interface RouteContext {
   params: Promise<{
@@ -37,6 +38,15 @@ export async function PATCH(
         { status: 404 }
       );
     }
+
+    logAction({
+      action: "UPDATE",
+      entity: "VendorProduct",
+      entityId: id,
+      after: updated,
+      req: request,
+      actor: { businessId: updated.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

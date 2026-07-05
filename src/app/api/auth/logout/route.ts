@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { logAction } from "@/lib/audit/logAction";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const response = NextResponse.json({ success: true, message: "Logged out" });
   response.cookies.set("an_token", "", {
     httpOnly: true,
@@ -9,9 +10,16 @@ export async function POST() {
     maxAge: 0,
     path: "/",
   });
+
+  logAction({
+    action: "LOGOUT",
+    entity: "User",
+    req,
+  });
+
   return response;
 }
 
-export async function GET() {
-  return POST();
+export async function GET(req: NextRequest) {
+  return POST(req);
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +75,15 @@ export async function POST(req: Request) {
     };
 
     await order.save();
+
+    logAction({
+      action: "MARK_PAID",
+      entity: "Order",
+      entityId: order._id?.toString(),
+      after: { status: order.status, invoiceNumber },
+      req,
+      actor: { businessId: order?.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

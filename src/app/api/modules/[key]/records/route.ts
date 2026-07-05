@@ -6,6 +6,7 @@ import {
   listModuleRecords,
   ModuleRecordValidationError,
 } from "@/core/module-registry/moduleRecord.service";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/modules/:key/records?businessId=...&limit=...&skip=...
 export async function GET(
@@ -60,6 +61,15 @@ export async function POST(
 
     await connectDB();
     const record = await createModuleRecord(key, businessId, data, userId);
+
+    logAction({
+      action: "CREATE",
+      entity: "ModuleRecord",
+      entityId: record?._id?.toString(),
+      after: data,
+      req,
+      actor: { businessId },
+    });
 
     return NextResponse.json({ success: true, record }, { status: 201 });
   } catch (error: unknown) {

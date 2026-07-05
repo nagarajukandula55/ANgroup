@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import ProductCategory from "@/models/ProductCategory";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/product-categories/[id]
 export async function GET(
@@ -83,6 +84,15 @@ export async function PUT(
       return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
 
+    logAction({
+      action: "UPDATE",
+      entity: "ProductCategory",
+      entityId: id,
+      after: category,
+      req,
+      actor: { id: userId },
+    });
+
     return NextResponse.json({ success: true, category });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -129,6 +139,15 @@ export async function DELETE(
       { parentId: new Types.ObjectId(id) },
       { $set: { parentId: null } }
     );
+
+    logAction({
+      action: "DELETE",
+      entity: "ProductCategory",
+      entityId: id,
+      before: category,
+      req: _req,
+      actor: { id: userId },
+    });
 
     return NextResponse.json({ success: true, message: "Category deleted" });
   } catch (error: unknown) {

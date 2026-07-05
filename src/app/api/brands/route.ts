@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Brand from "@/models/Brand";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/brands?businessId=...&search=...&isActive=...
 export async function GET(req: NextRequest) {
@@ -70,6 +71,14 @@ export async function POST(req: NextRequest) {
       description: description?.trim(),
       businessId: new Types.ObjectId(businessId),
       logoUrl: logoUrl?.trim(),
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Brand",
+      entityId: brand?._id?.toString(),
+      after: body,
+      req,
     });
 
     return NextResponse.json({ success: true, brand }, { status: 201 });

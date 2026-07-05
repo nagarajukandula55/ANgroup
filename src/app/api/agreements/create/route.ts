@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Agreement from "@/models/Agreement";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 /**
  * REMOVED: a local getNextNumber() used to live here — a TENTH
@@ -36,6 +37,15 @@ export async function POST(req: Request) {
       agreementNumber: number,
       createdBy: userId,
       status: "DRAFT",
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "Agreement",
+      entityId: agreement?._id?.toString(),
+      after: agreement,
+      req,
+      actor: { id: userId, businessId: body.businessId },
     });
 
     return NextResponse.json({ success: true, agreement });

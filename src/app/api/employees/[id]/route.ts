@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import EmployeeProfile from "@/models/EmployeeProfile";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -59,6 +60,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     if (!employee) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
+    logAction({
+      action: "UPDATE",
+      entity: "EmployeeProfile",
+      entityId: id,
+      after: update,
+      req,
+    });
+
     return NextResponse.json({ success: true, employee });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -75,6 +84,13 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     await connectDB();
 
     await EmployeeProfile.findByIdAndUpdate(id, { isDeleted: true });
+
+    logAction({
+      action: "DELETE",
+      entity: "EmployeeProfile",
+      entityId: id,
+      req,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

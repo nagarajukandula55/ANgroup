@@ -4,6 +4,7 @@ import { saveTemplate, deleteTemplate } from "@/core/invoiceTemplates/service";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * PUT /api/invoice-templates/[id]
@@ -35,6 +36,16 @@ export async function PUT(
     }
 
     const template = await saveTemplate({ businessId, layoutKey, name, isDefault, branding, text }, id);
+
+    logAction({
+      action: "UPDATE",
+      entity: "InvoiceTemplate",
+      entityId: id,
+      after: template,
+      req,
+      actor: { businessId },
+    });
+
     return NextResponse.json({ success: true, data: template });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error";
@@ -59,6 +70,14 @@ export async function DELETE(
 
     const { id } = await context.params;
     await deleteTemplate(id);
+
+    logAction({
+      action: "DELETE",
+      entity: "InvoiceTemplate",
+      entityId: id,
+      req,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error";

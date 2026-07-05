@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Role from "@/models/Role";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/admin/roles/[id]
 export async function GET(
@@ -44,6 +45,15 @@ export async function PUT(
     if (!role) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
     }
+
+    logAction({
+      action: "UPDATE",
+      entity: "Role",
+      entityId: id,
+      after: { permissions },
+      req: request,
+    });
+
     return NextResponse.json({ role });
   } catch (error) {
     console.error("Error updating role:", error);
@@ -75,6 +85,14 @@ export async function DELETE(
     }
 
     await role.deleteOne();
+
+    logAction({
+      action: "DELETE",
+      entity: "Role",
+      entityId: id,
+      req: request,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting role:", error);

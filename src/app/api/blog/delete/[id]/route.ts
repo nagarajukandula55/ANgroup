@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function DELETE(
   request: Request,
@@ -12,6 +13,13 @@ export async function DELETE(
     const { id } = await context.params;
 
     await Blog.findByIdAndDelete(id);
+
+    logAction({
+      action: "DELETE",
+      entity: "Blog",
+      entityId: id,
+      req: request,
+    });
 
     return NextResponse.json({
       success: true,

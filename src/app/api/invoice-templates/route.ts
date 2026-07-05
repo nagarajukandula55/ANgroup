@@ -7,6 +7,7 @@ import type { InvoiceLayout } from "@/core/invoiceTemplates/types";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET /api/invoice-templates?businessId=
@@ -68,6 +69,16 @@ export async function POST(req: NextRequest) {
     }
 
     const template = await saveTemplate({ businessId, layoutKey, name, isDefault, branding, text });
+
+    logAction({
+      action: "CREATE",
+      entity: "InvoiceTemplate",
+      entityId: template?._id?.toString(),
+      after: template,
+      req,
+      actor: { id: userId, businessId },
+    });
+
     return NextResponse.json({ success: true, data: template }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error";

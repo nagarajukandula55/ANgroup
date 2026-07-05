@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
+import { logAction } from '@/lib/audit/logAction'
 
 const SALT_ROUNDS = 12
 
@@ -100,6 +101,14 @@ export async function POST(req: Request) {
 
     const userObj = user.toObject()
     delete (userObj as any).password
+
+    logAction({
+      action: "CREATE",
+      entity: "User",
+      entityId: user._id?.toString(),
+      after: userObj,
+      req,
+    })
 
     return NextResponse.json({ success: true, user: userObj }, { status: 201 })
   } catch (error: any) {

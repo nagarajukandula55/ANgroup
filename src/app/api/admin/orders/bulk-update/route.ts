@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 
 import { updateOrderStatus } from "@/lib/order/update-order-status";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
   try {
@@ -44,6 +45,14 @@ export async function POST(req: Request) {
             newStatus: status,
             by,
           });
+
+        logAction({
+          action: "BULK_UPDATE",
+          entity: "Order",
+          entityId: orderId,
+          after: { status },
+          req,
+        });
 
         results.push({
           orderId,

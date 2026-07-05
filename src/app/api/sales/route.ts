@@ -4,6 +4,7 @@ import {
   createSalesInvoice,
   getAllInvoices,
 } from "@/services/sales.service";
+import { logAction } from "@/lib/audit/logAction";
 
 /* ================= CREATE INVOICE ================= */
 export async function POST(req: Request) {
@@ -13,6 +14,14 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const data = await createSalesInvoice(body);
+
+    logAction({
+      action: "CREATE",
+      entity: "SalesInvoice",
+      entityId: (data as any)?._id?.toString(),
+      after: data,
+      req,
+    });
 
     return NextResponse.json({
       success: true,

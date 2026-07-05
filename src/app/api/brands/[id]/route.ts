@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Brand from "@/models/Brand";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/brands/[id]
 export async function GET(
@@ -72,6 +73,14 @@ export async function PUT(
       return NextResponse.json({ error: "Brand not found" }, { status: 404 });
     }
 
+    logAction({
+      action: "UPDATE",
+      entity: "Brand",
+      entityId: id,
+      after: updates,
+      req,
+    });
+
     return NextResponse.json({ success: true, brand });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -108,6 +117,13 @@ export async function DELETE(
     if (!brand) {
       return NextResponse.json({ error: "Brand not found" }, { status: 404 });
     }
+
+    logAction({
+      action: "DELETE",
+      entity: "Brand",
+      entityId: id,
+      req: _req,
+    });
 
     return NextResponse.json({ success: true, message: "Brand deleted" });
   } catch (error: unknown) {

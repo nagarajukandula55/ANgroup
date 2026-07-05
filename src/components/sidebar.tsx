@@ -210,6 +210,21 @@ export default function Sidebar() {
     } catch { /* silent */ } finally { setSwitching(false); }
   }
 
+  async function exitBusiness() {
+    if (switching) return;
+    setSwitching(true);
+    try {
+      const res  = await fetch("/api/auth/exit-business", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setActiveBiz(null);
+        setUser((prev) => prev ? { ...prev, activeBusinessId: null } : prev);
+        setBizDropdown(false);
+        router.refresh();
+      }
+    } catch { /* silent */ } finally { setSwitching(false); }
+  }
+
   async function handleLogout() {
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* silent */ }
     router.push("/login");
@@ -310,8 +325,41 @@ export default function Sidebar() {
                     </button>
                   );
                 })}
+
+                {user?.isSuperAdmin && user?.activeBusinessId && (
+                  <button
+                    onClick={exitBusiness}
+                    disabled={switching}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left bg-amber-50 hover:bg-amber-100 disabled:opacity-60"
+                  >
+                    <LogOut size={12} className="shrink-0 text-amber-600" />
+                    <span className="text-xs font-medium text-amber-700">
+                      Return to Super Admin view (all businesses)
+                    </span>
+                  </button>
+                )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Persistent "currently viewing" banner — visible even when the
+            dropdown is closed, so a super admin never loses track of the
+            fact they're scoped into a single business and forgets there's
+            a way out. */}
+        {!collapsed && user?.isSuperAdmin && user?.activeBusinessId && activeBiz && (
+          <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
+            <span className="truncate text-[10px] text-amber-700">
+              Viewing as: <strong>{activeBiz.brandName || activeBiz.name}</strong>
+            </span>
+            <button
+              onClick={exitBusiness}
+              disabled={switching}
+              title="Return to Super Admin view"
+              className="shrink-0 text-[10px] font-medium text-amber-700 underline hover:text-amber-900 disabled:opacity-60"
+            >
+              Exit
+            </button>
           </div>
         )}
 

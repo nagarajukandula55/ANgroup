@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Unit from "@/models/Unit";
+import { logAction } from "@/lib/audit/logAction";
 
 // GET /api/masters/units/[id]
 export async function GET(
@@ -75,6 +76,14 @@ export async function PUT(
 
     await unit.save();
 
+    logAction({
+      action: "UPDATE",
+      entity: "Unit",
+      entityId: id,
+      after: unit,
+      req,
+    });
+
     return NextResponse.json({ success: true, data: unit });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -84,7 +93,7 @@ export async function PUT(
 
 // DELETE /api/masters/units/[id]
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -106,6 +115,13 @@ export async function DELETE(
     unit.isDeleted = true;
     unit.isActive = false;
     await unit.save();
+
+    logAction({
+      action: "DELETE",
+      entity: "Unit",
+      entityId: id,
+      req,
+    });
 
     return NextResponse.json({ success: true, message: "Unit deleted successfully" });
   } catch (error: unknown) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { logAction } from "@/lib/audit/logAction";
 
 async function getModels() {
   const User = mongoose.models.User || (await import('@/models/User')).default;
@@ -128,6 +129,14 @@ export async function PUT(
     const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
     const roles = userRoles.map((ur: Record<string, unknown>) => ur.roleId);
 
+    logAction({
+      action: "UPDATE",
+      entity: "User",
+      entityId: id,
+      after: updateData,
+      req: request,
+    });
+
     return NextResponse.json({ user: { ...user.toObject(), roles } });
   } catch (error) {
     console.error('PUT /api/admin/users/[id] error:', error);
@@ -157,6 +166,13 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    logAction({
+      action: "DELETE",
+      entity: "User",
+      entityId: id,
+      req: request,
+    });
 
     return NextResponse.json({ message: 'User deleted successfully', user });
   } catch (error) {

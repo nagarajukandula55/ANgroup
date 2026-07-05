@@ -4,6 +4,7 @@ import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import PurchaseOrder from "@/models/PurchaseOrder";
 import { Types } from "mongoose";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET PURCHASE ORDERS (SECURE MULTI-TENANT)
@@ -75,6 +76,15 @@ export async function POST(req: NextRequest) {
       expectedDate,
       status: "DRAFT",
       createdBy: session.user.id,
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "PurchaseOrder",
+      entityId: order?._id?.toString(),
+      after: order,
+      req,
+      actor: { businessId: session.business.businessId?.toString() },
     });
 
     return NextResponse.json({

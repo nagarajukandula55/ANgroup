@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import Agreement, { ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
+import { logAction } from "@/lib/audit/logAction";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -106,6 +107,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const updatedAgreement = await Agreement.findById(id)
       .select('-signatures.otp')
       .lean();
+
+    logAction({
+      action: "SIGN",
+      entity: "Agreement",
+      entityId: id,
+      after: { partyEmail, status: agreement.status },
+      req,
+    });
 
     return NextResponse.json({
       message: allSigned

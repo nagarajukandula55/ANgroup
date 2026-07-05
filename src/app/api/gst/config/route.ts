@@ -6,6 +6,7 @@ import GstPortalConfig from "@/models/GstPortalConfig";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET /api/gst/config?businessId=
@@ -92,6 +93,16 @@ export async function PUT(req: NextRequest) {
     ).lean();
 
     const { apiKey: _k, apiSecret: _s, ...safe } = config as any;
+
+    logAction({
+      action: "UPDATE",
+      entity: "GstConfig",
+      entityId: (config as any)?._id?.toString(),
+      after: update,
+      req,
+      actor: { id: userId ?? undefined, businessId: businessId?.toString() },
+    });
+
     return NextResponse.json({
       success: true,
       data: { ...safe, apiKeySet: !!(config as any).apiKey, apiSecretSet: !!(config as any).apiSecret },

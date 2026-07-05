@@ -7,13 +7,19 @@ import StepBasicInfo from "./steps/StepBasicInfo";
 import StepCommercial from "./steps/StepCommercial";
 import StepStructure from "./steps/StepStructure";
 import StepBOM from "./steps/StepBOM";
+import StepPackaging from "./steps/StepPackaging";
+import StepCompliance from "./steps/StepCompliance";
+import StepReview from "./steps/StepReview";
+import StepSubmit from "./steps/StepSubmit";
 
 interface WizardContainerProps {
   draftId: string;
+  businessId?: string;
 }
 
 export default function WizardContainer({
   draftId,
+  businessId,
 }: WizardContainerProps) {
   const [step, setStep] = useState(1);
 
@@ -32,6 +38,7 @@ export default function WizardContainer({
         {step === 1 && (
           <StepBasicInfo
             draftId={draftId}
+            businessId={businessId}
             next={next}
           />
         )}
@@ -56,6 +63,37 @@ export default function WizardContainer({
           <StepBOM
             draftId={draftId}
             next={next}
+            back={back}
+          />
+        )}
+
+        {step === 5 && (
+          <StepPackaging
+            draftId={draftId}
+            next={next}
+            back={back}
+          />
+        )}
+
+        {step === 6 && (
+          <StepCompliance
+            draftId={draftId}
+            next={next}
+            back={back}
+          />
+        )}
+
+        {step === 7 && (
+          <StepReview
+            draftId={draftId}
+            next={next}
+            back={back}
+          />
+        )}
+
+        {step === 8 && (
+          <StepSubmit
+            draftId={draftId}
             back={back}
           />
         )}

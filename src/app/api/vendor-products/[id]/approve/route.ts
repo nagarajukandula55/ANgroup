@@ -6,6 +6,7 @@ import Product from "@/models/Product";
 import ProductVariant from "@/models/ProductVariant";
 import { generateSEO } from "@/services/seo.service";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
 
 function generateSKU(productCode: string, variantCode: string) {
   return `${productCode}-${variantCode}`.toUpperCase();
@@ -136,6 +137,15 @@ export async function POST(req: Request, context: any) {
     vendorProduct.approvedAt = new Date();
 
     await vendorProduct.save();
+
+    logAction({
+      action: "APPROVE",
+      entity: "VendorProduct",
+      entityId: vendorProduct._id?.toString(),
+      after: { product, variant },
+      req,
+      actor: { businessId: vendorProduct.businessId?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

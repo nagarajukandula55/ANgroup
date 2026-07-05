@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Agreement from '@/models/Agreement';
+import { logAction } from "@/lib/audit/logAction";
 
 const VALID_TYPES = [
   'NDA',
@@ -148,6 +149,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     notes,
     status: 'DRAFT',
     createdBy: userId,
+  });
+
+  logAction({
+    action: "CREATE",
+    entity: "Agreement",
+    entityId: agreement?._id?.toString(),
+    after: agreement,
+    req: request,
+    actor: { id: userId, businessId },
   });
 
   return NextResponse.json({ success: true, agreement }, { status: 201 });

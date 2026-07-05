@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import InventoryLot from "@/models/InventoryLot";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
  * GET /api/inventory/lots
@@ -147,6 +148,15 @@ export async function POST(req: NextRequest) {
       notes,
       createdBy: userId,
       status: "ACTIVE",
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "InventoryLot",
+      entityId: lot._id?.toString(),
+      after: lot,
+      req,
+      actor: { id: userId, businessId },
     });
 
     return NextResponse.json({ success: true, data: lot }, { status: 201 });

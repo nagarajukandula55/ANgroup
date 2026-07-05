@@ -10,6 +10,7 @@ import Business from '@/models/Business'
 // linked to any business ("vendors under which business??").
 import VendorProfile from '@/models/VendorProfile'
 import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService'
+import { logAction } from '@/lib/audit/logAction'
 
 /**
  * REMOVED: a local generateVendorId() used to live here, producing a
@@ -141,6 +142,15 @@ export async function POST(req: NextRequest) {
       },
       isApproved: false,
     })
+
+    logAction({
+      action: "CREATE",
+      entity: "VendorProfile",
+      entityId: vendorProfile._id.toString(),
+      after: { vendorId: vendorProfile.vendorId, companyName: vendorProfile.companyName },
+      req,
+      actor: { businessId: business._id.toString() },
+    });
 
     return NextResponse.json(
       {

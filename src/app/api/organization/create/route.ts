@@ -11,6 +11,7 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
    ORGANIZATION CODE GENERATOR (AN0001)
@@ -186,6 +187,15 @@ export async function POST(req: NextRequest) {
     /* =========================================================
        STEP 5: RESPONSE
     ========================================================= */
+
+    logAction({
+      action: "CREATE",
+      entity: "Organization",
+      entityId: organization?._id?.toString(),
+      after: organization,
+      req,
+      actor: { id: session.user.id, businessId: business?._id?.toString() },
+    });
 
     return NextResponse.json({
       success: true,

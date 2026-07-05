@@ -9,6 +9,7 @@ import DocumentNumberConfig, {
 // core/numbering/financialYear.ts's top comment). Now uses the canonical one.
 import { getFinancialYear } from "@/core/numbering/financialYear";
 import { DEFAULT_PREFIXES } from "@/core/numbering/types";
+import { logAction } from "@/lib/audit/logAction";
 
 /* helper: build the format preview string from config fields */
 function buildPreview(
@@ -147,6 +148,15 @@ export async function POST(req: NextRequest) {
       },
       { upsert: true, new: true }
     );
+
+    logAction({
+      action: "UPDATE",
+      entity: "DocumentNumberConfig",
+      entityId: config?._id?.toString(),
+      after: config,
+      req,
+      actor: { id: userId, businessId },
+    });
 
     return NextResponse.json({ success: true, data: config });
   } catch (error: any) {

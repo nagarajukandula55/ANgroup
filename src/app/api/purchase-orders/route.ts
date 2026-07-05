@@ -4,6 +4,7 @@ import {
   createPurchaseOrder,
   getAllPurchaseOrders,
 } from "@/services/purchaseOrder.service";
+import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +12,15 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const data = await createPurchaseOrder(body);
+
+    logAction({
+      action: "CREATE",
+      entity: "PurchaseOrder",
+      entityId: (data as any)?._id?.toString?.() ?? (data as any)?._id,
+      after: data,
+      req,
+      actor: { businessId: body?.businessId },
+    });
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
