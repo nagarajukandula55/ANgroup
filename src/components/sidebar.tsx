@@ -8,11 +8,10 @@ import {
   TrendingUp, DollarSign, Users, UserCheck, FileSignature, Share2,
   Sparkles, Plug, Shield, Bell, MessageSquare, Building2, UserCog,
   Key, UserPlus, ChevronDown, Check, LogOut, ShoppingBag,
-  Box, Hash, Truck, Activity,
+  Box, Hash, Truck, Activity, FileText,
 } from "lucide-react";
 
 const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
-
 
 interface Business { _id: string; name: string; brandName?: string; businessCode?: string }
 interface UserInfo {
@@ -24,7 +23,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   LayoutDashboard, Package, ShoppingCart, TrendingUp, DollarSign,
   Users, UserCheck, FileSignature, Share2, Sparkles,
   Plug, Shield, Bell, MessageSquare, Building2, UserCog,
-  Key, UserPlus, ShoppingBag, Box, Hash, Truck, Activity,
+  Key, UserPlus, ShoppingBag, Box, Hash, Truck, Activity, FileText,
 };
 
 interface NavItem {
@@ -106,6 +105,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "admin-sso",  label: "SSO / Auth",   route: "/admin/sso",          icon: "Key" },
       { key: "admin-status", label: "System Status", route: "/admin/system-status", icon: "Activity" },
       { key: "admin-modules", label: "Modules", route: "/admin/modules", icon: "Box" },
+      { key: "admin-document-templates", label: "Document Templates", route: "/admin/document-templates", icon: "FileText" },
     ]},
   ]},
 ];
@@ -168,9 +168,18 @@ export default function Sidebar() {
       if (data.success) {
         setUser(data.user);
         setBusinesses(data.businesses || []);
-        const found =
-          data.businesses?.find((b: Business) => b._id === data.user?.activeBusinessId) ||
-          data.businesses?.[0] || null;
+        // Super admins land in "All Businesses" (no auto-pick) unless the
+        // JWT already has a real activeBusinessId — a business must never
+        // be silently auto-selected out from under them, since that was
+        // hiding platform-wide features (Modules, cross-business reports,
+        // etc.) behind a business context nobody explicitly chose.
+        // Non-super-admin users still default to their first business,
+        // since they don't have an "all businesses" view to fall back to.
+        const found = data.user?.activeBusinessId
+          ? data.businesses?.find((b: Business) => b._id === data.user.activeBusinessId) || null
+          : data.user?.isSuperAdmin
+            ? null
+            : data.businesses?.[0] || null;
         setActiveBiz(found);
         if (found?._id) loadSidebarModules(found._id);
       }
@@ -233,8 +242,19 @@ export default function Sidebar() {
   }
 
   const moduleKeys = new Set(modules.map((m: any) => m.key));
+
+  // "Modules" (the module-DEFINITION editor) is a platform-level admin
+  // capability, not a per-business seeded module in the ui/sidebar sense —
+  // gating it behind moduleKeys would hide it until someone separately
+  // seeds an "admin-modules" entry there. Always show it for super admins
+  // instead, the same way the business-exit banner bypasses normal gating.
   const isVisible = (key: string) =>
-    moduleKeys.has(key) || (key === "admin-modules" && user?.isSuperAdmin);
+    moduleKeys.has(key) ||
+    (key === "admin-modules" && user?.isSuperAdmin) ||
+    // Document Templates is core platform config, not a per-business
+    // toggleable module (like Modules above) — always show it rather than
+    // requiring every business's module set to separately include it.
+    key === "admin-document-templates";
 
   return (
     <>
@@ -291,7 +311,7 @@ export default function Sidebar() {
             <button
               onClick={() => setBizDropdown(!bizDropdown)}
               disabled={switching}
-              title={activeBiz ? (activeBiz.brandName || activeBiz.name) : "Select Business"}
+              title={activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
               className={`flex w-full items-center rounded-lg border border-gray-200 bg-gray-50 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60 ${
                 collapsed ? "justify-center px-0" : "justify-between px-3"
               }`}
@@ -300,7 +320,7 @@ export default function Sidebar() {
                 <Building2 size={12} className="shrink-0 text-gray-400" />
                 {!collapsed && (
                   <span className="truncate text-xs font-medium text-gray-700">
-                    {activeBiz ? (activeBiz.brandName || activeBiz.name) : "Select Business"}
+                    {activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
                   </span>
                 )}
               </div>
@@ -313,6 +333,25 @@ export default function Sidebar() {
               <div className={`absolute top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden ${
                 collapsed ? "left-3 w-56" : "left-3 right-3"
               }`}>
+                {/* "All Businesses" is a first-class option for Super Admins,
+                    not just a way to exit a business you got stuck in — it
+                    always appears at the top of the list so choosing "look
+                    at everything" is as deliberate a choice as picking one
+                    specific business. */}
+                {user?.isSuperAdmin && (
+                  <button
+                    onClick={exitBusiness}
+                    disabled={switching}
+                    className="flex w-full items-center justify-between px-3 py-2.5 text-left bg-gray-50 hover:bg-gray-100 border-b border-gray-100 disabled:opacity-60"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <LogOut size={12} className="shrink-0 text-gray-500" />
+                      <span className="truncate text-xs font-medium text-gray-700">All Businesses</span>
+                    </div>
+                    {!user?.activeBusinessId && <Check size={11} className="shrink-0 text-emerald-500 ml-2" />}
+                  </button>
+                )}
+
                 {businesses.map((biz) => {
                   const isActive = biz._id === user?.activeBusinessId;
                   return (
@@ -329,19 +368,6 @@ export default function Sidebar() {
                     </button>
                   );
                 })}
-
-                {user?.isSuperAdmin && user?.activeBusinessId && (
-                  <button
-                    onClick={exitBusiness}
-                    disabled={switching}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left bg-amber-50 hover:bg-amber-100 disabled:opacity-60"
-                  >
-                    <LogOut size={12} className="shrink-0 text-amber-600" />
-                    <span className="text-xs font-medium text-amber-700">
-                      Return to Super Admin view (all businesses)
-                    </span>
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -374,7 +400,7 @@ export default function Sidebar() {
             const allItems: NavItem[] = group.items
               ? group.items
               : (group.subgroups ?? []).flatMap((sg) => sg.items);
-            const hasVisible = allItems.some((item) => moduleKeys.has(item.key));
+            const hasVisible = allItems.some((item) => isVisible(item.key));
             if (!hasVisible) return null;
 
             // Helper: render a single nav link
@@ -424,7 +450,7 @@ export default function Sidebar() {
                 {group.items && (
                   <div className="space-y-0.5">
                     {group.items
-                      .filter((item) => moduleKeys.has(item.key))
+                      .filter((item) => isVisible(item.key))
                       .map((item) => renderItem(item))}
                   </div>
                 )}
@@ -433,7 +459,7 @@ export default function Sidebar() {
                 {group.subgroups && (
                   <div className="space-y-0.5">
                     {group.subgroups.map((sg) => {
-                      const visibleSgItems = sg.items.filter((i) => moduleKeys.has(i.key));
+                      const visibleSgItems = sg.items.filter((i) => isVisible(i.key));
                       if (visibleSgItems.length === 0) return null;
                       const sgOpen = openSubgroups[sg.key] !== false;
 

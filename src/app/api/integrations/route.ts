@@ -31,6 +31,7 @@ function maskConfig(provider: string, config: IntegrationConfig): IntegrationCon
       return {
         ...c,
         smtpPass: c.smtpPass ? '***' : c.smtpPass,
+        resendApiKey: c.resendApiKey ? `...${c.resendApiKey.slice(-4)}` : c.resendApiKey,
       };
     }
     default:

@@ -13,7 +13,7 @@ interface SocialAccount {
 }
 
 interface EmailConfig {
-  provider: 'SMTP' | 'SENDGRID' | 'MAILGUN' | 'SES';
+  provider: 'SMTP' | 'SENDGRID' | 'MAILGUN' | 'SES' | 'RESEND';
   enabled: boolean;
   fromName: string;
   fromEmail: string;
@@ -24,6 +24,10 @@ interface EmailConfig {
   apiKey?: string;       // Sendgrid / Mailgun / SES key
   mailgunDomain?: string;
   sesRegion?: string;
+  // Resend — separate from `apiKey` above so a business that later
+  // switches providers doesn't silently reuse the wrong key.
+  resendApiKey?: string;
+  resendFromEmail?: string;
   configured: boolean;
 }
 
@@ -526,6 +530,8 @@ export default function IntegrationsPage() {
             apiKey: cfg.apiKey || '',
             mailgunDomain: cfg.mailgunDomain || '',
             sesRegion: cfg.sesRegion || 'us-east-1',
+            resendApiKey: cfg.resendApiKey || '',
+            resendFromEmail: cfg.resendFromEmail || '',
             configured: true,
           });
         }
@@ -1273,8 +1279,8 @@ export default function IntegrationsPage() {
               <div className="px-6 py-5 space-y-5">
                 {/* Provider choice */}
                 <Field label="Provider">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(['SMTP', 'SENDGRID', 'MAILGUN', 'SES'] as const).map((p) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {(['SMTP', 'SENDGRID', 'MAILGUN', 'SES', 'RESEND'] as const).map((p) => (
                       <button
                         key={p}
                         onClick={() => setEmailConfig((prev) => ({ ...prev, provider: p }))}
@@ -1284,7 +1290,7 @@ export default function IntegrationsPage() {
                             : 'bg-gray-800/40 border-gray-700/40 text-gray-400 hover:border-gray-600/60'
                         }`}
                       >
-                        {p === 'SMTP' ? 'SMTP' : p === 'SENDGRID' ? 'SendGrid' : p === 'MAILGUN' ? 'Mailgun' : 'AWS SES'}
+                        {p === 'SMTP' ? 'SMTP' : p === 'SENDGRID' ? 'SendGrid' : p === 'MAILGUN' ? 'Mailgun' : p === 'SES' ? 'AWS SES' : 'Resend'}
                       </button>
                     ))}
                   </div>
@@ -1351,6 +1357,18 @@ export default function IntegrationsPage() {
                     </Field>
                     <Field label="AWS Region" hint="Region where SES is configured">
                       <TextInput value={emailConfig.sesRegion || 'us-east-1'} onChange={(v) => setEmailConfig((p) => ({ ...p, sesRegion: v }))} placeholder="us-east-1" mono />
+                    </Field>
+                  </div>
+                )}
+
+                {/* Resend — used for order/invoice emails via services/email/resend.service.ts */}
+                {emailConfig.provider === 'RESEND' && (
+                  <div className="space-y-4">
+                    <Field label="Resend API Key" hint="Create at resend.com → API Keys. Falls back to the platform default key until set.">
+                      <TextInput value={emailConfig.resendApiKey || ''} onChange={(v) => setEmailConfig((p) => ({ ...p, resendApiKey: v }))} placeholder="re_xxxxxxxxxxxxxxxx" type="password" mono />
+                    </Field>
+                    <Field label="Resend From Email" hint="Must be a verified domain in Resend. Falls back to 'From Email' above if left blank.">
+                      <TextInput value={emailConfig.resendFromEmail || ''} onChange={(v) => setEmailConfig((p) => ({ ...p, resendFromEmail: v }))} placeholder="orders@yourdomain.com" type="email" mono />
                     </Field>
                   </div>
                 )}

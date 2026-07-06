@@ -103,10 +103,20 @@ function StatCard({
   );
 }
 
+interface BusinessOption { _id: string; name: string; brandName?: string }
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CouponsPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  // Was reading businessId from localStorage — a dead mechanism nothing in
+  // the app writes to anymore (the only writer, businessSwitcher.tsx, isn't
+  // wired into the app), so this page silently never loaded any coupons for
+  // anyone. Coupons are already businessId-scoped at the model/API layer
+  // (Coupon.businessId is required, unique per business) — the real gap was
+  // this page never asking which business's coupons to show/create, same
+  // bug as the vendor onboarding form had.
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [allBusinesses, setAllBusinesses] = useState<BusinessOption[]>([]);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,9 +134,21 @@ export default function CouponsPage() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        setIsSuperAdmin(!!d.isSuperAdmin);
+        setAllBusinesses(d.businesses || []);
+        const bId: string | null = d.user?.activeBusinessId || d.businesses?.[0]?._id || null;
+        setBusinessId(bId);
+      })
+      .catch(() => {});
+  }, []);
+
   // ── Fetch ────────────────────────────────────────────────────────────────
   const fetchCoupons = useCallback(async () => {
-    if (!businessId) return;
+    if (!businessId) { setLoading(false); return; }
     setLoading(true);
     try {
       const res = await fetch(`/api/coupons?businessId=${businessId}`);
@@ -171,6 +193,12 @@ export default function CouponsPage() {
     setEditTarget(null);
     setForm(EMPTY_FORM);
     setFormError("");
+    // Super admins in "All Businesses" view have no businessId selected —
+    // default the modal's target business to the first available one so
+    // the create button isn't silently broken; they can still switch it.
+    if (!businessId && allBusinesses.length > 0) {
+      setBusinessId(allBusinesses[0]._id);
+    }
     setShowModal(true);
   }
 
@@ -194,6 +222,7 @@ export default function CouponsPage() {
 
   // ── Save (create / update) ───────────────────────────────────────────────
   async function handleSave() {
+    if (!businessId) { setFormError("Select which business this coupon belongs to."); return; }
     if (!form.code.trim()) { setFormError("Coupon code is required."); return; }
     if (!form.discountValue) { setFormError("Discount value is required."); return; }
 
@@ -484,6 +513,25 @@ export default function CouponsPage() {
               {formError && (
                 <div className="px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
                   {formError}
+                </div>
+              )}
+
+              {/* Business (super admin only — a specific business's page always has one) */}
+              {isSuperAdmin && allBusinesses.length > 0 && (
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Business *</label>
+                  <select
+                    value={businessId ?? ""}
+                    onChange={(e) => setBusinessId(e.target.value || null)}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
+                  >
+                    <option value="" disabled>Select a business…</option>
+                    {allBusinesses.map((b) => (
+                      <option key={b._id} value={b._id}>
+                        {b.brandName || b.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 

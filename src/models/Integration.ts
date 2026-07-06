@@ -22,7 +22,15 @@ export interface SlackConfig {
   notificationTriggers: string[];
 }
 
+export type EmailProviderKind = 'SMTP' | 'SENDGRID' | 'MAILGUN' | 'SES' | 'RESEND';
+
 export interface EmailConfig {
+  /** Which of the below sub-configs is active for this business. Named to
+   * match the admin/integrations page's EmailConfig.provider field (the
+   * whole object is saved as-is into this Mixed config), not a separate
+   * name — avoids a UI/model naming mismatch. Defaults to 'SMTP' for older
+   * saved configs that predate this field. */
+  provider?: EmailProviderKind;
   smtpHost: string;
   smtpPort: number;
   smtpUser: string;
@@ -31,6 +39,11 @@ export interface EmailConfig {
   fromName: string;
   recipients: string[];
   notificationTriggers: string[];
+  /** Resend-specific — used when emailProvider === 'RESEND'. Falls back to
+   * process.env.RESEND_API_KEY / RESEND_FROM (the previous global-only
+   * behavior) when a business hasn't configured its own key yet. */
+  resendApiKey?: string;
+  resendFromEmail?: string;
 }
 
 export type IntegrationConfig =
