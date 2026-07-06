@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { connectDB } from '@/lib/mongodb'
-import VendorProfile from '@/models/VendorProfile'
 import SalesInvoice from '@/models/SalesInvoice'
 import Payment from '@/models/Payment'
+import { resolveVendorContext } from '@/lib/auth/vendorContext'
 
 
 
@@ -29,13 +29,16 @@ export async function GET(req: NextRequest) {
 
     await connectDB()
 
-    const vendor = await VendorProfile.findOne({ userId }).lean()
-    if (!vendor) {
+    // Recognizes both the vendor owner and vendor staff — see
+    // lib/auth/vendorContext.ts.
+    const ctx = await resolveVendorContext(userId)
+    if (!ctx) {
       return NextResponse.json(
         { success: false, message: 'Vendor profile not found' },
         { status: 404 }
       )
     }
+    const vendor = ctx.vendor
 
     const { searchParams } = new URL(req.url)
     const fromStr = searchParams.get('from')

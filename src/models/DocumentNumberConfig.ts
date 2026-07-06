@@ -22,7 +22,16 @@ export type { DocumentType };
  * DOCUMENT
  * =======================================================*/
 export interface IDocumentNumberConfig extends Document {
-  businessId: string;
+  // Optional — null means this is an AN-Group-wide (platform-level) numbering
+  // config rather than one belonging to a single business. Some document
+  // types (e.g. AGREEMENT, BUSINESS, VENDOR_REQUEST) are numbered across the
+  // whole platform, not per-tenant, so there needs to be a way to save a
+  // format config that isn't scoped to any businessId at all. Mirrors the
+  // same null-businessId pattern used by Integration and VendorProfile. The
+  // API layer accepts a literal 'AN_GROUP' sentinel string (since headers/
+  // query params can't cleanly carry a real null) and translates it to
+  // businessId: null before hitting this model.
+  businessId: string | null;
   documentType: DocumentType;
 
   // Format building blocks
@@ -51,7 +60,7 @@ export interface IDocumentNumberConfig extends Document {
  * =======================================================*/
 const DocumentNumberConfigSchema = new Schema<IDocumentNumberConfig>(
   {
-    businessId: { type: String, required: true, index: true },
+    businessId: { type: String, default: null, index: true },
     documentType: {
       type: String,
       enum: DOCUMENT_TYPES,

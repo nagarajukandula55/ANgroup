@@ -5,6 +5,7 @@ import VendorProfile from "@/models/VendorProfile";
 import VendorPayoutAccount from "@/models/VendorPayoutAccount";
 import { createLinkedAccount } from "@/core/payouts/razorpayRoute";
 import { logAction } from "@/lib/audit/logAction";
+import { resolveVendorContext } from "@/lib/auth/vendorContext";
 
 /* =========================================================
  * GET /api/vendor/payout-account
@@ -19,10 +20,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const vendor = await VendorProfile.findOne({ userId, isDeleted: false }).lean();
-    if (!vendor) {
+    // View access extends to vendor staff too (see lib/auth/vendorContext.ts)
+    // — only the actual submission of KYC/bank details below stays
+    // owner-only, since that's sensitive enough to restrict to the account
+    // the vendor login itself belongs to.
+    const ctx = await resolveVendorContext(userId);
+    if (!ctx) {
       return NextResponse.json({ success: false, error: "No vendor profile for this user" }, { status: 404 });
     }
+    const vendor = ctx.vendor;
 
     const account = await VendorPayoutAccount.findOne({ vendorId: (vendor as any)._id }).lean();
     return NextResponse.json({ success: true, account: account || null });

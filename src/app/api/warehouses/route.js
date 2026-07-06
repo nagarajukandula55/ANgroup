@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import Warehouse from "@/models/Warehouse";
-import VendorProfile from "@/models/VendorProfile";
+import { resolveVendorContext } from "@/lib/auth/vendorContext";
 
 // GET /api/warehouses — previously returned EVERY warehouse across every
 // business/vendor with no scoping at all. Now scoped:
@@ -23,12 +23,12 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const query = {};
 
-    const callerVendorProfile = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
-    if (callerVendorProfile) {
-      // A vendor-side caller (owner or staff, once vendor staff exist) is
-      // always locked to their own vendor's warehouses — they should never
-      // see another vendor's or the business's own warehouses.
-      query.vendorId = callerVendorProfile._id;
+    // A vendor-side caller (owner OR staff — see lib/auth/vendorContext.ts)
+    // is always locked to their own vendor's warehouses — they should
+    // never see another vendor's or the business's own warehouses.
+    const callerVendorCtx = await resolveVendorContext(userId);
+    if (callerVendorCtx) {
+      query.vendorId = callerVendorCtx.vendor._id;
     } else {
       const activeBusinessId = h.get("x-active-business-id");
       if (activeBusinessId) query.businessId = activeBusinessId;
@@ -67,10 +67,10 @@ export async function POST(req) {
     // If the caller is a vendor, force the warehouse under their own
     // vendorId regardless of what the request body says — a vendor cannot
     // create a warehouse for the business or for another vendor.
-    const callerVendorProfile = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
-    if (callerVendorProfile) {
-      body.vendorId = callerVendorProfile._id;
-      body.businessId = callerVendorProfile.businessId;
+    const callerVendorCtx = await resolveVendorContext(userId);
+    if (callerVendorCtx) {
+      body.vendorId = callerVendorCtx.vendor._id;
+      body.businessId = callerVendorCtx.vendor.businessId;
     }
 
     const warehouse = await Warehouse.create(body);

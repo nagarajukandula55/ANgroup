@@ -113,6 +113,15 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
 
   const canReview = REVIEWABLE_STATUSES.includes(vendor.status || "PENDING");
   const canFinalize = vendor.status === "AGREEMENT_SIGNED";
+  // Previously any vendor whose agreement got cancelled (DELETE
+  // /api/agreements/[id], which now sets status to AGREEMENT_CANCELLED —
+  // see that route's comment) had NO visible action here: canReview only
+  // covers APPLIED/PENDING and canFinalize only covers AGREEMENT_SIGNED,
+  // so the modal rendered no buttons at all for this state — a dead end.
+  // "Restart Review" sends the vendor back to PENDING so admin can
+  // re-approve and generate a fresh agreement.
+  const canRestartReview = vendor.status === "AGREEMENT_CANCELLED";
+  const [restarting, setRestarting] = useState(false);
   const needsBusinessAssignment = !vendor.businessId;
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeResult, setFinalizeResult] = useState<{ email: string; temporaryPassword: string | null } | null>(null);
@@ -323,6 +332,25 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
     }
   }
 
+  async function handleRestartReview() {
+    setRestarting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/vendors/${vendor._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PENDING" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed to restart review");
+      onUpdated({ status: "PENDING" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setRestarting(false);
+    }
+  }
+
   const rowCls = "flex justify-between py-2 border-b border-gray-100 last:border-0";
   const labelCls = "text-xs text-gray-400";
   const valueCls = "text-sm text-gray-900 font-medium";
@@ -356,6 +384,12 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
           {vendor.status === "REJECTED" && vendor.rejectionReason && (
             <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               <strong>Rejected:</strong> {vendor.rejectionReason}
+            </div>
+          )}
+
+          {vendor.status === "AGREEMENT_CANCELLED" && (
+            <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <strong>Agreement cancelled.</strong> The agreement sent to this vendor was cancelled before signing. Use &quot;Restart Review&quot; below to send them back through approval and generate a fresh agreement.
             </div>
           )}
 
@@ -592,6 +626,19 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
               className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
             >
               Close
+            </button>
+          </div>
+        )}
+
+        {canRestartReview && (
+          <div className="px-6 py-4 border-t border-gray-100">
+            <button
+              onClick={handleRestartReview}
+              disabled={restarting}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition disabled:opacity-50"
+            >
+              {restarting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              Restart Review
             </button>
           </div>
         )}

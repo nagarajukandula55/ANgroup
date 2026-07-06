@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { connectDB } from '@/lib/mongodb'
-import VendorProfile from '@/models/VendorProfile'
 import SalesInvoice from '@/models/SalesInvoice'
 import Order from '@/models/Order'
+import { resolveVendorContext } from '@/lib/auth/vendorContext'
 
 
 export async function GET() {
@@ -28,14 +28,17 @@ export async function GET() {
 
     await connectDB()
 
-    const vendor = await VendorProfile.findOne({ userId }).lean() as any
-
-    if (!vendor) {
+    // Recognizes both the vendor owner and vendor staff — see
+    // lib/auth/vendorContext.ts for why this replaced a direct
+    // VendorProfile.findOne({userId}) lookup.
+    const ctx = await resolveVendorContext(userId)
+    if (!ctx) {
       return NextResponse.json(
         { success: false, message: 'Vendor profile not found' },
         { status: 404 }
       )
     }
+    const vendor = ctx.vendor as any
 
     // Orders are routed per cart line (cart.vendorId); invoices carry vendorId
     const orderFilter = { 'cart.vendorId': String(vendor._id) }

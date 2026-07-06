@@ -5,8 +5,8 @@ import { connectDB } from '@/lib/mongodb'
 // minimal inline VendorProfile and Order schemas — whichever module loaded
 // first won mongoose's model registry, silently breaking vendor scoping and
 // the real Order pipeline everywhere else in the app.
-import VendorProfile from '@/models/VendorProfile'
 import Order from '@/models/Order'
+import { resolveVendorContext } from '@/lib/auth/vendorContext'
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,13 +30,18 @@ export async function GET(req: NextRequest) {
 
     await connectDB()
 
-    const vendor = await VendorProfile.findOne({ userId, isDeleted: false }).lean()
-    if (!vendor) {
+    // Recognizes both the vendor owner and vendor staff (a BusinessMember
+    // with vendorId set) — previously only the owner's own login could
+    // ever see vendor-scoped data here; staff added via /api/vendor/staff
+    // or /api/admin/vendor-staff got 404'd on every vendor endpoint.
+    const ctx = await resolveVendorContext(userId)
+    if (!ctx) {
       return NextResponse.json(
         { success: false, message: 'Vendor profile not found' },
         { status: 404 }
       )
     }
+    const vendor = ctx.vendor
 
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))

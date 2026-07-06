@@ -3,39 +3,14 @@ import { headers } from 'next/headers'
 import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { logAction } from "@/lib/audit/logAction";
-
-const VendorProfileSchema = new mongoose.Schema(
-  {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
-    vendorId: { type: String, unique: true, sparse: true },
-    companyName: { type: String, trim: true },
-    contactPerson: { type: String, trim: true },
-    email: { type: String, trim: true, lowercase: true },
-    phone: { type: String, trim: true },
-    gstNumber: { type: String, trim: true, uppercase: true },
-    panNumber: { type: String, trim: true, uppercase: true },
-    category: { type: String },
-    address: {
-      street: { type: String },
-      city: { type: String },
-      state: { type: String },
-      pincode: { type: String },
-    },
-    bankDetails: {
-      accountName: { type: String },
-      accountNumber: { type: String },
-      ifscCode: { type: String, uppercase: true },
-      bankName: { type: String },
-    },
-    isApproved: { type: Boolean, default: false },
-    rating: { type: Number, default: 0, min: 0, max: 5 },
-  },
-  { timestamps: true }
-)
-
-const VendorProfile =
-  mongoose.models.VendorProfile ||
-  mongoose.model('VendorProfile', VendorProfileSchema)
+// Was a locally-declared, duplicate, much-thinner VendorProfile schema —
+// whichever module loaded first won mongoose's model registry, so this
+// route could silently be reading/writing through a schema that dropped
+// fields the canonical model has (agreementId, status, businessId, etc.),
+// same class of bug already fixed in vendor/orders/route.ts. Now uses the
+// real model, and recognizes vendor staff via resolveVendorContext too.
+import VendorProfile from '@/models/VendorProfile'
+import { resolveVendorContext } from '@/lib/auth/vendorContext'
 
 export async function GET() {
   try {
@@ -59,16 +34,17 @@ export async function GET() {
 
     await connectDB()
 
-    const profile = await VendorProfile.findOne({ userId }).lean()
+    // View access extends to vendor staff too — see lib/auth/vendorContext.ts.
+    const ctx = await resolveVendorContext(userId)
 
-    if (!profile) {
+    if (!ctx) {
       return NextResponse.json(
         { success: false, message: 'Vendor profile not found' },
         { status: 404 }
       )
     }
 
-    return NextResponse.json({ success: true, data: profile })
+    return NextResponse.json({ success: true, data: ctx.vendor })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message },

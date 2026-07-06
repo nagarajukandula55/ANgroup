@@ -981,6 +981,12 @@ export default function DocumentNumbersPage() {
               className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
             >
               <option value="" disabled>Select a business…</option>
+              {/* Platform-level configs (businessId: null) — for document
+                  types like Agreement Number or Business Code that are
+                  numbered across all of AN Group, not per-tenant. Only
+                  visible to Super Admins, same pattern as the Integrations
+                  page's "AN Group (Platform)" option. */}
+              <option value="AN_GROUP">— AN Group (Platform) —</option>
               {allBusinesses.map((b) => (
                 <option key={b._id} value={b._id}>{b.brandName || b.name}</option>
               ))}
@@ -1010,6 +1016,7 @@ export default function DocumentNumbersPage() {
               onChange={(e) => e.target.value && handleSelectBusiness(e.target.value)}
               className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
             >
+              <option value="AN_GROUP">— AN Group (Platform) —</option>
               {allBusinesses.map((b) => (
                 <option key={b._id} value={b._id}>{b.brandName || b.name}</option>
               ))}

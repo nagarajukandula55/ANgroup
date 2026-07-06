@@ -2,17 +2,18 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import Warehouse from "@/models/Warehouse";
-import VendorProfile from "@/models/VendorProfile";
+import { resolveVendorContext } from "@/lib/auth/vendorContext";
 
-/** A vendor caller may only touch their own warehouse. Business staff/admin
- * are not restricted here (broader business-level auth already gates access
- * to this route at all) — this only exists to stop vendor A from editing
- * vendor B's warehouse, or a business's own, via a guessed/known ID. */
+/** A vendor caller (owner OR staff — see lib/auth/vendorContext.ts) may
+ * only touch their own warehouse. Business staff/admin are not restricted
+ * here (broader business-level auth already gates access to this route at
+ * all) — this only exists to stop vendor A from editing vendor B's
+ * warehouse, or a business's own, via a guessed/known ID. */
 async function assertVendorOwnsWarehouseOrNotVendor(userId, warehouse) {
   if (!warehouse) return true;
-  const callerVendorProfile = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
-  if (!callerVendorProfile) return true; // not a vendor caller — no extra restriction here
-  return String(warehouse.vendorId || "") === String(callerVendorProfile._id);
+  const callerVendorCtx = await resolveVendorContext(userId);
+  if (!callerVendorCtx) return true; // not a vendor caller — no extra restriction here
+  return String(warehouse.vendorId || "") === String(callerVendorCtx.vendor._id);
 }
 
 export async function GET(req, { params }) {
@@ -61,8 +62,8 @@ export async function PUT(req, { params }) {
     const body = await req.json();
     // A vendor caller cannot reassign their warehouse to a different
     // vendor/business via this endpoint.
-    const callerVendorProfile = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
-    if (callerVendorProfile) {
+    const callerVendorCtx = await resolveVendorContext(userId);
+    if (callerVendorCtx) {
       delete body.vendorId;
       delete body.businessId;
     }

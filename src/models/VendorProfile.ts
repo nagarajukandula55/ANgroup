@@ -18,6 +18,19 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
  *                     dispatched, via POST /api/agreements/[id]/send —
  *                     THIS is what sets AGREEMENT_SENT now, not approval.
  *  AGREEMENT_SIGNED — vendor signed the agreement (verified via Agreement)
+ *  AGREEMENT_CANCELLED — the agreement tied to this vendor (via
+ *                      agreementId) was cancelled from the Agreements page
+ *                      (DELETE /api/agreements/[id]) before it reached
+ *                      FULLY_SIGNED. Previously cancelling an agreement
+ *                      only updated the Agreement document itself — the
+ *                      vendor's own status kept reading AGREEMENT_SENT
+ *                      forever, and VendorDetailModal had no action button
+ *                      for any post-AGREEMENT_DRAFTED state, so the vendor
+ *                      was stuck with no way to re-send or restart review.
+ *                      This status makes the cancellation visible on the
+ *                      vendor record itself and is the trigger for
+ *                      VendorDetailModal to show a "Restart Review" /
+ *                      "Re-send Agreement" action.
  *  APPROVED         — admin gave final approval; vendor ID + login issued
  *  ACTIVE           — vendor is live (can manage warehouse/products/orders)
  *  INACTIVE / REJECTED / SUSPENDED — terminal / paused states
@@ -28,6 +41,7 @@ export type VendorStatus =
   | 'AGREEMENT_DRAFTED'
   | 'AGREEMENT_SENT'
   | 'AGREEMENT_SIGNED'
+  | 'AGREEMENT_CANCELLED'
   | 'APPROVED'
   | 'ACTIVE'
   | 'INACTIVE'
@@ -178,7 +192,7 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     status: {
       type:    String,
       enum:    ['APPLIED', 'PENDING', 'AGREEMENT_DRAFTED', 'AGREEMENT_SENT', 'AGREEMENT_SIGNED',
-                'APPROVED', 'ACTIVE', 'INACTIVE', 'REJECTED', 'SUSPENDED'],
+                'AGREEMENT_CANCELLED', 'APPROVED', 'ACTIVE', 'INACTIVE', 'REJECTED', 'SUSPENDED'],
       default: 'PENDING',
       index:   true,
     },
