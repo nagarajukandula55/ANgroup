@@ -16,8 +16,10 @@ type RouteContext = { params: Promise<{ id: string }> };
  *
  * Step 2 of vendor onboarding: admin reviews the application.
  *  - APPROVE → a VENDOR partner agreement is generated (parties: business +
- *    vendor) and the vendor moves to AGREEMENT_SENT. The admin then sends it
- *    for OTP signing from the Agreements screen (existing flow).
+ *    vendor) and the vendor moves to AGREEMENT_DRAFTED. The admin then sends
+ *    it for OTP signing from the Agreements screen (existing flow), which is
+ *    what actually moves the vendor to AGREEMENT_SENT (see
+ *    /api/agreements/[id]/send).
  *  - REJECT  → status REJECTED with a reason.
  */
 export async function POST(req: NextRequest, context: RouteContext) {
@@ -162,7 +164,13 @@ By signing below, both parties agree to the terms above.`;
       status: "DRAFT",
     });
 
-    vendor.status = "AGREEMENT_SENT";
+    // Interim status: the Agreement doc now exists but hasn't been sent
+    // for signing yet — that transition (and the real AGREEMENT_SENT
+    // status) happens in POST /api/agreements/[id]/send. See
+    // VendorProfile.ts's VendorStatus doc comment for the full rationale
+    // (this used to jump straight to AGREEMENT_SENT here, which was
+    // inaccurate whenever the admin approved but hadn't sent yet).
+    vendor.status = "AGREEMENT_DRAFTED";
     vendor.agreementId = agreement._id;
     vendor.reviewedBy = userId as any;
     vendor.reviewedAt = new Date();

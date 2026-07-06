@@ -4,8 +4,19 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
  * Vendor onboarding lifecycle:
  *  APPLIED          — vendor submitted the public application form
  *  PENDING          — created directly by admin (legacy default)
- *  AGREEMENT_SENT   — admin reviewed & approved application; partner
- *                     agreement triggered for signing
+ *  AGREEMENT_DRAFTED — admin reviewed & approved application; a partner
+ *                      Agreement document was generated, but NOT yet sent
+ *                      to the vendor for signing. Distinct from
+ *                      AGREEMENT_SENT below — previously this codebase set
+ *                      vendor.status = AGREEMENT_SENT at the moment the
+ *                      Agreement doc was merely CREATED (in
+ *                      review/route.ts), which meant the admin UI would
+ *                      claim an agreement was "sent" even if nobody had
+ *                      clicked Send yet. This status is the real interim
+ *                      state between approval and an actual send action.
+ *  AGREEMENT_SENT   — the signing invitation (OTP link) was actually
+ *                     dispatched, via POST /api/agreements/[id]/send —
+ *                     THIS is what sets AGREEMENT_SENT now, not approval.
  *  AGREEMENT_SIGNED — vendor signed the agreement (verified via Agreement)
  *  APPROVED         — admin gave final approval; vendor ID + login issued
  *  ACTIVE           — vendor is live (can manage warehouse/products/orders)
@@ -14,6 +25,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export type VendorStatus =
   | 'APPLIED'
   | 'PENDING'
+  | 'AGREEMENT_DRAFTED'
   | 'AGREEMENT_SENT'
   | 'AGREEMENT_SIGNED'
   | 'APPROVED'
@@ -165,7 +177,7 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     rating:       { type: Number, min: 0, max: 5, default: 0 },
     status: {
       type:    String,
-      enum:    ['APPLIED', 'PENDING', 'AGREEMENT_SENT', 'AGREEMENT_SIGNED',
+      enum:    ['APPLIED', 'PENDING', 'AGREEMENT_DRAFTED', 'AGREEMENT_SENT', 'AGREEMENT_SIGNED',
                 'APPROVED', 'ACTIVE', 'INACTIVE', 'REJECTED', 'SUSPENDED'],
       default: 'PENDING',
       index:   true,

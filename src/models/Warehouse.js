@@ -7,6 +7,18 @@ const WarehouseSchema = new mongoose.Schema(
       ref: "Business",
     },
 
+    // Optional — a warehouse is either owned directly by a business, OR by
+    // one specific vendor operating under that business (hierarchy: AN
+    // Group > Businesses > Vendors > Warehouses > Staff). When set, this
+    // warehouse belongs to the vendor's own operation and should only be
+    // visible/manageable from that vendor's portal, not the business's
+    // general warehouse list.
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VendorProfile",
+      default: null,
+    },
+
     warehouseCode: {
       type: String,
       required: true,

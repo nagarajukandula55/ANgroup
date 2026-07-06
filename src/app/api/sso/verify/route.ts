@@ -54,6 +54,7 @@ export async function POST(req: Request) {
         id: payload.userId,
         email: payload.email,
         name: payload.name,
+        username: payload.username || null,
         role: payload.role,
         isSuperAdmin: payload.isSuperAdmin,
         avatar: user.avatar || null,
@@ -61,6 +62,12 @@ export async function POST(req: Request) {
         businessIds: payload.businessIds || [],
         activeBusinessId: payload.activeBusinessId || null,
         memberType: payload.memberType || null,
+        // Vendor-staff scoping — lets a consuming app (e.g. the native
+        // frontend) know this user is staff for a specific vendor, with
+        // what role, not just a generic business member. See
+        // /api/vendor/staff and /api/admin/vendor-staff for how this gets
+        // assigned via the user's username ("vendor code").
+        vendorMemberships: payload.vendorMemberships || [],
       },
       permissions: payload.permissions,
       issuer: payload.issuer,

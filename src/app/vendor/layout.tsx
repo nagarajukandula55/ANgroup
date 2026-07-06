@@ -10,12 +10,20 @@ import {
   BarChart3,
   Building2,
   Wallet,
+  Warehouse,
+  Users,
 } from 'lucide-react'
 
+// NOTE: Bill of Materials is intentionally NOT a top-level nav item — BOM
+// is per-product (see /vendor/products/[id]/bom, already built and wired
+// from each product's own detail page), not a flat vendor-wide list, so it
+// belongs inside "My Products" rather than getting its own nav entry.
 const navItems = [
   { href: '/vendor', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/vendor/products', label: 'My Products', icon: Package },
   { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart },
+  { href: '/vendor/warehouses', label: 'Warehouses', icon: Warehouse },
+  { href: '/vendor/staff', label: 'Staff', icon: Users },
   { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText },
   { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet },
   { href: '/vendor/profile', label: 'My Profile', icon: User },

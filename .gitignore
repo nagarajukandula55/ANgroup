@@ -28,3 +28,7 @@ Thumbs.db
 
 # Vercel
 .vercel
+
+# Scratch files generated to help paste CFA-blocked source past Windows
+# Controlled Folder Access — not real source, never meant to be committed.
+_manual_sync/

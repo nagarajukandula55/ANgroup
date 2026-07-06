@@ -55,12 +55,20 @@ export async function POST(req: Request) {
      * front-ends, vendor portals) needs to know which businesses this
      * user belongs to. Vendors get their vendor-business memberships,
      * staff get theirs, super admins are flagged and can access all.
+     *
+     * Also surfaces vendor-staff memberships specifically (vendorId +
+     * vendorRole) — part of the "every user signs up with plain customer
+     * access, then a vendor or super admin assigns them a vendor code to
+     * become that vendor's staff" flow. Consuming apps (including the
+     * separate native frontend this SSO exists for) need this to know a
+     * logged-in user is staff for a specific vendor, not just a generic
+     * business member.
      */
     const memberships = (await BusinessMember.find({
       userId: user._id,
       status: "ACTIVE",
     })
-      .select("businessId memberType")
+      .select("businessId memberType vendorId vendorRole")
       .lean()) as any[];
 
     const businessIds = memberships.map((m) => String(m.businessId));
@@ -73,11 +81,15 @@ export async function POST(req: Request) {
     const activeMembership = memberships.find(
       (m) => String(m.businessId) === activeBusinessId
     );
+    const vendorMemberships = memberships
+      .filter((m) => m.vendorId)
+      .map((m) => ({ vendorId: String(m.vendorId), vendorRole: m.vendorRole || null, memberType: m.memberType }));
 
     const ssoToken = signSSOToken({
       userId: user._id.toString(),
       email: user.email,
       name: user.name,
+      username: user.username || null,
       role: user.role,
       isSuperAdmin: user.role === "SUPER_ADMIN",
       permissions: requestedScopes,
@@ -85,6 +97,7 @@ export async function POST(req: Request) {
       businessIds,
       activeBusinessId,
       memberType: activeMembership?.memberType,
+      vendorMemberships,
     });
 
     return NextResponse.json({
@@ -97,10 +110,12 @@ export async function POST(req: Request) {
         id: user._id.toString(),
         email: user.email,
         name: user.name,
+        username: user.username || null,
         role: user.role,
         avatar: user.avatar || null,
         businessIds,
         activeBusinessId: activeBusinessId || null,
+        vendorMemberships,
       },
       verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL || ""}/api/sso/verify`,
     });

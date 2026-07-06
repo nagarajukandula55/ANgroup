@@ -11,11 +11,19 @@
  * This wires into the ALREADY-BUILT (but previously unused by any UI)
  * review flow: POST /api/vendors/[id]/review with
  * { action: "APPROVE" | "REJECT", reason? } — APPROVE generates a partner
- * Agreement and moves status to AGREEMENT_SENT; REJECT records a reason
- * and moves status to REJECTED. Final activation (status -> ACTIVE) only
- * happens later via /api/vendors/[id]/finalize, once the agreement is
- * signed — that's a separate, already-existing flow (Agreements screen)
- * and deliberately NOT triggered from this popup.
+ * Agreement and moves status to AGREEMENT_DRAFTED (the agreement exists
+ * but hasn't been sent for signing yet); REJECT records a reason and moves
+ * status to REJECTED. The actual AGREEMENT_SENT transition happens when an
+ * admin sends the agreement from the Agreements screen (POST
+ * /api/agreements/[id]/send).
+ *
+ * Once the vendor has signed (status AGREEMENT_SIGNED), this modal now also
+ * exposes a "Final Approve & Create Login" action wired to the
+ * already-built (but, until now, never called from any UI) POST
+ * /api/vendors/[id]/finalize — this is what actually creates the vendor's
+ * User login and moves them to ACTIVE. Previously that endpoint existed
+ * with no button anywhere to trigger it, so no vendor could ever actually
+ * receive login access after signing.
  */
 import { useState, useEffect } from "react";
 import { X, Loader2, FileText, Upload, CheckCircle, XCircle, Building2 } from "lucide-react";
@@ -51,6 +59,10 @@ export interface VendorDetailData {
     passbookUploadedAt?: string;
     gstCertificateUrl?: string;
     gstCertificateUploadedAt?: string;
+    // `label` is only set for admin-added ad-hoc docs (via "Add another
+    // document" below) so the modal can re-render a human-readable name
+    // for the field without having to lossily decode it from the key.
+    compliance?: Record<string, { url?: string; uploadedAt?: string; number?: string; label?: string }>;
   };
   rejectionReason?: string;
   notes?: string;
@@ -76,24 +88,80 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
   const [error, setError] = useState<string | null>(null);
   const [showRejectBox, setShowRejectBox] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [uploadingField, setUploadingField] = useState<"passbookUrl" | "gstCertificateUrl" | null>(null);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [documents, setDocuments] = useState(vendor.documents || {});
+  // Admin can attach documents beyond the two fixed slots (GST cert, bank
+  // passbook) — MSME certificate is common enough to always show; anything
+  // else goes through "Add another document" with a free-text label, both
+  // landing in the same open `documents.compliance` map the public
+  // vendor-apply form already writes industry-specific docs into (see
+  // core/vendorCompliance.ts). Previously this modal had NO way to touch
+  // that map at all — admins reviewing a submitted application had no
+  // upload button beyond the two hardcoded fields, even though vendors
+  // are commonly asked for MSME registration and other ad-hoc paperwork
+  // during review.
+  const [extraDocs, setExtraDocs] = useState<{ key: string; label: string }[]>(() =>
+    Object.entries(vendor.documents?.compliance || {})
+      .filter(([k]) => k !== "msme_certificate")
+      .map(([k, v]) => ({ key: k, label: v?.label || k.replace(/_/g, " ") }))
+  );
+  const [newDocLabel, setNewDocLabel] = useState("");
   // A general (business-agnostic) signup request arrives with no
   // businessId — the admin must pick one here before it can be approved.
   const [assignBusinessId, setAssignBusinessId] = useState("");
   const [businessOptions, setBusinessOptions] = useState<{ _id: string; name: string; brandName?: string }[]>([]);
 
   const canReview = REVIEWABLE_STATUSES.includes(vendor.status || "PENDING");
+  const canFinalize = vendor.status === "AGREEMENT_SIGNED";
   const needsBusinessAssignment = !vendor.businessId;
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeResult, setFinalizeResult] = useState<{ email: string; temporaryPassword: string | null } | null>(null);
+
+  // Only a super admin can add staff to ANY vendor from this admin-side
+  // modal (see /api/admin/vendor-staff) — a regular admin does not get
+  // this section. Vendors add their own staff from their own portal
+  // (/vendor/staff, via /api/vendor/staff) regardless of this flag.
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [staffUsername, setStaffUsername] = useState("");
+  const [staffRole, setStaffRole] = useState("");
+  const [addingStaff, setAddingStaff] = useState(false);
+  const [staffMessage, setStaffMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!needsBusinessAssignment) return;
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((d) => setBusinessOptions(d.businesses || []))
+      .then((d) => {
+        setIsSuperAdmin(!!d.user?.isSuperAdmin);
+        if (needsBusinessAssignment) setBusinessOptions(d.businesses || []);
+      })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleAddStaff() {
+    if (!staffUsername.trim() || !staffRole.trim()) {
+      setStaffMessage("Enter both a user ID and a role");
+      return;
+    }
+    setAddingStaff(true);
+    setStaffMessage(null);
+    try {
+      const res = await fetch("/api/admin/vendor-staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: staffUsername.trim(), vendorId: vendor._id, vendorRole: staffRole.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to add staff member");
+      setStaffMessage("Staff member added.");
+      setStaffUsername("");
+      setStaffRole("");
+    } catch (err) {
+      setStaffMessage(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setAddingStaff(false);
+    }
+  }
 
   async function uploadDocument(field: "passbookUrl" | "gstCertificateUrl", file: File) {
     setUploadingField(field);
@@ -136,6 +204,66 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
     }
   }
 
+  /** Upload into documents.compliance[key] — the open map used for MSME
+   * certificate and any other ad-hoc document an admin needs to attach
+   * during review, beyond the two fixed slots above. `label` is persisted
+   * alongside the file so custom (admin-added) doc rows survive a reload
+   * with their human-readable name intact. */
+  async function uploadComplianceDocument(key: string, label: string, file: File) {
+    setUploadingField(`compliance:${key}`);
+    setError(null);
+    try {
+      const uploadForm = new FormData();
+      uploadForm.append("file", file);
+      uploadForm.append("name", `${vendor.companyName} - ${label}`);
+      uploadForm.append("category", "vendor-document");
+
+      const uploadRes = await fetch("/api/assets/upload", {
+        method: "POST",
+        body: uploadForm,
+      });
+      const uploadData = await uploadRes.json().catch(() => ({}));
+      if (!uploadRes.ok || !uploadData?.asset?.fileUrl) {
+        throw new Error(uploadData?.error || "Upload failed");
+      }
+
+      const newDocuments = {
+        ...documents,
+        compliance: {
+          ...(documents.compliance || {}),
+          [key]: {
+            ...((documents.compliance || {})[key] || {}),
+            url: uploadData.asset.fileUrl,
+            uploadedAt: new Date().toISOString(),
+            label,
+          },
+        },
+      };
+
+      const patchRes = await fetch(`/api/vendors/${vendor._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documents: newDocuments }),
+      });
+      if (!patchRes.ok) throw new Error("Failed to save document to vendor record");
+
+      setDocuments(newDocuments);
+      onUpdated({ documents: newDocuments });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload document");
+    } finally {
+      setUploadingField(null);
+    }
+  }
+
+  function addExtraDocSlot() {
+    const label = newDocLabel.trim();
+    if (!label) return;
+    const key = `custom_${label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")}_${Date.now().toString(36)}`;
+    setExtraDocs((prev) => [...prev, { key, label }]);
+    setNewDocLabel("");
+  }
+
   async function handleReview(action: "APPROVE" | "REJECT") {
     if (action === "REJECT" && !rejectReason.trim()) {
       setShowRejectBox(true);
@@ -173,6 +301,25 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleFinalize() {
+    setFinalizing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/vendors/${vendor._id}/finalize`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to finalize vendor");
+      setFinalizeResult({
+        email: data.login?.email,
+        temporaryPassword: data.login?.temporaryPassword ?? null,
+      });
+      onUpdated({ status: data.vendor?.status });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setFinalizing(false);
     }
   }
 
@@ -314,6 +461,45 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
                 uploading={uploadingField === "gstCertificateUrl"}
                 onFileSelected={(file) => uploadDocument("gstCertificateUrl", file)}
               />
+              <DocumentUploadRow
+                label="MSME Certificate"
+                hint="Udyam/MSME registration certificate"
+                fileUrl={documents.compliance?.msme_certificate?.url}
+                uploading={uploadingField === "compliance:msme_certificate"}
+                onFileSelected={(file) => uploadComplianceDocument("msme_certificate", "MSME Certificate", file)}
+              />
+              {extraDocs.map((doc) => (
+                <DocumentUploadRow
+                  key={doc.key}
+                  label={doc.label}
+                  hint="Additional document attached during review"
+                  fileUrl={documents.compliance?.[doc.key]?.url}
+                  uploading={uploadingField === `compliance:${doc.key}`}
+                  onFileSelected={(file) => uploadComplianceDocument(doc.key, doc.label, file)}
+                />
+              ))}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  value={newDocLabel}
+                  onChange={(e) => setNewDocLabel(e.target.value)}
+                  placeholder="Add another document (e.g. Trade License)…"
+                  className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addExtraDocSlot();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={addExtraDocSlot}
+                  disabled={!newDocLabel.trim()}
+                  className="px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
             </div>
           </section>
 
@@ -331,7 +517,84 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
               />
             </section>
           )}
+
+          {isSuperAdmin && vendor.status === "ACTIVE" && (
+            <section>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                Add Staff (Super Admin)
+              </h3>
+              <div className="rounded-xl border border-gray-200 px-4 py-3 space-y-2">
+                <p className="text-[10px] text-gray-400">
+                  Link any existing user to this vendor as staff, by their user ID. The vendor owner can also do this from their own portal.
+                </p>
+                {staffMessage && (
+                  <p className={`text-xs ${staffMessage === "Staff member added." ? "text-emerald-600" : "text-red-600"}`}>
+                    {staffMessage}
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={staffUsername}
+                    onChange={(e) => setStaffUsername(e.target.value)}
+                    placeholder="User ID"
+                    className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+                  />
+                  <input
+                    value={staffRole}
+                    onChange={(e) => setStaffRole(e.target.value)}
+                    placeholder="Role (e.g. Warehouse Manager)"
+                    className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddStaff}
+                  disabled={addingStaff}
+                  className="w-full py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                >
+                  {addingStaff ? "Adding…" : "Add Staff Member"}
+                </button>
+              </div>
+            </section>
+          )}
         </div>
+
+        {canFinalize && !finalizeResult && (
+          <div className="px-6 py-4 border-t border-gray-100">
+            <button
+              onClick={handleFinalize}
+              disabled={finalizing}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition disabled:opacity-50"
+            >
+              {finalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              Final Approve &amp; Create Login
+            </button>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">
+              The agreement is signed — this creates the vendor&apos;s login and activates their account.
+            </p>
+          </div>
+        )}
+
+        {finalizeResult && (
+          <div className="px-6 py-4 border-t border-gray-100 space-y-2">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              Vendor is now ACTIVE. Login: <strong>{finalizeResult.email}</strong>
+              {finalizeResult.temporaryPassword && (
+                <>
+                  <br />
+                  Temporary password (shown once — share securely):{" "}
+                  <code className="font-mono">{finalizeResult.temporaryPassword}</code>
+                </>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            >
+              Close
+            </button>
+          </div>
+        )}
 
         {canReview && (
           <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-3">
@@ -379,7 +642,7 @@ function DocumentUploadRow({
   hint: string;
   fileUrl?: string;
   uploading: boolean;
-  onFileSelected: (file: File) => void;
+  onFileSelected: (file: File) => void | Promise<void>;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">

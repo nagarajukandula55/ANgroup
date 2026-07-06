@@ -1379,6 +1379,11 @@ export default function AgreementsPage() {
   const [actionLoading, setActionLoading] = useState<boolean>(false)
   const [sendResult, setSendResult] = useState<Array<{ partyEmail: string; otp: string; signingLink: string }> | null>(null)
   const [signingParty, setSigningParty] = useState<{ name: string; email: string } | null>(null)
+  // Only a super admin may override a party's recipient email at the
+  // moment an agreement is sent (see handleSendForSigning below) — this
+  // mirrors the same guard enforced server-side in
+  // /api/agreements/[id]/send.
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   // Fetch business ID on mount
   useEffect(() => {
@@ -1387,7 +1392,12 @@ export default function AgreementsPage() {
         const res = await fetch('/api/auth/me')
         if (res.ok) {
           const data = await res.json()
-          setBusinessId(data.businessId ?? data._id ?? '')
+          // NOTE: the real shape nests these under data.user / data.businesses
+          // — {businessId, isSuperAdmin} do NOT exist at the response root.
+          // (Same bug fixed elsewhere: admin/modules, admin/document-numbers,
+          // admin/integrations.)
+          setBusinessId(data.user?.activeBusinessId ?? data.businesses?.[0]?._id ?? '')
+          setIsSuperAdmin(!!data.user?.isSuperAdmin)
         }
       } catch {
         // ignore — non-critical
@@ -1553,11 +1563,35 @@ export default function AgreementsPage() {
     }
   }
 
-  async function handleSendForSigning(agreementId: string) {
+  async function handleSendForSigning(agreementId: string, parties?: Party[]) {
     if (!confirm('Send this agreement to all parties for signing?')) return
+
+    // Give a super admin one last chance to fix a wrong/missing recipient
+    // email right before it goes out — previously the only place to edit
+    // a party's email was the DRAFT edit form, which is easy to miss and
+    // doesn't apply once the agreement already exists. Regular admins
+    // don't see this prompt (server also enforces the same restriction).
+    const emailOverrides: Record<string, string> = {}
+    if (isSuperAdmin && parties && parties.length > 0) {
+      for (const party of parties) {
+        const current = party.email || ''
+        const input = window.prompt(
+          `Recipient email for ${party.name || party.role} (${party.role}) — leave unchanged to keep as-is:`,
+          current
+        )
+        if (input !== null && input.trim() && input.trim() !== current) {
+          emailOverrides[party.role] = input.trim()
+        }
+      }
+    }
+
     setActionLoading(true)
     try {
-      const res = await fetch(`/api/agreements/${agreementId}/send`, { method: 'POST' })
+      const res = await fetch(`/api/agreements/${agreementId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.keys(emailOverrides).length > 0 ? { emailOverrides } : {}),
+      })
       const data = await res.json()
       if (res.ok) {
         setSendResult(data.signingLinks)
@@ -1803,7 +1837,7 @@ export default function AgreementsPage() {
                       </button>
                       {agreement.status === 'DRAFT' && (
                         <button
-                          onClick={() => handleSendForSigning(agreement._id)}
+                          onClick={() => handleSendForSigning(agreement._id, agreement.parties)}
                           disabled={actionLoading}
                           className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50"
                         >
@@ -2332,7 +2366,7 @@ export default function AgreementsPage() {
                   <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-100">
                     {da.status === 'DRAFT' && (
                       <button
-                        onClick={() => handleSendForSigning(da._id)}
+                        onClick={() => handleSendForSigning(da._id, da.parties)}
                         disabled={actionLoading}
                         className="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
                       >

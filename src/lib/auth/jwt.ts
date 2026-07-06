@@ -32,6 +32,12 @@ export interface SSOPayload {
   userId: string;
   email: string;
   name: string;
+  /** The user's unique, public user ID collected at signup — doubles as
+   * their "vendor code": a vendor owner or super admin uses this to look
+   * the user up and add them as vendor staff (see /api/vendor/staff and
+   * /api/admin/vendor-staff). Consuming apps can display/use this without
+   * exposing the user's email. */
+  username?: string | null;
   role: string;
   isSuperAdmin: boolean;
   permissions: string[];
@@ -45,6 +51,12 @@ export interface SSOPayload {
   businessIds?: string[];
   activeBusinessId?: string;
   memberType?: string; // e.g. VENDOR | STAFF | OWNER for the active business
+  /** Vendor-staff memberships specifically — completes the hierarchy
+   * (Business > Vendor > Warehouse > Staff) for cross-app consumers: a
+   * user might be plain-customer everywhere else but staff for one
+   * specific vendor, which a generic businessIds/memberType pair alone
+   * can't express once a user has multiple vendor memberships. */
+  vendorMemberships?: { vendorId: string; vendorRole: string | null; memberType?: string }[];
   iat?: number;
   exp?: number;
 }

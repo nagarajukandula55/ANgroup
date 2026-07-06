@@ -24,6 +24,24 @@ export type MemberType   = BusinessMemberType;
 export interface IBusinessMember extends Document {
   userId:            Types.ObjectId;
   businessId:        Types.ObjectId;
+  /**
+   * Optional — set when this membership is actually "staff of one specific
+   * vendor operating under this business", not a direct business-level
+   * hire. Completes the hierarchy: AN Group > Businesses > Vendors under
+   * respective businesses > Warehouses under vendors > Staff. Previously
+   * this model had vendor-flavored memberType values (VENDOR_WAREHOUSE,
+   * VENDOR_HELPER, etc.) but no vendorId to actually say WHICH vendor —
+   * every "vendor staff" row was indistinguishable from a general business
+   * hire once memberType stopped being read closely, and the unique
+   * {userId,businessId} index meant one user could never be staff at two
+   * different vendors under the same business, or be both a business
+   * employee and a vendor's staff member.
+   */
+  vendorId?:         Types.ObjectId;
+  /** Free-form, vendor-defined role label for vendor staff (e.g. "Warehouse
+   * Manager", "Picker", "Delivery"). Distinct from `role` below, which is
+   * historically used for business-level RBAC role names. */
+  vendorRole?:       string;
   status:            BusinessMemberStatus;
   memberType:        BusinessMemberType;
   role?:             string;
@@ -39,6 +57,8 @@ const BusinessMemberSchema = new Schema<IBusinessMember>(
   {
     userId:     { type: Schema.Types.ObjectId, ref: 'User',     required: true, index: true },
     businessId: { type: Schema.Types.ObjectId, ref: 'Business', required: true, index: true },
+    vendorId:   { type: Schema.Types.ObjectId, ref: 'VendorProfile', default: null, index: true },
+    vendorRole: { type: String, default: null },
     status: {
       type:    String,
       enum:    Object.values(BusinessMemberStatus),
@@ -61,8 +81,17 @@ const BusinessMemberSchema = new Schema<IBusinessMember>(
   { timestamps: true, versionKey: false }
 );
 
-BusinessMemberSchema.index({ userId: 1, businessId: 1 }, { unique: true });
+// Was {userId, businessId} unique — that made it impossible for one user
+// to hold TWO memberships under the same business (e.g. business employee
+// AND separately staff at a vendor under that business, or staff at two
+// different vendors under the same business). Now unique per
+// (userId, businessId, vendorId) — vendorId is null for a direct
+// business-level membership, so that case is unaffected; vendor-staff
+// memberships are now distinguishable from each other and from a general
+// business hire.
+BusinessMemberSchema.index({ userId: 1, businessId: 1, vendorId: 1 }, { unique: true });
 BusinessMemberSchema.index({ businessId: 1, status: 1 });
+BusinessMemberSchema.index({ vendorId: 1, status: 1 });
 
 const BusinessMember: Model<IBusinessMember> =
   mongoose.models.BusinessMember ||
