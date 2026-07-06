@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   ArrowLeft,
   Loader2,
   Plus,
-  X,
   Package,
   CheckCircle,
   XCircle,
@@ -49,21 +49,6 @@ export default function ProductsPage() {
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
-  const [showForm, setShowForm] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-
-  const [form, setForm] = useState({
-    name: '',
-    sku: '',
-    description: '',
-    category: '',
-    basePrice: '',
-    taxRate: '18',
-    unit: '',
-    hsn: '',
-    reorderLevel: '',
-  })
 
   const fetchProducts = useCallback(async (bId: string) => {
     setLoading(true)
@@ -115,40 +100,6 @@ export default function ProductsPage() {
       })
   }, [fetchProducts])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!businessId) {
-      setFormError('No active business selected')
-      return
-    }
-    setSubmitting(true)
-    setFormError(null)
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-active-business-id': businessId },
-        body: JSON.stringify({
-          ...form,
-          businessId,
-          basePrice: parseFloat(form.basePrice) || 0,
-          taxRate: parseFloat(form.taxRate) || 18,
-          reorderLevel: parseInt(form.reorderLevel) || 0,
-        }),
-      })
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        throw new Error(d.error ?? d.message ?? 'Failed to add product')
-      }
-      setShowForm(false)
-      setForm({ name: '', sku: '', description: '', category: '', basePrice: '', taxRate: '18', unit: '', hsn: '', reorderLevel: '' })
-      fetchProducts(businessId)
-    } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const categories = ['ALL', ...Array.from(new Set(products.map((p) => p.category ?? '').filter(Boolean)))]
 
   const filtered = products.filter((p) => {
@@ -192,13 +143,18 @@ export default function ProductsPage() {
             <h1 className="text-2xl font-semibold">Products</h1>
             <p className="text-sm text-gray-500">Product catalog management</p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
+          <Link
+            href="/vendor/products/new"
+            title="Products are added through the vendor submission & approval flow"
             className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
           >
             <Plus className="w-4 h-4" /> Add Product
-          </button>
+          </Link>
         </div>
+
+        <p className="mb-6 text-xs text-gray-400">
+          New products are added through the vendor submission wizard and go live here once approved.
+        </p>
 
         {error && (
           <div className="mb-6 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
@@ -300,78 +256,6 @@ export default function ProductsPage() {
           </table>
         </div>
       </div>
-
-      {/* Slide-over: Add Product */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="w-full max-w-md bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">Add Product</h2>
-              <button
-                onClick={() => setShowForm(false)}
-                className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-              {formError && (
-                <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                  {formError}
-                </div>
-              )}
-              {([
-                { field: 'name', label: 'Product Name *', type: 'text', required: true },
-                { field: 'sku', label: 'SKU', type: 'text', required: false },
-                { field: 'category', label: 'Category', type: 'text', required: false },
-                { field: 'basePrice', label: 'Base Price (₹)', type: 'number', required: false },
-                { field: 'taxRate', label: 'Tax Rate (%)', type: 'number', required: false },
-                { field: 'unit', label: 'Unit (e.g. pcs, kg)', type: 'text', required: false },
-                { field: 'hsn', label: 'HSN Code', type: 'text', required: false },
-                { field: 'reorderLevel', label: 'Reorder Level', type: 'number', required: false },
-              ] as const).map(({ field, label, type, required }) => (
-                <div key={field}>
-                  <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
-                  <input
-                    type={type}
-                    required={required}
-                    value={form[field]}
-                    onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                  />
-                </div>
-              ))}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Description</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                  rows={3}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none"
-                />
-              </div>
-            </form>
-            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                Add Product
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

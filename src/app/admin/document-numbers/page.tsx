@@ -32,7 +32,8 @@ type DocumentType =
   | "RECEIPT"
   | "AGREEMENT"
   | "VENDOR"
-  | "EMPLOYEE";
+  | "EMPLOYEE"
+  | "BUSINESS";
 
 interface DocumentConfig {
   documentType: DocumentType;
@@ -78,6 +79,7 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   AGREEMENT: "Agreement Number",
   VENDOR: "Vendor ID",
   EMPLOYEE: "Employee ID",
+  BUSINESS: "Business Code",
 };
 
 const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
@@ -295,6 +297,16 @@ const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
     suffix: "",
     startFrom: 1,
   },
+  BUSINESS: {
+    documentType: "BUSINESS",
+    prefix: "BUS",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
 };
 
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -319,6 +331,7 @@ const DOCUMENT_TYPES: DocumentType[] = [
   "AGREEMENT",
   "VENDOR",
   "EMPLOYEE",
+  "BUSINESS",
 ];
 
 // ─── Preview Builder ──────────────────────────────────────────────────────────

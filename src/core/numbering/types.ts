@@ -72,6 +72,13 @@ export const DOCUMENT_TYPES = [
   // going forward.
   "VENDOR",
   "EMPLOYEE",
+  // Discovered later, from a real user report: creating a new Business
+  // still generated its businessCode via `BUS-${Date.now()}` in
+  // businessBootstrap.service.ts — never migrated during the original
+  // consolidation sweep above, so it was the one entity code left
+  // completely outside admin control despite this whole system existing
+  // specifically to fix that class of bug.
+  "BUSINESS",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -106,6 +113,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   AGREEMENT: "AGR",
   VENDOR: "VND",
   EMPLOYEE: "EMP",
+  BUSINESS: "BUS",
 };
 
 export interface GeneratedNumber {

@@ -1,5 +1,6 @@
 import Business from "@/models/Business";
 import { getStateCode } from "@/core/gst/stateCodes";
+import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 
 /* ================= DEFAULT MODULES ================= */
 const DEFAULT_MODULES = [
@@ -56,9 +57,17 @@ function slugify(input: string) {
 }
 
 export async function bootstrapBusiness(payload: any) {
+  // Was `BUS-${Date.now()}` — the one entity code that never got migrated
+  // to the canonical numbering engine during the original consolidation
+  // sweep (see core/numbering/types.ts's BUSINESS entry comment), so it was
+  // both collision-prone under concurrent creates and completely outside
+  // admin control from the Document Numbers page. There's no businessId to
+  // scope by yet at this point (the business doesn't exist until the
+  // create() call below), so this uses the same global-counter pattern as
+  // VENDOR numbering.
   const businessCode =
     payload.businessCode ||
-    `BUS-${Date.now()}`;
+    (await generateGlobalDocumentNumber("BUSINESS")).value;
 
   const tenantKeyBase =
     slugify(payload.name) || slugify(businessCode) || "business";
