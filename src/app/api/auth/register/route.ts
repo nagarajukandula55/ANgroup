@@ -48,7 +48,7 @@ const Business =
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, email, password, phone } = body
+    const { name, email, password, phone, username } = body
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -90,11 +90,29 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Optional user ID — collected at signup per the requirement that it
+    // be unique. Reuses the User model's existing `username` field (unique
+    // + sparse already), rather than adding a second redundant field.
+    const trimmedUsername = username ? String(username).toLowerCase().trim() : undefined
+    if (trimmedUsername) {
+      const existingUsername = await User.findOne({
+        username: trimmedUsername,
+        isDeleted: false,
+      })
+      if (existingUsername) {
+        return NextResponse.json(
+          { success: false, message: 'This user ID is already taken' },
+          { status: 409 }
+        )
+      }
+    }
+
     const hashedPassword = await bcryptjs.hash(password, 12)
 
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
+      username: trimmedUsername,
       password: hashedPassword,
       phone: phone?.trim() || undefined,
       role: 'CUSTOMER',
@@ -141,8 +159,15 @@ export async function POST(req: NextRequest) {
     )
   } catch (error: any) {
     if (error.code === 11000) {
+      const field = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'email'
       return NextResponse.json(
-        { success: false, message: 'An account with this email already exists' },
+        {
+          success: false,
+          message:
+            field === 'username'
+              ? 'This user ID is already taken'
+              : 'An account with this email already exists',
+        },
         { status: 409 }
       )
     }

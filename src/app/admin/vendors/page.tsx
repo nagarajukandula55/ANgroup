@@ -9,8 +9,11 @@ import {
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { validateGSTINAgainstState } from '@/lib/validation/gst'
 import { VendorDetailModal, VendorDetailData } from '@/components/shared/VendorDetailModal'
+import { getComplianceDocsForIndustry, type ComplianceDocRequirement } from '@/core/vendorCompliance'
 
 type Vendor = VendorDetailData
+
+interface BusinessOption { _id: string; name: string; brandName?: string; industry?: string }
 
 const CATEGORIES = [
   'Raw Materials','Packaging','Electronics','Machinery','Services',
@@ -39,10 +42,11 @@ function StarRating({ rating }: { rating: number }) {
   )
 }
 
-const TABS = ['Basic Info', 'Address', 'Bank Details', 'Additional'] as const
+const TABS = ['Basic Info', 'Address', 'Bank Details', 'Compliance', 'Additional'] as const
 type Tab = typeof TABS[number]
 
 const emptyForm = {
+  onboardingBusinessId: '',
   companyName: '', businessType: '', contactPerson: '', email: '',
   phone: '', gstNumber: '', panNumber: '', category: '', paymentTerms: '',
   creditLimit: '',
@@ -64,18 +68,60 @@ export default function VendorsPage() {
   const [form, setForm]           = useState({ ...emptyForm })
   const [gstWarning, setGstWarning] = useState<string | null>(null)
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null)
+  const [allBusinesses, setAllBusinesses] = useState<BusinessOption[]>([])
+  const [complianceUploads, setComplianceUploads] = useState<Record<string, { url?: string; number?: string; uploading?: boolean }>>({})
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [unassignedRequests, setUnassignedRequests] = useState<Vendor[]>([])
+  const [showRequests, setShowRequests] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.json())
       .then(d => {
+        setAllBusinesses(d.businesses || [])
+        setIsSuperAdmin(!!d.user?.isSuperAdmin)
+        // Falls back to the first business only for listing vendors on page
+        // load (so the table isn't empty) — this is NOT used to silently
+        // pick which business a new vendor gets onboarded under anymore;
+        // the onboarding form now requires an explicit choice (see the
+        // Compliance tab's business selector below), since defaulting that
+        // silently was the exact bug reported ("under which business are we
+        // onboarding this vendor?" had no answer in the UI).
         const bId = d.user?.activeBusinessId ?? d.businesses?.[0]?._id ?? null
         setBusinessId(bId)
         if (bId) fetchVendors(bId)
         else setLoading(false)
+        if (d.user?.isSuperAdmin) fetchUnassignedRequests()
       })
       .catch(() => setLoading(false))
   }, [])
+
+  async function fetchUnassignedRequests() {
+    try {
+      const res = await fetch('/api/vendors/requests')
+      if (res.ok) {
+        const d = await res.json()
+        setUnassignedRequests(d.requests ?? [])
+      }
+    } catch { /* non-fatal — queue just stays empty */ }
+  }
+
+  const selectedOnboardingBusiness = allBusinesses.find(b => b._id === form.onboardingBusinessId)
+  const requiredComplianceDocs = getComplianceDocsForIndustry(selectedOnboardingBusiness?.industry)
+
+  async function handleComplianceUpload(doc: ComplianceDocRequirement, file: File) {
+    setComplianceUploads(prev => ({ ...prev, [doc.key]: { ...prev[doc.key], uploading: true } }))
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/assets/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || data.message || 'Upload failed')
+      setComplianceUploads(prev => ({ ...prev, [doc.key]: { ...prev[doc.key], url: data.asset?.fileUrl, uploading: false } }))
+    } catch {
+      setComplianceUploads(prev => ({ ...prev, [doc.key]: { ...prev[doc.key], uploading: false } }))
+    }
+  }
 
   async function fetchVendors(bId: string) {
     setLoading(true)
@@ -96,6 +142,11 @@ export default function VendorsPage() {
   function handleVendorUpdated(id: string, patch: Partial<Vendor>) {
     setVendors(p => p.map(v => (v._id === id ? { ...v, ...patch } : v)))
     setSelectedVendor(prev => (prev && prev._id === id ? { ...prev, ...patch } : prev))
+    // Once a general signup request gets a business assigned (or is
+    // rejected), it's no longer "unassigned" — drop it from this queue.
+    if (patch.businessId || patch.status === 'REJECTED') {
+      setUnassignedRequests(p => p.filter(v => v._id !== id))
+    }
   }
 
   function handleGstBlur() {
@@ -109,6 +160,11 @@ export default function VendorsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.onboardingBusinessId) {
+      setFormError('Select which business this vendor is being onboarded under')
+      setActiveTab('Compliance')
+      return
+    }
     if (!form.companyName.trim()) { setFormError('Company name is required'); return }
     if (form.gstNumber.trim()) {
       const gstResult = validateGSTINAgainstState(form.gstNumber, form.state || undefined)
@@ -120,11 +176,24 @@ export default function VendorsPage() {
     if (form.accountNumber && form.accountNumber !== form.confirmAccount) {
       setFormError('Account numbers do not match'); return
     }
+    const missingRequiredDocs = requiredComplianceDocs.filter(d => !complianceUploads[d.key]?.url)
+    if (missingRequiredDocs.length > 0) {
+      setFormError(`Please upload: ${missingRequiredDocs.map(d => d.label).join(', ')}`)
+      setActiveTab('Compliance')
+      return
+    }
     setSubmitting(true)
     setFormError(null)
     try {
+      const complianceEntries: Record<string, { url?: string; number?: string; uploadedAt: string }> = {}
+      for (const key of Object.keys(complianceUploads)) {
+        const v = complianceUploads[key]
+        if (v.url) {
+          complianceEntries[key] = { url: v.url, number: v.number, uploadedAt: new Date().toISOString() }
+        }
+      }
       const payload = {
-        businessId,
+        businessId: form.onboardingBusinessId,
         companyName:    form.companyName.trim(),
         businessType:   form.businessType || undefined,
         contactPerson:  form.contactPerson || undefined,
@@ -148,6 +217,7 @@ export default function VendorsPage() {
           ifscCode:      form.ifscCode.trim().toUpperCase() || undefined,
           bankName:      form.bankName      || undefined,
         } : undefined,
+        documents: Object.keys(complianceEntries).length > 0 ? { compliance: complianceEntries } : undefined,
         notes: form.notes || undefined,
       }
       const res = await fetch('/api/vendors', {
@@ -161,6 +231,7 @@ export default function VendorsPage() {
       }
       setShowForm(false)
       setForm({ ...emptyForm })
+      setComplianceUploads({})
       setActiveTab('Basic Info')
       if (businessId) fetchVendors(businessId)
     } catch (err: unknown) {
@@ -245,6 +316,50 @@ export default function VendorsPage() {
 
         {error && (
           <div className="mb-6 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</div>
+        )}
+
+        {/* Unassigned signup requests — vendors who applied via the general
+            /vendor-apply flow without choosing a business. Super-admin only,
+            since these aren't scoped to any business yet. */}
+        {isSuperAdmin && unassignedRequests.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden">
+            <button
+              onClick={() => setShowRequests(s => !s)}
+              className="w-full flex items-center justify-between px-6 py-4"
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span className="text-sm font-medium text-amber-900">
+                  {unassignedRequests.length} unassigned vendor signup {unassignedRequests.length === 1 ? 'request' : 'requests'}
+                </span>
+              </div>
+              <span className="text-xs text-amber-700 underline">{showRequests ? 'Hide' : 'Review'}</span>
+            </button>
+            {showRequests && (
+              <div className="border-t border-amber-200 divide-y divide-amber-100 bg-white">
+                {unassignedRequests.map(v => (
+                  <div
+                    key={v._id}
+                    onClick={() => setSelectedVendor(v)}
+                    className="px-6 py-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer transition"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">{v.companyName}</p>
+                      <p className="text-xs text-gray-400">
+                        {v.requestNumber || v.vendorId} · {v.contactPerson} · {v.email}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedVendor(v) }}
+                      className="px-3 py-1 rounded-lg bg-gray-50 text-gray-700 border border-gray-200 text-xs font-medium hover:bg-gray-100 transition"
+                    >
+                      Review
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Stats */}
@@ -457,6 +572,83 @@ export default function VendorsPage() {
                   )}
                   {form.accountNumber && form.confirmAccount && form.accountNumber === form.confirmAccount && (
                     <p className="text-xs text-green-600 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Account numbers match</p>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'Compliance' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                      Onboarding Business<span className="text-red-500 ml-0.5">*</span>
+                    </label>
+                    <select
+                      required
+                      value={form.onboardingBusinessId}
+                      onChange={e => setForm(p => ({ ...p, onboardingBusinessId: e.target.value }))}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 transition appearance-none"
+                    >
+                      <option value="">Select which business is onboarding this vendor…</option>
+                      {allBusinesses.map(b => (
+                        <option key={b._id} value={b._id}>{b.brandName || b.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Every vendor belongs to exactly one business — this determines which business's
+                      catalog, documents, and required compliance checks apply.
+                    </p>
+                  </div>
+
+                  {requiredComplianceDocs.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <p className="text-xs font-medium text-gray-700">
+                        Required documents for {selectedOnboardingBusiness?.brandName || selectedOnboardingBusiness?.name}&apos;s industry
+                      </p>
+                      {requiredComplianceDocs.map(doc => {
+                        const uploaded = complianceUploads[doc.key]
+                        return (
+                          <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
+                            <p className="text-sm font-medium text-gray-900">{doc.label}<span className="text-red-500 ml-0.5">*</span></p>
+                            {doc.helpText && <p className="text-[11px] text-gray-400 mt-0.5 mb-2">{doc.helpText}</p>}
+
+                            {doc.collectNumber && (
+                              <input
+                                type="text"
+                                placeholder={doc.numberLabel || 'License number'}
+                                value={uploaded?.number || ''}
+                                onChange={e => setComplianceUploads(prev => ({ ...prev, [doc.key]: { ...prev[doc.key], number: e.target.value } }))}
+                                className="w-full mb-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
+                              />
+                            )}
+
+                            <label className={`flex items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-3 text-xs cursor-pointer transition ${
+                              uploaded?.uploading ? 'border-gray-200 bg-gray-50 opacity-60' : uploaded?.url ? 'border-emerald-300 bg-emerald-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                            }`}>
+                              <span className={uploaded?.url ? 'text-emerald-700 font-medium' : 'text-gray-500'}>
+                                {uploaded?.uploading ? 'Uploading…' : uploaded?.url ? 'Uploaded — click to replace' : 'Click to upload document'}
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                className="hidden"
+                                disabled={uploaded?.uploading}
+                                onChange={e => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleComplianceUpload(doc, file)
+                                  e.target.value = ''
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {selectedOnboardingBusiness && requiredComplianceDocs.length === 0 && (
+                    <p className="text-xs text-gray-400 italic">
+                      No industry-specific compliance documents required for this business.
+                    </p>
                   )}
                 </div>
               )}

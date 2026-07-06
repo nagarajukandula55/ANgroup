@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import Business from "@/models/Business";
 import Agreement from "@/models/Agreement";
+import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -67,6 +69,42 @@ export async function POST(req: NextRequest, context: RouteContext) {
         { success: false, error: `Vendor is already ${vendor.status} — review applies to new applications only` },
         { status: 400 }
       );
+    }
+
+    // A general (business-agnostic) signup request has no businessId yet —
+    // the admin assigns it here, at approval time, via the request body.
+    // A link-based application (which pre-selected a business at signup)
+    // already has one and doesn't need to supply it again, but a caller
+    // MAY still override it here if needed.
+    if (!vendor.businessId) {
+      const approveBusinessId = body.businessId;
+      if (!approveBusinessId || !Types.ObjectId.isValid(approveBusinessId)) {
+        return NextResponse.json(
+          { success: false, error: "businessId is required to approve a vendor request with no assigned business" },
+          { status: 400 }
+        );
+      }
+      const targetBusiness = await (Business as any)
+        .findOne({ _id: approveBusinessId, isActive: true })
+        .select("_id")
+        .lean();
+      if (!targetBusiness) {
+        return NextResponse.json({ success: false, error: "Business not found or inactive" }, { status: 404 });
+      }
+      vendor.businessId = new Types.ObjectId(approveBusinessId) as any;
+      if (!vendor.vendorId) {
+        const { value: vendorId } = await generateGlobalDocumentNumber("VENDOR", approveBusinessId);
+        vendor.vendorId = vendorId;
+      }
+    } else if (body.businessId && String(body.businessId) !== String(vendor.businessId)) {
+      const targetBusiness = await (Business as any)
+        .findOne({ _id: body.businessId, isActive: true })
+        .select("_id")
+        .lean();
+      if (!targetBusiness) {
+        return NextResponse.json({ success: false, error: "Business not found or inactive" }, { status: 404 });
+      }
+      vendor.businessId = new Types.ObjectId(body.businessId) as any;
     }
 
     const business = await (Business as any)

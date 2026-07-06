@@ -34,6 +34,12 @@ interface FieldDefinition {
   helpText?: string;
 }
 
+interface BusinessOption {
+  _id: string;
+  name: string;
+  brandName?: string;
+}
+
 interface ModuleDef {
   _id: string;
   key: string;
@@ -72,6 +78,7 @@ const emptyModule = () => ({
 export default function ModulesAdminPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [allBusinesses, setAllBusinesses] = useState<BusinessOption[]>([]);
   const [modules, setModules] = useState<ModuleDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,11 +95,31 @@ export default function ModulesAdminPage() {
       try {
         const meRes = await fetch("/api/auth/me");
         const me = await meRes.json().catch(() => ({}));
-        setIsSuperAdmin(!!me?.isSuperAdmin);
-        const bId: string | null = me?.activeBusinessId || null;
+        // Real /api/auth/me shape is { success, user: { isSuperAdmin,
+        // activeBusinessId, ... }, businesses: [...] } — this was reading
+        // me.isSuperAdmin / me.activeBusinessId at the ROOT, which don't
+        // exist there, so isSuperAdmin was always false and businessId was
+        // always null even for a real super admin (hence the permanent
+        // "Only Super Admins can manage module definitions" lockout).
+        const superAdmin = !!me?.user?.isSuperAdmin;
+        setIsSuperAdmin(superAdmin);
+
+        const allBiz: BusinessOption[] = me?.businesses || [];
+        setAllBusinesses(allBiz);
+
+        // Super admins default to "All Businesses" (no businessId) rather
+        // than being forced to pick one — matches the business-switcher
+        // dropdown's default elsewhere in the app.
+        const bId: string | null = me?.user?.activeBusinessId || (superAdmin ? null : allBiz?.[0]?._id || null);
         setBusinessId(bId);
 
         if (!bId) {
+          if (superAdmin && allBiz.length > 0) {
+            // Super admin in "All Businesses" view — let them pick which
+            // business's modules to manage instead of blocking outright.
+            setLoading(false);
+            return;
+          }
           setError("No active business context — select a business first to manage its modules.");
           setLoading(false);
           return;
@@ -323,7 +350,7 @@ export default function ModulesAdminPage() {
           </p>
         </div>
 
-        {!showCreate && (
+        {!showCreate && businessId && (
           <button
             onClick={startCreate}
             className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700"
@@ -332,6 +359,27 @@ export default function ModulesAdminPage() {
           </button>
         )}
       </div>
+
+      {isSuperAdmin && allBusinesses.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <label className="text-xs font-medium text-gray-500">Managing modules for:</label>
+          <select
+            value={businessId ?? ""}
+            onChange={(e) => {
+              const bId = e.target.value || null;
+              setBusinessId(bId);
+              setError(null);
+              if (bId) loadModules(bId);
+            }}
+            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
+          >
+            <option value="" disabled>Select a business…</option>
+            {allBusinesses.map((b) => (
+              <option key={b._id} value={b._id}>{b.brandName || b.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
@@ -344,7 +392,13 @@ export default function ModulesAdminPage() {
         </div>
       )}
 
-      {showCreate && (
+      {!businessId && isSuperAdmin && (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center text-gray-500 text-sm">
+          Select a business above to manage its modules.
+        </div>
+      )}
+
+      {businessId && showCreate && (
         <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900">
@@ -516,7 +570,7 @@ export default function ModulesAdminPage() {
         </div>
       )}
 
-      {loading ? (
+      {businessId && (loading ? (
         <p className="text-sm text-gray-400">Loading modules…</p>
       ) : (
         <div className="space-y-2">
@@ -597,7 +651,7 @@ export default function ModulesAdminPage() {
             <p className="text-sm text-gray-400 text-center py-8">No modules yet.</p>
           )}
         </div>
-      )}
+      ))}
     </div>
   );
 }

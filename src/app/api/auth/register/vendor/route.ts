@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       companyName,
       contactPerson,
       email,
+      username,
       password,
       phone,
       gstNumber,
@@ -109,11 +110,26 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const trimmedUsername = username ? String(username).toLowerCase().trim() : undefined
+    if (trimmedUsername) {
+      const existingUsername = await User.findOne({
+        username: trimmedUsername,
+        isDeleted: false,
+      })
+      if (existingUsername) {
+        return NextResponse.json(
+          { success: false, message: 'This user ID is already taken' },
+          { status: 409 }
+        )
+      }
+    }
+
     const hashedPassword = await bcryptjs.hash(password, 12)
 
     const user = await User.create({
       name: contactPerson.trim(),
       email: email.toLowerCase().trim(),
+      username: trimmedUsername,
       password: hashedPassword,
       phone: phone?.trim() || undefined,
       role: 'VENDOR',

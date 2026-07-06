@@ -79,6 +79,11 @@ export const DOCUMENT_TYPES = [
   // completely outside admin control despite this whole system existing
   // specifically to fix that class of bug.
   "BUSINESS",
+  // A vendor signup request needs a tracking number the moment it's
+  // submitted, before any business (and therefore before VENDOR's
+  // businessId-aware numbering config) has been assigned — see
+  // api/vendors/apply/route.ts and VendorProfile.requestNumber.
+  "VENDOR_REQUEST",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -114,6 +119,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   VENDOR: "VND",
   EMPLOYEE: "EMP",
   BUSINESS: "BUS",
+  VENDOR_REQUEST: "VREQ",
 };
 
 export interface GeneratedNumber {

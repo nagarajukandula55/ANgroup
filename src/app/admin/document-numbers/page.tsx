@@ -33,7 +33,8 @@ type DocumentType =
   | "AGREEMENT"
   | "VENDOR"
   | "EMPLOYEE"
-  | "BUSINESS";
+  | "BUSINESS"
+  | "VENDOR_REQUEST";
 
 interface DocumentConfig {
   documentType: DocumentType;
@@ -44,6 +45,12 @@ interface DocumentConfig {
   sequenceLength: number;
   suffix: string;
   startFrom: number;
+}
+
+interface BusinessOption {
+  _id: string;
+  name: string;
+  brandName?: string;
 }
 
 interface CardState {
@@ -80,6 +87,7 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   VENDOR: "Vendor ID",
   EMPLOYEE: "Employee ID",
   BUSINESS: "Business Code",
+  VENDOR_REQUEST: "Vendor Request Number",
 };
 
 const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
@@ -307,6 +315,16 @@ const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
     suffix: "",
     startFrom: 1,
   },
+  VENDOR_REQUEST: {
+    documentType: "VENDOR_REQUEST",
+    prefix: "VREQ",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
 };
 
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -332,6 +350,7 @@ const DOCUMENT_TYPES: DocumentType[] = [
   "VENDOR",
   "EMPLOYEE",
   "BUSINESS",
+  "VENDOR_REQUEST",
 ];
 
 // ─── Preview Builder ──────────────────────────────────────────────────────────
@@ -631,6 +650,8 @@ export default function DocumentNumbersPage() {
   const [loading, setLoading] = useState(true);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [noBusiness, setNoBusiness] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [allBusinesses, setAllBusinesses] = useState<BusinessOption[]>([]);
   const [cards, setCards] = useState<Record<DocumentType, CardState>>(() => {
     const initial: Partial<Record<DocumentType, CardState>> = {};
     for (const dt of DOCUMENT_TYPES) {
@@ -649,27 +670,85 @@ export default function DocumentNumbersPage() {
 
   // ── Fetch on mount ────────────────────────────────────────────────────────
 
+  const loadConfigsFor = async (bId: string, cancelledRef: { current: boolean }) => {
+    try {
+      const res = await fetch(
+        `/api/admin/document-numbers?businessId=${encodeURIComponent(bId)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const configs: DocumentConfig[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.configs)
+          ? data.configs
+          : [];
+
+        if (!cancelledRef.current && configs.length > 0) {
+          setCards((prev) => {
+            const next = { ...prev };
+            for (const cfg of configs) {
+              const dt = cfg.documentType as DocumentType;
+              if (DOCUMENT_TYPES.includes(dt)) {
+                const merged: DocumentConfig = {
+                  ...DEFAULT_CONFIGS[dt],
+                  ...cfg,
+                  documentType: dt,
+                };
+                next[dt] = {
+                  ...next[dt],
+                  current: { ...merged },
+                  saved: { ...merged },
+                };
+              }
+            }
+            return next;
+          });
+        }
+      }
+    } catch {
+      // API error — keep defaults
+    }
+  };
+
+  function handleSelectBusiness(bId: string) {
+    setBusinessId(bId);
+    setNoBusiness(false);
+    setLoading(true);
+    const ref = { current: false };
+    loadConfigsFor(bId, ref).finally(() => setLoading(false));
+  }
+
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
-      // Step 1: get businessId
+      // Step 1: get businessId + super admin status from the REAL
+      // /api/auth/me shape — { success, user: { isSuperAdmin,
+      // activeBusinessId }, businesses: [...] }. This previously read
+      // data.businessId / data.business.id / data.user.businessId, none of
+      // which exist on that response, so it always fell through to
+      // "No business selected" — including for super admins, who should
+      // default to "All Businesses" and pick one here instead of being
+      // blocked outright.
       let bId: string | null = null;
+      let superAdmin = false;
+      let businesses: BusinessOption[] = [];
       try {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
           const data = await res.json();
-          bId =
-            data?.businessId ??
-            data?.business?.id ??
-            data?.user?.businessId ??
-            null;
+          superAdmin = !!data?.user?.isSuperAdmin;
+          businesses = data?.businesses || [];
+          bId = data?.user?.activeBusinessId || (superAdmin ? null : businesses?.[0]?._id || null);
         }
       } catch {
         // network error — treat as no business
       }
 
       if (cancelled) return;
+
+      setIsSuperAdmin(superAdmin);
+      setAllBusinesses(businesses);
 
       if (!bId) {
         setNoBusiness(true);
@@ -890,9 +969,23 @@ export default function DocumentNumbersPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-1">
             No business selected
           </h2>
-          <p className="text-sm text-gray-500">
-            Please select a business to manage document number settings.
+          <p className="text-sm text-gray-500 mb-4">
+            {isSuperAdmin && allBusinesses.length > 0
+              ? "Choose which business's document numbers to configure."
+              : "Please select a business to manage document number settings."}
           </p>
+          {isSuperAdmin && allBusinesses.length > 0 && (
+            <select
+              defaultValue=""
+              onChange={(e) => e.target.value && handleSelectBusiness(e.target.value)}
+              className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
+            >
+              <option value="" disabled>Select a business…</option>
+              {allBusinesses.map((b) => (
+                <option key={b._id} value={b._id}>{b.brandName || b.name}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
     );
@@ -902,13 +995,26 @@ export default function DocumentNumbersPage() {
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Document Numbers
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Configure numbering formats for each document type.
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Document Numbers
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Configure numbering formats for each document type.
+            </p>
+          </div>
+          {isSuperAdmin && allBusinesses.length > 0 && (
+            <select
+              value={businessId ?? ""}
+              onChange={(e) => e.target.value && handleSelectBusiness(e.target.value)}
+              className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
+            >
+              {allBusinesses.map((b) => (
+                <option key={b._id} value={b._id}>{b.brandName || b.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Cards */}

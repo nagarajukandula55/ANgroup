@@ -9,6 +9,7 @@ import {
   User,
   BarChart3,
   Building2,
+  Wallet,
 } from 'lucide-react'
 
 const navItems = [
@@ -16,6 +17,7 @@ const navItems = [
   { href: '/vendor/products', label: 'My Products', icon: Package },
   { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart },
   { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText },
+  { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet },
   { href: '/vendor/profile', label: 'My Profile', icon: User },
   { href: '/vendor/statement', label: 'Financial Statement', icon: BarChart3 },
 ]

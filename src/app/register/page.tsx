@@ -110,6 +110,7 @@ export default function RegisterPage() {
 
   // Customer form
   const [custName, setCustName] = useState('')
+  const [custUsername, setCustUsername] = useState('')
   const [custEmail, setCustEmail] = useState('')
   const [custPassword, setCustPassword] = useState('')
   const [custConfirm, setCustConfirm] = useState('')
@@ -119,6 +120,7 @@ export default function RegisterPage() {
   // Vendor form
   const [vendCompany, setVendCompany] = useState('')
   const [vendContact, setVendContact] = useState('')
+  const [vendUsername, setVendUsername] = useState('')
   const [vendEmail, setVendEmail] = useState('')
   const [vendPassword, setVendPassword] = useState('')
   const [vendPhone, setVendPhone] = useState('')
@@ -156,6 +158,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: custName,
+          username: custUsername || undefined,
           email: custEmail,
           password: custPassword,
           phone: custPhone,
@@ -209,6 +212,7 @@ export default function RegisterPage() {
         body: JSON.stringify({
           companyName: vendCompany,
           contactPerson: vendContact,
+          username: vendUsername || undefined,
           email: vendEmail,
           password: vendPassword,
           phone: vendPhone,
@@ -358,6 +362,12 @@ export default function RegisterPage() {
                 required
               />
               <InputField
+                label="User ID (optional, must be unique)"
+                value={custUsername}
+                onChange={(v) => setCustUsername(v.toLowerCase().replace(/\s+/g, ''))}
+                placeholder="e.g. johnd"
+              />
+              <InputField
                 label="Phone Number"
                 value={custPhone}
                 onChange={setCustPhone}
@@ -434,6 +444,12 @@ export default function RegisterPage() {
                 placeholder="vendor@company.com"
                 type="email"
                 required
+              />
+              <InputField
+                label="User ID (optional, must be unique)"
+                value={vendUsername}
+                onChange={(v) => setVendUsername(v.toLowerCase().replace(/\s+/g, ''))}
+                placeholder="e.g. acmevendor"
               />
               <PasswordField
                 label="Password *"

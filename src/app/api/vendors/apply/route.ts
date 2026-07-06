@@ -7,12 +7,26 @@ import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService"
 import { logAction } from "@/lib/audit/logAction";
 
 /**
- * POST /api/vendors/apply — PUBLIC vendor application.
+ * POST /api/vendors/apply — PUBLIC vendor signup request.
  *
- * Admin shares the form link (/vendor-apply?businessId=...) with a
- * prospective vendor. The vendor fills in company, contact, GST/without-GST
- * compliance, address and bank details. The application lands in status
- * APPLIED for admin review — no login is created at this stage.
+ * Previously required a businessId in the request (the admin had to share
+ * a link like /vendor-apply?businessId=... pointed at one specific
+ * business). That doesn't fit a general "raise a vendor signup request"
+ * flow where the prospective vendor doesn't know or choose which business
+ * they're being onboarded under — the admin now assigns that at approval
+ * time (see /api/vendors/[id]/review's APPROVE handler, which accepts a
+ * businessId in its body and sets it there for the first time).
+ *
+ * businessId is still ACCEPTED here (optional) so the existing
+ * link-based flow (/vendor-apply?businessId=...) keeps working exactly as
+ * before for admins who prefer to pre-target one business — this route
+ * just no longer REQUIRES it.
+ *
+ * Every application gets a requestNumber immediately so the applicant has
+ * something to reference/quote while waiting for review, independent of
+ * vendorId (which historically doubles as the operational vendor ID and
+ * needs a businessId-aware numbering config that may not exist yet for an
+ * unassigned application).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -32,15 +46,10 @@ export async function POST(req: NextRequest) {
       businessType,
       address,
       bankDetails,
+      documents,
       notes,
     } = body;
 
-    if (!businessId || !Types.ObjectId.isValid(businessId)) {
-      return NextResponse.json(
-        { success: false, message: "A valid businessId is required — use the exact link shared by the admin" },
-        { status: 400 }
-      );
-    }
     if (!companyName || !contactPerson || !email || !phone) {
       return NextResponse.json(
         { success: false, message: "Company name, contact person, email and phone are required" },
@@ -63,43 +72,61 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const business = await (Business as any)
-      .findOne({ _id: businessId, isActive: true })
-      .select("_id name brandName")
-      .lean();
-    if (!business) {
-      return NextResponse.json(
-        { success: false, message: "Business not found or inactive" },
-        { status: 404 }
-      );
+    let business: { _id: unknown; name?: string; brandName?: string } | null = null;
+    if (businessId) {
+      if (!Types.ObjectId.isValid(businessId)) {
+        return NextResponse.json(
+          { success: false, message: "Invalid businessId in link" },
+          { status: 400 }
+        );
+      }
+      business = await (Business as any)
+        .findOne({ _id: businessId, isActive: true })
+        .select("_id name brandName")
+        .lean();
+      if (!business) {
+        return NextResponse.json(
+          { success: false, message: "Business not found or inactive" },
+          { status: 404 }
+        );
+      }
     }
 
-    // One live application per email per business
-    const existing = await VendorProfile.findOne({
-      businessId: new Types.ObjectId(businessId),
+    // One live application per email (scoped to the target business when
+    // one was pre-selected via the link; otherwise scoped globally, since
+    // an unassigned application has no business to scope to yet).
+    const dupeQuery: Record<string, unknown> = {
       email: String(email).toLowerCase().trim(),
       isDeleted: false,
       status: { $nin: ["REJECTED", "INACTIVE"] },
-    }).lean();
+    };
+    if (business) dupeQuery.businessId = new Types.ObjectId(businessId);
+    else dupeQuery.businessId = null;
+    const existing = await VendorProfile.findOne(dupeQuery).lean();
     if (existing) {
       return NextResponse.json(
-        { success: false, message: "An application with this email already exists for this business" },
+        { success: false, message: "An application with this email already exists" },
         { status: 409 }
       );
     }
 
-    // vendorId is globally unique (see VendorProfile.ts) — was
-    // countDocuments()-based (race-prone; two of the three vendor-ID
-    // generators found across this codebase used this exact pattern with
-    // different padding, see vendors/route.ts's comment for the full
-    // history). Now uses the canonical numbering engine's global-scope
-    // variant, same as vendors/route.ts, so vendor IDs created via either
-    // path share the same atomic counter and never collide.
-    const { value: vendorId } = await generateGlobalDocumentNumber("VENDOR", businessId);
+    // requestNumber — always generated, independent of businessId.
+    const { value: requestNumber } = await generateGlobalDocumentNumber("VENDOR_REQUEST", null);
+
+    // vendorId — only generated now if a business was pre-selected (so the
+    // existing link-based flow behaves exactly as before). For a general
+    // unassigned application, vendorId is generated later at APPROVE time
+    // once a business is actually chosen (see review/route.ts).
+    let vendorId: string | undefined;
+    if (business) {
+      const generated = await generateGlobalDocumentNumber("VENDOR", businessId);
+      vendorId = generated.value;
+    }
 
     const vendor = await VendorProfile.create({
-      businessId: new Types.ObjectId(businessId),
+      businessId: business ? new Types.ObjectId(businessId) : null,
       vendorId,
+      requestNumber,
       companyName: String(companyName).trim(),
       contactPerson: String(contactPerson).trim(),
       email: String(email).toLowerCase().trim(),
@@ -111,6 +138,7 @@ export async function POST(req: NextRequest) {
       businessType,
       address,
       bankDetails,
+      documents,
       notes,
       status: "APPLIED",
       isApproved: false,
@@ -127,10 +155,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message:
-          "Application submitted successfully. The team will review your details and contact you for the partner agreement.",
-        applicationId: vendor.vendorId,
-        business: business.brandName || business.name,
+        message: business
+          ? "Application submitted successfully. The team will review your details and contact you for the partner agreement."
+          : `Application submitted successfully. Your request number is ${requestNumber} — please quote it in any follow-up. The team will review your documents, assign you to the appropriate business, and contact you for the partner agreement.`,
+        applicationId: vendor.vendorId || requestNumber,
+        requestNumber,
+        business: business?.brandName || business?.name,
       },
       { status: 201 }
     );

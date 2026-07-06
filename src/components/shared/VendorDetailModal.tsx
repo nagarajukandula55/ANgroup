@@ -17,12 +17,13 @@
  * signed — that's a separate, already-existing flow (Agreements screen)
  * and deliberately NOT triggered from this popup.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Loader2, FileText, Upload, CheckCircle, XCircle, Building2 } from "lucide-react";
 
 export interface VendorDetailData {
   _id: string;
   vendorId?: string;
+  requestNumber?: string;
   companyName: string;
   contactPerson?: string;
   email?: string;
@@ -77,8 +78,22 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
   const [rejectReason, setRejectReason] = useState("");
   const [uploadingField, setUploadingField] = useState<"passbookUrl" | "gstCertificateUrl" | null>(null);
   const [documents, setDocuments] = useState(vendor.documents || {});
+  // A general (business-agnostic) signup request arrives with no
+  // businessId — the admin must pick one here before it can be approved.
+  const [assignBusinessId, setAssignBusinessId] = useState("");
+  const [businessOptions, setBusinessOptions] = useState<{ _id: string; name: string; brandName?: string }[]>([]);
 
   const canReview = REVIEWABLE_STATUSES.includes(vendor.status || "PENDING");
+  const needsBusinessAssignment = !vendor.businessId;
+
+  useEffect(() => {
+    if (!needsBusinessAssignment) return;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setBusinessOptions(d.businesses || []))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function uploadDocument(field: "passbookUrl" | "gstCertificateUrl", file: File) {
     setUploadingField(field);
@@ -127,6 +142,10 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
       setError("Please provide a reason for rejection");
       return;
     }
+    if (action === "APPROVE" && needsBusinessAssignment && !assignBusinessId) {
+      setError("Select which business this vendor is being onboarded under before approving");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -136,6 +155,7 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
         body: JSON.stringify({
           action,
           reason: action === "REJECT" ? rejectReason.trim() : undefined,
+          businessId: action === "APPROVE" && needsBusinessAssignment ? assignBusinessId : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -145,6 +165,8 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
       onUpdated({
         status: data.vendor?.status,
         rejectionReason: data.vendor?.rejectionReason,
+        businessId: data.vendor?.businessId,
+        vendorId: data.vendor?.vendorId,
       });
       onClose();
     } catch (err) {
@@ -166,7 +188,7 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
           <div>
             <h2 className="font-semibold text-gray-900">{vendor.companyName}</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              {vendor.vendorId || "No vendor ID assigned yet"} · Status: {vendor.status || "PENDING"}
+              {vendor.vendorId || vendor.requestNumber || "No vendor ID assigned yet"} · Status: {vendor.status || "PENDING"}
             </p>
           </div>
           <button
@@ -195,9 +217,27 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
             <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5">
               <Building2 className="w-3.5 h-3.5" /> Onboarding Business
             </h3>
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">
-              {businessLabel(vendor.businessId)}
-            </div>
+            {needsBusinessAssignment ? (
+              <div className="space-y-1.5">
+                <select
+                  value={assignBusinessId}
+                  onChange={(e) => setAssignBusinessId(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 transition appearance-none"
+                >
+                  <option value="">Select which business to onboard this vendor under…</option>
+                  {businessOptions.map((b) => (
+                    <option key={b._id} value={b._id}>{b.brandName || b.name}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-gray-400">
+                  This vendor raised a general signup request without choosing a business — assign one before approving.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">
+                {businessLabel(vendor.businessId)}
+              </div>
+            )}
           </section>
 
           <section>
@@ -315,7 +355,7 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
             )}
             <button
               onClick={() => handleReview("APPROVE")}
-              disabled={busy || showRejectBox}
+              disabled={busy || showRejectBox || (needsBusinessAssignment && !assignBusinessId)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}

@@ -292,6 +292,20 @@ export async function POST(req: Request) {
       actor: { businessId: order?.businessId?.toString() },
     });
 
+    // Vendor payout split — transfers each vendor's share of this order to
+    // their Razorpay Route linked account, if activated (falls back to a
+    // PENDING settlement row otherwise; see vendorSettlement.service.ts).
+    // Deliberately non-fatal: a payout hiccup must never block the
+    // customer-facing payment confirmation the rest of this handler still
+    // has to return.
+    try {
+      const { settleOrderToVendors } = await import("@/core/payouts/vendorSettlement.service");
+      const settlements = await settleOrderToVendors(order.orderId, razorpay_payment_id);
+      console.log("VENDOR SETTLEMENT RESULT:", JSON.stringify(settlements));
+    } catch (err) {
+      console.error("VENDOR SETTLEMENT ERROR (non-fatal):", err);
+    }
+
    /* ==========================================
       UPDATE COUPON USAGE
    ========================================== */

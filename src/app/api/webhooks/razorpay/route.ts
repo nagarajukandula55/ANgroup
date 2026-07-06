@@ -115,6 +115,19 @@ export async function POST(req: Request) {
       actor: { businessId: order?.businessId?.toString() },
     });
 
+    // Vendor payout split — see payment/verify/route.ts's identical call
+    // for the full explanation. Safe to also run here: VendorSettlement's
+    // unique (orderId, vendorId) index means whichever of this webhook or
+    // the client-side verify route runs first "wins" the transfer attempt,
+    // and the other is a no-op.
+    try {
+      const { settleOrderToVendors } = await import("@/core/payouts/vendorSettlement.service");
+      const settlements = await settleOrderToVendors(order.orderId, paymentId);
+      console.log("VENDOR SETTLEMENT RESULT (webhook):", JSON.stringify(settlements));
+    } catch (err) {
+      console.error("VENDOR SETTLEMENT ERROR (webhook, non-fatal):", err);
+    }
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("WEBHOOK ERROR:", err);

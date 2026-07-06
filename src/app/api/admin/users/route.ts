@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { connectDB } from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService';
 import { logAction } from "@/lib/audit/logAction";
+
+// Roles any authenticated admin caller may assign. SUPER_ADMIN is
+// deliberately excluded here — it's checked separately below and only
+// permitted when the caller is ALREADY a super admin, so a normal admin
+// can never self-escalate or mint another super admin via this route.
+const ASSIGNABLE_ROLES = ['ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER'];
 
 // Dynamic imports to avoid model recompilation
 async function getModels() {
@@ -18,6 +25,11 @@ async function getModels() {
 
 export async function GET(request: NextRequest) {
   try {
+    const h = await headers();
+    if (!h.get('x-user-id')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     await connectDB();
     const { User, Role, UserRole, EmployeeProfile, VendorProfile } = await getModels();
 
@@ -95,11 +107,40 @@ export async function POST(request: NextRequest) {
     await connectDB();
     const { User, Role, UserRole, BusinessMember, EmployeeProfile, VendorProfile } = await getModels();
 
+    // This route previously had NO auth check at all — anyone able to
+    // reach it (including an unauthenticated caller, since middleware only
+    // gates on session presence for most routes but this one wasn't even
+    // checked here) could create a user with an arbitrary `role` string,
+    // including "SUPER_ADMIN". Now requires a valid session, and further
+    // requires the CALLER to already be a super admin before it will ever
+    // create another SUPER_ADMIN user.
+    const h = await headers();
+    const callerUserId = h.get('x-user-id');
+    const callerIsSuperAdmin = h.get('x-is-super-admin') === 'true';
+    if (!callerUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { name, email, password, role, businessId, employeeData, vendorData } = body;
+    const { name, email, username, password, role, businessId, employeeData, vendorData } = body;
 
     if (!name || !email || !password || !role) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const requestedRole = String(role).toUpperCase();
+    if (requestedRole === 'SUPER_ADMIN') {
+      if (!callerIsSuperAdmin) {
+        return NextResponse.json(
+          { error: 'Only Super Admins can create another Super Admin user' },
+          { status: 403 }
+        );
+      }
+    } else if (!ASSIGNABLE_ROLES.includes(requestedRole)) {
+      return NextResponse.json(
+        { error: `role must be one of: ${['SUPER_ADMIN', ...ASSIGNABLE_ROLES].join(', ')}` },
+        { status: 400 }
+      );
     }
 
     const existingUser = await User.findOne({ email, isDeleted: { $ne: true } });
@@ -107,12 +148,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 });
     }
 
+    if (username) {
+      const existingUsername = await User.findOne({
+        username: String(username).toLowerCase().trim(),
+        isDeleted: { $ne: true },
+      });
+      if (existingUsername) {
+        return NextResponse.json({ error: 'This user ID is already taken' }, { status: 409 });
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await User.create({
       name,
       email,
+      username: username ? String(username).toLowerCase().trim() : undefined,
       password: hashedPassword,
+      // Previously never set — this route created a Role/UserRole doc in
+      // the newer RBAC collections but left the User model's own legacy
+      // `role` field at its schema default (CUSTOMER), which is the ONLY
+      // field login/route.ts and middleware actually check for
+      // isSuperAdmin / role-based access. So a user created here as
+      // "ADMIN" or even "SUPER_ADMIN" would never actually get that
+      // access at login time. Now set explicitly whenever the requested
+      // role has a matching legacy enum value (SUPER_ADMIN/ADMIN always
+      // do; EMPLOYEE/VENDOR/MANAGER/CUSTOMER fall back to the RBAC
+      // Role/UserRole system below for their finer-grained permissions,
+      // same as before, but at least SUPER_ADMIN/ADMIN now actually work).
+      role: requestedRole === 'SUPER_ADMIN' || requestedRole === 'ADMIN' ? requestedRole : 'CUSTOMER',
       isActive: true,       // CORRECT field — User schema uses isActive not status
       isEmailVerified: false,
       authProvider: 'credentials',
@@ -181,11 +245,18 @@ export async function POST(request: NextRequest) {
       entityId: user._id?.toString(),
       after: createdUser,
       req: request,
-      actor: { businessId },
+      actor: { id: callerUserId, businessId },
     });
 
     return NextResponse.json({ user: createdUser }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      const field = error?.keyPattern ? Object.keys(error.keyPattern)[0] : 'field';
+      return NextResponse.json(
+        { error: field === 'username' ? 'This user ID is already taken' : `A user with this ${field} already exists` },
+        { status: 409 }
+      );
+    }
     console.error('POST /api/admin/users error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

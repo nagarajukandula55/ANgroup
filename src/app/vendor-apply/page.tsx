@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+import { getComplianceDocsForIndustry, type ComplianceDocRequirement } from "@/core/vendorCompliance";
 
 function Field({
   label,
@@ -31,17 +32,81 @@ function Field({
 const inputCls =
   "w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500 transition";
 
+function UploadDropzone({
+  uploading,
+  uploadedUrl,
+  onFile,
+}: {
+  uploading: boolean;
+  uploadedUrl?: string;
+  onFile: (file: File) => void;
+}) {
+  return (
+    <label
+      className={`flex items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-3 text-xs cursor-pointer transition ${
+        uploading
+          ? "border-gray-200 bg-gray-50 opacity-60"
+          : uploadedUrl
+          ? "border-emerald-300 bg-emerald-50"
+          : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+      }`}
+    >
+      <span className={uploadedUrl ? "text-emerald-700 font-medium" : "text-gray-500"}>
+        {uploading ? "Uploading…" : uploadedUrl ? "Uploaded — click to replace" : "Click to upload document"}
+      </span>
+      <input
+        type="file"
+        accept="image/*,.pdf"
+        className="hidden"
+        disabled={uploading}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onFile(file);
+          e.target.value = "";
+        }}
+      />
+    </label>
+  );
+}
+
+function DocUploadCard({
+  label,
+  hint,
+  state,
+  onUpload,
+}: {
+  label: string;
+  hint?: string;
+  state: { url?: string; uploading?: boolean };
+  onUpload: (file: File) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 p-3">
+      <p className="text-xs font-medium text-gray-700 mb-1">{label}</p>
+      {hint && <p className="text-[10px] text-gray-400 mb-2">{hint}</p>}
+      <UploadDropzone uploading={!!state.uploading} uploadedUrl={state.url} onFile={onUpload} />
+    </div>
+  );
+}
+
 function VendorApplyForm() {
   const searchParams = useSearchParams();
+  // businessId is now OPTIONAL — an admin-shared link
+  // (/vendor-apply?businessId=...) still pre-targets one business exactly
+  // as before, but a vendor arriving here directly (e.g. from a public
+  // "Become a vendor" link with no businessId) can now submit a general
+  // signup request; the admin assigns a business at approval time.
   const businessId = searchParams.get("businessId") || "";
 
   const [businessName, setBusinessName] = useState<string | null>(null);
+  const [businessIndustry, setBusinessIndustry] = useState<string | null>(null);
   const [invalidLink, setInvalidLink] = useState(false);
 
   const [form, setForm] = useState({
     companyName: "",
     contactPerson: "",
     email: "",
+    username: "",
     phone: "",
     gstRegistered: true,
     gstNumber: "",
@@ -61,22 +126,65 @@ function VendorApplyForm() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ requestNumber: string; businessName?: string } | null>(null);
   const [gstWarning, setGstWarning] = useState<string | null>(null);
 
+  // Generic supporting documents every applicant is asked for, regardless
+  // of business/industry (which isn't known yet for a general request).
+  const [gstDoc, setGstDoc] = useState<{ url?: string; uploading?: boolean }>({});
+  const [panDoc, setPanDoc] = useState<{ url?: string; uploading?: boolean }>({});
+  const [regDoc, setRegDoc] = useState<{ url?: string; uploading?: boolean }>({});
+  // Industry-specific compliance docs — only shown/collected when a
+  // specific business (and therefore its industry) is already known via
+  // the businessId link.
+  const [complianceUploads, setComplianceUploads] = useState<Record<string, { url?: string; number?: string; uploading?: boolean }>>({});
+  const requiredComplianceDocs = getComplianceDocsForIndustry(businessIndustry);
+
   useEffect(() => {
-    if (!businessId) {
-      setInvalidLink(true);
-      return;
-    }
+    if (!businessId) return; // general request — no link to validate
     fetch(`/api/businesses/public?businessId=${businessId}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setBusinessName(d.business.name);
-        else setInvalidLink(true);
+        if (d.success) {
+          setBusinessName(d.business.name);
+          setBusinessIndustry(d.business.industry || null);
+        } else {
+          setInvalidLink(true);
+        }
       })
       .catch(() => setInvalidLink(true));
   }, [businessId]);
+
+  async function uploadGenericDoc(
+    setter: (v: { url?: string; uploading?: boolean }) => void,
+    file: File
+  ) {
+    setter({ uploading: true });
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/assets/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+      setter({ url: data.asset?.fileUrl, uploading: false });
+    } catch {
+      setter({ uploading: false });
+    }
+  }
+
+  async function uploadComplianceDoc(doc: ComplianceDocRequirement, file: File) {
+    setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], uploading: true } }));
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/assets/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+      setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], url: data.asset?.fileUrl, uploading: false } }));
+    } catch {
+      setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], uploading: false } }));
+    }
+  }
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((p) => ({ ...p, [key]: value }));
@@ -110,22 +218,41 @@ function VendorApplyForm() {
       return setError("Pincode must be a valid 6-digit Indian PIN code");
     if (form.accountNumber && form.accountNumber !== form.confirmAccount)
       return setError("Account numbers do not match");
+    const missingCompliance = requiredComplianceDocs.filter((d) => !complianceUploads[d.key]?.url);
+    if (missingCompliance.length > 0) {
+      return setError(`Please upload: ${missingCompliance.map((d) => d.label).join(", ")}`);
+    }
 
     setSubmitting(true);
     setError(null);
     try {
+      const complianceEntries: Record<string, { url?: string; number?: string; uploadedAt: string }> = {};
+      for (const key of Object.keys(complianceUploads)) {
+        const v = complianceUploads[key];
+        if (v.url) complianceEntries[key] = { url: v.url, number: v.number, uploadedAt: new Date().toISOString() };
+      }
+      const documents = {
+        gstCertificateUrl: gstDoc.url || undefined,
+        compliance: {
+          ...(panDoc.url ? { pan_card: { url: panDoc.url, uploadedAt: new Date().toISOString() } } : {}),
+          ...(regDoc.url ? { business_registration: { url: regDoc.url, uploadedAt: new Date().toISOString() } } : {}),
+          ...complianceEntries,
+        },
+      };
+
       const res = await fetch("/api/vendors/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          businessId,
+          businessId: businessId || undefined,
           companyName: form.companyName.trim(),
           contactPerson: form.contactPerson.trim(),
           email: form.email.trim(),
+          username: form.username.trim() || undefined,
           phone: form.phone.trim(),
           gstRegistered: form.gstRegistered,
           gstNumber: form.gstRegistered ? form.gstNumber.trim().toUpperCase() : undefined,
-          panNumber: form.panNumber.trim().toUpperCase() || undefined,
+          panNumber: panDoc.url || form.panNumber ? form.panNumber.trim().toUpperCase() || undefined : undefined,
           category: form.category || undefined,
           businessType: form.businessType || undefined,
           address:
@@ -146,12 +273,13 @@ function VendorApplyForm() {
                 bankName: form.bankName || undefined,
               }
             : undefined,
+          documents,
           notes: form.notes || undefined,
         }),
       });
       const d = await res.json();
       if (!res.ok || !d.success) throw new Error(d.message || "Submission failed");
-      setDone(d.applicationId);
+      setDone({ requestNumber: d.requestNumber || d.applicationId, businessName: d.business });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -180,9 +308,12 @@ function VendorApplyForm() {
           <div className="text-4xl mb-3">✅</div>
           <h1 className="text-lg font-bold text-gray-900">Application submitted</h1>
           <p className="mt-2 text-sm text-gray-500">
-            Your application ID is <span className="font-mono font-semibold text-gray-800">{done}</span>.
-            The team will review your details and send you the partner agreement for
-            signing. You&apos;ll receive your vendor login after final approval.
+            Your request number is <span className="font-mono font-semibold text-gray-800">{done.requestNumber}</span>
+            {done.businessName ? <> for <strong>{done.businessName}</strong></> : null}.
+            Please quote this number in any follow-up. The team will review your
+            documents{!businessId ? ", assign you to the appropriate business," : ""} and
+            send you the partner agreement for signing. You&apos;ll receive your vendor
+            login after final approval.
           </p>
         </div>
       </div>
@@ -233,6 +364,14 @@ function VendorApplyForm() {
           </Field>
           <Field label="Phone" required>
             <input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" />
+          </Field>
+          <Field label="User ID (optional, must be unique)">
+            <input
+              className={inputCls}
+              value={form.username}
+              onChange={(e) => set("username", e.target.value.toLowerCase().replace(/\s+/g, ""))}
+              placeholder="e.g. acmetraders"
+            />
           </Field>
         </div>
 
@@ -333,6 +472,67 @@ function VendorApplyForm() {
             <Field label="Confirm Account Number"><input className={inputCls} value={form.confirmAccount} onChange={(e) => set("confirmAccount", e.target.value)} /></Field>
             <Field label="IFSC Code"><input className={inputCls} value={form.ifscCode} onChange={(e) => set("ifscCode", e.target.value)} placeholder="HDFC0001234" /></Field>
           </div>
+        </div>
+
+        {/* Documents */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Supporting Documents</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DocUploadCard
+              label="GST Certificate"
+              hint={form.gstRegistered ? "Required for GST-registered vendors" : "Optional"}
+              state={gstDoc}
+              onUpload={(file) => uploadGenericDoc(setGstDoc, file)}
+            />
+            <DocUploadCard
+              label="PAN Card"
+              hint={!form.gstRegistered ? "Required for vendors without GST" : "Optional"}
+              state={panDoc}
+              onUpload={(file) => uploadGenericDoc(setPanDoc, file)}
+            />
+            <DocUploadCard
+              label="Business Registration / Incorporation Certificate"
+              hint="Optional, but speeds up review"
+              state={regDoc}
+              onUpload={(file) => uploadGenericDoc(setRegDoc, file)}
+            />
+          </div>
+
+          {requiredComplianceDocs.length > 0 && (
+            <div className="mt-4 space-y-3">
+              <p className="text-xs font-medium text-gray-700">
+                Required documents for {businessName}&apos;s industry
+              </p>
+              {requiredComplianceDocs.map((doc) => {
+                const uploaded = complianceUploads[doc.key];
+                return (
+                  <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-sm font-medium text-gray-900">
+                      {doc.label}
+                      <span className="text-red-500 ml-0.5">*</span>
+                    </p>
+                    {doc.helpText && <p className="text-[11px] text-gray-400 mt-0.5 mb-2">{doc.helpText}</p>}
+                    {doc.collectNumber && (
+                      <input
+                        type="text"
+                        placeholder={doc.numberLabel || "License number"}
+                        value={uploaded?.number || ""}
+                        onChange={(e) =>
+                          setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], number: e.target.value } }))
+                        }
+                        className={`${inputCls} mb-2`}
+                      />
+                    )}
+                    <UploadDropzone
+                      uploading={!!uploaded?.uploading}
+                      uploadedUrl={uploaded?.url}
+                      onFile={(file) => uploadComplianceDoc(doc, file)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <Field label="Anything else we should know?">

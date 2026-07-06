@@ -64,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     ]},
     { key: "ops-finance", label: "Finance", items: [
       { key: "finance", label: "Finance", route: "/admin/finance", icon: "DollarSign" },
+      { key: "vendor-settlements", label: "Vendor Settlements", route: "/admin/vendor-settlements", icon: "DollarSign" },
     ]},
   ]},
   { label: "Business", items: [
@@ -106,6 +107,14 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "admin-status", label: "System Status", route: "/admin/system-status", icon: "Activity" },
       { key: "admin-modules", label: "Modules", route: "/admin/modules", icon: "Box" },
       { key: "admin-document-templates", label: "Document Templates", route: "/admin/document-templates", icon: "FileText" },
+      // This page has existed with a complete, working CRUD UI + API this
+      // whole time — it just never had a sidebar entry pointing to it, so
+      // nobody could reach it from the nav (had to know the URL directly).
+      { key: "admin-invoice-templates", label: "Invoice Branding", route: "/admin/invoice-templates", icon: "FileText" },
+      // Same class of bug as Invoice Branding above — the GST filings/settings
+      // page (admin/gst/page.tsx) has existed with a complete UI + API this
+      // whole time but never had a sidebar entry, so it was unreachable from nav.
+      { key: "admin-gst", label: "GST", route: "/admin/gst", icon: "FileText" },
     ]},
   ]},
 ];
@@ -254,7 +263,13 @@ export default function Sidebar() {
     // Document Templates is core platform config, not a per-business
     // toggleable module (like Modules above) — always show it rather than
     // requiring every business's module set to separately include it.
-    key === "admin-document-templates";
+    key === "admin-document-templates" ||
+    // Same reasoning for Invoice Branding — was unreachable from the nav
+    // for every business until this entry existed at all.
+    key === "admin-invoice-templates" ||
+    // Same reasoning for GST — was unreachable from the nav for every
+    // business until this entry existed at all.
+    key === "admin-gst";
 
   return (
     <>

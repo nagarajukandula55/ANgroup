@@ -41,11 +41,20 @@ export default function UsersPage() {
   const [empCount, setEmpCount]     = useState(0);
   const [venCount, setVenCount]     = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState({
-    name: '', email: '', password: '', role: 'EMPLOYEE',
+    name: '', email: '', username: '', password: '', role: 'EMPLOYEE',
     department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '',
     companyName: '', gstNumber: '', contactPerson: '', phone: '',
   });
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => setIsSuperAdmin(!!d?.user?.isSuperAdmin))
+      .catch(() => {});
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -82,14 +91,16 @@ export default function UsersPage() {
 
   function openAdd() {
     setEditingUser(null);
-    setFormData({ name: '', email: '', password: '', role: 'EMPLOYEE', department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '', companyName: '', gstNumber: '', contactPerson: '', phone: '' });
+    setFormError('');
+    setFormData({ name: '', email: '', username: '', password: '', role: 'EMPLOYEE', department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '', companyName: '', gstNumber: '', contactPerson: '', phone: '' });
     setShowPanel(true);
   }
 
   function openEdit(user: User) {
     setEditingUser(user);
+    setFormError('');
     setFormData({
-      name: user.name, email: user.email, password: '', role: user.roles[0]?.code || 'EMPLOYEE',
+      name: user.name, email: user.email, username: '', password: '', role: user.roles[0]?.code || 'EMPLOYEE',
       department: user.employeeProfile?.department || '', designation: user.employeeProfile?.designation || '',
       employmentType: user.employeeProfile?.employmentType || 'FULL_TIME',
       joiningDate: user.employeeProfile?.joiningDate?.slice(0, 10) || '',
@@ -102,9 +113,13 @@ export default function UsersPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setFormError('');
     try {
       const body: Record<string, unknown> = { name: formData.name, email: formData.email, role: formData.role };
-      if (!editingUser) body.password = formData.password;
+      if (!editingUser) {
+        body.password = formData.password;
+        if (formData.username.trim()) body.username = formData.username.trim();
+      }
       if (formData.role === 'EMPLOYEE') {
         body.employeeData = { department: formData.department, designation: formData.designation, employmentType: formData.employmentType, joiningDate: formData.joiningDate || undefined };
       }
@@ -114,8 +129,14 @@ export default function UsersPage() {
       const url    = editingUser ? `/api/admin/users/${editingUser._id}` : '/api/admin/users';
       const method = editingUser ? 'PUT' : 'POST';
       const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (res.ok) { setShowPanel(false); fetchUsers(); }
-    } catch (e) { console.error(e); }
+      const data   = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setShowPanel(false);
+        fetchUsers();
+      } else {
+        setFormError(data?.error || 'Failed to save user');
+      }
+    } catch (e) { console.error(e); setFormError('Failed to connect to server'); }
     finally { setSubmitting(false); }
   }
 
@@ -278,6 +299,11 @@ export default function UsersPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {formError && (
+                <div className="px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
+                  {formError}
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Full Name</label>
                 <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -290,6 +316,14 @@ export default function UsersPage() {
               </div>
               {!editingUser && (
                 <div>
+                  <label className={labelCls}>User ID <span className="text-gray-400 font-normal">(optional, must be unique)</span></label>
+                  <input type="text" value={formData.username}
+                    onChange={e => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
+                    className={inputCls} placeholder="e.g. jdoe" autoComplete="off" />
+                </div>
+              )}
+              {!editingUser && (
+                <div>
                   <label className={labelCls}>Password</label>
                   <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
                     className={inputCls} placeholder="••••••••" />
@@ -298,8 +332,14 @@ export default function UsersPage() {
               <div>
                 <label className={labelCls}>Role</label>
                 <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className={selectCls}>
-                  {['ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER'].map(r => (
-                    <option key={r} value={r}>{r}</option>
+                  {[
+                    // SUPER_ADMIN only ever offered to an already-super-admin
+                    // caller — the API enforces this too, this is just so a
+                    // regular admin never sees the option in the first place.
+                    ...(isSuperAdmin ? ['SUPER_ADMIN'] : []),
+                    'ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER',
+                  ].map(r => (
+                    <option key={r} value={r}>{r === 'SUPER_ADMIN' ? 'Super Admin' : r}</option>
                   ))}
                 </select>
               </div>
