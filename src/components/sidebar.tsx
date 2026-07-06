@@ -13,6 +13,7 @@ import {
 
 const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
 
+
 interface Business { _id: string; name: string; brandName?: string; businessCode?: string }
 interface UserInfo {
   id: string; name: string; email: string; role: string;
@@ -104,6 +105,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "admin-intg", label: "Integrations", route: "/admin/integrations", icon: "Plug" },
       { key: "admin-sso",  label: "SSO / Auth",   route: "/admin/sso",          icon: "Key" },
       { key: "admin-status", label: "System Status", route: "/admin/system-status", icon: "Activity" },
+      { key: "admin-modules", label: "Modules", route: "/admin/modules", icon: "Box" },
     ]},
   ]},
 ];
@@ -231,6 +233,8 @@ export default function Sidebar() {
   }
 
   const moduleKeys = new Set(modules.map((m: any) => m.key));
+  const isVisible = (key: string) =>
+    moduleKeys.has(key) || (key === "admin-modules" && user?.isSuperAdmin);
 
   return (
     <>

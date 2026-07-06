@@ -42,6 +42,17 @@ export async function POST(req: NextRequest) {
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Restricted to super admins for now — same reasoning as the PUT/DELETE
+    // handlers in [key]/route.ts: no dedicated "platform.manage_modules"
+    // permission is seeded yet, so isSuperAdmin is the safe gate until one is.
+    const isSuperAdmin = h.get("x-is-super-admin") === "true";
+    if (!isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Only Super Admins can create module definitions" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { key, label, pluralLabel, description, icon, route, businessId, fields } = body;
 
