@@ -7,6 +7,7 @@ import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
 
 import { logAction } from "@/lib/audit/logAction";
+import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 
 export async function POST(req: Request) {
   try {
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
     const user = await User.create({
       name: body.name,
       email: body.email,
+      username: await generateUniqueUserId(),
       password: hashedPassword,
       role: body.role,
       permissions: body.permissions,

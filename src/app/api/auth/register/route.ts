@@ -4,6 +4,7 @@ import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
 import mongoose from 'mongoose'
 import { logAction } from '@/lib/audit/logAction'
+import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 
 // Inline BusinessMember schema since no separate model file exists
 const BusinessMemberSchema = new mongoose.Schema(
@@ -90,9 +91,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Optional user ID — collected at signup per the requirement that it
-    // be unique. Reuses the User model's existing `username` field (unique
-    // + sparse already), rather than adding a second redundant field.
+    // User ID — collected at signup per the requirement that it be unique.
+    // Reuses the User model's existing `username` field (unique + sparse
+    // already), rather than adding a second redundant field. Every user
+    // must end up with a real value here (never left blank) — see
+    // lib/auth/generateUserId.ts for why a blank/null username silently
+    // breaks the next signup that also leaves it blank.
     const trimmedUsername = username ? String(username).toLowerCase().trim() : undefined
     if (trimmedUsername) {
       const existingUsername = await User.findOne({
@@ -112,7 +116,7 @@ export async function POST(req: NextRequest) {
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      username: trimmedUsername,
+      username: trimmedUsername || (await generateUniqueUserId()),
       password: hashedPassword,
       phone: phone?.trim() || undefined,
       role: 'CUSTOMER',
@@ -154,6 +158,11 @@ export async function POST(req: NextRequest) {
         success: true,
         message: 'Account created successfully',
         userId: user._id.toString(),
+        // Always non-null now (generated if the caller didn't choose one) —
+        // this doubles as the "vendor code" a vendor uses on /vendor/staff
+        // to add this person as their staff, and as the ID a business
+        // admin looks up to add this person to a business as an employee.
+        username: user.username,
       },
       { status: 201 }
     )

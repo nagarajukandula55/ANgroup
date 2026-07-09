@@ -9,14 +9,20 @@ import {
   Loader2,
   User,
   Building2,
-  BadgeCheck,
   AlertCircle,
   CheckCircle,
 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { validateGSTINAgainstState } from '@/lib/validation/gst'
 
-type Tab = 'customer' | 'vendor' | 'employee'
+// Only two signup paths: a single account-creation form (covers customers
+// AND future employees — an admin grants EMPLOYEE business access to an
+// already-registered account afterward via /admin/users, rather than
+// employees self-registering against a pre-issued Employee ID), and the
+// vendor application (which genuinely needs separate company/compliance
+// documents collected up front). Vendor STAFF also use the plain signup
+// below, then a vendor adds them by user ID on /vendor/staff.
+type Tab = 'customer' | 'vendor'
 
 const BUSINESS_CATEGORIES = [
   'Manufacturing',
@@ -132,11 +138,6 @@ export default function RegisterPage() {
   const [vendPincode, setVendPincode] = useState('')
   const [vendGstWarning, setVendGstWarning] = useState<string | null>(null)
 
-  // Employee form
-  const [empId, setEmpId] = useState('')
-  const [empEmail, setEmpEmail] = useState('')
-  const [empPassword, setEmpPassword] = useState('')
-
   const handleCustomerRegister = async () => {
     if (!custName || !custEmail || !custPassword) {
       setError('Please fill in all required fields')
@@ -166,8 +167,12 @@ export default function RegisterPage() {
       })
       const data = await res.json()
       if (data.success) {
-        setSuccess('Account created! Redirecting to login...')
-        setTimeout(() => router.push('/login'), 1500)
+        setSuccess(
+          data.username
+            ? `Account created! Your user ID is "${data.username}" — share it with a vendor to be added as their staff, or with your employer to be added to a business. Redirecting to login...`
+            : 'Account created! Redirecting to login...'
+        )
+        setTimeout(() => router.push('/login'), 2500)
       } else {
         setError(data.message || 'Registration failed')
       }
@@ -240,49 +245,16 @@ export default function RegisterPage() {
     }
   }
 
-  const handleEmployeeRegister = async () => {
-    if (!empId || !empEmail || !empPassword) {
-      setError('Please fill in all required fields')
-      return
-    }
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/auth/register/employee', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employeeId: empId,
-          email: empEmail,
-          password: empPassword,
-        }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        setSuccess(data.message || 'Account created successfully!')
-        setTimeout(() => router.push('/login'), 2000)
-      } else {
-        setError(data.message || 'Registration failed')
-      }
-    } catch {
-      setError('Registration failed. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleSubmit = () => {
     setError('')
     setSuccess('')
     if (activeTab === 'customer') handleCustomerRegister()
-    else if (activeTab === 'vendor') handleVendorRegister()
-    else handleEmployeeRegister()
+    else handleVendorRegister()
   }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'customer', label: "I'm a Customer", icon: <User className="h-4 w-4" /> },
+    { id: 'customer', label: 'Sign Up', icon: <User className="h-4 w-4" /> },
     { id: 'vendor', label: "I'm a Vendor", icon: <Building2 className="h-4 w-4" /> },
-    { id: 'employee', label: "I'm an Employee", icon: <BadgeCheck className="h-4 w-4" /> },
   ]
 
   return (
@@ -308,7 +280,7 @@ export default function RegisterPage() {
         {/* Card */}
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           {/* Tab selector */}
-          <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 mb-6">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 mb-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -362,11 +334,16 @@ export default function RegisterPage() {
                 required
               />
               <InputField
-                label="User ID (optional, must be unique)"
+                label="User ID (optional, must be unique — auto-generated if left blank)"
                 value={custUsername}
                 onChange={(v) => setCustUsername(v.toLowerCase().replace(/\s+/g, ''))}
                 placeholder="e.g. johnd"
               />
+              <p className="text-xs text-gray-400 -mt-2">
+                This account works for both customers and employees — once
+                you have it, a business admin can add you to their team, or
+                a vendor can add you as staff using your User ID.
+              </p>
               <InputField
                 label="Phone Number"
                 value={custPhone}
@@ -555,38 +532,6 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Employee Form */}
-          {activeTab === 'employee' && (
-            <div className="space-y-4">
-              <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 mb-2">
-                <p className="text-xs text-blue-700">
-                  Use the Employee ID provided by your HR department to create
-                  your account.
-                </p>
-              </div>
-              <InputField
-                label="Employee ID"
-                value={empId}
-                onChange={setEmpId}
-                placeholder="EMP-2024-001"
-                required
-              />
-              <InputField
-                label="Email Address"
-                value={empEmail}
-                onChange={setEmpEmail}
-                placeholder="your.name@angroup.com"
-                type="email"
-                required
-              />
-              <PasswordField
-                label="Create Password *"
-                value={empPassword}
-                onChange={setEmpPassword}
-              />
-            </div>
-          )}
-
           {/* Submit */}
           <button
             onClick={handleSubmit}
@@ -602,7 +547,6 @@ export default function RegisterPage() {
               <>
                 {activeTab === 'customer' && 'Create Account'}
                 {activeTab === 'vendor' && 'Submit Vendor Application'}
-                {activeTab === 'employee' && 'Create Employee Account'}
               </>
             )}
           </button>

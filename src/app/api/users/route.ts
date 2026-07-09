@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
 import { logAction } from '@/lib/audit/logAction'
+import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 
 const SALT_ROUNDS = 12
 
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      username: username?.toLowerCase()?.trim() || null,
+      username: username?.toLowerCase()?.trim() || (await generateUniqueUserId()),
       phone: phone?.trim() || null,
       password: hashedPassword,
       role: userRole || 'STAFF',

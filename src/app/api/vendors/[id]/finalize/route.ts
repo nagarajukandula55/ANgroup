@@ -8,6 +8,7 @@ import Agreement from "@/models/Agreement";
 import User from "@/models/User";
 import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
 import { logAction } from "@/lib/audit/logAction";
+import { generateUniqueUserId } from "@/lib/auth/generateUserId";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       user = await User.create({
         name: vendor.contactPerson || vendor.companyName,
         email: vendor.email,
+        username: await generateUniqueUserId(),
         password: hashed,
         phone: vendor.phone || undefined,
         role: "VENDOR",

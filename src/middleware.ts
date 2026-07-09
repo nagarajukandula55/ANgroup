@@ -31,7 +31,21 @@ async function verifyEdgeToken(token: string): Promise<JWTPayload | null> {
 }
 
 /* ── Exact public paths (no auth needed, no header injection) ──────────── */
-const PUBLIC_EXACT = new Set(["/login", "/register", "/favicon.ico"]);
+const PUBLIC_EXACT = new Set([
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/favicon.ico",
+  // Exact (not prefix) matches so that /api/reviews/[id] — the moderation
+  // PATCH route, which genuinely requires auth — is NOT swept in by a
+  // "/api/reviews" prefix match the way /api/products/ is deliberately
+  // swept in below for its own sub-paths.
+  "/api/reviews",
+  "/api/newsletter/subscribe",
+  "/api/auth/reset-password",
+  "/api/auth/reset-password/request",
+]);
 
 /* ── Public prefixes ────────────────────────────────────────────────────── */
 const PUBLIC_PREFIXES = [

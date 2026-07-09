@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, Loader2, Clock } from 'lucide-react'
+import Link from 'next/link'
+import { Eye, EyeOff, Loader2, Clock, ShieldCheck } from 'lucide-react'
 
 export default function LoginPage() {
   return (
@@ -71,11 +72,20 @@ function LoginForm() {
 
       <div className="relative w-full max-w-md">
         <div className="rounded-3xl border border-gray-200 bg-white shadow-sm p-8 md:p-10">
-          {/* Logo / Brand */}
+          {/* Logo / Brand — this login is a shared identity provider across
+              every AN Group app/device, so it brands itself as the SSO
+              gateway rather than any one product's name. */}
           <div className="mb-8">
-            <p className="text-[10px] uppercase tracking-[0.5em] text-gray-400">AN Group</p>
-            <h1 className="mt-3 text-3xl font-semibold text-gray-900 tracking-tight">Sign in</h1>
-            <p className="mt-2 text-sm text-gray-500">Enterprise Platform — Authorised Access Only</p>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1">
+              <ShieldCheck className="h-3.5 w-3.5 text-violet-600" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-600">
+                Single Sign-On
+              </span>
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold text-gray-900 tracking-tight">Sign in</h1>
+            <p className="mt-2 text-sm text-gray-500">
+              One account, every AN Group app and device.
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
@@ -95,7 +105,15 @@ function LoginForm() {
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-2">Password</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-medium text-gray-500">Password</label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   type={showPass ? 'text' : 'password'}
@@ -149,16 +167,16 @@ function LoginForm() {
 
           <div className="mt-6 pt-6 border-t border-gray-100">
             <p className="text-xs text-gray-400 text-center">
-              AN Group Enterprise Platform · Authorised Personnel Only
+              Secured by AN Group Single Sign-On
             </p>
           </div>
         </div>
 
-        <p className="mt-4 text-center text-xs text-gray-400">
-          First time?{' '}
-          <a href="/api/seed" target="_blank" className="text-gray-500 underline hover:text-gray-700">
-            Initialise super admin
-          </a>
+        <p className="mt-4 text-center text-sm text-gray-500">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="font-medium text-violet-600 hover:text-violet-700 transition-colors">
+            Sign up
+          </Link>
         </p>
       </div>
     </div>

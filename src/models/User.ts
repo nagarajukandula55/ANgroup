@@ -9,6 +9,15 @@ export enum UserRoleLegacy {
   ADMIN = "ADMIN",
   STAFF = "STAFF",
   CUSTOMER = "CUSTOMER",
+  // VENDOR was already assumed valid by several call sites (register/vendor
+  // and vendors/[id]/finalize both set role: "VENDOR"; profile/page.tsx
+  // reads `profile.role === 'VENDOR'` to show the vendor card) but was
+  // missing from this enum, so every one of those saves threw a mongoose
+  // validation error — vendor self-registration was fully broken. Finer-
+  // grained roles (EMPLOYEE, MANAGER) are intentionally NOT added here —
+  // see admin/users/route.ts's own comment — those go through the newer
+  // Role/UserRole + BusinessMember RBAC system instead.
+  VENDOR = "VENDOR",
 }
 
 export enum AuthProvider {
@@ -62,6 +71,11 @@ export interface IUser extends Document {
   passwordChangedAt?: Date;
   lastLogin?: Date;
 
+  /* Password reset — single-use, time-boxed. Only the sha256 hash of the
+   * token is stored; the raw token is emailed once and never persisted. */
+  resetPasswordTokenHash?: string;
+  resetPasswordExpires?: Date;
+
   /* Soft Delete */
   isDeleted: boolean;
   deletedAt?: Date;
@@ -102,7 +116,12 @@ const UserSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
       index: true,
-      default: null,
+      // No `default: null` — MongoDB's sparse index only skips a document
+      // where this field is genuinely ABSENT. An explicit null is still
+      // indexed, so a default of null meant every user created without a
+      // username collided with every other one on that shared null value.
+      // Every creation path must now supply a real value (see
+      // lib/auth/generateUserId.ts) instead of relying on a default.
     },
 
     phone: {
@@ -206,6 +225,18 @@ const UserSchema = new Schema<IUser>(
     lastLogin: {
       type: Date,
       default: null,
+    },
+
+    resetPasswordTokenHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+      select: false,
     },
 
     /* ================= Soft Delete ================= */

@@ -36,6 +36,71 @@ async function resolveResendCreds(businessId?: string): Promise<{ apiKey: string
   };
 }
 
+/**
+ * Newsletter welcome email — reuses the same per-business Resend
+ * credential resolution as invoice emails (falls back to global env vars
+ * if the business hasn't configured its own key). Non-fatal by design:
+ * the subscribe route should still succeed even if the email fails to
+ * send, since the subscriber record itself is the source of truth.
+ */
+export async function sendNewsletterWelcomeEmail({
+  to,
+  businessId,
+}: {
+  to: string;
+  businessId?: string;
+}) {
+  try {
+    const { apiKey, from } = await resolveResendCreds(businessId);
+    if (!apiKey) {
+      throw new Error("No Resend API key configured (neither business-specific nor global RESEND_API_KEY)");
+    }
+    const resend = new Resend(apiKey);
+
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject: "You're subscribed!",
+      html: `<p>Thanks for subscribing — you'll hear from us with new products, offers, and updates.</p>`,
+    });
+
+    return { success: true, result };
+  } catch (err: any) {
+    console.error("NEWSLETTER EMAIL ERROR", err);
+    return { success: false, error: err?.message || "Unknown email error" };
+  }
+}
+
+/**
+ * Password reset email — unlike the newsletter welcome email, failures
+ * here MUST propagate (the caller needs to know whether the reset link
+ * actually went out) rather than being swallowed as best-effort.
+ */
+export async function sendPasswordResetEmail({
+  to,
+  resetUrl,
+  businessId,
+}: {
+  to: string;
+  resetUrl: string;
+  businessId?: string;
+}) {
+  const { apiKey, from } = await resolveResendCreds(businessId);
+  if (!apiKey) {
+    throw new Error("No Resend API key configured (neither business-specific nor global RESEND_API_KEY)");
+  }
+  const resend = new Resend(apiKey);
+
+  return resend.emails.send({
+    from,
+    to,
+    subject: "Reset your password",
+    html: `<p>We received a request to reset your password.</p>
+<p><a href="${resetUrl}">Click here to reset your password</a>. This link expires in 30 minutes and can only be used once.</p>
+<p>If you didn't request this, you can safely ignore this email.</p>`,
+  });
+}
+
 export async function sendInvoiceEmail({
   to,
   customerName,
