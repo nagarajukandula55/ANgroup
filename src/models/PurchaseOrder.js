@@ -15,7 +15,15 @@ const PurchaseOrderSchema = new mongoose.Schema(
 
     vendorId:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"Vendor",
+        // Was ref:"Vendor" -- the legacy, superseded vendor model.
+        // /api/vendors (the route this form's vendor dropdown actually
+        // fetches from) and every other live vendor system in the app
+        // use VendorProfile -- populate("vendorId") against "Vendor" was
+        // silently returning nothing for every real vendor id, and
+        // purchaseOrder.service.ts's Vendor.findById(vendorId) lookup at
+        // creation time meant selecting ANY vendor from the dropdown
+        // always failed with "Vendor not found".
+        ref:"VendorProfile",
         required:true,
         index:true
     },

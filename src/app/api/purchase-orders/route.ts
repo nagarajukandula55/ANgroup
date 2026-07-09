@@ -49,9 +49,25 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    // Was no auth check at all, and getAllPurchaseOrders() had no
+    // businessId filter -- every caller could list every business's
+    // purchase orders. Both fixed together.
+    const session = await getEnrichedSession();
+    if (!session?.user || !session.business) {
+      return NextResponse.json({ success: false, message: "Unauthorized or missing business context" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("purchase", "view"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB();
 
-    const data = await getAllPurchaseOrders();
+    const data = await getAllPurchaseOrders(session.business.businessId);
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {

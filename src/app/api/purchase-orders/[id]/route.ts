@@ -17,6 +17,19 @@ GET PURCHASE ORDER
 
 export async function GET(_: Request, { params }: any) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("purchase", "view"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB();
 
     const data = await getPurchaseOrderById(params.id);
@@ -107,12 +120,16 @@ export async function PATCH(req: Request, { params }: any) {
 
     const body = await req.json();
 
-    const { action, userId } = body;
+    const { action } = body;
 
+    // Was trusting a client-supplied userId (defaulting to the literal
+    // string "ADMIN" if absent) as the approver's identity -- anyone
+    // could attribute an approval/rejection to whoever they claimed to be.
+    // Derived from the verified session instead.
     const data = await approvePurchaseOrder({
       id: params.id,
       action,
-      userId: userId || "ADMIN",
+      userId: session.user.id,
     });
 
     logAction({
@@ -121,7 +138,7 @@ export async function PATCH(req: Request, { params }: any) {
       entityId: params.id,
       after: data,
       req,
-      actor: { id: userId },
+      actor: { id: session.user.id },
     });
 
     return NextResponse.json({

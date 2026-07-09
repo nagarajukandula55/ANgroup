@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Agreement, { ISignature } from '@/models/Agreement';
+import VendorProfile from '@/models/VendorProfile';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
 import { logAction } from "@/lib/audit/logAction";
@@ -103,6 +104,27 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     await agreement.save();
+
+    // Was never updated here -- VendorProfile.ts's own comment already
+    // documents "AGREEMENT_SIGNED — vendor signed the agreement" as the
+    // intended transition, and a matching AGREEMENT_CANCELLED transition
+    // is documented for the agreement-delete route, but neither this
+    // route nor that one actually wrote to VendorProfile.status. A
+    // vendor's profile page kept showing whatever stage it was at before
+    // signing (e.g. "Agreement Drafted") forever, even after the
+    // agreement was fully signed.
+    if (allSigned) {
+      try {
+        await VendorProfile.findOneAndUpdate(
+          { agreementId: agreement._id },
+          { $set: { status: 'AGREEMENT_SIGNED' } }
+        );
+      } catch (vendorSyncErr) {
+        console.error('Failed to sync VendorProfile status after signing:', vendorSyncErr);
+        // Non-fatal -- the agreement itself is already signed and saved;
+        // don't fail the signer's request over this secondary sync.
+      }
+    }
 
     const updatedAgreement = await Agreement.findById(id)
       .select('-signatures.otp')

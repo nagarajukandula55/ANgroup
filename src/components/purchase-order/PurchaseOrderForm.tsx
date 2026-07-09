@@ -17,6 +17,25 @@ export default function PurchaseOrderForm() {
 
   const [saving, setSaving] = useState(false);
 
+  // Was hardcoded to the literal strings "BUSINESS_ID"/"USER_ID" ("Replace
+  // from auth later") -- meaning every PO ever created through this form
+  // had garbage, non-existent ids in businessId/createdBy. Resolved from
+  // the real session the same way every other admin form in this app does.
+  const [userId, setUserId] = useState("");
+  const [businessId, setBusinessId] = useState("");
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setUserId(d.user?.id || "");
+          setBusinessId(d.user?.activeBusinessId || d.user?.defaultBusinessId || "");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const subtotal = items.reduce(
     (sum, item) => sum + (item.lineTotal || 0),
     0
@@ -42,8 +61,8 @@ export default function PurchaseOrderForm() {
     try {
       const [vendorRes, warehouseRes] =
         await Promise.all([
-          fetch("/api/vendors"),
-          fetch("/api/warehouses"),
+          fetch("/api/vendors", { credentials: "include" }),
+          fetch("/api/warehouses", { credentials: "include" }),
         ]);
 
       const vendorsJson = await vendorRes.json();
@@ -69,6 +88,9 @@ export default function PurchaseOrderForm() {
     if (!items.length)
       return alert("Add at least one material");
 
+    if (!businessId)
+      return alert("No active business selected -- select a business first.");
+
     setSaving(true);
 
     try {
@@ -80,16 +102,15 @@ export default function PurchaseOrderForm() {
             "Content-Type":
               "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({
             vendorId,
             warehouseId,
             expectedDate,
             remarks,
             items,
-
-            // Replace from auth later
-            businessId: "BUSINESS_ID",
-            createdBy: "USER_ID",
+            businessId,
+            createdBy: userId,
           }),
         }
       );

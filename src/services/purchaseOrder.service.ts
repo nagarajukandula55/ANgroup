@@ -3,7 +3,12 @@ import mongoose from "mongoose";
 import Business from "@/models/Business";
 import PurchaseOrder from "@/models/PurchaseOrder";
 import PurchaseOrderItem from "@/models/PurchaseOrderItem";
-import Vendor from "@/models/Vendor";
+// Was models/Vendor (legacy, superseded model -- see PurchaseOrder.js's
+// schema comment). /api/vendors (what the PO form's vendor dropdown
+// actually calls) returns VendorProfile records, so a Vendor.findById
+// lookup here against a VendorProfile _id always failed with
+// "Vendor not found", regardless of which vendor was selected.
+import VendorProfile from "@/models/VendorProfile";
 import Material from "@/models/Material";
 
 import {
@@ -55,7 +60,7 @@ export async function createPurchaseOrder(payload: any) {
     if (!business)
       throw new Error("Business not found");
 
-    const vendor = await Vendor.findById(
+    const vendor = await VendorProfile.findById(
       vendorId
     );
 
@@ -197,8 +202,11 @@ export async function createPurchaseOrder(payload: any) {
 }
 
 /* ================= GET ALL PO ================= */
-export async function getAllPurchaseOrders() {
-  const orders = (await PurchaseOrder.find()
+// Was PurchaseOrder.find() with no filter at all -- every business's
+// purchase orders were returned to every caller, a cross-tenant data leak
+// on top of the route itself having no auth check (fixed in the route).
+export async function getAllPurchaseOrders(businessId: string) {
+  const orders = (await PurchaseOrder.find({ businessId })
     .populate("vendorId")
     .populate("warehouseId")
     .sort({ createdAt: -1 })
