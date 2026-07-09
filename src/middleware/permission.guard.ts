@@ -16,8 +16,23 @@ import { IAuthSession } from "@/lib/auth/session";
  * pure defense-in-depth (tolerates any stray mixed-case permission code that
  * might exist in older stored session/role data) rather than a load-bearing
  * bridge between two live conventions — there is only one convention now.
+ *
+ * SUPER-ADMIN BYPASS — FIXED: every call site actually passes the real
+ * IEnrichedSession (from getEnrichedSession(), which DOES resolve
+ * isSuperAdmin from the x-is-super-admin header) into these functions via an
+ * `as any` cast to satisfy this file's narrower IAuthSession type. But this
+ * file never read isSuperAdmin at all, so a genuine super admin hit a flat
+ * 403 on any route whose exact permission code hadn't been separately
+ * granted to their role — GST, Finance, Audit, Analytics, Logistics,
+ * Purchase, Inventory, and Business-creation routes all had this bug. Every
+ * other access check in the app (filterModulesByPermission for the sidebar,
+ * setRolePermissions, etc.) already bypasses for super admins; this was the
+ * one place that didn't. Fixed by checking session.isSuperAdmin first —
+ * super admin always has full access, unconditionally; every other role
+ * still goes through the exact same permission-list check as before.
  */
 function hasPermission(session: IAuthSession, permission: string): boolean {
+  if (session.isSuperAdmin) return true;
   const wanted = permission.toUpperCase();
   return session.permissions.some((p: string) => p.toUpperCase() === wanted);
 }
@@ -57,6 +72,8 @@ export function requireAnyPermission(
     throw error;
   }
 
+  if (session.isSuperAdmin) return;
+
   const ok = permissions.some((p) => hasPermission(session, p));
 
   if (!ok) {
@@ -82,6 +99,11 @@ export function requireRole(
     (error as any).code = "UNAUTHORIZED";
     throw error;
   }
+
+  // Same super-admin bypass as requirePermission()/requireAnyPermission()
+  // above — a super admin isn't expected to hold every specific role code
+  // any more than every specific permission code.
+  if (session.isSuperAdmin) return;
 
   if (!session.roles.includes(role)) {
     const error = new Error(

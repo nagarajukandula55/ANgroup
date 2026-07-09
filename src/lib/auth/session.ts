@@ -20,6 +20,19 @@ export interface IAuthSession {
 
   roles: string[];
   permissions: string[];
+
+  // Every real call site (getEnrichedSession()'s IEnrichedSession) already
+  // carries isSuperAdmin and was being passed into requirePermission()/
+  // requireAnyPermission() via an `as any` cast — but permission.guard.ts
+  // never read it, so a genuine super admin got a flat 403 on any route
+  // whose exact permission code hadn't been separately granted (GST,
+  // Finance, Audit, Analytics, Logistics, Purchase, Inventory, and
+  // Business-creation routes all hit this). Declared here (optional, so
+  // this doesn't become a required field for every other IAuthSession
+  // caller) so permission.guard.ts can bypass correctly for super admins —
+  // matching the same bypass core/access/filterModulesByPermission.ts
+  // already applies to the sidebar.
+  isSuperAdmin?: boolean;
 }
 
 /**
