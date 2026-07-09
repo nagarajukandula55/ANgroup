@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight } from 'lucide-react'
+import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight, Receipt } from 'lucide-react'
 
 /**
  * Admin Settings hub — src/app/admin/settings.
@@ -27,7 +27,14 @@ import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight } from 'lucid
  * any feature."
  */
 
-type Tab = 'profile' | 'numbering' | 'integrations' | 'ai'
+type Tab = 'profile' | 'numbering' | 'integrations' | 'ai' | 'invoicing'
+
+interface InvoicingRules {
+  dualInvoiceMode: boolean
+  vendorCostBasis: 'NET_PAYOUT' | 'GROSS_AMOUNT' | 'FIXED_MARGIN_PERCENT' | 'VENDOR_DECLARED'
+  fixedMarginPercent: number
+  defaultSupplyType: 'INTRASTATE' | 'INTERSTATE'
+}
 
 interface DocConfig {
   documentType: string
@@ -50,6 +57,15 @@ export default function AdminSettingsPage() {
   // Business profile
   const [profile, setProfile] = useState({ name: '', legalName: '', brandName: '' })
   const [savingProfile, setSavingProfile] = useState(false)
+
+  // Invoicing rules (marketplace dual B2B/B2C invoice generation)
+  const [invoicingRules, setInvoicingRules] = useState<InvoicingRules>({
+    dualInvoiceMode: false,
+    vendorCostBasis: 'NET_PAYOUT',
+    fixedMarginPercent: 0,
+    defaultSupplyType: 'INTRASTATE',
+  })
+  const [savingInvoicing, setSavingInvoicing] = useState(false)
 
   // Document numbering
   const [docConfigs, setDocConfigs] = useState<DocConfig[]>([])
@@ -83,7 +99,44 @@ export default function AdminSettingsPage() {
     if (tab === 'numbering') loadDocConfigs()
     if (tab === 'integrations') loadIntegrations()
     if (tab === 'ai') loadAiConfig()
+    if (tab === 'invoicing') loadInvoicingRules()
   }, [tab, businessId])
+
+  async function loadInvoicingRules() {
+    try {
+      const res = await fetch(`/api/businesses/${businessId}`, { credentials: 'include' })
+      const d = await res.json()
+      if (d.success && d.business?.invoicingRules) {
+        setInvoicingRules({
+          dualInvoiceMode: false,
+          vendorCostBasis: 'NET_PAYOUT',
+          fixedMarginPercent: 0,
+          defaultSupplyType: 'INTRASTATE',
+          ...d.business.invoicingRules,
+        })
+      }
+    } catch {}
+  }
+
+  async function saveInvoicingRules(e: React.FormEvent) {
+    e.preventDefault()
+    if (!businessId) return
+    setSavingInvoicing(true)
+    setMsg('')
+    try {
+      const res = await fetch(`/api/businesses/${businessId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ invoicingRules }),
+      })
+      const d = await res.json()
+      setMsg(d.success ? '✓ Invoicing rules updated' : d.message || 'Failed to save')
+    } catch {
+      setMsg('Failed to save')
+    }
+    setSavingInvoicing(false)
+  }
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -163,6 +216,7 @@ export default function AdminSettingsPage() {
   const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'profile', label: 'Business Profile', icon: <Building2 size={14} /> },
     { key: 'numbering', label: 'Document Numbers', icon: <Hash size={14} /> },
+    { key: 'invoicing', label: 'Invoicing Rules', icon: <Receipt size={14} /> },
     { key: 'integrations', label: 'Integrations', icon: <Plug size={14} /> },
     { key: 'ai', label: 'AI / ANu', icon: <Sparkles size={14} /> },
   ]
@@ -218,6 +272,78 @@ export default function AdminSettingsPage() {
               </div>
               <button type="submit" disabled={savingProfile} className="btn-primary rounded-xl px-5 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
                 <Save size={13} /> {savingProfile ? 'Saving…' : 'Save Profile'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {tab === 'invoicing' && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Marketplace Invoicing Rules</h3>
+            <p className="text-xs text-gray-400 mb-5">
+              Controls what happens when a customer order is fulfilled by a vendor. Off by default —
+              vendor payouts are still settled normally (Vendor Settlements) either way.
+            </p>
+            <form onSubmit={saveInvoicingRules} className="space-y-4">
+              <label className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={invoicingRules.dualInvoiceMode}
+                  onChange={(e) => setInvoicingRules({ ...invoicingRules, dualInvoiceMode: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <div>
+                  <div className="text-sm font-medium text-gray-900">Generate dual invoices (B2B + B2C)</div>
+                  <div className="text-xs text-gray-400">
+                    When on: a B2B invoice is generated from the vendor to this business (at their cost basis
+                    below), and a separate B2C invoice from this business to the customer (at the sale price),
+                    for every order with vendor-fulfilled items.
+                  </div>
+                </div>
+              </label>
+
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Vendor cost basis (for the B2B leg)</label>
+                <select
+                  value={invoicingRules.vendorCostBasis}
+                  onChange={(e) => setInvoicingRules({ ...invoicingRules, vendorCostBasis: e.target.value as InvoicingRules['vendorCostBasis'] })}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
+                >
+                  <option value="NET_PAYOUT">Net payout — sale value minus platform commission (matches Vendor Settlements)</option>
+                  <option value="GROSS_AMOUNT">Gross amount — full sale value, no commission deducted</option>
+                  <option value="FIXED_MARGIN_PERCENT">Fixed margin % — sale value reduced by a flat markup</option>
+                  <option value="VENDOR_DECLARED">Vendor-declared price</option>
+                </select>
+              </div>
+
+              {invoicingRules.vendorCostBasis === 'FIXED_MARGIN_PERCENT' && (
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Fixed margin percent</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={invoicingRules.fixedMarginPercent}
+                    onChange={(e) => setInvoicingRules({ ...invoicingRules, fixedMarginPercent: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Default supply type (GST)</label>
+                <select
+                  value={invoicingRules.defaultSupplyType}
+                  onChange={(e) => setInvoicingRules({ ...invoicingRules, defaultSupplyType: e.target.value as InvoicingRules['defaultSupplyType'] })}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
+                >
+                  <option value="INTRASTATE">Intrastate (CGST + SGST)</option>
+                  <option value="INTERSTATE">Interstate (IGST)</option>
+                </select>
+              </div>
+
+              <button type="submit" disabled={savingInvoicing} className="btn-primary rounded-xl px-5 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
+                <Save size={13} /> {savingInvoicing ? 'Saving…' : 'Save Invoicing Rules'}
               </button>
             </form>
           </div>

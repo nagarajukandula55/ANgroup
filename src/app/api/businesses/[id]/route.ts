@@ -71,6 +71,10 @@ const EDITABLE_FIELDS = [
   "city",
   "state",
   "pincode",
+  // Marketplace dual-invoice configuration — see models/Business.ts's
+  // InvoicingRulesSchema comment. Editable here so the Settings UI can
+  // actually save it.
+  "invoicingRules",
 ] as const;
 
 export async function PATCH(req: Request, context: any) {

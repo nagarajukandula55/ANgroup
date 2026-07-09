@@ -1,6 +1,8 @@
 import SalesInvoice from "@/models/SalesInvoice";
 import Order from "@/models/Order";
+import Business from "@/models/Business";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { generateDualInvoicesForOrder } from "@/core/invoicing/dualInvoiceService";
 
 /**
  * CREATE INVOICE FOR ORDER
@@ -14,6 +16,12 @@ import { generateDocumentNumber } from "@/core/numbering/numberingService";
  * sourceOrderId (string), flat cgst/sgst/igst -> cgstTotal/sgstTotal/
  * igstTotal, paymentStatus folded into the single `status` field (SENT ~
  * pending, PAID ~ paid, FAILED/PARTIAL as before).
+ *
+ * Single decision point for "what does invoicing an order mean": if the
+ * order's business has opted into Business.invoicingRules.dualInvoiceMode,
+ * delegate to generateDualInvoicesForOrder() (vendor B2B + customer B2C)
+ * and return its B2C invoice here so every existing caller of this
+ * function keeps working unchanged. Off by default.
  */
 export async function createInvoiceForOrder(orderNumber: string) {
   if (!orderNumber) {
@@ -23,6 +31,12 @@ export async function createInvoiceForOrder(orderNumber: string) {
   const order = await Order.findOne({ orderId: orderNumber });
   if (!order) {
     throw new Error("Order not found");
+  }
+
+  const business = order.businessId ? await Business.findById(order.businessId).lean() : null;
+  if ((business as any)?.invoicingRules?.dualInvoiceMode) {
+    const { b2c } = await generateDualInvoicesForOrder(orderNumber);
+    return b2c;
   }
 
   const existingInvoice = await SalesInvoice.findOne({

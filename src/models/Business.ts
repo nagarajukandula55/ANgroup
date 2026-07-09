@@ -373,6 +373,58 @@ const MarketplaceSchema = new mongoose.Schema(
 );
 
 /* =========================================================
+   INVOICING RULES — how a marketplace order gets invoiced when it's
+   fulfilled by a vendor. Per explicit user requirement: when a customer
+   places an order, generate a B2B invoice (vendor -> this business, at the
+   vendor's cost/wholesale basis) and a separate B2C invoice (this business
+   -> the customer, at the sale price) rather than only settling the
+   vendor's payout. Off by default (dualInvoiceMode: false) so existing
+   commission-only settlement behavior (core/payouts/vendorSettlement.service.ts)
+   is unchanged unless a business explicitly opts in.
+
+   vendorCostBasis controls how the B2B leg's amount is computed — kept as
+   an enum (not hardcoded logic) specifically so more bases can be added
+   later without another migration:
+     NET_PAYOUT           - vendor's cost = grossAmount minus platform
+                            commission (same math vendorSettlement.service.ts
+                            already uses for payouts)
+     GROSS_AMOUNT         - vendor's cost = full line-item sale value, no
+                            commission deducted (platform's margin comes
+                            from elsewhere, e.g. a separate fee)
+     FIXED_MARGIN_PERCENT - vendor's cost = sale value reduced by a flat
+                            markup percent (fixedMarginPercent)
+     VENDOR_DECLARED      - vendor's cost = the price the vendor declared
+                            for that product (falls back to GROSS_AMOUNT if
+                            no declared cost exists on the line item)
+========================================================= */
+
+const InvoicingRulesSchema = new mongoose.Schema(
+  {
+    dualInvoiceMode: {
+      type: Boolean,
+      default: false,
+    },
+    vendorCostBasis: {
+      type: String,
+      enum: ["NET_PAYOUT", "GROSS_AMOUNT", "FIXED_MARGIN_PERCENT", "VENDOR_DECLARED"],
+      default: "NET_PAYOUT",
+    },
+    fixedMarginPercent: {
+      type: Number,
+      default: 0,
+    },
+    defaultSupplyType: {
+      type: String,
+      enum: ["INTRASTATE", "INTERSTATE"],
+      default: "INTRASTATE",
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/* =========================================================
    BUSINESS
 ========================================================= */
 
@@ -531,6 +583,11 @@ const BusinessSchema = new mongoose.Schema(
 
     marketplace: {
       type: MarketplaceSchema,
+      default: {},
+    },
+
+    invoicingRules: {
+      type: InvoicingRulesSchema,
       default: {},
     },
 
