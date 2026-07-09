@@ -84,6 +84,7 @@ export default function BOMPage({
       <div className="grid grid-cols-5 gap-2">
         <select
           className="border p-2 bg-white text-gray-900"
+          title="Select material"
           onChange={(e) =>
             setForm((p) => ({
               ...p,
@@ -111,6 +112,7 @@ export default function BOMPage({
               ),
             }))
           }
+          onFocus={(e) => e.target.select()}
         />
 
         <input
@@ -136,6 +138,7 @@ export default function BOMPage({
               ),
             }))
           }
+          onFocus={(e) => e.target.select()}
         />
 
         <button
