@@ -16,13 +16,27 @@ import { getFinancialYear } from "@/core/numbering/financialYear";
    RAZORPAY
 ========================================================= */
 
-const razorpay = new Razorpay({
-  key_id:
-    process.env.RAZORPAY_KEY_ID!,
-
-  key_secret:
-    process.env.RAZORPAY_KEY_SECRET!,
-});
+// Was instantiated eagerly at module load with a non-null assertion on env
+// vars that may not be set (e.g. a build/deploy without payment credentials
+// configured yet) -- Razorpay's constructor throws immediately without
+// key_id/key_secret, and since Next.js imports every route module during
+// its build-time page-data-collection step, this crashed the ENTIRE
+// production build, not just requests that actually create an order. Lazy
+// singleton instead: only constructed the first time an order is actually
+// created, so the rest of the app builds/runs fine without these creds set.
+let razorpayClient: Razorpay | null = null;
+function getRazorpay(): Razorpay {
+  if (!razorpayClient) {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      throw new Error("Razorpay is not configured: RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET are missing.");
+    }
+    razorpayClient = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return razorpayClient;
+}
 
 /* =========================================================
    HASH
@@ -404,7 +418,7 @@ export class OrderService {
       ===================================================== */
 
       const razorpayOrder =
-        await razorpay.orders.create(
+        await getRazorpay().orders.create(
           {
             amount: Math.round(
               amount * 100

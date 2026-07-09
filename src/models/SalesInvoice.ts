@@ -91,6 +91,7 @@ export interface ISalesInvoice extends Document {
     email?: string;
     phone?: string;
     address?: string;
+    city?: string;
     gstin?: string;
     // ── e-Invoice (INV-01) readiness — see this file's top comment ──────
     /** Recipient's 2-digit GST state code, e.g. "27" for Maharashtra — distinct from the free-text `state` name. */
@@ -108,7 +109,27 @@ export interface ISalesInvoice extends Document {
   terms?: string;
   dueDate?: Date;
   issueDate: Date;
-  status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED";
+  /**
+   * FAILED/PARTIAL added when Invoice.ts (the older ecommerce/order invoice
+   * model) was merged into this one — those two values covered payment
+   * outcomes Invoice.ts's separate `paymentStatus` field tracked that this
+   * model's status didn't have room for. Kept on this same `status` field
+   * rather than reintroducing a second parallel field, since every other
+   * value here already doubles as both document-lifecycle AND payment
+   * state (SENT ~ awaiting payment, PAID ~ paid).
+   */
+  status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED" | "FAILED" | "PARTIAL";
+  /**
+   * "Locked" (Invoice.ts) meant "finalized, cannot be edited" — a distinct
+   * concept from lifecycle status, not a stage in it, so it's a separate
+   * boolean rather than a `status` value.
+   */
+  isLocked?: boolean;
+  /** Soft-delete flag — added during the Invoice.ts merge so finance
+   * routes filtering on `isDeleted: false` actually match documents. */
+  isDeleted?: boolean;
+  /** URL of the generated invoice PDF/HTML, if one has been rendered. */
+  pdfUrl?: string;
   shareToken?: string;
   shareExpiry?: Date;
   paidAt?: Date;
@@ -155,6 +176,7 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
       email: { type: String },
       phone: { type: String },
       address: { type: String },
+      city: { type: String },
       gstin: { type: String },
       // e-Invoice (INV-01) readiness — see this file's top comment
       stateCode: { type: String },
@@ -197,9 +219,12 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
 
     status: {
       type: String,
-      enum: ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"],
+      enum: ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED", "FAILED", "PARTIAL"],
       default: "DRAFT",
     },
+    isLocked: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false },
+    pdfUrl: { type: String },
 
     shareToken: { type: String, index: true, sparse: true },
     shareExpiry: { type: Date },
@@ -236,6 +261,7 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
 // and sorted newest-first. Without this index every load is a full scan.
 InvoiceSchema.index({ businessId: 1, createdAt: -1 });
 InvoiceSchema.index({ businessId: 1, status: 1 });
+InvoiceSchema.index({ businessId: 1, isDeleted: 1 });
 
 const SalesInvoice: Model<ISalesInvoice> =
   (mongoose.models.SalesInvoice as Model<ISalesInvoice>) ||

@@ -4,7 +4,7 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import Payment from "@/models/Payment";
-import Invoice from "@/models/Invoice";
+import SalesInvoice from "@/models/SalesInvoice";
 import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     /**
      * STEP 1: Validate invoice
      */
-    const invoice = await Invoice.findOne({
+    const invoice = await SalesInvoice.findOne({
       _id: new Types.ObjectId(invoiceId),
       businessId: new Types.ObjectId(businessId),
       isDeleted: false,
@@ -127,11 +127,16 @@ export async function POST(req: NextRequest) {
 
     const paidAmount = totalPaid[0]?.total || 0;
 
-    if (paidAmount >= invoice.totalAmount) {
+    // SalesInvoice's status enum uses "PARTIAL", not "PARTIALLY_PAID" --
+    // was setting a value the schema doesn't allow, which would throw a
+    // validation error on invoice.save() every time a partial payment came in.
+    if (paidAmount >= invoice.grandTotal) {
       invoice.status = "PAID";
     } else if (paidAmount > 0) {
-      invoice.status = "PARTIALLY_PAID";
+      invoice.status = "PARTIAL";
     }
+    invoice.paidAmount = paidAmount;
+    if (invoice.status === "PAID") invoice.paidAt = new Date();
 
     await invoice.save();
 

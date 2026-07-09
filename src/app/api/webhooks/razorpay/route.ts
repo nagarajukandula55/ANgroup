@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import Order from "@/models/Order";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
+import { getFinancialYear } from "@/core/numbering/financialYear";
 import { logAction } from "@/lib/audit/logAction";
 
 export async function POST(req: Request) {
@@ -85,11 +86,14 @@ export async function POST(req: Request) {
        ATTACH INVOICE
     ========================================================= */
 
+    // fiscalYear/sequence were never real fields on Order's embedded
+    // invoice sub-schema (it has `financialYear`, no `sequence` at all) --
+    // silently dropped by mongoose on every save. Order.invoice.financialYear
+    // wasn't being set at all as a result; fixed to actually set it.
     order.invoice = {
       invoiceType: order.gstType === "B2B" ? "B2B" : "TAX",
       invoiceNumber: invoice.invoiceNumber,
-      fiscalYear: invoice.fiscalYear,
-      sequence: invoice.sequence,
+      financialYear: getFinancialYear(),
       pdfGenerated: false,
       locked: true,
     };

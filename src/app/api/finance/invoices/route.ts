@@ -3,8 +3,9 @@ import { Types } from "mongoose";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
-import Invoice from "@/models/Invoice";
+import SalesInvoice from "@/models/SalesInvoice";
 import SalesOrder from "@/models/SalesOrder";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 
 /* =========================================================
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     requirePermission(session as any, buildPermissionCode("finance", "view"));
 
-    const invoices = await Invoice.find({
+    const invoices = await SalesInvoice.find({
       businessId: new Types.ObjectId(session.business.businessId),
       isDeleted: false,
     }).sort({ createdAt: -1 });
@@ -89,37 +90,79 @@ export async function POST(req: NextRequest) {
     }
 
     /**
-     * STEP 2: Calculate totals
+     * STEP 2: Build line items + totals.
+     * Was reading item.quantity (undefined -- Order/OrderItemSchema's real
+     * field is `qty`) which made subTotal always NaN, and created an
+     * Invoice document with fields (salesOrderId, subTotal, taxRate,
+     * taxAmount, totalAmount, createdBy) that don't exist anywhere on that
+     * schema -- so `invoiceNumber`/`orderId` (both required) were never
+     * set either, and this route's Invoice.create() always threw a
+     * validation error. Fixed to read the real item shape and build
+     * SalesInvoice's per-item GST-split shape, same pattern as
+     * lib/invoice/createInvoice.ts and the CRM jobsheet-close route.
      */
-    let subTotal = 0;
+    const effectiveTaxRate = Number(taxRate) || 0;
 
-    for (const item of order.items) {
-      subTotal += item.quantity * (item.price || 0);
-    }
+    let subtotal = 0;
+    let cgstTotal = 0;
+    let sgstTotal = 0;
 
-    const taxAmount = taxRate
-      ? (subTotal * taxRate) / 100
-      : 0;
+    const invoiceItems = (order.items || []).map((item: any) => {
+      const quantity = Number(item.qty || 1);
+      const unitPrice = Number(item.price || item.sellingPrice || 0);
+      const lineAmt = quantity * unitPrice;
+      const lineTax = (lineAmt * effectiveTaxRate) / 100;
+      const cgstAmount = lineTax / 2;
+      const sgstAmount = lineTax / 2;
 
-    const totalAmount = subTotal + taxAmount;
+      subtotal += lineAmt;
+      cgstTotal += cgstAmount;
+      sgstTotal += sgstAmount;
+
+      return {
+        description: item.name || "",
+        hsnCode: item.hsn || "",
+        quantity,
+        unit: "pcs",
+        unitPrice,
+        taxRate: effectiveTaxRate,
+        taxAmount: lineTax,
+        cgstRate: effectiveTaxRate / 2,
+        cgstAmount,
+        sgstRate: effectiveTaxRate / 2,
+        sgstAmount,
+        assessableValue: lineAmt,
+        total: lineAmt + lineTax,
+      };
+    });
+
+    const taxTotal = cgstTotal + sgstTotal;
+    const grandTotal = subtotal + taxTotal;
+
+    const { value: invoiceNumber } = await generateDocumentNumber(businessId, "INVOICE");
 
     /**
      * STEP 3: Create Invoice
      */
-    const invoice = await Invoice.create({
+    const invoice = await SalesInvoice.create({
       businessId: new Types.ObjectId(businessId),
-      salesOrderId: new Types.ObjectId(salesOrderId),
-      subTotal,
-      taxRate: taxRate || 0,
-      taxAmount,
-      totalAmount,
+      createdBy: new Types.ObjectId(session.user.id),
+      sourceOrderId: String(salesOrderId),
+      invoiceNumber,
+      invoiceType: "STANDARD",
+      customer: { name: order.address?.name || order.customerName || "Customer" },
+      items: invoiceItems,
+      subtotal,
+      cgstTotal,
+      sgstTotal,
+      taxTotal,
+      grandTotal,
       status: "DRAFT",
-      createdBy: session.user.id,
     });
 
     logAction({
       action: "CREATE",
-      entity: "Invoice",
+      entity: "SalesInvoice",
       entityId: invoice._id?.toString(),
       after: invoice,
       req,

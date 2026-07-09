@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import Invoice from "@/models/Invoice";
+import SalesInvoice from "@/models/SalesInvoice";
 import Order from "@/models/Order";
 import Business from "@/models/Business";
 import { connectDB } from "@/lib/mongodb";
@@ -18,7 +18,7 @@ export async function GET(
     const { invoiceNumber } = await context.params;
 
     const invoice =
-      await Invoice.findOne({
+      await SalesInvoice.findOne({
         invoiceNumber,
       });
 
@@ -46,7 +46,7 @@ export async function GET(
 
     const order =
       await Order.findOne({
-        _id: invoice.orderId,
+        _id: invoice.sourceOrderId,
       });
 
     // Was hardcoded to "Native" + env vars (COMPANY_ADDRESS1 etc.) here —
@@ -167,7 +167,7 @@ export async function GET(
           invoice.customer?.pincode,
 
         gstin:
-          invoice.customer?.gstNumber,
+          invoice.customer?.gstin,
 
         stateCode: stateCode,
       },
@@ -198,7 +198,7 @@ export async function GET(
           "ONLINE",
 
         status:
-          invoice.paymentStatus,
+          invoice.status,
 
         transactionId:
           order?.payment?.razorpayPaymentId ||
@@ -210,33 +210,32 @@ export async function GET(
 
       items:
         invoice.items.map((item:any)=>({
-        
-          name: item.name,
-        
-          hsn: item.hsn,
-        
-          qty: item.qty,
-        
-          rate: item.price,
-        
-          discount:
-            item.discount || 0,
-        
+
+          name: item.description,
+
+          hsn: item.hsnCode,
+
+          qty: item.quantity,
+
+          rate: item.unitPrice,
+
+          discount: 0,
+
           taxable:
-            item.taxableValue || 0,
-        
+            item.assessableValue || 0,
+
           gstPercent:
-            item.gstPercent || 0,
-        
+            item.taxRate || 0,
+
           cgst:
-            item.cgst || 0,
-        
+            item.cgstAmount || 0,
+
           sgst:
-            item.sgst || 0,
-        
+            item.sgstAmount || 0,
+
           igst:
-            item.igst || 0,
-        
+            item.igstAmount || 0,
+
           total:
             item.total || 0,
         })),
@@ -244,22 +243,22 @@ export async function GET(
       summary: {
         subtotal:
           invoice.subtotal || 0,
-      
+
         discount:
-          invoice.discount || 0,
-      
+          invoice.discountAmount || 0,
+
         taxable:
-          invoice.taxableAmount || 0,
-      
+          (invoice.subtotal || 0) - (invoice.discountAmount || 0),
+
         cgst:
-          invoice.cgst || 0,
-      
+          invoice.cgstTotal || 0,
+
         sgst:
-          invoice.sgst || 0,
-      
+          invoice.sgstTotal || 0,
+
         igst:
-          invoice.igst || 0,
-      
+          invoice.igstTotal || 0,
+
         grandTotal:
           invoice.grandTotal || 0,
       },

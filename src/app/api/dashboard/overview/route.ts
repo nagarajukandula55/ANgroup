@@ -5,7 +5,7 @@ import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import SalesOrder from "@/models/SalesOrder";
 import PurchaseOrder from "@/models/PurchaseOrder";
-import Invoice from "@/models/Invoice";
+import SalesInvoice from "@/models/SalesInvoice";
 import Payment from "@/models/Payment";
 import InventoryItem from "@/models/InventoryItem";
 
@@ -39,17 +39,23 @@ export async function GET(req: NextRequest) {
       isDeleted: false,
     });
 
-    const salesRevenueAgg = await Invoice.aggregate([
+    // Was matching status "PARTIALLY_PAID" (not a value SalesInvoice's
+    // schema allows -- "PARTIAL" is) and summing "$totalAmount" (a field
+    // that doesn't exist on this schema; the real field is grandTotal) --
+    // meaning this aggregation could never match anything and revenue
+    // always reported as 0 regardless of actual invoice data.
+    const salesRevenueAgg = await SalesInvoice.aggregate([
       {
         $match: {
           businessId,
-          status: { $in: ["PAID", "PARTIALLY_PAID"] },
+          isDeleted: false,
+          status: { $in: ["PAID", "PARTIAL"] },
         },
       },
       {
         $group: {
           _id: null,
-          total: { $sum: "$totalAmount" },
+          total: { $sum: "$grandTotal" },
         },
       },
     ]);
