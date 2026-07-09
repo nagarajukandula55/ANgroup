@@ -11,6 +11,7 @@ import Business from '@/models/Business'
 import VendorProfile from '@/models/VendorProfile'
 import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService'
 import { logAction } from '@/lib/audit/logAction'
+import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 
 /**
  * REMOVED: a local generateVendorId() used to live here, producing a
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
     const user = await User.create({
       name: contactPerson.trim(),
       email: email.toLowerCase().trim(),
-      username: trimmedUsername,
+      username: trimmedUsername || (await generateUniqueUserId()),
       password: hashedPassword,
       phone: phone?.trim() || undefined,
       role: 'VENDOR',
