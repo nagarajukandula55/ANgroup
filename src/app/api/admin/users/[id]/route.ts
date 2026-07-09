@@ -3,6 +3,18 @@ import { connectDB } from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
+
+const ASSIGNABLE_ROLES = ['ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER'];
+
+function permissionErrorResponse(err: any) {
+  return NextResponse.json(
+    { error: err.message },
+    { status: err.code === "FORBIDDEN" ? 403 : 401 }
+  );
+}
 
 async function getModels() {
   const User = mongoose.models.User || (await import('@/models/User')).default;
@@ -18,6 +30,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("users", "view"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
+
     await connectDB();
     const { id } = await params;
     const { User, UserRole, EmployeeProfile, VendorProfile } = await getModels();
@@ -61,6 +83,16 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("users", "edit"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
+
     await connectDB();
     const { id } = await params;
     const { User, Role, UserRole, EmployeeProfile, VendorProfile } = await getModels();
@@ -72,10 +104,38 @@ export async function PUT(
     const body = await request.json();
     const { name, email, password, status, isActive, role, employeeData, vendorData } = body;
 
+    // Was letting `role` be set to ANY string (including SUPER_ADMIN) with
+    // no escalation guard -- same anti-escalation rule as api/admin/users
+    // POST and api/staff/create now applies here too.
+    if (role) {
+      const requestedRole = String(role).toUpperCase();
+      if (requestedRole === 'SUPER_ADMIN' && !session.isSuperAdmin) {
+        return NextResponse.json(
+          { error: 'Only Super Admins can grant the Super Admin role' },
+          { status: 403 }
+        );
+      }
+      if (requestedRole !== 'SUPER_ADMIN' && !ASSIGNABLE_ROLES.includes(requestedRole)) {
+        return NextResponse.json(
+          { error: `role must be one of: ${['SUPER_ADMIN', ...ASSIGNABLE_ROLES].join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
     const updateData: Record<string, unknown> = {};
     if (name)     updateData.name = name;
     if (email)    updateData.email = email;
     if (password) updateData.password = await bcrypt.hash(password, 12);
+    // The flat legacy User.role field is what actually drives
+    // x-is-super-admin at login (see api/admin/users/route.ts's own
+    // comment on this) -- was never actually updated here, only the
+    // Role/UserRole join rows below, so changing a user's role through
+    // this route silently never took effect at login time.
+    if (role) {
+      const requestedRole = String(role).toUpperCase();
+      updateData.role = requestedRole === 'SUPER_ADMIN' || requestedRole === 'ADMIN' ? requestedRole : 'CUSTOMER';
+    }
 
     // Handle status toggle — User schema uses `isActive` (boolean), not `status` (string)
     if (typeof isActive === 'boolean') {
@@ -149,6 +209,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("users", "delete"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
+
     await connectDB();
     const { id } = await params;
     const { User } = await getModels();

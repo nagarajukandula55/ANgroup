@@ -7,12 +7,58 @@ import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
 
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
+// Same anti-escalation allow-list as api/admin/users/route.ts's POST --
+// SUPER_ADMIN is deliberately excluded and checked separately below.
+const ASSIGNABLE_ROLES = ['ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER'];
+
+/**
+ * POST /api/staff/create — previously had NO auth check at all, and wrote
+ * client-supplied `body.role` and `body.permissions` straight onto the new
+ * User document -- literally anyone, unauthenticated, could POST here with
+ * {"role": "SUPER_ADMIN", "permissions": [...]} and mint themselves a
+ * super admin. Now requires staff.create and blocks minting SUPER_ADMIN
+ * unless the caller already is one, same pattern as api/admin/users/route.ts.
+ * `permissions` is no longer accepted directly from the client at all --
+ * this route only ever creates the User record; RBAC grants go through
+ * the Role/UserRole chain via api/admin/users, not a raw array here.
+ */
 export async function POST(req: Request) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("staff", "create"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, error: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB()
 
     const body = await req.json()
+
+    const requestedRole = String(body.role || "").toUpperCase();
+    if (requestedRole === "SUPER_ADMIN") {
+      if (!session.isSuperAdmin) {
+        return NextResponse.json(
+          { success: false, error: "Only Super Admins can create another Super Admin user" },
+          { status: 403 }
+        );
+      }
+    } else if (!ASSIGNABLE_ROLES.includes(requestedRole)) {
+      return NextResponse.json(
+        { success: false, error: `role must be one of: ${['SUPER_ADMIN', ...ASSIGNABLE_ROLES].join(', ')}` },
+        { status: 400 }
+      );
+    }
 
     const hashedPassword = await bcrypt.hash(
       body.password,
@@ -23,8 +69,7 @@ export async function POST(req: Request) {
       name: body.name,
       email: body.email,
       password: hashedPassword,
-      role: body.role,
-      permissions: body.permissions,
+      role: requestedRole,
       businessId: body.businessId,
     })
 
@@ -34,7 +79,7 @@ export async function POST(req: Request) {
       entityId: user._id?.toString(),
       after: user,
       req,
-      actor: { businessId: body?.businessId?.toString() },
+      actor: { id: session.user.id, businessId: body?.businessId?.toString() },
     });
 
     return NextResponse.json({

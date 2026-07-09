@@ -4,6 +4,10 @@ import Agreement, { ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
+import { sendAgreementOtpEmail } from "@/services/email/resend.service";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -15,6 +19,19 @@ function generateOTP(): string {
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("agreements", "edit"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB();
 
     const { id } = await params;
@@ -72,12 +89,22 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     const partyName = agreement.signatures[sigIndex].partyName;
 
-    // In production, send email here
-    console.log(`[EMAIL SIMULATION] Sending OTP to ${partyEmail} (${partyName})`);
-    console.log(`  Agreement: ${agreement.title}`);
-    console.log(`  OTP: ${rawOtp} (expires in 30 minutes)`);
-    console.log(`  Subject: Your OTP for signing "${agreement.title}"`);
-    console.log(`  Body: Dear ${partyName}, your OTP to sign the agreement "${agreement.title}" is: ${rawOtp}. This OTP is valid for 30 minutes.`);
+    // Was only console.log'd ("in production, send email here") while the
+    // raw OTP was returned directly in the API response -- meaning ANY
+    // caller who could reach this route (which itself had no auth check
+    // at all until the fix above) could read the OTP straight from the
+    // HTTP response, completely defeating the point of a signer-side OTP.
+    // Now actually emails it and never includes it in the response.
+    const emailResult = await sendAgreementOtpEmail({
+      to: partyEmail,
+      partyName,
+      agreementTitle: agreement.title,
+      otp: rawOtp,
+      businessId: (agreement as any).businessId?.toString?.(),
+    });
+    if (!emailResult.success) {
+      console.error("AGREEMENT OTP EMAIL FAILED", emailResult.error);
+    }
 
     logAction({
       action: "REQUEST_OTP",
@@ -88,11 +115,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
 
     return NextResponse.json({
-      sent: true,
-      message: 'OTP generated successfully. In production this would be sent via email.',
-      // Return OTP for demo mode
-      otp: rawOtp,
-      note: 'OTP is shown here for demo purposes only. In production, OTP would only be sent via email and never returned in the API response.',
+      sent: emailResult.success,
+      message: emailResult.success
+        ? 'OTP sent to the signer\'s email.'
+        : 'OTP generated but the email failed to send -- check email integration configuration.',
       expiresAt: otpExpiry,
     });
   } catch (error) {

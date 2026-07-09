@@ -104,6 +104,46 @@ export async function sendNewsletterWelcomeEmail({
   }
 }
 
+/** Agreement e-signature OTP email. The OTP itself must never be returned
+ * in an API response -- see api/agreements/[id]/otp/route.ts's fix comment. */
+export async function sendAgreementOtpEmail({
+  to,
+  partyName,
+  agreementTitle,
+  otp,
+  businessId,
+}: {
+  to: string;
+  partyName: string;
+  agreementTitle: string;
+  otp: string;
+  businessId?: string;
+}) {
+  try {
+    const { apiKey, from } = await resolveResendCreds(businessId);
+    if (!apiKey) {
+      throw new Error("No Resend API key configured (neither business-specific nor global RESEND_API_KEY)");
+    }
+    const resend = new Resend(apiKey);
+
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject: `Your OTP for signing "${agreementTitle}"`,
+      html: `
+        <p>Dear ${partyName},</p>
+        <p>Your OTP to sign the agreement "${agreementTitle}" is: <b>${otp}</b></p>
+        <p>This OTP is valid for 30 minutes.</p>
+      `,
+    });
+
+    return { success: true, result };
+  } catch (err: any) {
+    console.error("RESEND AGREEMENT OTP EMAIL ERROR", err);
+    return { success: false, error: err?.message || "Unknown email error" };
+  }
+}
+
 export async function sendInvoiceEmail({
   to,
   customerName,
