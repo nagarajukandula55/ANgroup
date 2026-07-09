@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { BusinessService } from "@/services/business.service";
 import Business from "@/models/Business";
+import BusinessMember from "@/models/BusinessMember";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 export async function GET(req: Request, context: any) {
   try {
@@ -86,10 +89,36 @@ export async function PATCH(req: Request, context: any) {
       return NextResponse.json({ success: false, message: "Missing business id" }, { status: 400 });
     }
 
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("businesses", "edit"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
+    // A non-super-admin caller may hold BUSINESSES.EDIT generally but must
+    // still be scoped to only the business(es) they're actually a member
+    // of — same convention as auth/switch-business/route.ts. Without this,
+    // any user with edit rights on their own business could PATCH any
+    // other business by guessing/enumerating ids.
+    if (!session.isSuperAdmin) {
+      const membership = await BusinessMember.findOne({
+        userId: session.user.id,
+        businessId: id,
+        status: "ACTIVE",
+      }).lean();
+      if (!membership) {
+        return NextResponse.json(
+          { success: false, message: "You do not have access to this business" },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await req.json();

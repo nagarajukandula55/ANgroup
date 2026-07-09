@@ -31,7 +31,12 @@ async function verifyEdgeToken(token: string): Promise<JWTPayload | null> {
 }
 
 /* ── Exact public paths (no auth needed, no header injection) ──────────── */
-const PUBLIC_EXACT = new Set(["/login", "/register", "/favicon.ico"]);
+// "/api/reviews" is EXACT, not a prefix -- the list/create route lives
+// exactly there (src/app/api/reviews/route.ts). Its sibling
+// /api/reviews/[id] (moderation, requires a real session) must NOT become
+// public as a side effect of a prefix match -- using PUBLIC_EXACT rather
+// than PUBLIC_PREFIXES for this one is what keeps that route protected.
+const PUBLIC_EXACT = new Set(["/login", "/register", "/favicon.ico", "/api/reviews"]);
 
 /* ── Public prefixes ────────────────────────────────────────────────────── */
 const PUBLIC_PREFIXES = [
@@ -41,6 +46,9 @@ const PUBLIC_PREFIXES = [
   "/api/auth/switch-business",   // reads its own cookie
   "/api/auth/exit-business",     // reads its own cookie
   "/api/auth/[...nextauth]",
+  // Both /request and the token-confirm route are public by design -- the
+  // reset token itself is the auth mechanism, not the session cookie.
+  "/api/auth/reset-password",
   "/api/seed",
   "/api/health",
   "/api/ping",
@@ -54,6 +62,7 @@ const PUBLIC_PREFIXES = [
   "/api/categories",
   "/api/storefront/products",
   "/api/products/",
+  "/api/newsletter/subscribe",
   "/_next",
   "/public",
 ];

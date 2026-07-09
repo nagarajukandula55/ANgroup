@@ -61,6 +61,9 @@ export interface IUser extends Document {
   lockUntil?: Date;
   passwordChangedAt?: Date;
   lastLogin?: Date;
+  /** sha256 hash of the raw reset token (see api/auth/reset-password/request) — never the raw token itself. */
+  resetPasswordTokenHash?: string;
+  resetPasswordExpires?: Date;
 
   /* Soft Delete */
   isDeleted: boolean;
@@ -205,6 +208,25 @@ const UserSchema = new Schema<IUser>(
 
     lastLogin: {
       type: Date,
+      default: null,
+    },
+
+    // Was missing entirely -- api/auth/reset-password/request+confirm set
+    // and query these, but since Mongoose defaults to strict schemas, an
+    // undeclared field silently never persists on .save(), which made the
+    // whole password-reset flow a no-op (token "saved" but never actually
+    // written, so the confirm step could never find it). select: false
+    // since the hash shouldn't come back on normal user queries, same
+    // pattern as `password` above.
+    resetPasswordTokenHash: {
+      type: String,
+      select: false,
+      default: null,
+    },
+
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
       default: null,
     },
 

@@ -3,16 +3,14 @@
 /**
  * Printable / downloadable view for a SalesInvoice — used by the CRM job
  * sheet closure flow ("Download Invoice" button) and reusable for any
- * SalesInvoice id. Deliberately does NOT depend on the puppeteer-based
- * generateInvoicePDF() service (services/pdf/invoicePdf.service.ts) or the
- * Order/Invoice-model "view" pipeline (app/api/invoice/view/[invoiceNumber])
- * — neither fits: the puppeteer path writes to the server filesystem, which
- * is ephemeral on Vercel's serverless functions (a file written during one
- * invocation is not guaranteed to exist during a later one, so
- * /api/invoice/download/[id] can 404 unpredictably in production — flagged
- * for the Access/Reports hardening pass, not silently patched here), and
- * the Order/Invoice pipeline is a different, incompatible data model from
- * the canonical SalesInvoice this CRM flow writes to.
+ * SalesInvoice id. Deliberately does NOT depend on the Order/Invoice-model
+ * "view" pipeline (app/api/invoice/view/[invoiceNumber]) — that pipeline is
+ * a different, incompatible data model from the canonical SalesInvoice this
+ * CRM flow writes to. (There used to be a puppeteer-based generateInvoicePDF()
+ * service and a matching /api/invoice/download/[id] route that read the PDF
+ * back off local disk; both wrote to the server filesystem, which is
+ * ephemeral on Vercel's serverless functions, so the download route 404'd
+ * unpredictably in production and nothing ever called it — both were removed.)
  *
  * Instead: fetch the SalesInvoice directly (GET /api/sales/invoices/[id],
  * already existed) and render it as print-ready HTML. The user's browser
