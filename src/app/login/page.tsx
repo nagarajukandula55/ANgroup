@@ -154,12 +154,6 @@ function LoginForm() {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-xs text-gray-400">
-          First time?{' '}
-          <a href="/api/seed" target="_blank" className="text-gray-500 underline hover:text-gray-700">
-            Initialise super admin
-          </a>
-        </p>
       </div>
     </div>
   )

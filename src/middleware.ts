@@ -49,7 +49,6 @@ const PUBLIC_PREFIXES = [
   // Both /request and the token-confirm route are public by design -- the
   // reset token itself is the auth mechanism, not the session cookie.
   "/api/auth/reset-password",
-  "/api/seed",
   "/api/health",
   "/api/ping",
   "/api/vendors/apply",          // public vendor application submission
