@@ -431,6 +431,7 @@ export default function EmployeesPage() {
           <select
             value={deptFilter}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setDeptFilter(e.target.value)}
+            title="Filter by department"
             className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none"
           >
             {departments.map((d: string) => (
@@ -442,6 +443,7 @@ export default function EmployeesPage() {
           <select
             value={statusFilter}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
+            title="Filter by status"
             className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none"
           >
             {['ALL', 'ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s: string) => (
@@ -648,6 +650,7 @@ export default function EmployeesPage() {
                 <input
                   type="date"
                   required
+                  placeholder="Select joining date"
                   value={form.joiningDate}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, joiningDate: e.target.value }))}
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
@@ -660,6 +663,7 @@ export default function EmployeesPage() {
                   placeholder="50000"
                   value={form.salary}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, salary: e.target.value }))}
+                  onFocus={(e) => e.target.select()}
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                 />
               </div>
@@ -668,6 +672,7 @@ export default function EmployeesPage() {
                 <select
                   value={form.employmentType}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((p: typeof form) => ({ ...p, employmentType: e.target.value }))}
+                  title="Select employment type"
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                 >
                   {['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t: string) => (
@@ -680,6 +685,7 @@ export default function EmployeesPage() {
                 <select
                   value={form.status}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((p: typeof form) => ({ ...p, status: e.target.value }))}
+                  title="Select employee status"
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                 >
                   {['ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s: string) => (
@@ -790,6 +796,7 @@ export default function EmployeesPage() {
                   <input
                     value={editForm.department}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, department: e.target.value }))}
+                    placeholder="Engineering"
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </div>
@@ -798,6 +805,7 @@ export default function EmployeesPage() {
                   <input
                     value={editForm.designation}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, designation: e.target.value }))}
+                    placeholder="Software Engineer"
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </div>
@@ -808,6 +816,7 @@ export default function EmployeesPage() {
                   <select
                     value={editForm.employmentType}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setEditForm((p: typeof editForm) => ({ ...p, employmentType: e.target.value }))}
+                    title="Select employment type"
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 outline-none"
                   >
                     {['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t: string) => (
@@ -820,6 +829,7 @@ export default function EmployeesPage() {
                   <select
                     value={editForm.status}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setEditForm((p: typeof editForm) => ({ ...p, status: e.target.value }))}
+                    title="Select employee status"
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 outline-none"
                   >
                     {['ACTIVE', 'ON_LEAVE', 'INACTIVE', 'TERMINATED'].map((s: string) => (
@@ -833,6 +843,7 @@ export default function EmployeesPage() {
                   <label className="text-xs text-gray-500 block mb-1">Joining Date</label>
                   <input
                     type="date"
+                    placeholder="Select joining date"
                     value={editForm.joiningDate}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, joiningDate: e.target.value }))}
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
@@ -842,8 +853,10 @@ export default function EmployeesPage() {
                   <label className="text-xs text-gray-500 block mb-1">Monthly Salary (₹)</label>
                   <input
                     type="number"
+                    placeholder="50000"
                     value={editForm.salary}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, salary: e.target.value }))}
+                    onFocus={(e) => e.target.select()}
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
                   />
                 </div>

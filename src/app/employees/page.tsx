@@ -329,6 +329,7 @@ function EmployeeModal({
               <select
                 value={form.department}
                 onChange={(e) => set("department", e.target.value)}
+                title="Select department"
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none"
               >
                 <option value="">Select…</option>
@@ -357,6 +358,7 @@ function EmployeeModal({
               <select
                 value={form.employmentType}
                 onChange={(e) => set("employmentType", e.target.value)}
+                title="Select employment type"
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none"
               >
                 {EMPLOYMENT_TYPES.map((t) => (
@@ -371,6 +373,7 @@ function EmployeeModal({
               <select
                 value={form.status}
                 onChange={(e) => set("status", e.target.value)}
+                title="Select employee status"
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none"
               >
                 {STATUS_OPTIONS.map((s) => (
@@ -399,6 +402,7 @@ function EmployeeModal({
                 type="number"
                 value={form.salary}
                 onChange={(e) => set("salary", e.target.value)}
+                onFocus={(e) => e.target.select()}
                 placeholder="50000"
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               />
@@ -631,6 +635,7 @@ export default function EmployeesPage() {
           <select
             value={filterDept}
             onChange={(e) => setFilterDept(e.target.value)}
+            title="Filter by department"
             className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none min-w-[150px]"
           >
             <option value="">All Departments</option>
@@ -641,6 +646,7 @@ export default function EmployeesPage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
+            title="Filter by status"
             className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none min-w-[130px]"
           >
             <option value="">All Status</option>

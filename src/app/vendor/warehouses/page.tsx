@@ -242,6 +242,7 @@ export default function VendorWarehousesPage() {
                   <input
                     required
                     className={inputCls}
+                    placeholder="e.g. Main Distribution Warehouse"
                     value={form.warehouseName}
                     onChange={(e) => setForm((f) => ({ ...f, warehouseName: e.target.value }))}
                   />
@@ -251,6 +252,7 @@ export default function VendorWarehousesPage() {
                     <label className={labelCls}>Contact Person</label>
                     <input
                       className={inputCls}
+                      placeholder="Contact person name"
                       value={form.contactPerson}
                       onChange={(e) => setForm((f) => ({ ...f, contactPerson: e.target.value }))}
                     />
@@ -259,6 +261,7 @@ export default function VendorWarehousesPage() {
                     <label className={labelCls}>Mobile</label>
                     <input
                       className={inputCls}
+                      placeholder="e.g. 9-digit contact number"
                       value={form.mobile}
                       onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
                     />
@@ -269,6 +272,7 @@ export default function VendorWarehousesPage() {
                     <label className={labelCls}>City</label>
                     <input
                       className={inputCls}
+                      placeholder="City"
                       value={form.city}
                       onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                     />
@@ -277,6 +281,7 @@ export default function VendorWarehousesPage() {
                     <label className={labelCls}>State</label>
                     <input
                       className={inputCls}
+                      placeholder="State"
                       value={form.state}
                       onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
                     />
@@ -288,7 +293,9 @@ export default function VendorWarehousesPage() {
                     type="number"
                     min={0}
                     className={inputCls}
+                    placeholder="Storage capacity in units"
                     value={form.capacity}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) }))}
                   />
                 </div>

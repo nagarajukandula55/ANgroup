@@ -1,18 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import WizardContainer from "@/components/vendor-product-wizard/WizardContainer";
 
 export default function NewVendorProductPage() {
+  const searchParams = useSearchParams();
   const [draftId, setDraftId] = useState<string | null>(null);
   const [businessId, setBusinessId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
+      // Super admins have no personal activeBusinessId (they aren't a member
+      // of any single business) -- honor an explicit ?businessId= passed in
+      // from the calling page (e.g. admin/products, which already knows
+      // which business it's viewing) before falling back to the user's own
+      // active business. Was also reading `me.activeBusinessId`, but the
+      // /api/auth/me response actually nests it under `me.user.activeBusinessId`
+      // -- that mismatch meant this always fell through to the missing-
+      // business error, even for a normal vendor with a real active business.
+      const queryBusinessId = searchParams.get("businessId") || undefined;
+
       const meRes = await fetch("/api/auth/me");
       const me = await meRes.json().catch(() => ({}));
-      const activeBusinessId: string | undefined = me?.activeBusinessId || undefined;
+      const activeBusinessId: string | undefined =
+        queryBusinessId || me?.user?.activeBusinessId || undefined;
       setBusinessId(activeBusinessId);
 
       const res = await fetch("/api/vendor-products/draft", {

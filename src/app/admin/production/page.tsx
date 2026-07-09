@@ -207,10 +207,12 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
                   placeholder="100"
                   value={form.plannedQuantity}
                   onChange={(e) => set("plannedQuantity", e.target.value)}
+                  onFocus={(e) => e.target.select()}
                   required
                 />
                 <select
                   className="w-20 px-2 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
+                  title="Unit of measure"
                   value={form.unit}
                   onChange={(e) => set("unit", e.target.value)}
                 >
@@ -225,6 +227,7 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
               <label className="text-xs text-gray-500 block mb-1">Priority</label>
               <select
                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
+                title="Order priority"
                 value={form.priority}
                 onChange={(e) => set("priority", e.target.value as Priority)}
               >
@@ -239,6 +242,7 @@ function NewOrderModal({ onClose, onCreated, businessId }: NewOrderModalProps) {
               <label className="text-xs text-gray-500 block mb-1">Initial Status</label>
               <select
                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
+                title="Initial status"
                 value={form.status}
                 onChange={(e) => set("status", e.target.value as OrderStatus)}
               >
@@ -387,8 +391,10 @@ function CompleteModal({ order, onClose, onDone }: CompleteModalProps) {
                 type="number"
                 min="0"
                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
+                placeholder="Produced quantity"
                 value={producedQty}
                 onChange={(e) => setProducedQty(e.target.value)}
+                onFocus={(e) => e.target.select()}
               />
             </div>
             <div>
@@ -397,8 +403,10 @@ function CompleteModal({ order, onClose, onDone }: CompleteModalProps) {
                 type="number"
                 min="0"
                 className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400"
+                placeholder="Rejected quantity"
                 value={rejectedQty}
                 onChange={(e) => setRejectedQty(e.target.value)}
+                onFocus={(e) => e.target.select()}
               />
             </div>
           </div>

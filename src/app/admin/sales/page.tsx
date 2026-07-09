@@ -520,12 +520,14 @@ export default function SalesPage() {
                     <label className="block text-xs text-gray-500 mb-1">Issue Date</label>
                     <input type="date" value={issueDate}
                       onChange={e => setIssueDate(e.target.value)}
+                      title="Select issue date"
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400" />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Due Date</label>
                     <input type="date" value={dueDate}
                       onChange={e => setDueDate(e.target.value)}
+                      title="Select due date"
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400" />
                   </div>
                 </div>
@@ -617,6 +619,7 @@ export default function SalesPage() {
                           <div>
                             <label className="block text-[10px] text-gray-500 mb-1">Unit</label>
                             <select value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)}
+                              title="Select unit of measurement"
                               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400">
                               {['Nos', 'Kg', 'Litre', 'Metre', 'Sq.Ft', 'Sq.Mt', 'Box', 'Pcs', 'Set', 'Hr'].map(u =>
                                 <option key={u}>{u}</option>)}
@@ -626,12 +629,16 @@ export default function SalesPage() {
                             <label className="block text-[10px] text-gray-500 mb-1">Quantity</label>
                             <input type="number" min={0.01} step={0.01} value={item.qty}
                               onChange={e => updateItem(idx, 'qty', parseFloat(e.target.value) || 1)}
+                              onFocus={e => e.target.select()}
+                              placeholder="Quantity"
                               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400" />
                           </div>
                           <div>
                             <label className="block text-[10px] text-gray-500 mb-1">Rate (₹)</label>
                             <input type="number" min={0} value={item.price}
                               onChange={e => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
+                              onFocus={e => e.target.select()}
+                              placeholder="Rate per unit"
                               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400" />
                           </div>
                           <div>
@@ -640,12 +647,14 @@ export default function SalesPage() {
                             </label>
                             {invoiceType === 'GST' ? (
                               <select value={item.taxPct} onChange={e => updateItem(idx, 'taxPct', parseInt(e.target.value))}
+                                title="Select GST rate"
                                 className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400">
                                 {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
                               </select>
                             ) : (
                               <input type="number" min={0} max={100} step={0.5} value={item.taxPct}
                                 onChange={e => updateItem(idx, 'taxPct', parseFloat(e.target.value) || 0)}
+                                onFocus={e => e.target.select()}
                                 placeholder="0"
                                 className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400" />
                             )}
@@ -696,6 +705,8 @@ export default function SalesPage() {
                     <label className="block text-[10px] text-gray-500 mb-1">Discount (₹)</label>
                     <input type="number" min={0} value={discount}
                       onChange={e => setDiscount(parseFloat(e.target.value) || 0)}
+                      onFocus={e => e.target.select()}
+                      placeholder="Discount amount"
                       className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:border-gray-400" />
                   </div>
                   <div className="flex justify-between text-base font-semibold text-gray-900 pt-2 border-t border-gray-200">
@@ -715,6 +726,7 @@ export default function SalesPage() {
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Terms & Conditions</label>
                     <textarea value={terms} onChange={e => setTerms(e.target.value)} rows={3}
+                      placeholder="Terms and conditions…"
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 resize-none" />
                   </div>
                 </div>

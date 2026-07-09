@@ -372,6 +372,7 @@ export default function InventoryPage() {
                 type="number"
                 value={adjustQty}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAdjustQty(parseFloat(e.target.value) || 0)}
+                onFocus={(e) => e.target.select()}
                 placeholder="+50 to add, -10 to remove"
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none"
               />

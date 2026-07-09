@@ -236,9 +236,12 @@ export default function PurchaseOrderItemsGrid({
                     <input
                       type="number"
                       className="border rounded w-20 p-1"
+                      placeholder="Qty"
+                      title="Quantity being ordered"
                       value={
                         item.quantity
                       }
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateItem(
                           index,
@@ -255,7 +258,10 @@ export default function PurchaseOrderItemsGrid({
                     <input
                       type="number"
                       className="border rounded w-24 p-1"
+                      placeholder="Rate per unit"
+                      title="Rate per unit, excluding tax"
                       value={item.rate}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateItem(
                           index,
@@ -272,9 +278,12 @@ export default function PurchaseOrderItemsGrid({
                     <input
                       type="number"
                       className="border rounded w-20 p-1"
+                      placeholder="Discount %"
+                      title="Discount percentage on this line"
                       value={
                         item.discountPercent
                       }
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateItem(
                           index,
@@ -291,9 +300,12 @@ export default function PurchaseOrderItemsGrid({
                     <input
                       type="number"
                       className="border rounded w-20 p-1"
+                      placeholder="Tax %"
+                      title="Tax percentage applied on this line"
                       value={
                         item.taxPercent
                       }
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateItem(
                           index,

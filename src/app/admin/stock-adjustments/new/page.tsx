@@ -366,6 +366,7 @@ export default function NewStockAdjustmentPage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, quantity: e.target.value }))
               }
+              onFocus={(e) => e.target.select()}
               className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
               required
             />

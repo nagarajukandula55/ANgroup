@@ -92,6 +92,7 @@ export default function NewMaterial() {
           type="number"
           placeholder="GST %"
           className="w-full border p-3"
+          onFocus={(e) => e.target.select()}
           onChange={(e) =>
             setForm({
               ...form,

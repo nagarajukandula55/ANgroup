@@ -875,6 +875,8 @@ export default function StockTransfersPage() {
                               onChange={(e) =>
                                 updateQty(idx, Number(e.target.value))
                               }
+                              onFocus={(e) => e.target.select()}
+                              placeholder="Quantity"
                               className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                             />
                           </div>
@@ -894,6 +896,7 @@ export default function StockTransfersPage() {
                                   )
                                 )
                               }
+                              placeholder="Unit"
                               className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                             />
                           </div>

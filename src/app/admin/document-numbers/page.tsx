@@ -588,6 +588,8 @@ function DocumentCard({
                     startFrom: Math.max(1, parseInt(e.target.value, 10) || 1),
                   })
                 }
+                onFocus={(e) => e.target.select()}
+                placeholder="Start from"
                 className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
             </div>
@@ -978,6 +980,7 @@ export default function DocumentNumbersPage() {
             <select
               defaultValue=""
               onChange={(e) => e.target.value && handleSelectBusiness(e.target.value)}
+              title="Select business"
               className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
             >
               <option value="" disabled>Select a business…</option>
@@ -1014,6 +1017,7 @@ export default function DocumentNumbersPage() {
             <select
               value={businessId ?? ""}
               onChange={(e) => e.target.value && handleSelectBusiness(e.target.value)}
+              title="Select business"
               className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
             >
               <option value="AN_GROUP">— AN Group (Platform) —</option>

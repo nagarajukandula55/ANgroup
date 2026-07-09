@@ -317,10 +317,10 @@ export default function SalesInvoicesPage() {
                   {form.items.map((item, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 items-center">
                       <input value={item.description} onChange={(e) => updateItem(i, "description", e.target.value)} placeholder="Item description" className="col-span-4 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none" />
-                      <input type="number" value={item.quantity} onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)} className="col-span-1 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 text-center focus:outline-none" />
+                      <input type="number" value={item.quantity} onChange={(e) => updateItem(i, "quantity", parseFloat(e.target.value) || 0)} onFocus={(e) => e.target.select()} placeholder="Qty" className="col-span-1 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 text-center focus:outline-none" />
                       <input value={item.unit} onChange={(e) => updateItem(i, "unit", e.target.value)} className="col-span-1 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-500 text-center focus:outline-none" />
-                      <input type="number" value={item.unitPrice} onChange={(e) => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)} className="col-span-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 text-right focus:outline-none" />
-                      <input type="number" value={item.taxRate} onChange={(e) => updateItem(i, "taxRate", parseFloat(e.target.value) || 0)} className="col-span-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 text-right focus:outline-none" />
+                      <input type="number" value={item.unitPrice} onChange={(e) => updateItem(i, "unitPrice", parseFloat(e.target.value) || 0)} onFocus={(e) => e.target.select()} placeholder="Price" className="col-span-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 text-right focus:outline-none" />
+                      <input type="number" value={item.taxRate} onChange={(e) => updateItem(i, "taxRate", parseFloat(e.target.value) || 0)} onFocus={(e) => e.target.select()} placeholder="GST %" className="col-span-2 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 text-right focus:outline-none" />
                       <div className="col-span-2 flex items-center justify-end gap-1">
                         <span className="text-sm text-gray-900 font-medium">{fmt(item.total)}</span>
                         {form.items.length > 1 && (
@@ -351,7 +351,7 @@ export default function SalesInvoicesPage() {
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Discount (₹)</label>
-                    <input type="number" value={form.discountAmount} onChange={(e) => setForm((f) => ({ ...f, discountAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
+                    <input type="number" value={form.discountAmount} onChange={(e) => setForm((f) => ({ ...f, discountAmount: parseFloat(e.target.value) || 0 }))} onFocus={(e) => e.target.select()} placeholder="Discount amount" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
                   </div>
                 </div>
                 <div>
@@ -371,7 +371,7 @@ export default function SalesInvoicesPage() {
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Terms & Conditions</label>
-                  <textarea value={form.terms} onChange={(e) => setForm((f) => ({ ...f, terms: e.target.value }))} rows={3} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none resize-none" />
+                  <textarea value={form.terms} onChange={(e) => setForm((f) => ({ ...f, terms: e.target.value }))} rows={3} placeholder="Terms and conditions…" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none resize-none" />
                 </div>
               </div>
             </div>
@@ -415,7 +415,7 @@ export default function SalesInvoicesPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Amount Received (₹)</label>
-                <input type="number" value={paymentData.paidAmount} onChange={(e) => setPaymentData((p) => ({ ...p, paidAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
+                <input type="number" value={paymentData.paidAmount} onChange={(e) => setPaymentData((p) => ({ ...p, paidAmount: parseFloat(e.target.value) || 0 }))} onFocus={(e) => e.target.select()} placeholder="Amount received" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Payment Method</label>

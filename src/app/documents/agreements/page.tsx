@@ -155,6 +155,7 @@ ${f.notes ? `<h3>7. Additional Notes</h3><p>${f.notes}</p>` : ''}
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Agreement Type *</label>
                   <select value={form.type} onChange={e => setForm({...form, type: e.target.value})}
+                    title="Select agreement type"
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none">
                     {['VENDOR_SUPPLY', 'NDA', 'SERVICE_LEVEL', 'PARTNERSHIP', 'EMPLOYMENT', 'DISTRIBUTION'].map(t => (
                       <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
@@ -187,17 +188,19 @@ ${f.notes ? `<h3>7. Additional Notes</h3><p>${f.notes}</p>` : ''}
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Start Date</label>
                   <input type="date" value={form.startDate} onChange={e => setForm({...form, startDate: e.target.value})}
+                    placeholder="Select start date"
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">End Date</label>
                   <input type="date" value={form.endDate} onChange={e => setForm({...form, endDate: e.target.value})}
+                    placeholder="Select end date"
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Agreement Value (₹)</label>
                   <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})}
-                    placeholder="0"
+                    placeholder="0" onFocus={(e) => e.target.select()}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400" />
                 </div>
                 <div className="col-span-2 md:col-span-3">

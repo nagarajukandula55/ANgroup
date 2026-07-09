@@ -172,6 +172,7 @@ export default function NewBOMPage() {
           className="border border-white/20 bg-black text-white p-3 rounded"
           placeholder="Batch Size"
           value={form.batchSize}
+          onFocus={(e) => e.target.select()}
           onChange={(e) =>
             setForm({
               ...form,
@@ -246,6 +247,7 @@ export default function NewBOMPage() {
                   className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Qty"
                   type="number"
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     updateRow(
                       index,
@@ -274,6 +276,7 @@ export default function NewBOMPage() {
                   className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Wastage"
                   type="number"
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     updateRow(
                       index,
@@ -290,6 +293,7 @@ export default function NewBOMPage() {
                   className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Current Cost"
                   type="number"
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     updateRow(
                       index,
@@ -306,6 +310,7 @@ export default function NewBOMPage() {
                   className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Safe Cost"
                   type="number"
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     updateRow(
                       index,
@@ -322,6 +327,7 @@ export default function NewBOMPage() {
                   className="border border-white/20 bg-black text-white p-2 rounded"
                   placeholder="Worst Cost"
                   type="number"
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     updateRow(
                       index,

@@ -326,6 +326,7 @@ export default function CouponsPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
+          title="Filter by status"
           className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
         >
           <option value="all">All Status</option>
@@ -523,6 +524,7 @@ export default function CouponsPage() {
                   <select
                     value={businessId ?? ""}
                     onChange={(e) => setBusinessId(e.target.value || null)}
+                    title="Select business"
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-400"
                   >
                     <option value="" disabled>Select a business…</option>
@@ -605,6 +607,7 @@ export default function CouponsPage() {
                     type="number"
                     value={form.discountValue}
                     onChange={(e) => setForm((f) => ({ ...f, discountValue: e.target.value }))}
+                    onFocus={(e) => e.target.select()}
                     placeholder={form.discountType === "PERCENTAGE" ? "e.g. 20" : "e.g. 100"}
                     min={0}
                     max={form.discountType === "PERCENTAGE" ? 100 : undefined}
@@ -617,6 +620,7 @@ export default function CouponsPage() {
                     type="number"
                     value={form.minOrderValue}
                     onChange={(e) => setForm((f) => ({ ...f, minOrderValue: e.target.value }))}
+                    onFocus={(e) => e.target.select()}
                     placeholder="e.g. 500"
                     min={0}
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
@@ -639,6 +643,7 @@ export default function CouponsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, maxDiscountAmount: e.target.value }))
                     }
+                    onFocus={(e) => e.target.select()}
                     placeholder="e.g. 200"
                     min={0}
                     disabled={form.discountType === "FIXED"}
@@ -651,6 +656,7 @@ export default function CouponsPage() {
                     type="number"
                     value={form.usageLimit}
                     onChange={(e) => setForm((f) => ({ ...f, usageLimit: e.target.value }))}
+                    onFocus={(e) => e.target.select()}
                     placeholder="Unlimited"
                     min={1}
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
@@ -665,6 +671,7 @@ export default function CouponsPage() {
                   type="date"
                   value={form.validUntil}
                   onChange={(e) => setForm((f) => ({ ...f, validUntil: e.target.value }))}
+                  title="Select expiry date"
                   className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>

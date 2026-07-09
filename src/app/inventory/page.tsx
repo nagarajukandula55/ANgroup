@@ -250,7 +250,7 @@ export default function InventoryPage() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products…" className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400" />
         </div>
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-500 focus:outline-none">
+        <select value={category} onChange={(e) => setCategory(e.target.value)} title="Filter by category" className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-500 focus:outline-none">
           {categories.map((c) => <option key={c}>{c}</option>)}
         </select>
       </div>
@@ -339,36 +339,36 @@ export default function InventoryPage() {
                 {/* Category */}
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Category</label>
-                  <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none">
+                  <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} title="Select product category" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none">
                     {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 {/* Quantity */}
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Opening Stock</label>
-                  <input type="number" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
+                  <input type="number" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: parseFloat(e.target.value) || 0 }))} onFocus={(e) => e.target.select()} placeholder="Opening stock quantity" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
                 </div>
                 {/* Unit */}
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Unit</label>
-                  <select value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none">
+                  <select value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} title="Select unit of measurement" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none">
                     {UNITS.map((u) => <option key={u}>{u}</option>)}
                   </select>
                 </div>
                 {/* Unit Price */}
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Selling Price (₹)</label>
-                  <input type="number" value={form.unitPrice} onChange={(e) => setForm((f) => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
+                  <input type="number" value={form.unitPrice} onChange={(e) => setForm((f) => ({ ...f, unitPrice: parseFloat(e.target.value) || 0 }))} onFocus={(e) => e.target.select()} placeholder="Selling price per unit" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
                 </div>
                 {/* Cost Price */}
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Cost Price (₹)</label>
-                  <input type="number" value={form.costPrice} onChange={(e) => setForm((f) => ({ ...f, costPrice: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
+                  <input type="number" value={form.costPrice} onChange={(e) => setForm((f) => ({ ...f, costPrice: parseFloat(e.target.value) || 0 }))} onFocus={(e) => e.target.select()} placeholder="Cost price per unit" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
                 </div>
                 {/* Reorder Level */}
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Reorder Level</label>
-                  <input type="number" value={form.reorderLevel} onChange={(e) => setForm((f) => ({ ...f, reorderLevel: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
+                  <input type="number" value={form.reorderLevel} onChange={(e) => setForm((f) => ({ ...f, reorderLevel: parseFloat(e.target.value) || 0 }))} onFocus={(e) => e.target.select()} placeholder="Reorder threshold" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
                 </div>
                 {/* Supplier */}
                 <div>
@@ -400,7 +400,7 @@ export default function InventoryPage() {
             <p className="text-sm text-gray-500">{adjustModal.name} · Current: <strong className="text-gray-900">{adjustModal.quantity} {adjustModal.unit}</strong></p>
             <div>
               <label className="text-xs text-gray-500 block mb-1">Adjustment (+/−)</label>
-              <input type="number" value={adjustQty} onChange={(e) => setAdjustQty(parseFloat(e.target.value) || 0)} placeholder="+50 to add, -10 to remove" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
+              <input type="number" value={adjustQty} onChange={(e) => setAdjustQty(parseFloat(e.target.value) || 0)} onFocus={(e) => e.target.select()} placeholder="+50 to add, -10 to remove" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none" />
               <p className="text-xs text-gray-500 mt-1">New total: {Math.max(0, adjustModal.quantity + adjustQty)} {adjustModal.unit}</p>
             </div>
             <div>

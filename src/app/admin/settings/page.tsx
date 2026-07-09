@@ -258,16 +258,19 @@ export default function AdminSettingsPage() {
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Business Name</label>
                 <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                  placeholder="Business name"
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Legal Name</label>
                 <input value={profile.legalName} onChange={(e) => setProfile({ ...profile, legalName: e.target.value })}
+                  placeholder="Legal / registered name"
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Brand Name</label>
                 <input value={profile.brandName} onChange={(e) => setProfile({ ...profile, brandName: e.target.value })}
+                  placeholder="Brand name"
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
               </div>
               <button type="submit" disabled={savingProfile} className="btn-primary rounded-xl px-5 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
@@ -307,6 +310,7 @@ export default function AdminSettingsPage() {
                 <select
                   value={invoicingRules.vendorCostBasis}
                   onChange={(e) => setInvoicingRules({ ...invoicingRules, vendorCostBasis: e.target.value as InvoicingRules['vendorCostBasis'] })}
+                  title="Vendor cost basis"
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
                 >
                   <option value="NET_PAYOUT">Net payout — sale value minus platform commission (matches Vendor Settlements)</option>
@@ -325,6 +329,8 @@ export default function AdminSettingsPage() {
                     max={100}
                     value={invoicingRules.fixedMarginPercent}
                     onChange={(e) => setInvoicingRules({ ...invoicingRules, fixedMarginPercent: Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="Fixed margin percent"
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
                   />
                 </div>
@@ -335,6 +341,7 @@ export default function AdminSettingsPage() {
                 <select
                   value={invoicingRules.defaultSupplyType}
                   onChange={(e) => setInvoicingRules({ ...invoicingRules, defaultSupplyType: e.target.value as InvoicingRules['defaultSupplyType'] })}
+                  title="Default supply type"
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
                 >
                   <option value="INTRASTATE">Intrastate (CGST + SGST)</option>
@@ -374,6 +381,7 @@ export default function AdminSettingsPage() {
                           updated[i] = { ...cfg, prefix: e.target.value }
                           setDocConfigs(updated)
                         }}
+                        placeholder="Prefix"
                         className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-center outline-none focus:border-gray-400"
                       />
                     </div>
@@ -388,6 +396,8 @@ export default function AdminSettingsPage() {
                           updated[i] = { ...cfg, startFrom: Number(e.target.value) || 1 }
                           setDocConfigs(updated)
                         }}
+                        onFocus={(e) => e.target.select()}
+                        placeholder="Start from"
                         className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-center outline-none focus:border-gray-400"
                       />
                     </div>

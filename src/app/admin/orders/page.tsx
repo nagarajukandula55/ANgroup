@@ -327,6 +327,7 @@ export default function OrdersPage() {
                   value={form.customerEmail}
                   onChange={(e) => setForm((p) => ({ ...p, customerEmail: e.target.value }))}
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
+                  placeholder="customer@example.com"
                 />
               </div>
 
@@ -371,6 +372,8 @@ export default function OrdersPage() {
                             min={1}
                             value={item.qty}
                             onChange={(e) => updateItem(idx, 'qty', parseFloat(e.target.value) || 1)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="Quantity"
                             className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none"
                           />
                         </div>
@@ -381,6 +384,8 @@ export default function OrdersPage() {
                             min={0}
                             value={item.price}
                             onChange={(e) => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="Unit price"
                             className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none"
                           />
                         </div>
@@ -397,6 +402,7 @@ export default function OrdersPage() {
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   rows={3}
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20 resize-none"
+                  placeholder="Additional notes about this order..."
                 />
               </div>
             </form>

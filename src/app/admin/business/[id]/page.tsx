@@ -268,6 +268,7 @@ export default function BusinessDetailPage() {
               className={inputCls}
               value={form.name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
+              placeholder="Business display name"
             />
           </div>
           <div>
@@ -276,6 +277,7 @@ export default function BusinessDetailPage() {
               className={inputCls}
               value={form.legalName}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, legalName: e.target.value })}
+              placeholder="Legal / registered name"
             />
           </div>
           <div>
@@ -284,6 +286,7 @@ export default function BusinessDetailPage() {
               className={inputCls}
               value={form.brandName}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, brandName: e.target.value })}
+              placeholder="Brand name"
             />
           </div>
           <div>
@@ -294,6 +297,7 @@ export default function BusinessDetailPage() {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setForm({ ...form, businessCode: e.target.value })
               }
+              placeholder="Business code"
             />
           </div>
 
@@ -303,6 +307,7 @@ export default function BusinessDetailPage() {
               className={inputCls}
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
+              title="Business type"
             >
               <option value="">Select business type…</option>
               {BUSINESS_TYPE_OPTIONS.map((opt) => (
@@ -318,6 +323,7 @@ export default function BusinessDetailPage() {
               className={inputCls}
               value={form.industry}
               onChange={(e) => setForm({ ...form, industry: e.target.value })}
+              title="Industry"
             >
               <option value="">Select industry…</option>
               {INDUSTRY_OPTIONS.map((opt) => (
@@ -343,6 +349,7 @@ export default function BusinessDetailPage() {
               className={inputCls}
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
+              placeholder="Street address"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -398,6 +405,7 @@ export default function BusinessDetailPage() {
                   compliance: { ...form.compliance, gstNumber: e.target.value },
                 })
               }
+              placeholder="e.g. 29ABCDE1234F1Z5"
             />
           </div>
           <div>
@@ -424,6 +432,7 @@ export default function BusinessDetailPage() {
                   compliance: { ...form.compliance, pan: e.target.value },
                 })
               }
+              placeholder="e.g. ABCDE1234F"
             />
           </div>
           <div>
@@ -437,6 +446,7 @@ export default function BusinessDetailPage() {
                   compliance: { ...form.compliance, cin: e.target.value },
                 })
               }
+              placeholder="Corporate Identification Number"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -451,6 +461,7 @@ export default function BusinessDetailPage() {
                     compliance: { ...form.compliance, msme: e.target.value },
                   })
                 }
+                placeholder="MSME registration number"
               />
             </div>
             <div>
@@ -464,6 +475,7 @@ export default function BusinessDetailPage() {
                     compliance: { ...form.compliance, iec: e.target.value },
                   })
                 }
+                placeholder="Import Export Code"
               />
             </div>
             <div>
@@ -477,6 +489,7 @@ export default function BusinessDetailPage() {
                     compliance: { ...form.compliance, fssai: e.target.value },
                   })
                 }
+                placeholder="FSSAI license number"
               />
             </div>
             <div>
@@ -493,6 +506,7 @@ export default function BusinessDetailPage() {
                     },
                   })
                 }
+                placeholder="Drug license number"
               />
             </div>
           </div>
@@ -512,6 +526,7 @@ export default function BusinessDetailPage() {
                     financial: { ...form.financial, currency: e.target.value },
                   })
                 }
+                placeholder="e.g. INR"
               />
             </div>
             <div>
@@ -545,6 +560,7 @@ export default function BusinessDetailPage() {
                     },
                   })
                 }
+                placeholder="e.g. GST"
               />
             </div>
             <div>
@@ -562,6 +578,8 @@ export default function BusinessDetailPage() {
                     },
                   })
                 }
+                onFocus={(e) => e.target.select()}
+                placeholder="e.g. 2"
               />
             </div>
           </div>

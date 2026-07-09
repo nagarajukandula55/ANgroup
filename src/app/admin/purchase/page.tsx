@@ -258,6 +258,7 @@ export default function PurchasePage() {
                   type="date"
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
+                  title="Select delivery date"
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
                 />
               </div>
@@ -303,6 +304,8 @@ export default function PurchasePage() {
                             min={1}
                             value={item.qty}
                             onChange={(e) => updateItem(idx, 'qty', parseFloat(e.target.value) || 1)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="Qty"
                             className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none"
                           />
                         </div>
@@ -313,6 +316,8 @@ export default function PurchasePage() {
                             min={0}
                             value={item.price}
                             onChange={(e) => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="Price"
                             className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 outline-none"
                           />
                         </div>
@@ -328,6 +333,7 @@ export default function PurchasePage() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
+                  placeholder="Additional notes"
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20 resize-none"
                 />
               </div>

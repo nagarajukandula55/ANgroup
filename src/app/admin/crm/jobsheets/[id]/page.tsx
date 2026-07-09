@@ -213,6 +213,7 @@ export default function JobSheetDetailPage() {
                   placeholder="Qty"
                   value={item.quantity}
                   onChange={(e) => updateLine(i, { quantity: parseFloat(e.target.value) || 0 })}
+                  onFocus={(e) => e.target.select()}
                   className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                 />
                 <input
@@ -221,6 +222,7 @@ export default function JobSheetDetailPage() {
                   placeholder="Rate"
                   value={item.unitPrice}
                   onChange={(e) => updateLine(i, { unitPrice: parseFloat(e.target.value) || 0 })}
+                  onFocus={(e) => e.target.select()}
                   className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                 />
                 <input
@@ -229,6 +231,7 @@ export default function JobSheetDetailPage() {
                   placeholder="Tax %"
                   value={item.taxRate}
                   onChange={(e) => updateLine(i, { taxRate: parseFloat(e.target.value) || 0 })}
+                  onFocus={(e) => e.target.select()}
                   className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                 />
                 {!isLocked && (
@@ -254,6 +257,7 @@ export default function JobSheetDetailPage() {
               disabled={isLocked}
               value={workPerformed}
               onChange={(e) => setWorkPerformed(e.target.value)}
+              placeholder="Describe the work performed"
               rows={2}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
@@ -264,6 +268,7 @@ export default function JobSheetDetailPage() {
               disabled={isLocked}
               value={materialsUsed}
               onChange={(e) => setMaterialsUsed(e.target.value)}
+              placeholder="List materials used"
               rows={2}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
