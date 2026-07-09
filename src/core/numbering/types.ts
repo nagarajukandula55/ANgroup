@@ -84,6 +84,15 @@ export const DOCUMENT_TYPES = [
   // businessId-aware numbering config) has been assigned — see
   // api/vendors/apply/route.ts and VendorProfile.requestNumber.
   "VENDOR_REQUEST",
+  // CRM call-lifecycle module (call entry -> job sheet -> closure — see
+  // models/CrmCall.ts and models/CrmJobSheet.ts). CALL is the human-facing
+  // reference on a CrmCall record; JOB_SHEET is the reference on a
+  // CrmJobSheet created when a call is converted into actual work. Both are
+  // admin-configurable per business through the same Settings > Document
+  // Numbers UI as every other document type here, rather than inventing a
+  // separate ad-hoc numbering scheme for CRM.
+  "CALL",
+  "JOB_SHEET",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -120,6 +129,8 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   EMPLOYEE: "EMP",
   BUSINESS: "BUS",
   VENDOR_REQUEST: "VREQ",
+  CALL: "CALL",
+  JOB_SHEET: "JOB",
 };
 
 export interface GeneratedNumber {

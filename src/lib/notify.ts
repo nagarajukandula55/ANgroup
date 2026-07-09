@@ -21,7 +21,11 @@ export type NotifyEvent =
   | 'LOW_STOCK'
   | 'NEW_AGREEMENT'
   | 'AGREEMENT_SIGNED'
-  | 'STAFF_ALERT';
+  | 'STAFF_ALERT'
+  // CRM lifecycle events (call entry -> job sheet -> invoice -> closure) —
+  // see app/api/crm/calls/route.ts and app/api/crm/jobsheets/[id]/close/route.ts.
+  | 'NEW_CRM_CALL'
+  | 'CRM_JOB_CLOSED';
 
 export interface NotifyOptions {
   event: NotifyEvent;

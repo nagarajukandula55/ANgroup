@@ -5,6 +5,9 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService';
 import { logAction } from "@/lib/audit/logAction";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
 
 // Roles any authenticated admin caller may assign. SUPER_ADMIN is
 // deliberately excluded here — it's checked separately below and only
@@ -25,10 +28,18 @@ async function getModels() {
 
 export async function GET(request: NextRequest) {
   try {
-    const h = await headers();
-    if (!h.get('x-user-id')) {
+    // Was auth-only (any logged-in user, any role) — this returns every
+    // user's roles, employee profile, AND vendor profile data, so any
+    // authenticated employee/vendor/customer account could list the full
+    // user directory. Now requires USERS.VIEW specifically, same
+    // permission chain as every other module (session.isSuperAdmin still
+    // bypasses this via requirePermission()'s super-admin fix in
+    // middleware/permission.guard.ts).
+    const session = await getEnrichedSession();
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    requirePermission(session as any, buildPermissionCode("users", "view"));
 
     await connectDB();
     const { User, Role, UserRole, EmployeeProfile, VendorProfile } = await getModels();

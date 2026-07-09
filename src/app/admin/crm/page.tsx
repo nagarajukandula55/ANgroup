@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   ArrowLeft,
   Loader2,
@@ -11,6 +12,9 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart3,
+  PhoneCall,
+  ClipboardList,
+  ArrowRight,
 } from 'lucide-react'
 
 interface Lead {
@@ -138,6 +142,39 @@ export default function CRMPage() {
           >
             <Plus className="w-4 h-4" /> New Lead
           </button>
+        </div>
+
+        {/* Full call-entry -> job sheet -> invoice -> closure lifecycle
+            lives under these two sections — the lead list above is kept for
+            backward compatibility (existing /api/crm/leads data) but new
+            work should flow through Calls -> Job Sheets. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <Link
+            href="/admin/crm/calls"
+            className="rounded-2xl border border-gray-200 bg-white p-6 hover:shadow-sm hover:border-gray-300 transition group flex items-center gap-4"
+          >
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <PhoneCall className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900">Calls</h3>
+              <p className="text-sm text-gray-500">Call entry, disposition, and follow-ups</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />
+          </Link>
+          <Link
+            href="/admin/crm/jobsheets"
+            className="rounded-2xl border border-gray-200 bg-white p-6 hover:shadow-sm hover:border-gray-300 transition group flex items-center gap-4"
+          >
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ClipboardList className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900">Job Sheets</h3>
+              <p className="text-sm text-gray-500">Scheduled work through invoicing</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />
+          </Link>
         </div>
 
         {error && (
