@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Layout from '@/components/layout'
 import { Landmark, Send, RefreshCw, Settings2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 
 /**
@@ -148,7 +147,6 @@ export default function GstFilingPage() {
   }
 
   return (
-    <Layout>
       <div className="space-y-8">
         <section className="rounded-[40px] border border-white/10 bg-white/5 p-10">
           <p className="uppercase tracking-[0.35em] text-cyan-300 text-sm">COMPLIANCE</p>
@@ -259,6 +257,5 @@ export default function GstFilingPage() {
           </section>
         )}
       </div>
-    </Layout>
   )
 }

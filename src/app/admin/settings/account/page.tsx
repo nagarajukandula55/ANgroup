@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Layout from '@/components/layout'
 import { User, Bell, Shield, Globe, Key, Save, Eye, EyeOff } from 'lucide-react'
 
 /**
@@ -77,7 +76,6 @@ export default function AccountSettingsPage() {
   ]
 
   return (
-    <Layout>
       <div className="space-y-5 max-w-3xl mx-auto">
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-widest">Account</p>
@@ -230,6 +228,5 @@ export default function AccountSettingsPage() {
           </div>
         )}
       </div>
-    </Layout>
   )
 }

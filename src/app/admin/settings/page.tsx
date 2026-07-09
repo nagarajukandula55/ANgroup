@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Layout from '@/components/layout'
 import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight } from 'lucide-react'
 
 /**
@@ -169,7 +168,6 @@ export default function AdminSettingsPage() {
   ]
 
   return (
-    <Layout>
       <div className="space-y-5 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
@@ -349,6 +347,5 @@ export default function AdminSettingsPage() {
           </div>
         )}
       </div>
-    </Layout>
   )
 }

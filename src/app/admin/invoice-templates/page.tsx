@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Layout from '@/components/layout'
 import { FileText, Save, Star, Trash2, Eye } from 'lucide-react'
 
 /**
@@ -176,7 +175,6 @@ export default function InvoiceTemplatesPage() {
   }
 
   return (
-    <Layout>
       <div className="space-y-8">
         <section className="rounded-[40px] border border-white/10 bg-white/5 p-10">
           <p className="uppercase tracking-[0.35em] text-cyan-300 text-sm">DOCUMENTS</p>
@@ -323,6 +321,5 @@ export default function InvoiceTemplatesPage() {
           </section>
         </div>
       </div>
-    </Layout>
   )
 }

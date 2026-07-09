@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Layout from '@/components/layout'
 import { Send, Sparkles, Bot, AlertCircle } from 'lucide-react'
 
 /**
@@ -85,7 +84,6 @@ export default function AIWorkspacePage() {
   }
 
   return (
-    <Layout>
       <div className="max-w-4xl mx-auto space-y-5">
         <div className="flex items-center gap-3">
           <div className="rounded-2xl bg-gray-900 p-3 text-white">
@@ -152,6 +150,5 @@ export default function AIWorkspacePage() {
           </div>
         </div>
       </div>
-    </Layout>
   )
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Layout from '@/components/layout'
 import { Truck, MapPin, Package, Clock, RefreshCw } from 'lucide-react'
 
 /**
@@ -48,7 +47,6 @@ export default function LogisticsPage() {
   ] : []
 
   return (
-    <Layout>
       <div className="space-y-8">
         <section className="rounded-[40px] border border-white/10 bg-white/5 p-10">
           <div className="flex items-start justify-between">
@@ -120,6 +118,5 @@ export default function LogisticsPage() {
           </>
         )}
       </div>
-    </Layout>
   )
 }

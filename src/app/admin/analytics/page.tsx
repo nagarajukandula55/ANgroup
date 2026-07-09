@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Layout from '@/components/layout'
 import { BarChart3, TrendingUp, DollarSign, Users, Package, RefreshCw } from 'lucide-react'
 
 /**
@@ -65,7 +64,6 @@ export default function AnalyticsPage() {
   ] : []
 
   return (
-    <Layout>
       <div className="space-y-5 max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
@@ -161,6 +159,5 @@ export default function AnalyticsPage() {
           </>
         )}
       </div>
-    </Layout>
   )
 }
