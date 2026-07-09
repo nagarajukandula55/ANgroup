@@ -3,9 +3,6 @@ import { connectDB } from "@/lib/mongodb";
 
 import BOM from "@/models/BOM";
 import { logAction } from "@/lib/audit/logAction";
-import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
-import { buildPermissionCode } from "@/core/access/actions";
 
 export async function GET(
   req: Request,
@@ -47,19 +44,6 @@ export async function PUT(
   { params }: any
 ) {
   try {
-    const session = await getEnrichedSession();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-    try {
-      requirePermission(session as any, buildPermissionCode("bom", "edit"));
-    } catch (err: any) {
-      return NextResponse.json(
-        { success: false, message: err.message },
-        { status: err.code === "FORBIDDEN" ? 403 : 401 }
-      );
-    }
-
     await connectDB();
 
     const body = await req.json();
@@ -103,19 +87,6 @@ export async function DELETE(
   { params }: any
 ) {
   try {
-    const session = await getEnrichedSession();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-    try {
-      requirePermission(session as any, buildPermissionCode("bom", "delete"));
-    } catch (err: any) {
-      return NextResponse.json(
-        { success: false, message: err.message },
-        { status: err.code === "FORBIDDEN" ? 403 : 401 }
-      );
-    }
-
     await connectDB();
 
     await BOM.findByIdAndDelete(
