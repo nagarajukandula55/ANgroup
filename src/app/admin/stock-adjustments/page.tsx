@@ -363,6 +363,7 @@ export default function StockAdjustmentsPage() {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as "" | AdjustmentType)}
+          title="Filter by adjustment type"
           className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none"
         >
           <option value="">All Types</option>
@@ -375,6 +376,7 @@ export default function StockAdjustmentsPage() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
+            title="Filter from date"
             className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-gray-400"
           />
           <span className="text-gray-600 text-xs">to</span>
@@ -382,6 +384,7 @@ export default function StockAdjustmentsPage() {
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
+            title="Filter to date"
             className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-gray-400"
           />
         </div>
@@ -768,6 +771,7 @@ export default function StockAdjustmentsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, date: e.target.value }))
                     }
+                    title="Adjustment date"
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-gray-400"
                   />
                 </div>

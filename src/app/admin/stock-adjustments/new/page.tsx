@@ -444,6 +444,7 @@ export default function NewStockAdjustmentPage() {
               onChange={(e) =>
                 setForm((f) => ({ ...f, date: e.target.value }))
               }
+              title="Adjustment date"
               className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-gray-400"
             />
           </div>
