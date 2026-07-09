@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import Warehouse from "@/models/Warehouse";
+import Business from "@/models/Business";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 // GET /api/warehouses — previously returned EVERY warehouse across every
 // business/vendor with no scoping at all. Now scoped:
@@ -71,6 +73,32 @@ export async function POST(req) {
     if (callerVendorCtx) {
       body.vendorId = callerVendorCtx.vendor._id;
       body.businessId = callerVendorCtx.vendor.businessId;
+    }
+
+    // marketplace.enableWarehouse existed on Business but nothing ever
+    // read it — any business could have warehouses regardless of this
+    // toggle. Enforced here now; the same schema field also gates
+    // vendor-portal entry (see api/vendor/dashboard's equivalent check).
+    if (body.businessId) {
+      const business = await Business.findById(body.businessId).select("marketplace name").lean();
+      if (business && business.marketplace?.enableWarehouse === false) {
+        return NextResponse.json(
+          { success: false, message: `Warehouses are disabled for ${business.name || "this business"}.` },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Was manually typed in the creation form with no numbering at all
+    // (and no uniqueness guarantee beyond whatever the admin happened to
+    // type) -- auto-generate via the canonical numbering engine, same as
+    // every other document type, choosing the WAREHOUSE vs SERVICE_CENTER
+    // prefix by the warehouse's own type. Still honors an explicitly
+    // provided warehouseCode if the caller already set one.
+    if (!body.warehouseCode && body.businessId) {
+      const documentType = body.warehouseType === "SERVICE_CENTER" ? "SERVICE_CENTER" : "WAREHOUSE";
+      const { value } = await generateDocumentNumber(String(body.businessId), documentType);
+      body.warehouseCode = value;
     }
 
     const warehouse = await Warehouse.create(body);

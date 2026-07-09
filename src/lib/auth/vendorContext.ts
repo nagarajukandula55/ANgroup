@@ -1,5 +1,6 @@
 import VendorProfile, { IVendorProfile } from "@/models/VendorProfile";
 import BusinessMember from "@/models/BusinessMember";
+import Business from "@/models/Business";
 
 /**
  * Resolves which vendor a logged-in user should be scoped to when hitting
@@ -26,24 +27,44 @@ export async function resolveVendorContext(
 ): Promise<{ vendor: IVendorProfile; role: "OWNER" | "STAFF"; vendorRole: string | null } | null> {
   if (!userId) return null;
 
+  let result: { vendor: IVendorProfile; role: "OWNER" | "STAFF"; vendorRole: string | null } | null = null;
+
   const owned = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } });
   if (owned) {
-    return { vendor: owned, role: "OWNER", vendorRole: null };
+    result = { vendor: owned, role: "OWNER", vendorRole: null };
+  } else {
+    const membership = await BusinessMember.findOne({
+      userId,
+      vendorId: { $ne: null },
+      isDeleted: { $ne: true },
+      status: "ACTIVE",
+    }).lean();
+    if (membership?.vendorId) {
+      const vendor = await VendorProfile.findOne({
+        _id: membership.vendorId,
+        isDeleted: { $ne: true },
+      });
+      if (vendor) {
+        result = { vendor, role: "STAFF", vendorRole: (membership as any).vendorRole || null };
+      }
+    }
   }
 
-  const membership = await BusinessMember.findOne({
-    userId,
-    vendorId: { $ne: null },
-    isDeleted: { $ne: true },
-    status: "ACTIVE",
-  }).lean();
-  if (!membership?.vendorId) return null;
+  if (!result) return null;
 
-  const vendor = await VendorProfile.findOne({
-    _id: membership.vendorId,
-    isDeleted: { $ne: true },
-  });
-  if (!vendor) return null;
+  // marketplace.enableVendorPortal existed on Business but nothing ever
+  // read it — any vendor could use the vendor portal regardless of this
+  // toggle. Enforced here, the single shared resolver every /vendor/* and
+  // /api/vendor-products* route already goes through, so it applies
+  // everywhere at once rather than needing a per-route check. Treated the
+  // same as "not a vendor" (null) — every existing caller already handles
+  // that case with a clear 403/empty response.
+  if (result.vendor.businessId) {
+    const business = await Business.findById(result.vendor.businessId).select("marketplace").lean();
+    if (business && (business as any).marketplace?.enableVendorPortal === false) {
+      return null;
+    }
+  }
 
-  return { vendor, role: "STAFF", vendorRole: (membership as any).vendorRole || null };
+  return result;
 }

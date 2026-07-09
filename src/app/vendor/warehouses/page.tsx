@@ -26,7 +26,7 @@ interface WarehouseRow {
   active: boolean;
 }
 
-const WAREHOUSE_TYPES = ["RAW_MATERIAL", "FINISHED_GOODS", "DISTRIBUTION", "STORE", "PRODUCTION"];
+const WAREHOUSE_TYPES = ["RAW_MATERIAL", "FINISHED_GOODS", "DISTRIBUTION", "STORE", "PRODUCTION", "SERVICE_CENTER"];
 
 const emptyForm = {
   warehouseCode: "",
@@ -213,10 +213,10 @@ export default function VendorWarehousesPage() {
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelCls}>Warehouse Code *</label>
+                    <label className={labelCls}>Warehouse Code</label>
                     <input
-                      required
                       className={inputCls}
+                      placeholder="Auto-generated if left blank"
                       value={form.warehouseCode}
                       onChange={(e) => setForm((f) => ({ ...f, warehouseCode: e.target.value.toUpperCase() }))}
                       disabled={!!editingId}

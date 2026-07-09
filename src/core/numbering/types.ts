@@ -93,6 +93,11 @@ export const DOCUMENT_TYPES = [
   // separate ad-hoc numbering scheme for CRM.
   "CALL",
   "JOB_SHEET",
+  // Warehouse/service-center codes were previously manually typed in the
+  // creation form with no numbering at all — added so they're generated
+  // atomically and admin-configurable like every other document type here.
+  "WAREHOUSE",
+  "SERVICE_CENTER",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -131,6 +136,8 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   VENDOR_REQUEST: "VREQ",
   CALL: "CALL",
   JOB_SHEET: "JOB",
+  WAREHOUSE: "WH",
+  SERVICE_CENTER: "SC",
 };
 
 export interface GeneratedNumber {

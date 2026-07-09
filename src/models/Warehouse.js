@@ -41,6 +41,12 @@ const WarehouseSchema = new mongoose.Schema(
         "DISTRIBUTION",
         "STORE",
         "PRODUCTION",
+        // Added per explicit user request: a vendor-operated (or
+        // business-operated) service center — reuses this same schema
+        // (vendor/business scoping, address, capacity) rather than a new
+        // model, since nothing about a service center's actual data shape
+        // differs from a warehouse's.
+        "SERVICE_CENTER",
       ],
       default: "RAW_MATERIAL",
     },
