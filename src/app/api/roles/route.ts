@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { RoleService } from "@/services/role/role.service";
 import { auth } from "@/lib/auth/auth";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 /* =========================================================
  * GET ROLES
@@ -60,6 +63,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    const enrichedSession = await getEnrichedSession();
+    try {
+      requirePermission(enrichedSession as any, buildPermissionCode("roles", "create"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
       );
     }
 

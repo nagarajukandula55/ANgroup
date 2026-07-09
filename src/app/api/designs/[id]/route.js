@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import Design from "@/models/Design";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 export async function GET(req, { params }) {
   try {
@@ -34,6 +37,19 @@ export async function GET(req, { params }) {
 
 export async function PUT(req, { params }) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session, buildPermissionCode("designs", "edit"));
+    } catch (err) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB();
 
     if (!mongoose.Types.ObjectId.isValid(params.id)) {
@@ -62,6 +78,19 @@ export async function PUT(req, { params }) {
 
 export async function DELETE(req, { params }) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session, buildPermissionCode("designs", "delete"));
+    } catch (err) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB();
 
     if (!mongoose.Types.ObjectId.isValid(params.id)) {

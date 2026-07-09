@@ -9,6 +9,9 @@ import { renderInvoiceForBusiness } from "@/core/invoiceTemplates/service";
 import { buildRenderDataFromInvoice } from "@/core/invoiceTemplates/fromInvoiceDoc";
 import cloudinary from "@/lib/cloudinary";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 console.log("TEMPLATE VERSION: GST-V2");
 
@@ -17,6 +20,19 @@ console.log("TEMPLATE VERSION: GST-V2");
 ========================================= */
 export async function POST(req: Request) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("finance", "create"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB();
 
     const body = await req.json().catch(() => null);
