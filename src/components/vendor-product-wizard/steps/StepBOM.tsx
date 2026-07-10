@@ -13,6 +13,7 @@ interface BOMItem {
   unit: string;
   quantity: number;
   wastagePercent: number;
+  currentRate: number;
 }
 
 interface CostSummaryType {
@@ -29,16 +30,19 @@ interface PricingType {
 
 interface Props {
   draftId: string;
+  businessId?: string;
   next: () => void;
   back: () => void;
 }
 
 export default function StepBOM({
   draftId,
+  businessId,
   next,
   back,
 }: Props) {
   const [rows, setRows] = useState<BOMItem[]>([]);
+  const [userId, setUserId] = useState<string>("");
 
   const [costSummary, setCostSummary] =
     useState<CostSummaryType>({
@@ -53,6 +57,19 @@ export default function StepBOM({
       marginAmount: 0,
       marginPercent: 0,
     });
+
+  /* ================= LOAD CURRENT USER ================= */
+  // Was sending the literal string "TEMP" for both businessId and
+  // createdBy on every BOM row save -- businessId cast to ObjectId would
+  // fail Mongoose validation, and even where it silently passed through,
+  // the BOM was never actually tied to the real business/user. Resolve
+  // both from the authenticated session instead.
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setUserId(d?.user?.id || ""))
+      .catch(() => {});
+  }, []);
 
   /* ================= LOAD BOM ================= */
 
@@ -74,6 +91,8 @@ export default function StepBOM({
         quantity: item.quantity || 1,
         wastagePercent:
           item.wastagePercent || 0,
+        currentRate:
+          item.currentRate || 0,
       }))
     );
   };
@@ -126,6 +145,7 @@ export default function StepBOM({
         unit: "",
         quantity: 1,
         wastagePercent: 0,
+        currentRate: 0,
       },
     ]);
   };
@@ -148,6 +168,14 @@ export default function StepBOM({
   /* ================= SAVE ================= */
 
   const saveRow = async (row: BOMItem) => {
+    // currentCost is what the cost/pricing engine downstream actually
+    // reads (previously always hardcoded to 0 here, since there was no
+    // rate input at all) -- compute it from qty * rate, inflated by
+    // wastage%, so product pricing derived from this BOM is meaningful.
+    const grossCost = row.quantity * row.currentRate;
+    const currentCost =
+      grossCost + (grossCost * row.wastagePercent) / 100;
+
     await fetch(
       `/api/vendor-products/${draftId}/bom`,
       {
@@ -162,11 +190,11 @@ export default function StepBOM({
           unit: row.unit,
           wastagePercent:
             row.wastagePercent,
-          currentRate: 0,
-          currentCost: 0,
+          currentRate: row.currentRate,
+          currentCost,
           remarks: "",
-          businessId: "TEMP",
-          createdBy: "TEMP",
+          businessId,
+          createdBy: userId,
         }),
       }
     );
@@ -192,6 +220,18 @@ export default function StepBOM({
       <h2 className="text-2xl font-semibold">
         Bill Of Materials
       </h2>
+      <p className="text-sm text-gray-500 -mt-4">
+        Add every material that goes into this product, its quantity, and
+        its rate — the rate you enter here is what drives this product's
+        computed cost and suggested selling price below.
+      </p>
+
+      {!businessId && (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          No active business selected — BOM rows will not save correctly
+          until a business is selected.
+        </div>
+      )}
 
       {rows.map((row, index) => (
         <BOMRow

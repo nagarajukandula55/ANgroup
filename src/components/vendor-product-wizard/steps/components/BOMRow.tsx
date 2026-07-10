@@ -9,6 +9,7 @@ interface BOMRowData {
   unit: string;
   quantity: number;
   wastagePercent: number;
+  currentRate: number;
 }
 
 interface Props {
@@ -44,7 +45,10 @@ export default function BOMRow({
       <input
         type="number"
         className="border rounded p-2"
+        placeholder="Qty"
+        title="Quantity of this material required"
         value={row.quantity}
+        onFocus={(e) => e.target.select()}
         onChange={(e) =>
           updateRow(index, "quantity", Number(e.target.value))
         }
@@ -52,6 +56,8 @@ export default function BOMRow({
 
       <input
         className="border rounded p-2"
+        placeholder="Unit"
+        title="Unit of measurement (e.g. kg, pcs)"
         value={row.unit}
         onChange={(e) =>
           updateRow(index, "unit", e.target.value)
@@ -61,11 +67,30 @@ export default function BOMRow({
       <input
         type="number"
         className="border rounded p-2"
+        placeholder="Wastage %"
+        title="Wastage percentage for this material"
         value={row.wastagePercent}
+        onFocus={(e) => e.target.select()}
         onChange={(e) =>
           updateRow(
             index,
             "wastagePercent",
+            Number(e.target.value)
+          )
+        }
+      />
+
+      <input
+        type="number"
+        className="border rounded p-2"
+        placeholder="Rate"
+        title="Rate per unit, used to compute BOM cost and drives product pricing"
+        value={row.currentRate}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) =>
+          updateRow(
+            index,
+            "currentRate",
             Number(e.target.value)
           )
         }
