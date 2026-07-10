@@ -439,6 +439,12 @@ export class OrderService {
             receipt: orderId,
 
             notes: {
+              // /api/webhooks/razorpay's processSuccessfulPayment (and its
+              // payment.failed/payment.authorized handlers) look up the
+              // order via payment.notes.orderId -- keep this key in sync
+              // with that reader. internalOrderId is kept alongside for
+              // any other consumer that may already depend on it.
+              orderId,
               internalOrderId:
                 orderId,
             },
