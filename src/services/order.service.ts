@@ -464,7 +464,17 @@ export class OrderService {
         await Order.create({
           orderId,
 
-          businessId: NATIVE_BUSINESS_ID,
+          // Was hardcoded to NATIVE_BUSINESS_ID -- a stale id that no
+          // longer resolves to any Business after the E-commerce/Native
+          // business was rebuilt from scratch this session (old id:
+          // 6a4abddcf35feedb2392f556, replaced by 6a5123a8e42b06cdcdec0bcf).
+          // Every order created since would have silently attached to a
+          // nonexistent business regardless of what Native actually sent.
+          // Falls back to the old hardcoded constant only if the caller
+          // genuinely omits businessId, so this can't 400 old integrations
+          // outright -- but the real value should always come from the
+          // request body now, same as every other business-scoped write.
+          businessId: payload.businessId || NATIVE_BUSINESS_ID,
 
           cart: taxedItems,
       

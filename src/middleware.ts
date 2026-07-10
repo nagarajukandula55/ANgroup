@@ -54,6 +54,21 @@ const PUBLIC_PREFIXES = [
   "/api/vendors/apply",          // public vendor application submission
   "/api/businesses/public",      // public business name lookup for the form
   "/vendor-apply",               // public vendor application form page
+  // Guest checkout -- Order.customer is a standalone {name,phone,email}
+  // sub-object independent of any userId, so an unauthenticated Native
+  // visitor can check out without ever logging in (see checkout/page.tsx's
+  // own comment on this). Neither route reads x-user-id/session identity
+  // internally -- their real security boundary is cart/amount validation
+  // (create) and the Razorpay HMAC signature check (verify) -- so gating
+  // them behind the JWT cookie only broke guest checkout outright: every
+  // unauthenticated order attempt 401'd before ever reaching the route.
+  "/api/orders/create",
+  "/api/payment/verify",
+  // Guest order tracking (order-success page, /track) -- same guest-cart
+  // reasoning as above. Looked up by orderId (an unguessable generated
+  // string), not by user identity, so no auth is actually needed to view
+  // your own order's status.
+  "/api/orders/get-by-id",
   // Native storefront integration — public, unauthenticated catalog
   // browsing routes (see ANGROUP_INTEGRATION_STATUS.md in the Native repo
   // for the gap these close). Deliberately separate paths from the

@@ -1,38 +1,27 @@
-import { getProductModel } from "@/models/Native Product";
-import { connectNativeDB } from "@/lib/native-mongodb";
 import mongoose from "mongoose";
+import NativeProductModel from "@/models/NativeProduct";
 
-declare global {
-  var nativeConn: mongoose.Connection | undefined;
-}
-
-async function getNativeConn(): Promise<mongoose.Connection> {
-  if (globalThis.nativeConn) {
-    return globalThis.nativeConn;
-  }
-
-  const conn = await connectNativeDB();
-  globalThis.nativeConn = conn;
-
-  return conn;
-}
-
+// Was querying a completely separate legacy collection (models/"Native
+// Product".ts, against its own MongoDB connection via connectNativeDB()) by
+// a "productKey" field that model has and the real catalog doesn't. That
+// legacy collection is disconnected from the entire vendor-product-wizard
+// approval pipeline (api/vendor-products/[id]/approve) and the storefront
+// listing route (api/storefront/products) -- both of those read/write
+// models/NativeProduct.ts on the MAIN database. The practical effect: no
+// vendor-approved product could ever actually be purchased, because
+// checkout looked for it somewhere it was never written. Found via a live
+// checkout test that 404'd immediately on a product that was visibly
+// listed on the storefront. Now resolves against the same NativeProduct
+// model everything else uses, matched by _id (what Native's cart actually
+// sends as productKey -- see ProductsPageClient.js's
+// `productKey: p.productKey || p.mongoId || p._id`) with slug as a
+// fallback for any caller still using the human-readable key.
 export type NativeProduct = {
   _id: any;
   productKey: string;
   name: string;
   tax?: number;
-
-  primaryVariant?: {
-    price?: number;
-    mrp?: number;
-  };
-
-  pricing?: {
-    sellingPrice?: number;
-    mrp?: number;
-  };
-
+  basePrice?: number;
   isDeleted?: boolean;
 };
 
@@ -49,9 +38,6 @@ export class ProductService {
       throw new Error("Invalid quantity");
     }
 
-    const conn = await getNativeConn();
-    const Product = getProductModel(conn);
-
     const productKey = item.productKey;
 
     if (!productKey) {
@@ -62,22 +48,30 @@ export class ProductService {
     console.log("CHECKOUT PRODUCT LOOKUP");
     console.log("PRODUCT KEY:", productKey);
 
-    const product = await Product.findOne({
-      productKey,
-    }).lean<NativeProduct | null>();
+    const query = mongoose.Types.ObjectId.isValid(productKey)
+      ? { $or: [{ _id: productKey }, { slug: productKey }] }
+      : { slug: productKey };
 
-    console.log("FOUND:", !!product);
+    const raw = await NativeProductModel.findOne({
+      ...query,
+      isDeleted: { $ne: true },
+    }).lean<any>();
 
-    if (!product) {
-      console.error(
-        "PRODUCT NOT FOUND:",
-        productKey
-      );
+    console.log("FOUND:", !!raw);
 
-      throw new Error(
-        `Product not found: ${productKey}`
-      );
+    if (!raw) {
+      console.error("PRODUCT NOT FOUND:", productKey);
+      throw new Error(`Product not found: ${productKey}`);
     }
+
+    const product: NativeProduct = {
+      _id: raw._id,
+      productKey: String(raw._id),
+      name: raw.name,
+      tax: raw.taxRate,
+      basePrice: raw.basePrice,
+      isDeleted: raw.isDeleted,
+    };
 
     return {
       product,
@@ -85,13 +79,8 @@ export class ProductService {
     };
   }
 
-  static getPrice(
-    product: NativeProduct
-  ): number {
-    const price =
-      product.primaryVariant?.price ??
-      product.pricing?.sellingPrice ??
-      0;
+  static getPrice(product: NativeProduct): number {
+    const price = product.basePrice ?? 0;
 
     if (!price || isNaN(price)) {
       throw new Error(

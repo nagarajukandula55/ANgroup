@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { connectNativeDB } from "@/lib/native-mongodb";
 import { OrderService } from "@/services/order.service";
 import { logAction } from "@/lib/audit/logAction";
 
@@ -49,11 +48,11 @@ export async function POST(req: Request) {
       "============ CREATE ORDER API ============"
     );
 
-    // MAIN AN DB (Orders)
+    // MAIN AN DB (Orders + Products) -- ProductService now resolves
+    // products from the same NativeProduct model/connection everything
+    // else uses; the separate legacy "native" DB connection is no longer
+    // needed here (see product.service.ts's comment for the full story).
     await connectDB();
-
-    // NATIVE DB (Products)
-    await connectNativeDB();
 
     const body = await req.json();
 
