@@ -86,6 +86,10 @@ export async function PUT(req: NextRequest) {
     if (body.gstNumber !== undefined) allowedUpdate.gstNumber = body.gstNumber
     if (body.panNumber !== undefined) allowedUpdate.panNumber = body.panNumber
     if (body.category !== undefined) allowedUpdate.category = body.category
+    if (Array.isArray(body.servicePincodes))
+      allowedUpdate.servicePincodes = body.servicePincodes
+        .map((p: unknown) => String(p).trim())
+        .filter((p: string) => /^[1-9][0-9]{5}$/.test(p))
 
     if (body.address && typeof body.address === 'object') {
       if (body.address.street !== undefined)

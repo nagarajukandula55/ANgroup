@@ -37,6 +37,7 @@ interface VendorProfileData {
   isApproved: boolean
   rating: number
   createdAt: string
+  servicePincodes?: string[]
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -112,7 +113,11 @@ export default function VendorProfilePage() {
       ifscCode: '',
       bankName: '',
     },
+    servicePincodes: [] as string[],
   })
+
+  const [pincodeInput, setPincodeInput] = useState('')
+  const [pincodeWarning, setPincodeWarning] = useState('')
 
   useEffect(() => {
     fetch('/api/vendor/profile')
@@ -140,6 +145,7 @@ export default function VendorProfilePage() {
               ifscCode: p.bankDetails?.ifscCode || '',
               bankName: p.bankDetails?.bankName || '',
             },
+            servicePincodes: Array.isArray(p.servicePincodes) ? p.servicePincodes : [],
           })
         } else {
           setError(res.message || 'Failed to load profile')
@@ -182,6 +188,34 @@ export default function VendorProfilePage() {
       ...f,
       bankDetails: { ...f.bankDetails, [field]: value },
     }))
+  }
+
+  const addServicePincode = async () => {
+    const pin = pincodeInput.trim()
+    setPincodeWarning('')
+    if (!/^[1-9][0-9]{5}$/.test(pin)) {
+      setPincodeWarning('Enter a valid 6-digit pincode')
+      return
+    }
+    if (form.servicePincodes.includes(pin)) {
+      setPincodeInput('')
+      return
+    }
+    try {
+      const res = await fetch(`/api/pincode/${pin}`)
+      const json = await res.json()
+      if (json.success && json.found === false) {
+        setPincodeWarning(`${pin} not found in pincode master data — added anyway, please double-check`)
+      }
+    } catch {
+      // Lookup failing shouldn't block adding the pincode.
+    }
+    setForm((f) => ({ ...f, servicePincodes: [...f.servicePincodes, pin] }))
+    setPincodeInput('')
+  }
+
+  const removeServicePincode = (pin: string) => {
+    setForm((f) => ({ ...f, servicePincodes: f.servicePincodes.filter((p) => p !== pin) }))
   }
 
   if (loading) {
@@ -391,6 +425,60 @@ export default function VendorProfilePage() {
             onChange={(v) => setAddr('pincode', v)}
             placeholder="400001"
           />
+        </div>
+      </div>
+
+      {/* Service Pincodes */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">Service Area Pincodes</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Pincodes where you can attend on-site / service-center visits. Used to route customer appointment requests to you.
+        </p>
+        <div className="flex gap-2 mb-2">
+          <input
+            type="text"
+            value={pincodeInput}
+            onChange={(e) => setPincodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                addServicePincode()
+              }
+            }}
+            placeholder="Add a 6-digit pincode"
+            className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-500/50 transition-colors"
+          />
+          <button
+            type="button"
+            onClick={addServicePincode}
+            className="px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 transition-colors"
+          >
+            Add
+          </button>
+        </div>
+        {pincodeWarning && (
+          <p className="text-xs text-amber-600 mb-2">{pincodeWarning}</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {form.servicePincodes.length === 0 && (
+            <p className="text-xs text-gray-400">No service pincodes added yet.</p>
+          )}
+          {form.servicePincodes.map((pin) => (
+            <span
+              key={pin}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-xs font-medium text-violet-700"
+            >
+              {pin}
+              <button
+                type="button"
+                onClick={() => removeServicePincode(pin)}
+                className="text-violet-400 hover:text-violet-600"
+                aria-label={`Remove ${pin}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
         </div>
       </div>
 

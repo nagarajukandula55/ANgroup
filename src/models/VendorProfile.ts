@@ -143,6 +143,14 @@ export interface IVendorProfile extends Document {
   enableStoreFront?:    boolean;
   enableServiceCenter?: boolean;
   enableWarehouse?:     boolean;
+  /**
+   * Pincodes this vendor covers for on-site/service-center visits. Used by
+   * the public appointment-request flow (POST /api/appointment-requests)
+   * to route an incoming CrmCall to a matching vendor within the same
+   * business — matching is always scoped by businessId first, this list is
+   * only consulted among vendors already filtered to one business.
+   */
+  servicePincodes?: string[];
   createdAt:  Date;
   updatedAt:  Date;
 }
@@ -211,9 +219,12 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     enableStoreFront:    { type: Boolean, default: false },
     enableServiceCenter: { type: Boolean, default: false },
     enableWarehouse:     { type: Boolean, default: false },
+    servicePincodes:     { type: [String], default: [] },
   },
   { timestamps: true }
 );
+
+VendorProfileSchema.index({ businessId: 1, servicePincodes: 1 });
 
 VendorProfileSchema.index({ businessId: 1, email: 1 });
 VendorProfileSchema.index({ businessId: 1, status: 1 });

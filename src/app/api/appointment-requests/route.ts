@@ -1,0 +1,175 @@
+/**
+ * POST /api/appointment-requests — PUBLIC, unauthenticated. Lets a
+ * customer on a storefront (e.g. Native) request an on-site/service-center
+ * appointment without logging in. Creates a CrmCall (status "NEW", source
+ * "Public Appointment Request") in the target business, following the same
+ * CrmCall-creation shape as app/api/crm/calls/route.ts's POST — just without
+ * a session, since there isn't one.
+ *
+ * businessId resolution follows the same convention as
+ * app/api/newsletter/subscribe/route.ts and app/api/businesses/public/route.ts:
+ * the caller (storefront) supplies businessId in the body, and we verify the
+ * business actually exists and is active before trusting it — never trust a
+ * client-supplied businessId blindly.
+ *
+ * Vendor routing: if exactly one VendorProfile in this business has the
+ * submitted pincode in its servicePincodes list, the matched vendor is
+ * notified via lib/notify.ts (CrmCall has no vendor-linkage field, and
+ * assignedTo refs a User, not a VendorProfile, so we don't force-fit the
+ * match there). Zero or multiple matches still create the CrmCall
+ * unassigned — the business's CRM dashboard can triage it manually either
+ * way.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
+import { connectDB } from "@/lib/mongodb";
+import Business from "@/models/Business";
+import CrmCall from "@/models/CrmCall";
+import VendorProfile from "@/models/VendorProfile";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { logAction } from "@/lib/audit/logAction";
+import { notify } from "@/lib/notify";
+
+const PINCODE_REGEX = /^[1-9][0-9]{5}$/;
+
+export async function POST(req: NextRequest) {
+  try {
+    await connectDB();
+
+    const body = await req.json().catch(() => ({}));
+    const {
+      businessId,
+      customerName,
+      phone,
+      email,
+      address,
+      pincode,
+      subject,
+      description,
+    } = body || {};
+
+    if (!businessId || !mongoose.Types.ObjectId.isValid(businessId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid businessId" },
+        { status: 400 }
+      );
+    }
+    if (!customerName?.trim()) {
+      return NextResponse.json(
+        { success: false, message: "Name is required" },
+        { status: 400 }
+      );
+    }
+    if (!phone?.trim()) {
+      return NextResponse.json(
+        { success: false, message: "Phone number is required" },
+        { status: 400 }
+      );
+    }
+    if (!subject?.trim()) {
+      return NextResponse.json(
+        { success: false, message: "Please describe the service you need" },
+        { status: 400 }
+      );
+    }
+    const trimmedPincode = String(pincode || "").trim();
+    if (trimmedPincode && !PINCODE_REGEX.test(trimmedPincode)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid pincode" },
+        { status: 400 }
+      );
+    }
+
+    // Never trust a client-supplied businessId blindly — verify it's a real,
+    // active business first (same check as businesses/public's GET route).
+    const business = await Business.findOne({
+      _id: businessId,
+      isActive: true,
+    })
+      .select("_id")
+      .lean();
+    if (!business) {
+      return NextResponse.json(
+        { success: false, message: "Business not found" },
+        { status: 404 }
+      );
+    }
+
+    const { value: callNumber } = await generateDocumentNumber(businessId, "CALL");
+
+    const addressParts = [address, trimmedPincode].filter(Boolean).join(", ");
+
+    const call = await CrmCall.create({
+      businessId: new mongoose.Types.ObjectId(businessId),
+      callNumber,
+      customerName: customerName.trim(),
+      phone: phone.trim(),
+      email: email?.toLowerCase()?.trim(),
+      address: addressParts || undefined,
+      source: "Public Appointment Request",
+      subject: subject.trim(),
+      description: description?.trim(),
+      priority: "MEDIUM",
+      status: "NEW",
+      tags: trimmedPincode ? [`pincode:${trimmedPincode}`] : [],
+      createdBy: null,
+    });
+
+    // Vendor routing — best-effort, never blocks the response.
+    let routedVendorId: string | null = null;
+    if (trimmedPincode) {
+      try {
+        const matches = await VendorProfile.find({
+          businessId: new mongoose.Types.ObjectId(businessId),
+          servicePincodes: trimmedPincode,
+          isDeleted: { $ne: true },
+        })
+          .select("_id companyName")
+          .lean();
+
+        if (matches.length === 1) {
+          routedVendorId = String((matches[0] as any)._id);
+          notify({
+            event: "NEW_CRM_CALL",
+            businessId: String(businessId),
+            message: `📅 New appointment request ${call.callNumber} matched to your service area\nCustomer: ${call.customerName}\nPhone: ${call.phone}\nPincode: ${trimmedPincode}\nSubject: ${call.subject}`,
+          }).catch(() => {});
+        }
+      } catch {
+        // Routing is best-effort — request already succeeded above.
+      }
+    }
+
+    notify({
+      event: "NEW_CRM_CALL",
+      businessId: String(businessId),
+      message: `📞 New appointment request ${call.callNumber}\nCustomer: ${call.customerName}\nSubject: ${call.subject}`,
+    }).catch(() => {});
+
+    logAction({
+      action: "CREATE",
+      entity: "CrmCall",
+      entityId: call._id?.toString(),
+      after: call,
+      req,
+      actor: { id: "public", businessId: String(businessId) },
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Appointment request submitted successfully",
+        referenceNumber: call.callNumber,
+        routed: Boolean(routedVendorId),
+      },
+      { status: 201 }
+    );
+  } catch (err: any) {
+    console.error("Appointment request POST error:", err);
+    return NextResponse.json(
+      { success: false, message: err?.message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

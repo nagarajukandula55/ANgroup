@@ -62,6 +62,8 @@ const PUBLIC_PREFIXES = [
   "/api/storefront/products",
   "/api/products/",
   "/api/newsletter/subscribe",
+  "/api/appointment-requests",   // public appointment-request submission
+  "/appointment-request",        // public appointment-request form page
   "/_next",
   "/public",
 ];

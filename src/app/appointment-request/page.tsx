@@ -1,0 +1,230 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { PincodeInput } from "@/components/shared/LocationSelect";
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1.5">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500 transition";
+
+function AppointmentRequestForm() {
+  const searchParams = useSearchParams();
+  const businessId = searchParams.get("businessId") || "";
+
+  const [form, setForm] = useState({
+    customerName: "",
+    phone: "",
+    email: "",
+    address: "",
+    pincode: "",
+    city: "",
+    state: "",
+    subject: "",
+    description: "",
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [reference, setReference] = useState<string | null>(null);
+
+  const set = (field: string, value: string) =>
+    setForm((f) => ({ ...f, [field]: value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!businessId) {
+      setError("This link is missing a business reference. Please use the link provided by the business.");
+      return;
+    }
+    if (!form.customerName.trim() || !form.phone.trim() || !form.subject.trim()) {
+      setError("Please fill in your name, phone number, and what service you need.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/appointment-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          customerName: form.customerName,
+          phone: form.phone,
+          email: form.email || undefined,
+          address: [form.address, form.city, form.state].filter(Boolean).join(", "),
+          pincode: form.pincode,
+          subject: form.subject,
+          description: form.description,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.message || "Failed to submit request");
+        return;
+      }
+      setReference(json.referenceNumber);
+    } catch {
+      setError("Failed to submit request. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (reference) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center">
+          <h1 className="text-lg font-semibold text-gray-900 mb-2">
+            Request submitted
+          </h1>
+          <p className="text-sm text-gray-500 mb-4">
+            We&apos;ve received your appointment request. Your reference number is:
+          </p>
+          <p className="text-xl font-mono font-bold text-gray-900 mb-4">{reference}</p>
+          <p className="text-xs text-gray-400">
+            Please quote this number if you contact us about this request.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Request an Appointment</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Tell us what you need and we&apos;ll get in touch to schedule a visit.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4"
+        >
+          {error && (
+            <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Full Name" required>
+              <input
+                className={inputCls}
+                value={form.customerName}
+                onChange={(e) => set("customerName", e.target.value)}
+                placeholder="Your name"
+              />
+            </Field>
+            <Field label="Phone Number" required>
+              <input
+                className={inputCls}
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="+91 98765 43210"
+                type="tel"
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                className={inputCls}
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                placeholder="you@example.com"
+                type="email"
+              />
+            </Field>
+            <Field label="Pincode">
+              <PincodeInput
+                value={form.pincode}
+                onChange={(v) => set("pincode", v)}
+                onResolved={({ state, city }) => {
+                  set("state", state);
+                  set("city", city);
+                }}
+                className={inputCls}
+                placeholder="400001"
+              />
+            </Field>
+            {(form.city || form.state) && (
+              <div className="md:col-span-2 text-xs text-gray-500">
+                {[form.city, form.state].filter(Boolean).join(", ")}
+              </div>
+            )}
+            <div className="md:col-span-2">
+              <Field label="Address">
+                <input
+                  className={inputCls}
+                  value={form.address}
+                  onChange={(e) => set("address", e.target.value)}
+                  placeholder="Street / Area"
+                />
+              </Field>
+            </div>
+            <div className="md:col-span-2">
+              <Field label="What service do you need?" required>
+                <input
+                  className={inputCls}
+                  value={form.subject}
+                  onChange={(e) => set("subject", e.target.value)}
+                  placeholder="e.g. AC not cooling"
+                />
+              </Field>
+            </div>
+            <div className="md:col-span-2">
+              <Field label="Additional Details">
+                <textarea
+                  className={inputCls}
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  placeholder="Any other details that might help us"
+                />
+              </Field>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium transition disabled:opacity-50"
+          >
+            {submitting ? "Submitting..." : "Submit Request"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function AppointmentRequestPage() {
+  return (
+    <Suspense fallback={null}>
+      <AppointmentRequestForm />
+    </Suspense>
+  );
+}

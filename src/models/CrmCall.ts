@@ -82,7 +82,15 @@ export interface ICrmCall extends Document {
 
   tags: string[];
   isDeleted: boolean;
-  createdBy: Types.ObjectId;
+  /**
+   * Optional — a public, unauthenticated submission (see
+   * app/api/appointment-requests/route.ts) has no logged-in user to
+   * attribute the record to. Same pattern as Review.userId in
+   * app/api/reviews/route.ts: nullable rather than force-fitting a fake
+   * "system user". Every authenticated write path (app/api/crm/calls/route.ts)
+   * still always sets this from the session.
+   */
+  createdBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -158,7 +166,7 @@ const CrmCallSchema = new Schema<ICrmCall>(
 
     tags: { type: [String], default: [] },
     isDeleted: { type: Boolean, default: false, index: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );
