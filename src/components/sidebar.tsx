@@ -369,7 +369,7 @@ export default function Sidebar() {
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <p className="text-[10px] text-gray-400">
-                  {user?.isSuperAdmin ? "Super Admin" : (user?.role || "Operational")}
+                  {user?.isSuperAdmin ? <span className="text-indigo-600 font-medium">Super Admin</span> : (user?.role || "Operational")}
                 </p>
               </div>
             </>
@@ -494,7 +494,7 @@ export default function Sidebar() {
                     collapsed ? "justify-center px-0" : indent ? "pl-5 pr-3" : "px-3"
                   } ${
                     active
-                      ? "bg-gray-900 text-white"
+                      ? "bg-indigo-600 text-white"
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >

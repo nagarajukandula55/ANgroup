@@ -162,7 +162,7 @@ export default function CrmCallsPage() {
             onClick={() => setShowForm(true)}
             disabled={!businessId}
             title={businessId ? undefined : 'Select a business first to create a call'}
-            className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-900"
+            className="ml-auto flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-600"
           >
             <Plus className="w-4 h-4" /> New Appointment
           </button>
@@ -225,7 +225,7 @@ export default function CrmCallsPage() {
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                 statusFilter === s
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-indigo-600 text-white'
                   : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
               }`}
             >
@@ -234,8 +234,8 @@ export default function CrmCallsPage() {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Appt #</th>
@@ -357,7 +357,7 @@ export default function CrmCallsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Create Appointment

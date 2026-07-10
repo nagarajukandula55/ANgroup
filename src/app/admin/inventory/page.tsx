@@ -271,7 +271,7 @@ export default function InventoryPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                   categoryFilter === cat
-                    ? 'bg-gray-900 text-white'
+                    ? 'bg-indigo-600 text-white'
                     : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
                 }`}
               >
@@ -282,8 +282,8 @@ export default function InventoryPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Name</th>
@@ -402,7 +402,7 @@ export default function InventoryPage() {
               <button
                 onClick={adjustStock}
                 disabled={adjustQty === 0 || adjustSaving}
-                className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
               >
                 {adjustSaving ? 'Saving...' : 'Apply'}
               </button>

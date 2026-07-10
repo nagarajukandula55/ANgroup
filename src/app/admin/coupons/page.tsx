@@ -316,7 +316,7 @@ export default function CouponsPage() {
           </p>
         </div>
         {isSuperAdmin && (
-          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700">
             <Plus size={16} />
             New Coupon
           </button>
@@ -368,8 +368,8 @@ export default function CouponsPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
           <thead className="border-b border-gray-200 bg-white">
             <tr>
               <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">Code</th>
@@ -399,7 +399,7 @@ export default function CouponsPage() {
                     {isSuperAdmin && (
                       <button
                         onClick={openCreate}
-                        className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
+                        className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700"
                       >
                         Create your first coupon
                       </button>
@@ -619,7 +619,7 @@ export default function CouponsPage() {
                           key={b._id}
                           className={`text-xs px-2.5 py-1.5 rounded-lg border cursor-pointer ${
                             checked
-                              ? "border-gray-900 bg-gray-900 text-white"
+                              ? "border-indigo-600 bg-indigo-600 text-white"
                               : "border-gray-200 text-gray-600 hover:border-gray-400"
                           }`}
                         >
@@ -787,7 +787,7 @@ export default function CouponsPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-60"
+                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
               >
                 {saving ? "Saving…" : editTarget ? "Save Changes" : "Create Coupon"}
               </button>
