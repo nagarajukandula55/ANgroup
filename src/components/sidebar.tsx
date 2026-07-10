@@ -537,8 +537,15 @@ export default function Sidebar() {
 
                 {/* Nested sub-groups */}
                 {group.subgroups && (
-                  <div className="space-y-0.5">
-                    {group.subgroups.map((sg) => {
+                  // Collapsed mode hides every subgroup's text header (below),
+                  // so a 0.5-unit gap left different subgroups' icon columns
+                  // visually blending into one undifferentiated stack with no
+                  // way to tell where "Sales" ends and "Inventory" begins.
+                  // Collapsed mode gets real spacing instead; expanded mode
+                  // keeps the tight spacing since the headers already do the
+                  // separating there.
+                  <div className={collapsed ? "space-y-2.5" : "space-y-0.5"}>
+                    {group.subgroups.map((sg, sgIndex) => {
                       const visibleSgItems = sg.items.filter((i) => isVisible(i.key));
                       if (visibleSgItems.length === 0) return null;
                       const sgOpen = openSubgroups[sg.key] !== false;
@@ -559,6 +566,13 @@ export default function Sidebar() {
                                 className={`transition-transform ${sgOpen ? "" : "-rotate-90"}`}
                               />
                             </button>
+                          )}
+
+                          {/* Collapsed mode: a thin divider stands in for the
+                              hidden text header, so each subgroup still reads
+                              as its own visually distinct block of icons. */}
+                          {collapsed && sgIndex > 0 && (
+                            <div className="mx-3 mb-2.5 border-t border-gray-100" />
                           )}
 
                           {/* Sub-group items */}

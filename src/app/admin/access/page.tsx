@@ -1,19 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-
-const PERMISSION_MATRIX: { module: string; permissions: string[] }[] = [
-  { module: "Inventory", permissions: ["view", "create", "edit", "delete", "adjust"] },
-  { module: "Sales", permissions: ["view", "create", "edit", "delete", "approve"] },
-  { module: "Purchase", permissions: ["view", "create", "edit", "approve"] },
-  { module: "Finance", permissions: ["view", "create", "approve", "reports"] },
-  { module: "HR", permissions: ["view", "manage", "payroll", "leaves"] },
-  { module: "CRM", permissions: ["view", "create", "edit", "delete"] },
-  { module: "Agreements", permissions: ["view", "create", "edit", "delete", "send"] },
-  { module: "Vendors", permissions: ["view", "create", "edit", "approve"] },
-  { module: "Products", permissions: ["view", "create", "edit", "delete"] },
-  { module: "Admin", permissions: ["users", "roles", "settings", "businesses"] },
-];
+import React, { useState, useEffect, useMemo } from "react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ACCESS_HIERARCHY } from "@/core/access/moduleHierarchy";
+import { STANDARD_ACTIONS } from "@/core/access/actions";
 
 interface Role {
   _id: string;
@@ -22,7 +12,12 @@ interface Role {
   description?: string;
   color?: string;
   isSystem?: boolean;
+  isProtected?: boolean;
   permissions: string[];
+}
+
+function buildCode(moduleKey: string, actionKey: string): string {
+  return `${moduleKey.toUpperCase()}.${actionKey.toUpperCase()}`;
 }
 
 export default function AccessPage() {
@@ -38,6 +33,21 @@ export default function AccessPage() {
     open: false,
     role: null,
   });
+  const [search, setSearch] = useState("");
+  // Every category (and, within it, every subcategory) starts expanded so
+  // the whole tree — main category > sub category > module > privilege —
+  // is visible at a glance, matching what was asked for: every access
+  // entry visible, not buried behind extra clicks.
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
+    const open: Record<string, boolean> = {};
+    ACCESS_HIERARCHY.forEach((c) => { open[c.key] = true; });
+    return open;
+  });
+  const [openSubcategories, setOpenSubcategories] = useState<Record<string, boolean>>(() => {
+    const open: Record<string, boolean> = {};
+    ACCESS_HIERARCHY.forEach((c) => (c.subcategories ?? []).forEach((sc) => { open[sc.key] = true; }));
+    return open;
+  });
 
   useEffect(() => {
     fetchRoles();
@@ -48,7 +58,13 @@ export default function AccessPage() {
     try {
       const res = await fetch("/api/admin/roles");
       const data = await res.json();
-      setRoles(data.roles || data || []);
+      const list = data.roles || data || [];
+      setRoles(list);
+      setSelectedRole((prev) => {
+        if (!prev) return prev;
+        const fresh = list.find((r: Role) => r._id === prev._id);
+        return fresh || prev;
+      });
     } catch {
       setRoles([]);
     } finally {
@@ -56,13 +72,24 @@ export default function AccessPage() {
     }
   }
 
-  function togglePermission(permission: string) {
+  function togglePermission(code: string) {
     if (!selectedRole) return;
-    const has = selectedRole.permissions.includes(permission);
+    const has = selectedRole.permissions.includes(code);
     const updated = has
-      ? selectedRole.permissions.filter((p) => p !== permission)
-      : [...selectedRole.permissions, permission];
+      ? selectedRole.permissions.filter((p) => p !== code)
+      : [...selectedRole.permissions, code];
     setSelectedRole({ ...selectedRole, permissions: updated });
+  }
+
+  /** Grant/revoke every action for a module in one click. */
+  function toggleModule(moduleKey: string, grant: boolean) {
+    if (!selectedRole) return;
+    const moduleCodes = STANDARD_ACTIONS.map((a) => buildCode(moduleKey, a.key));
+    const withoutModule = selectedRole.permissions.filter((p) => !moduleCodes.includes(p));
+    setSelectedRole({
+      ...selectedRole,
+      permissions: grant ? [...withoutModule, ...moduleCodes] : withoutModule,
+    });
   }
 
   async function savePermissions() {
@@ -126,6 +153,81 @@ export default function AccessPage() {
   function handleNameChange(val: string) {
     setNewRoleName(val);
     setNewRoleCode(val.toUpperCase().replace(/\s+/g, "_"));
+  }
+
+  // Filter the hierarchy by module label / key when searching, so a large
+  // 30-module tree stays navigable instead of requiring endless scrolling.
+  const filteredHierarchy = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ACCESS_HIERARCHY;
+
+    return ACCESS_HIERARCHY.map((cat) => {
+      const matchesCat = (m: { key: string; label: string }) =>
+        m.label.toLowerCase().includes(q) || m.key.includes(q);
+
+      if (cat.modules) {
+        const modules = cat.modules.filter(matchesCat);
+        return modules.length ? { ...cat, modules } : null;
+      }
+      const subcategories = (cat.subcategories ?? [])
+        .map((sc) => {
+          const modules = sc.modules.filter(matchesCat);
+          return modules.length ? { ...sc, modules } : null;
+        })
+        .filter((sc): sc is NonNullable<typeof sc> => sc !== null);
+      return subcategories.length ? { ...cat, subcategories } : null;
+    }).filter((c): c is NonNullable<typeof c> => c !== null);
+  }, [search]);
+
+  const rowCls =
+    "flex items-center justify-between gap-4 px-4 py-2.5 border-b border-gray-100 last:border-0";
+
+  function renderModuleRow(moduleKey: string, label: string) {
+    if (!selectedRole) return null;
+    const moduleCodes = STANDARD_ACTIONS.map((a) => buildCode(moduleKey, a.key));
+    const grantedCount = moduleCodes.filter((c) => selectedRole.permissions.includes(c)).length;
+    const allGranted = grantedCount === moduleCodes.length;
+
+    return (
+      <div key={moduleKey} className={rowCls}>
+        <div className="flex items-center gap-2 min-w-[220px] shrink-0">
+          <button
+            onClick={() => toggleModule(moduleKey, !allGranted)}
+            title={allGranted ? "Revoke all privileges for this module" : "Grant all privileges for this module"}
+            className={`text-[10px] font-semibold px-2 py-1 rounded ${
+              allGranted
+                ? "bg-emerald-100 text-emerald-700"
+                : grantedCount > 0
+                ? "bg-amber-100 text-amber-700"
+                : "bg-gray-100 text-gray-400"
+            }`}
+          >
+            {grantedCount}/{moduleCodes.length}
+          </button>
+          <span className="text-sm font-medium text-gray-900">{label}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 justify-end">
+          {STANDARD_ACTIONS.map((action) => {
+            const code = buildCode(moduleKey, action.key);
+            const active = selectedRole.permissions.includes(code);
+            return (
+              <button
+                key={action.key}
+                onClick={() => togglePermission(code)}
+                title={action.description}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                  active
+                    ? "bg-gray-900 text-white"
+                    : "border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {action.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -220,101 +322,103 @@ export default function AccessPage() {
         ) : (
           <>
             {/* Role Header */}
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3">
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0 gap-4">
+              <div className="flex items-center gap-3 min-w-0">
                 <span
                   className="w-4 h-4 rounded-full flex-shrink-0"
                   style={{ backgroundColor: selectedRole.color || "#6366f1" }}
                 />
-                <div>
-                  <h1 className="text-base font-semibold text-gray-900">{selectedRole.name}</h1>
+                <div className="min-w-0">
+                  <h1 className="text-base font-semibold text-gray-900 truncate">{selectedRole.name}</h1>
                   {selectedRole.description && (
-                    <p className="text-xs text-gray-500 mt-0.5">{selectedRole.description}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{selectedRole.description}</p>
                   )}
                 </div>
                 {selectedRole.isSystem && (
-                  <span className="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded">
+                  <span className="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded shrink-0">
                     System
                   </span>
                 )}
               </div>
-              <button
-                onClick={savePermissions}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-md hover:bg-gray-700 disabled:opacity-60 transition-colors"
-              >
-                {saving && (
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"
-                    />
-                  </svg>
-                )}
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search modules…"
+                  className="w-48 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+                />
+                <button
+                  onClick={savePermissions}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-md hover:bg-gray-700 disabled:opacity-60 transition-colors"
+                >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
             </div>
 
-            {/* Permission Matrix */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">
-                        Module
-                      </th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Permissions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {PERMISSION_MATRIX.map(({ module, permissions }) => (
-                      <tr key={module} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
-                          {module}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            {permissions.map((perm) => {
-                              const key = `${module.toLowerCase()}:${perm}`;
-                              const active = selectedRole.permissions.includes(key);
+            {/* Hierarchical Permission Tree: Category > Subcategory > Module > Privilege */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {filteredHierarchy.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-12">No modules match &quot;{search}&quot;</p>
+              ) : (
+                filteredHierarchy.map((cat) => {
+                  const catOpen = openCategories[cat.key] !== false;
+                  return (
+                    <div key={cat.key} className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                      <button
+                        onClick={() => setOpenCategories((p) => ({ ...p, [cat.key]: !catOpen }))}
+                        className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                      >
+                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          {cat.label}
+                        </span>
+                        {catOpen ? (
+                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        )}
+                      </button>
+
+                      {catOpen && (
+                        <div>
+                          {cat.modules &&
+                            cat.modules.map((m) => renderModuleRow(m.key, m.label))}
+
+                          {cat.subcategories &&
+                            cat.subcategories.map((sc) => {
+                              const scOpen = openSubcategories[sc.key] !== false;
                               return (
-                                <button
-                                  key={perm}
-                                  onClick={() => togglePermission(key)}
-                                  className={`px-3 py-1 text-xs font-medium rounded transition-colors capitalize ${
-                                    active
-                                      ? "bg-gray-900 text-white"
-                                      : "border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600"
-                                  }`}
-                                >
-                                  {perm}
-                                </button>
+                                <div key={sc.key} className="border-t border-gray-100 first:border-0">
+                                  <button
+                                    onClick={() =>
+                                      setOpenSubcategories((p) => ({ ...p, [sc.key]: !scOpen }))
+                                    }
+                                    className="w-full flex items-center justify-between px-5 py-2 bg-gray-25 hover:bg-gray-50 transition-colors"
+                                  >
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                      {sc.label}
+                                    </span>
+                                    {scOpen ? (
+                                      <ChevronDown className="w-3.5 h-3.5 text-gray-300" />
+                                    ) : (
+                                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                                    )}
+                                  </button>
+                                  {scOpen && (
+                                    <div>{sc.modules.map((m) => renderModuleRow(m.key, m.label))}</div>
+                                  )}
+                                </div>
                               );
                             })}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </>
         )}
