@@ -1,6 +1,26 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export type IntegrationProvider = 'TELEGRAM' | 'WHATSAPP' | 'SLACK' | 'EMAIL';
+export type CourierProviderKey =
+  | 'SHIPROCKET'
+  | 'DELHIVERY'
+  | 'BLUEDART'
+  | 'XPRESSBEES'
+  | 'ECOM_EXPRESS';
+
+export type IntegrationProvider =
+  | 'TELEGRAM'
+  | 'WHATSAPP'
+  | 'SLACK'
+  | 'EMAIL'
+  | CourierProviderKey;
+
+export const COURIER_PROVIDER_KEYS: CourierProviderKey[] = [
+  'SHIPROCKET',
+  'DELHIVERY',
+  'BLUEDART',
+  'XPRESSBEES',
+  'ECOM_EXPRESS',
+];
 
 export interface TelegramConfig {
   botToken: string;
@@ -46,11 +66,28 @@ export interface EmailConfig {
   resendFromEmail?: string;
 }
 
+/**
+ * Generic per-provider courier credential bag. Every courier aggregator/carrier
+ * has a different auth shape (Shiprocket: email+password login exchanged for a
+ * token; Delhivery/Bluedart/etc: typically a static API key or client
+ * id/secret). Rather than hardcoding a Shiprocket-shaped schema, credentials
+ * are stored as a free-form string map so any provider's fields can be added
+ * without another schema migration. See src/services/shipping for the
+ * interpretation of these keys per provider.
+ */
+export interface CourierConfig {
+  credentials: Record<string, string>;
+  /** Optional pickup location/warehouse identifier the provider needs at
+   * shipment-creation time (e.g. Shiprocket's "pickup_location" nickname). */
+  pickupLocation?: string;
+}
+
 export type IntegrationConfig =
   | TelegramConfig
   | WhatsAppConfig
   | SlackConfig
-  | EmailConfig;
+  | EmailConfig
+  | CourierConfig;
 
 export interface IIntegration extends Document {
   businessId: mongoose.Types.ObjectId;
@@ -69,7 +106,7 @@ const IntegrationSchema = new Schema<IIntegration>(
     },
     provider: {
       type: String,
-      enum: ['TELEGRAM', 'WHATSAPP', 'SLACK', 'EMAIL'],
+      enum: ['TELEGRAM', 'WHATSAPP', 'SLACK', 'EMAIL', ...COURIER_PROVIDER_KEYS],
       required: true,
     },
     isActive: {
