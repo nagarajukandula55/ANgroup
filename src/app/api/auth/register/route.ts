@@ -2,54 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcryptjs from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
-import mongoose from 'mongoose'
+import Business from '@/models/Business'
+import BusinessMember from '@/models/BusinessMember'
 import { logAction } from '@/lib/audit/logAction'
 import { generateUniqueUserId } from '@/lib/auth/generateUserId'
-
-// Inline BusinessMember schema since no separate model file exists
-const BusinessMemberSchema = new mongoose.Schema(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    businessId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Business',
-      required: true,
-    },
-    role: { type: String, default: 'MEMBER' },
-    isActive: { type: Boolean, default: true },
-    joinedAt: { type: Date, default: Date.now },
-  },
-  { timestamps: true }
-)
-
-const BusinessMember =
-  mongoose.models.BusinessMember ||
-  mongoose.model('BusinessMember', BusinessMemberSchema)
-
-const BusinessSchema = new mongoose.Schema(
-  {
-    name: String,
-    businessCode: String,
-    isActive: { type: Boolean, default: true },
-    isDeleted: { type: Boolean, default: false },
-    marketplace: {
-      enableB2C: { type: Boolean, default: false },
-    },
-  },
-  { timestamps: true }
-)
-
-const Business =
-  mongoose.models.Business || mongoose.model('Business', BusinessSchema)
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, email, password, phone, username } = body
+    const { name, email, password, phone, username, businessId } = body
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -125,20 +86,32 @@ export async function POST(req: NextRequest) {
       authProvider: 'credentials',
     })
 
-    // Try to add as BusinessMember to any default B2C business
+    // Every registered user (from any storefront, e.g. Native) becomes a
+    // CUSTOMER-level BusinessMember of the target B2C business -- nothing
+    // more. A caller (a storefront) may pass its own businessId explicitly;
+    // otherwise fall back to the first active B2C-enabled business, same as
+    // before. Was previously declaring inline duplicate BusinessMember/
+    // Business schemas instead of importing the canonical models -- a
+    // classic Mongoose global-model-registry race (whichever definition
+    // loaded first silently won app-wide) -- and never set `memberType`,
+    // so BusinessMemberSchema's default ('STAFF') applied to every new
+    // customer instead of 'CUSTOMER'.
     try {
-      const defaultBusiness = await Business.findOne({
-        isDeleted: false,
-        isActive: true,
-        'marketplace.enableB2C': true,
-      }).lean()
+      const targetBusiness = businessId
+        ? await Business.findOne({ _id: businessId, isDeleted: false, isActive: true }).lean()
+        : await Business.findOne({
+            isDeleted: false,
+            isActive: true,
+            'marketplace.enableB2C': true,
+          }).lean()
 
-      if (defaultBusiness) {
+      if (targetBusiness) {
         await BusinessMember.create({
           userId: user._id,
-          businessId: (defaultBusiness as any)._id,
-          role: 'CUSTOMER',
-          isActive: true,
+          businessId: (targetBusiness as any)._id,
+          memberType: 'CUSTOMER',
+          status: 'ACTIVE',
+          isDefaultBusiness: true,
         })
       }
     } catch {
