@@ -257,9 +257,18 @@ export default function Sidebar() {
       });
       const data = await res.json();
       if (data.success && data.modules?.length > 0) {
-        const dbKeys = new Set(data.modules.map((m: any) => m.key));
-        const extra  = STATIC_MODULES.filter((m) => !dbKeys.has(m.key));
-        setModules([...data.modules, ...extra]);
+        // Was merging back every STATIC_MODULES entry NOT present in the
+        // API's response ("extra") on the assumption those were simply
+        // modules the DB registry hadn't caught up on yet -- but the API
+        // (api/ui/sidebar/route.ts) already does the real filtering,
+        // including explicitly EXCLUDING modules the business admin
+        // disabled via Business.modules. Re-adding "missing" keys via
+        // `extra` silently undid that exclusion, so unticking a module in
+        // Business > Modules never actually hid it from the sidebar.
+        // Trust the API's list as-is -- it already returns everything
+        // permission-allows when the business has no explicit config, and
+        // exactly the enabled subset when it does.
+        setModules(data.modules);
       }
     } catch { /* static */ }
   }
