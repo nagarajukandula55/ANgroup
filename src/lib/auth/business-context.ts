@@ -68,10 +68,20 @@ export async function getBusinessContext(): Promise<IBusinessContext | null> {
 
   if (!membership) return null;
 
+  // BusinessMember has no `organizationId` field at all (see models/
+  // BusinessMember.ts) -- this used to call .toString() on `undefined`
+  // unconditionally, throwing on every single call. getEnrichedSession()
+  // wraps its call to getBusinessContext() in a try/catch that treats any
+  // thrown error the same as "no business context at all," so this crash
+  // silently short-circuited EVERY non-super-admin request straight to a
+  // permission-less session, before role/permission resolution ever ran.
+  // Organization is a real, standalone model but nothing in the active
+  // Business/BusinessMember flow references it yet -- default safely
+  // rather than crash until that's actually wired up.
   return {
     userId: (user as any)._id.toString(),
     businessId: (membership as any).businessId.toString(),
-    organizationId: (membership as any).organizationId.toString(),
+    organizationId: (membership as any).organizationId?.toString() || "",
     membershipId: (membership as any)._id.toString(),
   };
 }

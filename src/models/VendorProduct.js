@@ -13,10 +13,18 @@ const VendorProductSchema = new mongoose.Schema(
     index: true,
   },
 
+  // Was `ref: "Vendor"` (the legacy, superseded vendor model — see this
+  // session's other fixes for the same class of bug) and `required: true`,
+  // but the draft-creation route never set it at all -- every single
+  // vendor-product draft creation attempt has always failed Mongoose
+  // schema validation immediately, regardless of caller/permissions.
+  // Points at the canonical VendorProfile model now; no longer required at
+  // the schema level since a brand-new draft has no vendor context yet in
+  // some admin-initiated flows -- the draft route below now resolves and
+  // sets it from the session when a vendor context does exist.
   vendorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Vendor",
-    required: true,
+    ref: "VendorProfile",
     index: true,
   },
 
@@ -24,15 +32,21 @@ const VendorProductSchema = new mongoose.Schema(
      BASIC PRODUCT INFO (VENDOR INPUT)
   ========================================================= */
 
+  // Not required at the schema level -- a draft starts genuinely empty and
+  // gets filled in over the wizard's steps (StepBasicInfo etc.); real
+  // completeness is enforced at the submit step, not on every intermediate
+  // save. Was required:true, which made the very first, always-empty
+  // draft-creation call fail unconditionally.
   productName: {
     type: String,
-    required: true,
+    default: "",
     trim: true,
   },
 
+  // Same reasoning as productName above.
   variantName: {
     type: String,
-    required: true,
+    default: "",
     trim: true,
   },
 
@@ -111,9 +125,11 @@ const VendorProductSchema = new mongoose.Schema(
      PRODUCT STRUCTURE
   ========================================================= */
 
+  // Same reasoning as productName/variantName above -- not set until the
+  // wizard's Structure/Packaging step.
   unit: {
     type: String,
-    required: true,
+    default: "",
   },
 
   packSize: {

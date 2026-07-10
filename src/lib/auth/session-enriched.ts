@@ -80,9 +80,16 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
     const user = await User.findOne({ email: userEmail }).lean();
 
     if (user) {
+      // Was filtering on `isActive: true`, but UserRole has no `isActive`
+      // field at all (see models/UserRole.ts) -- every query here matched
+      // zero documents, for every user, unconditionally. This single line
+      // silently broke permission resolution for the entire app: every
+      // non-super-admin permission check has always resolved to an empty
+      // `permissions` array and failed, since super-admin's unconditional
+      // bypass in permission.guard.ts is the only thing that ever made a
+      // requirePermission() call succeed in this codebase so far.
       const userRoles = await UserRole.find({
         userId: (user as any)._id,
-        isActive: true,
       }).lean();
 
       const roleIds = userRoles.map((r: any) => r.roleId);
@@ -91,18 +98,35 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
         const rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
         roles = rolesDocs.map((r: any) => r.code);
 
+        // Two independent, non-overlapping permission storage conventions
+        // exist in this codebase: the relational RolePermission -> Permission
+        // join (queried below) and Role.permissions (a flat string[] set
+        // directly via buildPermissionCode(), which is what every route
+        // this session actually grants through -- e.g. the vendor "Full
+        // Access" role, the coupons role, etc.). Reading only the relational
+        // join meant any role using the flat-array convention (effectively
+        // all of them) still resolved to zero permissions even after the
+        // isActive fix above. Union both sources so neither convention is
+        // silently ignored.
+        const flatPermissions = rolesDocs.flatMap((r: any) =>
+          Array.isArray(r.permissions) ? r.permissions : []
+        );
+
         const rolePermissions = await RolePermission.find({
           roleId: { $in: roleIds },
         }).lean();
 
         const permissionIds = rolePermissions.map((p: any) => p.permissionId);
 
+        let relationalPermissions: string[] = [];
         if (permissionIds.length > 0) {
           const permissionDocs = await Permission.find({
             _id: { $in: permissionIds },
           }).lean();
-          permissions = permissionDocs.map((p: any) => p.code);
+          relationalPermissions = permissionDocs.map((p: any) => p.code);
         }
+
+        permissions = Array.from(new Set([...flatPermissions, ...relationalPermissions]));
       }
     }
   } catch {

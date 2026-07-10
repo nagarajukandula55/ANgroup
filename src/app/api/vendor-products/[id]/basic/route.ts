@@ -25,6 +25,15 @@ export async function PATCH(req: Request, context: any) {
 
     const body = await req.json();
 
+    // categoryId/brandId are ObjectId refs -- a vendor who hasn't picked
+    // one yet submits "" (the <select>'s empty default option), which
+    // Mongoose's ObjectId caster rejects outright with a 500, blocking the
+    // whole Basic Info step from ever saving. Treat an empty string the
+    // same as "not provided" for any ObjectId-shaped field.
+    for (const key of ["categoryId", "brandId"]) {
+      if (body[key] === "") delete body[key];
+    }
+
     const { id } = await context.params;
 
     const updated = await VendorProduct.findByIdAndUpdate(

@@ -88,10 +88,6 @@ export async function POST(
       );
     }
 
-    await recalcVendorProductCost(
-      (await context.params).id
-    );
-
     const item =
       await VendorProductBOM.create({
         vendorProductId:
@@ -130,6 +126,18 @@ export async function POST(
         createdBy:
           body.createdBy,
       });
+
+    // Was called BEFORE VendorProductBOM.create() above -- every
+    // recalculation therefore always ran against the BOM list as it stood
+    // BEFORE the item currently being added, permanently one step stale.
+    // For a brand-new product's very first BOM entry, that's an empty
+    // list, so calculatedCost.finalCost stayed 0 forever -- which blocks
+    // /submit and /approve (both require finalCost > 0), meaning no
+    // vendor product could ever actually be approved. Moved after the
+    // create so the just-added item is included in the recalculation.
+    await recalcVendorProductCost(
+      (await context.params).id
+    );
 
     logAction({
       action: "UPDATE",

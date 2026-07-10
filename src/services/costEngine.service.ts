@@ -34,12 +34,23 @@ export async function recalcVendorProductCost(
   const worstCost =
     totalCost * 1.25; // +25% risk buffer
 
+  // Was writing calculatedCurrentCost/calculatedSafeCost/calculatedWorstCost
+  // -- none of which exist on the VendorProduct schema (it only has a
+  // nested calculatedCost: { baseCost, shippingCost, overheadCost,
+  // wastageCost, finalCost }). Mongoose silently drops unknown fields, so
+  // calculatedCost.finalCost stayed 0 forever regardless of BOM contents,
+  // which permanently blocked /submit and /approve (both require
+  // finalCost > 0). Write the actual schema fields instead.
   await VendorProduct.findByIdAndUpdate(
     vendorProductId,
     {
-      calculatedCurrentCost: currentCost,
-      calculatedSafeCost: safeCost,
-      calculatedWorstCost: worstCost,
+      calculatedCost: {
+        baseCost: currentCost,
+        shippingCost: 0,
+        overheadCost: 0,
+        wastageCost: worstCost - currentCost,
+        finalCost: currentCost,
+      },
 
       // optional sync to main cost field
       vendorCost: currentCost,

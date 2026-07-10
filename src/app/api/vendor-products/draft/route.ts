@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
+import VendorProfile from "@/models/VendorProfile";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
@@ -36,6 +37,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Resolve which vendor this draft belongs to from the real session --
+    // was never set at all before, despite VendorProduct.vendorId being a
+    // real relation. A vendor-portal user (VendorProfile.userId === them)
+    // gets their own vendor stamped; a super admin creating a product
+    // directly (not via a vendor's own login) has no personal vendor, so
+    // vendorId stays unset in that case rather than guessing at one.
+    const vendorProfile = await VendorProfile.findOne({
+      userId: session.user.id,
+      businessId: body.businessId,
+    }).lean();
+
     const draft = await VendorProduct.create({
       productName: "",
       variantName: "",
@@ -60,7 +72,8 @@ export async function POST(req: NextRequest) {
       active: true,
 
       businessId: body.businessId,
-      createdBy: body.createdBy || undefined,
+      vendorId: (vendorProfile as any)?._id || undefined,
+      createdBy: body.createdBy || session.user.id,
     });
 
     logAction({

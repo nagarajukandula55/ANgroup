@@ -85,11 +85,28 @@ export async function POST(req: Request, context: any) {
       "PRODUCT"
     );
 
+    // Compute SEO (incl. slug) before creating -- Product.slug is a
+    // required, unique top-level field, but this used to only be set on
+    // product.seo (a nested field) after Product.create() had already run
+    // without a slug, so creation always failed schema validation.
+    const seo = generateSEO(vendorProduct);
+
+    // Product.slug must be unique -- fall back to a suffixed slug on
+    // collision, same pattern used below for NativeProduct.
+    let productSlugCandidate = seo.slug;
+    let productSlugAttempt = 0;
+    while (await Product.findOne({ slug: productSlugCandidate }).lean()) {
+      productSlugAttempt += 1;
+      productSlugCandidate = `${seo.slug}-${productSlugAttempt}`;
+    }
+
     const product = await Product.create({
       companyId: vendorProduct.businessId,
 
       productCode,
       productName: vendorProduct.productName,
+      slug: productSlugCandidate,
+      seo,
 
       categoryId: vendorProduct.categoryId,
       brandId: vendorProduct.brandId,
@@ -104,12 +121,6 @@ export async function POST(req: Request, context: any) {
       status: "DRAFT",
       active: false,
     });
-
-    const seo = generateSEO(vendorProduct);
-
-      product.seo = seo;
-      
-      await product.save();
 
     /* =========================================================
        🧱 CREATE VARIANT
