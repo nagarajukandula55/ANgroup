@@ -7,7 +7,7 @@ import DocumentNumberConfig, {
 // Was @/lib/accounting/getFinancialYear — one of 3 duplicate FY calculators
 // that didn't even agree on output format with each other (see
 // core/numbering/financialYear.ts's top comment). Now uses the canonical one.
-import { getFinancialYear } from "@/core/numbering/financialYear";
+import { getFinancialYearCode } from "@/core/numbering/financialYear";
 import { DEFAULT_PREFIXES } from "@/core/numbering/types";
 import { logAction } from "@/lib/audit/logAction";
 
@@ -22,7 +22,7 @@ function buildPreview(
 ): string {
   const parts: string[] = [];
   if (prefix) parts.push(prefix);
-  if (includeFinancialYear) parts.push(getFinancialYear());
+  if (includeFinancialYear) parts.push(getFinancialYearCode());
   if (includeMonth) parts.push("MM");
   parts.push("0".repeat(sequenceLength));
   if (suffix) parts.push(suffix);

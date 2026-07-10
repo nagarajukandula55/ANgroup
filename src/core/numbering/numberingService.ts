@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import DocumentNumberConfig from "@/models/DocumentNumberConfig";
 import NumberSequence from "./NumberSequence.model";
-import { getFinancialYear } from "./financialYear";
+import { getFinancialYearCode } from "./financialYear";
 import { DEFAULT_PREFIXES, type DocumentType, type GeneratedNumber } from "./types";
 
 /**
@@ -89,7 +89,11 @@ async function generateNumberInScope(
     );
   }
 
-  const financialYear = getFinancialYear();
+  // Compact "2526" form, not the hyphenated "2025-26" -- per an explicit
+  // requirement that document numbers use the short FY code, matching the
+  // format getFinancialYearCode() was originally built for (see
+  // financialYear.ts) but that nothing was actually calling.
+  const financialYear = getFinancialYearCode();
   const periodKey = includeFinancialYear ? financialYear : "ALL";
 
   // Ensure the counter exists and is seeded to (startFrom - 1) BEFORE the
