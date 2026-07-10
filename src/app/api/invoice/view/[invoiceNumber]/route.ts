@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import SalesInvoice from "@/models/SalesInvoice";
 import Order from "@/models/Order";
 import Business from "@/models/Business";
@@ -44,10 +45,16 @@ export async function GET(
 
     const stateCode = getStateCode(invoice.customer?.state);
 
-    const order =
-      await Order.findOne({
-        _id: invoice.sourceOrderId,
-      });
+    // sourceOrderId isn't always a real Order _id -- CRM-generated invoices
+    // (see api/crm/jobsheets/[id]/close/route.ts) set it to a synthetic
+    // string like "CRM_JOBSHEET:<id>" so the invoice can still reference
+    // where it came from. Passing that straight into a Mongoose _id query
+    // threw a CastError and 500'd this entire endpoint -- meaning every
+    // CRM-originated invoice/estimate failed to render at all. Only look up
+    // a real Order when sourceOrderId is actually a valid ObjectId.
+    const order = mongoose.Types.ObjectId.isValid(invoice.sourceOrderId || "")
+      ? await Order.findOne({ _id: invoice.sourceOrderId })
+      : null;
 
     // Was hardcoded to "Native" + env vars (COMPANY_ADDRESS1 etc.) here —
     // meaning every business on this multi-tenant platform would show the
