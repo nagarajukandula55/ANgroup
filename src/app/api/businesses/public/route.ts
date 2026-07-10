@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const business = await (Business as any)
       .findOne({ _id: businessId, isActive: true })
-      .select("name brandName logo industry")
+      .select("name brandName logo favicon industry")
       .lean();
 
     if (!business) {
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
       business: {
         name: business.brandName || business.name,
         logo: business.logo || null,
+        favicon: business.favicon || null,
         // Needed by /vendor-apply to know which industry-specific
         // compliance documents (FSSAI, Drug License, etc.) to ask this
         // applicant for — see core/vendorCompliance.ts. Still nothing

@@ -82,6 +82,11 @@ const EDITABLE_FIELDS = [
   // Per-business module-access config — which app modules/sections are
   // enabled for this business. See models/Business.ts's ModuleSchema.
   "modules",
+  // Branding assets uploaded via the Cloudinary pipeline (api/assets/upload)
+  // from the business edit page — surfaced publicly via
+  // api/businesses/public for Native's storefront branding.
+  "logo",
+  "favicon",
 ] as const;
 
 export async function PATCH(req: Request, context: any) {

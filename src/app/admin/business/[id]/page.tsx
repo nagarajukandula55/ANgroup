@@ -67,6 +67,8 @@ interface Business {
   };
   gstStateCode?: string;
   modules?: ModuleToggle[];
+  logo?: string;
+  favicon?: string;
 }
 
 interface ModuleToggle {
@@ -106,6 +108,8 @@ type EditableForm = {
     priceIncludesTax: boolean;
   };
   modules: ModuleToggle[];
+  logo: string;
+  favicon: string;
 };
 
 // Build the full module-toggle list for this business: every canonical
@@ -166,6 +170,8 @@ function toForm(biz: Business): EditableForm {
       priceIncludesTax: !!biz.financial?.priceIncludesTax,
     },
     modules: buildModulesForm(biz),
+    logo: biz.logo || "",
+    favicon: biz.favicon || "",
   };
 }
 
@@ -183,6 +189,40 @@ export default function BusinessDetailPage() {
 
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Uploads via the same Cloudinary pipeline already used elsewhere
+  // (api/assets/upload/route.js) and stores the returned secure URL onto
+  // the form so a subsequent Save Changes persists it via PATCH
+  // /api/businesses/[id] (logo/favicon are in EDITABLE_FIELDS there).
+  async function handleBrandingUpload(
+    file: File,
+    field: "logo" | "favicon",
+    setUploading: (v: boolean) => void
+  ) {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", `${business?.name || "business"}-${field}`);
+      fd.append("category", field);
+      const res = await fetch("/api/assets/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || data.message || `Failed to upload ${field}`);
+      }
+      const url = data.asset?.fileUrl;
+      setForm((prev) => (prev ? { ...prev, [field]: url } : prev));
+    } catch (err: any) {
+      setUploadError(err?.message || `Failed to upload ${field}`);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   useEffect(() => {
     if (id) load();
@@ -664,6 +704,75 @@ export default function BusinessDetailPage() {
             />
             Prices include tax
           </label>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-bold text-lg">Branding</h2>
+          <p className="text-xs text-white/50">
+            Logo and favicon shown on invoices and consumed by storefronts
+            (e.g. Native) via GET /api/businesses/public.
+          </p>
+          {uploadError && (
+            <div className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {uploadError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Logo</label>
+              <div className="flex items-center gap-3">
+                {form.logo ? (
+                  <img
+                    src={form.logo}
+                    alt="Logo preview"
+                    className="h-12 w-12 rounded border border-white/10 object-contain bg-white/5"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded border border-white/10 bg-white/5 flex items-center justify-center text-[10px] text-white/40">
+                    None
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingLogo}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleBrandingUpload(file, "logo", setUploadingLogo);
+                  }}
+                  className="text-xs text-white/70 file:mr-3 file:rounded file:border-0 file:bg-cyan-500 file:px-3 file:py-1.5 file:text-black file:text-xs file:font-bold"
+                />
+                {uploadingLogo && <span className="text-xs text-white/50">Uploading…</span>}
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Favicon</label>
+              <div className="flex items-center gap-3">
+                {form.favicon ? (
+                  <img
+                    src={form.favicon}
+                    alt="Favicon preview"
+                    className="h-12 w-12 rounded border border-white/10 object-contain bg-white/5"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded border border-white/10 bg-white/5 flex items-center justify-center text-[10px] text-white/40">
+                    None
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingFavicon}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleBrandingUpload(file, "favicon", setUploadingFavicon);
+                  }}
+                  className="text-xs text-white/70 file:mr-3 file:rounded file:border-0 file:bg-cyan-500 file:px-3 file:py-1.5 file:text-black file:text-xs file:font-bold"
+                />
+                {uploadingFavicon && <span className="text-xs text-white/50">Uploading…</span>}
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">

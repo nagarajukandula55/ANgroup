@@ -511,6 +511,11 @@ const BusinessSchema = new mongoose.Schema(
       default: "",
     },
 
+    favicon: {
+      type: String,
+      default: "",
+    },
+
     address: {
       type: String,
       default: "",
