@@ -558,13 +558,16 @@ export default function IntegrationsPage() {
         headers: { 'Content-Type': 'application/json', 'x-active-business-id': businessId },
         body: JSON.stringify({ config: { accounts }, isActive: accounts.some((a) => a.enabled) }),
       });
+      let ok = res.ok;
       if (res.status === 404) {
-        await fetch('/api/integrations', {
+        const createRes = await fetch('/api/integrations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ provider, businessId, config: { accounts }, isActive: accounts.some((a) => a.enabled) }),
         });
+        ok = createRes.ok;
       }
+      if (!ok) throw new Error('Save failed');
       showToast(`${provider} accounts saved`, 'success');
     } catch {
       showToast(`Failed to save ${provider}`, 'error');
@@ -573,21 +576,16 @@ export default function IntegrationsPage() {
     }
   };
 
-  const testSocialAccount = async (provider: string, accountId: string) => {
-    setTesting(accountId);
-    try {
-      const res = await fetch(`/api/integrations/${provider.toLowerCase()}/test`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(businessId ? { 'x-active-business-id': businessId } : {}) },
-        body: JSON.stringify({ accountId }),
-      });
-      if (!res.ok) throw new Error('Test failed');
-      showToast(`${provider} connection verified`, 'success');
-    } catch {
-      showToast(`${provider} test failed — check credentials`, 'error');
-    } finally {
-      setTesting(null);
-    }
+  // No backing /api/integrations/<provider>/test route exists yet for the
+  // social platforms (Facebook/Twitter/LinkedIn/YouTube — unlike Telegram,
+  // WhatsApp and Email, which each have a real send/test endpoint). Rather
+  // than leaving a "Test" button that always 404s and shows a misleading
+  // "test failed — check credentials" toast, this says so honestly.
+  // Credentials still save/persist via the PUT above; testing those
+  // provider integrations needs real OAuth/API wiring per platform —
+  // out of scope for this pass.
+  const testSocialAccount = async (provider: string, _accountId: string) => {
+    showToast(`${provider} connection testing isn't available yet — credentials are saved though`, 'error');
   };
 
   const saveEmail = async () => {

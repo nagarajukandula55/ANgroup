@@ -7,12 +7,26 @@ export type CourierProviderKey =
   | 'XPRESSBEES'
   | 'ECOM_EXPRESS';
 
+export type SocialProviderKey =
+  | 'FACEBOOK'
+  | 'TWITTER'
+  | 'LINKEDIN'
+  | 'YOUTUBE';
+
+export const SOCIAL_PROVIDER_KEYS: SocialProviderKey[] = [
+  'FACEBOOK',
+  'TWITTER',
+  'LINKEDIN',
+  'YOUTUBE',
+];
+
 export type IntegrationProvider =
   | 'TELEGRAM'
   | 'WHATSAPP'
   | 'SLACK'
   | 'EMAIL'
-  | CourierProviderKey;
+  | CourierProviderKey
+  | SocialProviderKey;
 
 export const COURIER_PROVIDER_KEYS: CourierProviderKey[] = [
   'SHIPROCKET',
@@ -106,7 +120,7 @@ const IntegrationSchema = new Schema<IIntegration>(
     },
     provider: {
       type: String,
-      enum: ['TELEGRAM', 'WHATSAPP', 'SLACK', 'EMAIL', ...COURIER_PROVIDER_KEYS],
+      enum: ['TELEGRAM', 'WHATSAPP', 'SLACK', 'EMAIL', ...COURIER_PROVIDER_KEYS, ...SOCIAL_PROVIDER_KEYS],
       required: true,
     },
     isActive: {

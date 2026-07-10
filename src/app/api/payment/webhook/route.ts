@@ -13,6 +13,7 @@ import {
   reserveStock,
 } from "@/lib/order/reserveStock";
 import { logAction } from "@/lib/audit/logAction";
+import { sendOrderNotification } from "@/lib/telegram/sendOrderNotification";
 
 /* =========================================================
    HELPERS
@@ -475,6 +476,16 @@ if (!order.stockReserved) {
       console.log("VENDOR SETTLEMENT RESULT (payment/webhook):", JSON.stringify(settlements));
     } catch (err) {
       console.error("VENDOR SETTLEMENT ERROR (payment/webhook, non-fatal):", err);
+    }
+
+    // Telegram order alert — this is one of the two server-to-server
+    // payment-confirmation paths (the other being webhooks/razorpay); like
+    // that one, it previously never notified Telegram, only the
+    // client-driven /api/payment/verify path did. Non-fatal.
+    try {
+      await sendOrderNotification(order);
+    } catch (err) {
+      console.error("TELEGRAM NOTIFICATION ERROR (payment/webhook, non-fatal):", err);
     }
 
     return NextResponse.json({

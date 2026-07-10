@@ -4,6 +4,7 @@ import Order from "@/models/Order";
 import { createInvoiceForOrder } from "@/lib/invoice/createInvoice";
 import { getFinancialYear } from "@/core/numbering/financialYear";
 import { logAction } from "@/lib/audit/logAction";
+import { sendOrderNotification } from "@/lib/telegram/sendOrderNotification";
 
 export async function POST(req: Request) {
   try {
@@ -137,6 +138,16 @@ export async function POST(req: Request) {
       console.log("VENDOR SETTLEMENT RESULT (webhook):", JSON.stringify(settlements));
     } catch (err) {
       console.error("VENDOR SETTLEMENT ERROR (webhook, non-fatal):", err);
+    }
+
+    // Telegram order alert — this is the most common real-world
+    // payment-confirmation path (Razorpay's server-to-server webhook), so
+    // it previously never notified Telegram at all; only the less-common
+    // client-driven /api/payment/verify path did. Non-fatal.
+    try {
+      await sendOrderNotification(order);
+    } catch (err) {
+      console.error("TELEGRAM NOTIFICATION ERROR (webhook, non-fatal):", err);
     }
 
     return NextResponse.json({ success: true });
