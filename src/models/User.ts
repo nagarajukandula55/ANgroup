@@ -265,14 +265,13 @@ const UserSchema = new Schema<IUser>(
  * INDEXES
  * =======================================================*/
 
-UserSchema.index({ email: 1 });
-UserSchema.index({ username: 1 });
+// email, username, isActive, defaultBusinessId, and defaultOrganizationId
+// all already get an index via `index: true` on their own field
+// definitions above -- the explicit .index() calls that used to be here for
+// all of them were exact duplicates and triggered Mongoose's "duplicate
+// schema index" warning at startup. phone has no field-level index, so its
+// call is the only one that was ever doing real work.
 UserSchema.index({ phone: 1 });
-UserSchema.index({ isActive: 1 });
-// defaultBusinessId/defaultOrganizationId already get an index via
-// `index: true` on their field definitions above — the explicit
-// .index() calls that used to be here were exact duplicates and
-// triggered Mongoose's "duplicate schema index" warning at startup.
 
 /* =========================================================
  * VIRTUALS

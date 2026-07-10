@@ -215,13 +215,11 @@ const OrganizationSchema = new Schema<IOrganization>(
    INDEXES
 ========================================================= */
 
-OrganizationSchema.index({ name: 1 });
-// code already gets an index via `unique: true` + `index: true` on its field
-// definition above — this was an exact duplicate and triggered Mongoose's
-// "duplicate schema index" warning at startup.
-OrganizationSchema.index({ sysCode: 1 });
-OrganizationSchema.index({ slug: 1 });
-OrganizationSchema.index({ isActive: 1 });
+// name, code, sysCode, slug, and isActive all already get an index via
+// `index: true` (code/sysCode/slug also `unique: true`) on their own field
+// definitions above -- name/sysCode/slug/isActive each had a redundant
+// explicit .index() call here too, all exact duplicates triggering
+// Mongoose's "duplicate schema index" warning at startup.
 
 /* =========================================================
    MODEL

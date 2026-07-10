@@ -1,18 +1,33 @@
 import jwt from "jsonwebtoken";
 
-if (!process.env.JWT_SECRET) {
-  throw new Error(
-    "JWT_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
-  );
-}
-if (!process.env.SSO_SECRET) {
-  throw new Error(
-    "SSO_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
-  );
+// Was a module-level throw -- crashed the ENTIRE production build, not just
+// requests that actually need these secrets. Next.js's build step ("collect
+// page data") imports every route module to statically analyze it, even
+// ones never invoked during build, so a missing env var at BUILD time (as
+// opposed to runtime, where Vercel env vars are actually available) took
+// down every single route in one throw. Same bug class already fixed for
+// MongoDB (lib/mongodb.ts) and Razorpay (services/order.service.ts) this
+// session -- resolved lazily instead, only throwing when a token is
+// actually signed/verified.
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "JWT_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
+    );
+  }
+  return secret;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const SSO_SECRET = process.env.SSO_SECRET;
+function getSsoSecret(): string {
+  const secret = process.env.SSO_SECRET;
+  if (!secret) {
+    throw new Error(
+      "SSO_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
+    );
+  }
+  return secret;
+}
 
 export interface JWTPayload {
   id: string;
@@ -65,7 +80,7 @@ export interface SSOPayload {
  * Sign a standard auth JWT (7 days)
  */
 export function signToken(payload: Omit<JWTPayload, "iat" | "exp">): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
 }
 
 /**
@@ -73,7 +88,7 @@ export function signToken(payload: Omit<JWTPayload, "iat" | "exp">): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, getJwtSecret()) as JWTPayload;
   } catch {
     return null;
   }
@@ -83,7 +98,7 @@ export function verifyToken(token: string): JWTPayload | null {
  * Sign an SSO token (valid for 1 hour, cross-app)
  */
 export function signSSOToken(payload: Omit<SSOPayload, "iat" | "exp">): string {
-  return jwt.sign(payload, SSO_SECRET, { expiresIn: "1h" });
+  return jwt.sign(payload, getSsoSecret(), { expiresIn: "1h" });
 }
 
 /**
@@ -91,7 +106,7 @@ export function signSSOToken(payload: Omit<SSOPayload, "iat" | "exp">): string {
  */
 export function verifySSOToken(token: string): SSOPayload | null {
   try {
-    return jwt.verify(token, SSO_SECRET) as SSOPayload;
+    return jwt.verify(token, getSsoSecret()) as SSOPayload;
   } catch {
     return null;
   }

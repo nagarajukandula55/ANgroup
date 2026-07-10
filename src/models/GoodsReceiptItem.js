@@ -58,9 +58,8 @@ const GoodsReceiptItemSchema = new mongoose.Schema(
   timestamps:true
 });
 
-GoodsReceiptItemSchema.index({
-  goodsReceiptId:1
-});
+// goodsReceiptId already gets an index via `index:true` on its own field
+// definition above -- this was an exact duplicate.
 
 export default
 mongoose.models.GoodsReceiptItem ||

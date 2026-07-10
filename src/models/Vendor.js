@@ -291,7 +291,8 @@ const VendorSchema = new mongoose.Schema(
   }
 );
 
-VendorSchema.index({ vendorCode: 1 });
+// vendorCode already gets an index via `unique: true` on its own field
+// definition above -- this was an exact duplicate.
 VendorSchema.index({ vendorName: 1 });
 VendorSchema.index({ gstin: 1 });
 VendorSchema.index({ vendorRole: 1 });

@@ -610,18 +610,11 @@ const BusinessSchema = new mongoose.Schema(
    INDEXES
 ========================================================= */
 
-BusinessSchema.index({
-  businessCode: 1,
-});
-
-BusinessSchema.index({
-  tenantKey: 1,
-});
-
-BusinessSchema.index({
-  isActive: 1,
-});
-
+// businessCode, tenantKey, and isActive each already get an index from
+// their own field-level `index: true` (businessCode/tenantKey also have
+// `unique: true`, which implies an index on its own) -- these were
+// duplicate .index() calls producing Mongoose's "Duplicate schema index"
+// warning on every boot for all three fields.
 BusinessSchema.index({
   email: 1,
 });

@@ -2,13 +2,19 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-if (!process.env.JWT_SECRET) {
-  throw new Error(
-    "JWT_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
-  );
+// Was a module-level throw -- same bug class as lib/auth/jwt.ts (see that
+// file's comment): crashes the whole build the moment JWT_SECRET is
+// missing at BUILD time, not just requests that need it at runtime.
+// Resolved lazily instead.
+function getEdgeSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "JWT_SECRET environment variable is required and must not use the insecure default. Set it before starting the app."
+    );
+  }
+  return new TextEncoder().encode(secret);
 }
-
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 interface JWTPayload {
   id: string;
@@ -23,7 +29,7 @@ interface JWTPayload {
 
 async function verifyEdgeToken(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getEdgeSecret());
     return payload as unknown as JWTPayload;
   } catch {
     return null;

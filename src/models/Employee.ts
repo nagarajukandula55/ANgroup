@@ -158,8 +158,8 @@ const EmployeeSchema = new Schema<IEmployee>(
 // Compound index on businessId + isDeleted for efficient queries
 EmployeeSchema.index({ businessId: 1, isDeleted: 1 });
 
-// Sparse unique index on employeeId
-EmployeeSchema.index({ employeeId: 1 }, { unique: true, sparse: true });
+// employeeId already gets this exact { unique: true, sparse: true } index
+// from its own field definition above -- this was an exact duplicate.
 
 const Employee =
   mongoose.models.Employee ||

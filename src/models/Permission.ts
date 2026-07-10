@@ -52,7 +52,9 @@ const PermissionSchema = new Schema<IPermission>(
   { timestamps: true, versionKey: false }
 );
 
-PermissionSchema.index({ code: 1 });
+// `code` already gets a unique index from the field's own `unique: true`
+// above -- this duplicate .index({ code: 1 }) call produced Mongoose's
+// "Duplicate schema index" warning on every boot.
 PermissionSchema.index({ module: 1, group: 1, status: 1 });
 
 const Permission: Model<IPermission> =

@@ -28,7 +28,11 @@ const InvoiceSchema = new mongoose.Schema(
 
     orderId: {
       type: String, // 🔥 FIXED
-      index: true,
+      // Was also `index: true` here -- redundant with the unique index
+      // this field already gets from InvoiceSchema.index({orderId:1},
+      // {unique:true}) below, which additionally enforces uniqueness (the
+      // real reason that explicit call exists, not just plain --
+      // must stay, so removed the plain flag here instead).
       required: true,
     },
 

@@ -58,7 +58,9 @@ const RoleSchema = new Schema<IRole>(
   { timestamps: true, versionKey: false }
 );
 
-RoleSchema.index({ code: 1 });
+// `code` already gets a unique index from the field's own `unique: true`
+// above -- this duplicate .index({ code: 1 }) call produced Mongoose's
+// "Duplicate schema index" warning on every boot.
 RoleSchema.index({ organizationId: 1, status: 1 });
 RoleSchema.index({ businessId: 1,     status: 1 });
 
