@@ -445,6 +445,38 @@ if (!order.stockReserved) {
       actor: { businessId: order?.businessId?.toString() },
     });
 
+    // Invoice generation (single or dual B2B+B2C, per
+    // createInvoiceForOrder's Business.invoicingRules.dualInvoiceMode
+    // check) — this webhook previously left invoiceGenerated=false with no
+    // follow-up, so a PAID order via this path never got an invoice at
+    // all. Non-fatal: an invoicing hiccup must not fail the payment
+    // confirmation itself.
+    try {
+      const { createInvoiceForOrder } = await import("@/lib/invoice/createInvoice");
+      const invoice = await createInvoiceForOrder(order.orderId);
+      order.invoice = {
+        invoiceType: order.gstType === "B2B" ? "B2B" : "TAX",
+        invoiceNumber: (invoice as any)?.invoiceNumber,
+        financialYear: order.invoice?.financialYear,
+        pdfGenerated: false,
+        locked: true,
+      } as any;
+      order.invoiceGenerated = true;
+      await order.save();
+    } catch (err) {
+      console.error("INVOICE GENERATION ERROR (webhook, non-fatal):", err);
+    }
+
+    // Vendor payout split — see payment/verify/route.ts's identical call
+    // for the full explanation. Safe to also run here.
+    try {
+      const { settleOrderToVendors } = await import("@/core/payouts/vendorSettlement.service");
+      const settlements = await settleOrderToVendors(order.orderId, payment.id);
+      console.log("VENDOR SETTLEMENT RESULT (payment/webhook):", JSON.stringify(settlements));
+    } catch (err) {
+      console.error("VENDOR SETTLEMENT ERROR (payment/webhook, non-fatal):", err);
+    }
+
     return NextResponse.json({
       success: true,
     });

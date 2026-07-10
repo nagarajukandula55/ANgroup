@@ -292,6 +292,29 @@ export async function POST(req: Request) {
       actor: { businessId: order?.businessId?.toString() },
     });
 
+    // Invoice generation (single or dual B2B+B2C, per
+    // createInvoiceForOrder's Business.invoicingRules.dualInvoiceMode
+    // check) — this route previously never generated an invoice at all,
+    // so order.invoice.invoiceNumber stayed empty and the invoice email
+    // below silently sent with no invoice number/link. Non-fatal: an
+    // invoicing hiccup must never block the customer-facing payment
+    // confirmation this handler still has to return.
+    try {
+      const { createInvoiceForOrder } = await import("@/lib/invoice/createInvoice");
+      const invoice = await createInvoiceForOrder(order.orderId);
+      order.invoice = {
+        invoiceType: order.gstType === "B2B" ? "B2B" : "TAX",
+        invoiceNumber: (invoice as any)?.invoiceNumber,
+        financialYear: order.invoice?.financialYear,
+        pdfGenerated: false,
+        locked: true,
+      } as any;
+      order.invoiceGenerated = true;
+      await order.save();
+    } catch (err) {
+      console.error("INVOICE GENERATION ERROR (verify, non-fatal):", err);
+    }
+
     // Vendor payout split — transfers each vendor's share of this order to
     // their Razorpay Route linked account, if activated (falls back to a
     // PENDING settlement row otherwise; see vendorSettlement.service.ts).
