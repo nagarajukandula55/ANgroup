@@ -22,6 +22,8 @@ interface Props {
   ) => void;
   saveRow: (row: BOMRowData) => void;
   deleteRow: (id: string) => void;
+  error?: string;
+  justSaved?: boolean;
 }
 
 export default function BOMRow({
@@ -30,11 +32,15 @@ export default function BOMRow({
   updateRow,
   saveRow,
   deleteRow,
+  error,
+  justSaved,
 }: Props) {
   return (
-    <div className="grid grid-cols-6 gap-2 border rounded p-3">
+    <div className="border rounded p-3 space-y-2">
+    <div className="grid grid-cols-6 gap-2">
 
       <MaterialSearchSelect
+        value={row.materialId ? { _id: row.materialId, materialName: row.materialName, materialCode: "", unit: row.unit } : null}
         onSelect={(m: any) => {
           updateRow(index, "materialId", m._id);
           updateRow(index, "materialName", m.materialName);
@@ -96,22 +102,37 @@ export default function BOMRow({
         }
       />
 
-      <button
-        onClick={() => saveRow(row)}
-        className="bg-green-600 text-white rounded px-3"
-      >
-        Save
-      </button>
-
-      {row.bomId && (
+      <div className="flex gap-1">
         <button
-          onClick={() => deleteRow(row.bomId!)}
-          className="bg-red-600 text-white rounded px-3"
+          onClick={() => saveRow(row)}
+          disabled={!row.materialId}
+          title={!row.materialId ? "Select a material above first" : undefined}
+          className="bg-green-600 text-white rounded px-3 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Delete
+          Save
         </button>
-      )}
 
+        {row.bomId && (
+          <button
+            onClick={() => deleteRow(row.bomId!)}
+            className="bg-red-600 text-white rounded px-3"
+          >
+            Delete
+          </button>
+        )}
+      </div>
+
+    </div>
+
+    {error && (
+      <p className="text-xs text-red-600">{error}</p>
+    )}
+    {justSaved && !error && (
+      <p className="text-xs text-emerald-600">✓ Saved</p>
+    )}
+    {!row.bomId && !error && !justSaved && row.materialId && (
+      <p className="text-xs text-amber-600">Not saved yet — click Save to add this to the BOM.</p>
+    )}
     </div>
   );
 }

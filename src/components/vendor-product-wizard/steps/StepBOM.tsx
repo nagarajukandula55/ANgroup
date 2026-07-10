@@ -43,6 +43,8 @@ export default function StepBOM({
 }: Props) {
   const [rows, setRows] = useState<BOMItem[]>([]);
   const [userId, setUserId] = useState<string>("");
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
+  const [savedFlash, setSavedFlash] = useState<number | null>(null);
 
   const [costSummary, setCostSummary] =
     useState<CostSummaryType>({
@@ -167,7 +169,14 @@ export default function StepBOM({
 
   /* ================= SAVE ================= */
 
-  const saveRow = async (row: BOMItem) => {
+  const saveRow = async (row: BOMItem, index: number) => {
+    setRowErrors((prev) => ({ ...prev, [index]: "" }));
+
+    if (!row.materialId) {
+      setRowErrors((prev) => ({ ...prev, [index]: "Select a material first — search above by name." }));
+      return;
+    }
+
     // currentCost is what the cost/pricing engine downstream actually
     // reads (previously always hardcoded to 0 here, since there was no
     // rate input at all) -- compute it from qty * rate, inflated by
@@ -176,7 +185,7 @@ export default function StepBOM({
     const currentCost =
       grossCost + (grossCost * row.wastagePercent) / 100;
 
-    await fetch(
+    const res = await fetch(
       `/api/vendor-products/${draftId}/bom`,
       {
         method: "POST",
@@ -198,6 +207,23 @@ export default function StepBOM({
         }),
       }
     );
+
+    // Was never checked -- a failed save (e.g. material not found, no
+    // active business) silently did nothing while fetchBOM() below just
+    // re-rendered whatever was already saved, so the row LOOKED like it
+    // never got added with no error shown anywhere. This is exactly what
+    // "I added something but nothing showed up" describes.
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [index]: data.message || "Failed to save this material — please try again.",
+      }));
+      return;
+    }
+
+    setSavedFlash(index);
+    setTimeout(() => setSavedFlash((cur) => (cur === index ? null : cur)), 2000);
 
     await fetchBOM();
   };
@@ -233,14 +259,27 @@ export default function StepBOM({
         </div>
       )}
 
+      {rows.length > 0 && (
+        <div className="hidden sm:grid grid-cols-6 gap-2 px-1 text-xs font-medium text-gray-500">
+          <span>Material</span>
+          <span>Qty</span>
+          <span>Unit</span>
+          <span>Wastage %</span>
+          <span>Rate (₹/unit)</span>
+          <span>Actions</span>
+        </div>
+      )}
+
       {rows.map((row, index) => (
         <BOMRow
           key={row.bomId || index}
           row={row}
           index={index}
           updateRow={updateRow}
-          saveRow={saveRow}
+          saveRow={(r) => saveRow(r, index)}
           deleteRow={deleteRow}
+          error={rowErrors[index]}
+          justSaved={savedFlash === index}
         />
       ))}
 

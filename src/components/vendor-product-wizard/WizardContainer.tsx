@@ -43,15 +43,12 @@ export default function WizardContainer({
           />
         )}
 
+        {/* Structure (unit/pack size) before BOM (material quantities are
+            relative to the unit) before Commercial (the selling-price
+            suggestion is computed from the BOM cost) -- was Commercial,
+            Structure, BOM in that order, which asked for a price before any
+            cost existed to base it on. */}
         {step === 2 && (
-          <StepCommercial
-            draftId={draftId}
-            next={next}
-            back={back}
-          />
-        )}
-
-        {step === 3 && (
           <StepStructure
             draftId={draftId}
             businessId={businessId}
@@ -60,10 +57,18 @@ export default function WizardContainer({
           />
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <StepBOM
             draftId={draftId}
             businessId={businessId}
+            next={next}
+            back={back}
+          />
+        )}
+
+        {step === 4 && (
+          <StepCommercial
+            draftId={draftId}
             next={next}
             back={back}
           />

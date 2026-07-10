@@ -26,6 +26,7 @@ export default function MaterialSearchSelect({
 
   const [items, setItems] = useState<Material[]>([]);
   const [open, setOpen] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
     setQuery(value?.materialName || "");
@@ -35,6 +36,7 @@ export default function MaterialSearchSelect({
     if (!query.trim()) {
       setItems([]);
       setOpen(false);
+      setSearched(false);
       return;
     }
 
@@ -48,6 +50,7 @@ export default function MaterialSearchSelect({
 
         if (data.success) {
           setItems(data.data);
+          setSearched(true);
           setOpen(true);
         }
       } catch (err) {
@@ -95,6 +98,21 @@ export default function MaterialSearchSelect({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Was silently rendering nothing on zero results -- a vendor typing a
+          real material name with no matches saw no feedback at all, looking
+          exactly like the search was broken rather than "no data exists
+          yet." Materials are added by a Super Admin (Admin > Materials),
+          not vendors, so this tells them what to actually do about it. */}
+      {open && searched && items.length === 0 && (
+        <div className="absolute left-0 right-0 mt-1 rounded border bg-white shadow-lg z-50 p-3">
+          <p className="text-sm text-gray-500">No materials found for &quot;{query}&quot;</p>
+          <p className="text-xs text-amber-600 mt-1">
+            Materials are added by your Super Admin (Admin &gt; Materials) —
+            ask them to add it, then search again.
+          </p>
         </div>
       )}
     </div>

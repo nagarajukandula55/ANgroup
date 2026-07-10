@@ -11,7 +11,6 @@ interface StepBasicInfoProps {
 
 interface BasicInfoForm {
   productName: string;
-  variantName: string;
   description: string;
   slug: string;
   categoryId: string;
@@ -30,7 +29,6 @@ export default function StepBasicInfo({
 }: StepBasicInfoProps) {
   const [form, setForm] = useState<BasicInfoForm>({
     productName: "",
-    variantName: "",
     description: "",
     slug: "",
     categoryId: "",
@@ -55,19 +53,29 @@ export default function StepBasicInfo({
       .catch(() => {});
   }, [businessId]);
 
-  // Auto-generate the slug from product + variant name until the vendor
+  // Auto-generate the slug from the product name until the vendor
   // deliberately edits it themselves — once touched, stop overwriting it.
+  // Variant name is chosen in the next step (Structure, since it depends on
+  // pack size/unit); the slug here is a starting point, editable later in
+  // Review if the vendor wants it to include the variant too.
   useEffect(() => {
     if (slugTouched) return;
     setForm((prev) => ({
       ...prev,
-      slug: suggestSlug(prev.productName, prev.variantName),
+      slug: suggestSlug(prev.productName, ""),
     }));
-  }, [form.productName, form.variantName, slugTouched]);
+  }, [form.productName, slugTouched]);
 
   const handleSave = async () => {
     if (!form.productName.trim()) {
       setError("Product name is required");
+      return;
+    }
+    // Category is required at approval time (Product.categoryId is a
+    // required field) -- checked here too so a vendor finds out on step 1,
+    // not after finishing all 8 steps and submitting.
+    if (!form.categoryId) {
+      setError("Category is required — a Super Admin must add one first if none appear above");
       return;
     }
     setError(null);
@@ -114,7 +122,9 @@ export default function StepBasicInfo({
       )}
 
       <div className="flex flex-col gap-1">
-        <label className={labelClass}>Product Name *</label>
+        <label className={labelClass}>
+          Product Name * <span className="text-gray-400 font-normal">(the generic name buyers search for)</span>
+        </label>
         <input
           className={inputClass}
           placeholder="e.g. Amul Butter"
@@ -123,19 +133,15 @@ export default function StepBasicInfo({
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className={labelClass}>Variant Name</label>
-        <input
-          className={inputClass}
-          placeholder="e.g. 500g Pouch"
-          value={form.variantName}
-          onChange={(e) => setForm({ ...form, variantName: e.target.value })}
-        />
-      </div>
+      <p className="text-xs text-gray-400 -mt-2">
+        The specific variant (pack size, e.g. "500 g") is chosen in the next
+        step, Structure — it&apos;s auto-generated from the unit and pack
+        size you set there.
+      </p>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label className={labelClass}>Category</label>
+          <label className={labelClass}>Category *</label>
           <select
             className={inputClass}
             value={form.categoryId}
@@ -146,6 +152,18 @@ export default function StepBasicInfo({
               <option key={c._id} value={c._id}>{c.name}</option>
             ))}
           </select>
+          {categories.length === 0 ? (
+            <p className="text-xs text-amber-600">
+              No categories exist yet for this business — ask your Super
+              Admin to add one (Admin &gt; Products &gt; Product Categories),
+              then refresh this page.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400">
+              Categories are managed by your Super Admin, not vendors —
+              contact them if you need a new one added.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -160,11 +178,25 @@ export default function StepBasicInfo({
               <option key={b._id} value={b._id}>{b.name}</option>
             ))}
           </select>
+          {brands.length === 0 ? (
+            <p className="text-xs text-amber-600">
+              No brands exist yet for this business — ask your Super Admin
+              to add one (Admin &gt; Products &gt; Brands), then refresh
+              this page.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400">
+              Brands are managed by your Super Admin — contact them if you
+              need a new one added.
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className={labelClass}>Description</label>
+        <label className={labelClass}>
+          Description <span className="text-gray-400 font-normal">(shown on the product page — what makes it worth buying?)</span>
+        </label>
         <textarea
           className={inputClass}
           rows={5}

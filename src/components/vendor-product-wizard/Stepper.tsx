@@ -5,11 +5,17 @@ interface StepperProps {
 export default function Stepper({
   step,
 }: StepperProps) {
+  // Order matters: Structure (unit/pack size) must come before BOM (material
+  // quantities depend on unit), and BOM must come before Commercial (the
+  // selling-price suggestion is computed FROM the BOM cost) -- was
+  // Basic Info -> Commercial -> Structure -> BOM, which asked for pricing
+  // before any cost existed to price against, showing "no BOM cost yet" at
+  // exactly the step meant to guide pricing.
   const steps = [
     "Basic Info",
-    "Commercial",
     "Structure",
     "BOM",
+    "Commercial",
     "Packaging",
     "Compliance",
     "Review",

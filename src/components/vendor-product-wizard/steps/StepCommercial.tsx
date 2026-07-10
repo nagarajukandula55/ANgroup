@@ -56,6 +56,8 @@ export default function StepCommercial({
   const [priceTouched, setPriceTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [vendorCode, setVendorCode] = useState<string>("");
+  const [productLabel, setProductLabel] = useState<string>("");
 
   // Pull the BOM-derived cost + a default margin-based suggestion from the
   // same cost/pricing engine StepBOM already established, instead of the
@@ -82,15 +84,45 @@ export default function StepCommercial({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
 
-  // Auto-suggest a vendor SKU from the draft id until the vendor edits it.
+  // Fetch the vendor's own code and the product/variant name already
+  // entered in Basic Info, so the SKU actually means something instead of
+  // an arbitrary fragment of the draft's internal Mongo id.
   useEffect(() => {
-    if (skuTouched || form.vendorSku) return;
+    fetch("/api/vendor/profile")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data?.vendorId) setVendorCode(d.data.vendorId);
+      })
+      .catch(() => {});
+    fetch(`/api/vendor-products/${draftId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setProductLabel(
+            [d.data.productName, d.data.variantName].filter(Boolean).join(" ")
+          );
+        }
+      })
+      .catch(() => {});
+  }, [draftId]);
+
+  // Auto-suggest "<VENDOR CODE>-<PRODUCT VARIANT NAME>" once both pieces
+  // are known, until the vendor edits it themselves. Was
+  // `VP-${draftId.slice(-6)}` -- a meaningless fragment of the internal
+  // Mongo id with no link to the actual vendor or product, so every SKU
+  // looked like noise (e.g. "VP-A1B2C3") instead of something a vendor
+  // could recognize in their own catalog.
+  useEffect(() => {
+    if (skuTouched || form.vendorSku || !vendorCode || !productLabel) return;
+    const slug = productLabel
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
     setForm((prev) => ({
       ...prev,
-      vendorSku: `VP-${draftId.slice(-6).toUpperCase()}`,
+      vendorSku: `${vendorCode}-${slug}`,
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftId]);
+  }, [vendorCode, productLabel, skuTouched, form.vendorSku]);
 
   const baseCost = pricing?.totalBaseCost ?? 0;
 
@@ -206,85 +238,126 @@ export default function StepCommercial({
         />
       </div>
 
-      <input
-        type="number"
-        className={inputClass}
-        placeholder="Vendor Cost (raw material / procurement input, feeds BOM)"
-        value={form.vendorCost}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            vendorCost: Number(e.target.value),
-          })
-        }
-      />
+      <div className="flex flex-col gap-1">
+        <label className={labelClass}>
+          Additional Cost{" "}
+          <span className="text-gray-400 font-normal">
+            (optional — anything not already covered by the BOM above, e.g. a
+            packaging surcharge)
+          </span>
+        </label>
+        <input
+          type="number"
+          className={inputClass}
+          placeholder="0"
+          value={form.vendorCost}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              vendorCost: Number(e.target.value),
+            })
+          }
+        />
+      </div>
 
-      <input
-        type="number"
-        className={inputClass}
-        placeholder="Shipping Cost"
-        value={form.vendorShippingCost}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            vendorShippingCost: Number(e.target.value),
-          })
-        }
-      />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>
+            Shipping Cost <span className="text-gray-400 font-normal">(per unit, ₹)</span>
+          </label>
+          <input
+            type="number"
+            className={inputClass}
+            placeholder="0"
+            value={form.vendorShippingCost}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                vendorShippingCost: Number(e.target.value),
+              })
+            }
+          />
+        </div>
 
-      <select
-        className={inputClass}
-        value={form.shippingCostType}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            shippingCostType: e.target
-              .value as CommercialForm["shippingCostType"],
-          })
-        }
-      >
-        <option value="SEPARATE">Separate</option>
-        <option value="INCLUDED">Included</option>
-      </select>
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>
+            Shipping Cost Type{" "}
+            <span className="text-gray-400 font-normal">
+              (charged separately at checkout, or folded into the selling price?)
+            </span>
+          </label>
+          <select
+            className={inputClass}
+            value={form.shippingCostType}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                shippingCostType: e.target
+                  .value as CommercialForm["shippingCostType"],
+              })
+            }
+          >
+            <option value="SEPARATE">Separate — added at checkout</option>
+            <option value="INCLUDED">Included — folded into selling price</option>
+          </select>
+        </div>
+      </div>
 
-      <input
-        type="number"
-        className={inputClass}
-        placeholder="Minimum Order Qty"
-        value={form.minimumOrderQty}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            minimumOrderQty: Number(e.target.value),
-          })
-        }
-      />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>
+            Minimum Order Qty <span className="text-gray-400 font-normal">(units per order)</span>
+          </label>
+          <input
+            type="number"
+            className={inputClass}
+            placeholder="1"
+            value={form.minimumOrderQty}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                minimumOrderQty: Number(e.target.value),
+              })
+            }
+          />
+        </div>
 
-      <input
-        type="number"
-        className={inputClass}
-        placeholder="Lead Time (Days)"
-        value={form.leadTimeDays}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            leadTimeDays: Number(e.target.value),
-          })
-        }
-      />
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>
+            Lead Time <span className="text-gray-400 font-normal">(days to fulfill an order)</span>
+          </label>
+          <input
+            type="number"
+            className={inputClass}
+            placeholder="0"
+            value={form.leadTimeDays}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                leadTimeDays: Number(e.target.value),
+              })
+            }
+          />
+        </div>
 
-      <input
-        type="number"
-        className={inputClass}
-        placeholder="Available Stock"
-        value={form.availableStock}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            availableStock: Number(e.target.value),
-          })
-        }
-      />
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>
+            Available Stock <span className="text-gray-400 font-normal">(units on hand today)</span>
+          </label>
+          <input
+            type="number"
+            className={inputClass}
+            placeholder="0"
+            value={form.availableStock}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                availableStock: Number(e.target.value),
+              })
+            }
+          />
+        </div>
+      </div>
 
       {/* ── Pricing guidance ────────────────────────────────────────── */}
       <div className="rounded border p-3 space-y-3">
