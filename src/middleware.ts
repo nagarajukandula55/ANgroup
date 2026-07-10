@@ -64,6 +64,11 @@ const PUBLIC_PREFIXES = [
   "/api/newsletter/subscribe",
   "/api/appointment-requests",   // public appointment-request submission
   "/appointment-request",        // public appointment-request form page
+  // Native storefront: public blog listing (read-only; create/delete stay
+  // behind the admin UI, which isn't reachable without a session anyway)
+  // and the public contact-form submission endpoint.
+  "/api/blog/list",
+  "/api/contact",
   "/_next",
   "/public",
 ];
