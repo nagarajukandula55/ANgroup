@@ -37,6 +37,7 @@ export interface INativeProduct extends Document {
   description?: string;
   category?: string;
   businessId?: mongoose.Types.ObjectId;
+  vendorId?: mongoose.Types.ObjectId;
   unit?: string;
   basePrice?: number;
   taxRate?: number; // GST %
@@ -69,6 +70,14 @@ const NativeProductSchema = new Schema<INativeProduct>(
     // every business-scoped admin query (see the same real bug found and
     // fixed on Order.businessId in services/order.service.ts).
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true },
+    // Which vendor's approved submission this product came from -- was
+    // never stamped anywhere, so vendor payout settlement
+    // (core/payouts/vendorSettlement.service.ts) could never find a vendor
+    // to pay: it groups Order.cart items by item.vendorId, but nothing in
+    // the whole approve -> resolve -> buildCart chain ever set it. Optional
+    // since a super-admin-created product (not via the vendor wizard) has
+    // no vendor to attribute.
+    vendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", index: true },
     unit: { type: String, default: "pcs" },
     basePrice: { type: Number, default: 0 },
     taxRate: { type: Number, default: 18 }, // default GST 18%

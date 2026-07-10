@@ -8,6 +8,8 @@ import { logAction } from "@/lib/audit/logAction";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/Role";
 
 // Roles any authenticated admin caller may assign. SUPER_ADMIN is
 // deliberately excluded here — it's checked separately below and only

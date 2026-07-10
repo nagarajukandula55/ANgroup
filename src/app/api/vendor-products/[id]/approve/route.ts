@@ -122,6 +122,7 @@ export async function POST(req: Request, context: any) {
 
       categoryId: vendorProduct.categoryId,
       brandId: vendorProduct.brandId,
+      vendorId: vendorProduct.vendorId || undefined,
 
       description: vendorProduct.description,
       images: vendorProduct.images,
@@ -201,6 +202,7 @@ export async function POST(req: Request, context: any) {
       description: vendorProduct.description,
       category: categoryName,
       businessId: vendorProduct.businessId,
+      vendorId: vendorProduct.vendorId || undefined,
       unit: vendorProduct.unit,
       basePrice: variant.sellingPrice || vendorProduct.suggestedSellingPrice || 0,
       taxRate: vendorProduct.gstRate || 0,

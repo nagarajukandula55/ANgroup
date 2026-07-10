@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 
 import VendorCatalog from "@/models/VendorCatalog";
+// Required for .populate("vendorId") below -- see the identical fix/comment
+// in api/admin/vendor-settlements/route.ts.
+import "@/models/VendorProfile";
 
 export async function GET(
   req: Request,

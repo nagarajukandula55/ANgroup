@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import EmployeeProfile from "@/models/EmployeeProfile";
 import { logAction } from "@/lib/audit/logAction";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/User";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {

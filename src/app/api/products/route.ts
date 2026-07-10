@@ -14,6 +14,8 @@ import { connectDB } from "@/lib/mongodb";
 // against a different MongoDB connection — left untouched).
 import Product from "@/models/NativeProduct";
 import { logAction } from "@/lib/audit/logAction";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/Business";
 
 function generateSku(name: string): string {
   const prefix = name.trim().slice(0, 3).toUpperCase();

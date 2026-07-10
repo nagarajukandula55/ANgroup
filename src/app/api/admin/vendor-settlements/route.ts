@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import VendorSettlement from "@/models/VendorSettlement";
+// Required for .populate("vendorId", ...) below -- Mongoose only knows how
+// to populate a ref if that model has actually been registered somewhere
+// in the current process. Nothing else in this route's import graph pulled
+// VendorProfile in, so this route 500'd unconditionally with "Schema
+// hasn't been registered for model 'VendorProfile'" the moment any
+// settlement existed to populate.
+import "@/models/VendorProfile";
 
 /* =========================================================
  * GET /api/admin/vendor-settlements?businessId=&status=

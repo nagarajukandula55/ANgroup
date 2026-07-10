@@ -77,6 +77,8 @@ type CartBaseItem = {
   gstRate: number;
 
   baseTotal: number;
+
+  vendorId?: string;
 };
 
 type CartTaxedItem =
@@ -176,6 +178,14 @@ export class OrderService {
             baseTotal:
               Number(price || 0) *
               qty,
+
+            // Was never propagated -- vendor payout settlement
+            // (core/payouts/vendorSettlement.service.ts) groups order
+            // items by vendorId, but every item arrived with none, so no
+            // vendor payout ever ran for any order.
+            vendorId:
+              product.vendorId ||
+              undefined,
           };
         })
       );

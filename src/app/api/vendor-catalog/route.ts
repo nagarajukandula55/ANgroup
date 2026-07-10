@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 
 import VendorCatalog from "@/models/VendorCatalog";
+// Required for .populate("vendorId") below -- see the identical fix/comment
+// in api/admin/vendor-settlements/route.ts.
+import "@/models/VendorProfile";
 
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/Product";
+import "@/models/ProductVariant";
 
 export async function GET() {
   try {

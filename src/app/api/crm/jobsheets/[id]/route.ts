@@ -14,6 +14,9 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/User";
+import "@/models/CrmCall";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(

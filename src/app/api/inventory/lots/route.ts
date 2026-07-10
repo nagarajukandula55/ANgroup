@@ -4,6 +4,9 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import InventoryLot from "@/models/InventoryLot";
 import { logAction } from "@/lib/audit/logAction";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/Material";
+import "@/models/VendorProfile";
 
 /* =========================================================
  * GET /api/inventory/lots

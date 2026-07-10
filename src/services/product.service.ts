@@ -23,6 +23,7 @@ export type NativeProduct = {
   tax?: number;
   basePrice?: number;
   isDeleted?: boolean;
+  vendorId?: string;
 };
 
 export class ProductService {
@@ -71,6 +72,7 @@ export class ProductService {
       tax: raw.taxRate,
       basePrice: raw.basePrice,
       isDeleted: raw.isDeleted,
+      vendorId: raw.vendorId ? String(raw.vendorId) : undefined,
     };
 
     return {

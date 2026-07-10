@@ -61,6 +61,16 @@ const ProductSchema = new mongoose.Schema(
     ref: "Brand",
   },
 
+  // Which vendor's approved submission this product came from -- was never
+  // stamped anywhere, so the internal catalog had no way to trace a
+  // product back to the vendor who supplied it. Optional since a
+  // super-admin-created product (not via the vendor wizard) has no vendor.
+  vendorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "VendorProfile",
+    index: true,
+  },
+
   shortDescription: String,
 
   description: String,

@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import Product from "@/models/NativeProduct";
 import { logAction } from "@/lib/audit/logAction";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/Business";
 
 /**
  * GET / PATCH / DELETE /api/products/[id] — admin single-product management
