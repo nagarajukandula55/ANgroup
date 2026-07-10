@@ -31,6 +31,7 @@ interface Coupon {
   validFrom?: string;
   validUntil?: string;
   status: "ACTIVE" | "INACTIVE" | "EXPIRED";
+  applicableBrands?: { _id: string; name: string }[];
 }
 
 interface FormData {
@@ -43,6 +44,7 @@ interface FormData {
   usageLimit: string;
   validUntil: string;
   status: "ACTIVE" | "INACTIVE";
+  applicableBrandIds: string[];
 }
 
 const EMPTY_FORM: FormData = {
@@ -55,7 +57,10 @@ const EMPTY_FORM: FormData = {
   usageLimit: "",
   validUntil: "",
   status: "ACTIVE",
+  applicableBrandIds: [],
 };
+
+interface BrandOption { _id: string; name: string }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const inr = (n: number) =>
@@ -119,6 +124,7 @@ export default function CouponsPage() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [brands, setBrands] = useState<BrandOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -162,6 +168,15 @@ export default function CouponsPage() {
   useEffect(() => {
     fetchCoupons();
   }, [fetchCoupons]);
+
+  // Brand list for the applicable-brands selector, scoped to the coupon's business
+  useEffect(() => {
+    if (!businessId) { setBrands([]); return; }
+    fetch(`/api/brands?businessId=${businessId}`)
+      .then((r) => r.json())
+      .then((d) => setBrands(d.brands || d.data || []))
+      .catch(() => setBrands([]));
+  }, [businessId]);
 
   // ── Derived stats ────────────────────────────────────────────────────────
   const stats = {
@@ -215,6 +230,7 @@ export default function CouponsPage() {
       usageLimit: c.usageLimit ? String(c.usageLimit) : "",
       validUntil: c.validUntil ? c.validUntil.slice(0, 10) : "",
       status: c.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+      applicableBrandIds: (c.applicableBrands || []).map((b) => b._id),
     });
     setFormError("");
     setShowModal(true);
@@ -240,6 +256,7 @@ export default function CouponsPage() {
       usageLimit: form.usageLimit ? parseInt(form.usageLimit) : undefined,
       validUntil: form.validUntil ? new Date(form.validUntil).toISOString() : undefined,
       status: form.status,
+      applicableBrands: form.applicableBrandIds,
     };
 
     try {
@@ -298,11 +315,18 @@ export default function CouponsPage() {
             Manage discount codes and promotions
           </p>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
-          <Plus size={16} />
-          New Coupon
-        </button>
+        {isSuperAdmin && (
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
+            <Plus size={16} />
+            New Coupon
+          </button>
+        )}
       </div>
+      {!isSuperAdmin && (
+        <div className="px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+          Coupons can only be created or edited by a Super Admin.
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -372,12 +396,14 @@ export default function CouponsPage() {
                   <div className="p-12 text-center">
                     <Tag size={32} className="mx-auto text-gray-700 mb-3" />
                     <p className="text-gray-500 text-sm">No coupons found</p>
-                    <button
-                      onClick={openCreate}
-                      className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
-                    >
-                      Create your first coupon
-                    </button>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={openCreate}
+                        className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800"
+                      >
+                        Create your first coupon
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -463,22 +489,26 @@ export default function CouponsPage() {
 
                   {/* Actions */}
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:text-gray-900 hover:border-gray-400 flex items-center gap-1"
-                      >
-                        <Pencil size={11} />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(c)}
-                        className="px-3 py-1.5 text-xs text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/10 flex items-center gap-1"
-                      >
-                        <Trash2 size={11} />
-                        Delete
-                      </button>
-                    </div>
+                    {isSuperAdmin ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:text-gray-900 hover:border-gray-400 flex items-center gap-1"
+                        >
+                          <Pencil size={11} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(c)}
+                          className="px-3 py-1.5 text-xs text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/10 flex items-center gap-1"
+                        >
+                          <Trash2 size={11} />
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">Super Admin only</span>
+                    )}
                   </td>
                 </tr>
               ))
@@ -569,6 +599,49 @@ export default function CouponsPage() {
                   placeholder="Optional description"
                   className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
+              </div>
+
+              {/* Applicable Brands */}
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">
+                  Applicable Brands <span className="text-gray-400">(leave empty for all brands)</span>
+                </label>
+                {brands.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    No brands set up yet for this business — see Masters &gt; Brands.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                    {brands.map((b) => {
+                      const checked = form.applicableBrandIds.includes(b._id);
+                      return (
+                        <label
+                          key={b._id}
+                          className={`text-xs px-2.5 py-1.5 rounded-lg border cursor-pointer ${
+                            checked
+                              ? "border-gray-900 bg-gray-900 text-white"
+                              : "border-gray-200 text-gray-600 hover:border-gray-400"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                applicableBrandIds: e.target.checked
+                                  ? [...f.applicableBrandIds, b._id]
+                                  : f.applicableBrandIds.filter((id) => id !== b._id),
+                              }))
+                            }
+                            className="hidden"
+                          />
+                          {b.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Type */}

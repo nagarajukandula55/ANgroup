@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Coupon from "@/models/Coupon";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
 
 // GET /api/coupons?businessId=...&status=...&search=...
 export async function GET(req: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
@@ -36,7 +37,10 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    const coupons = await Coupon.find(query).sort({ createdAt: -1 }).lean();
+    const coupons = await Coupon.find(query)
+      .populate("applicableBrands", "name")
+      .sort({ createdAt: -1 })
+      .lean();
 
     return NextResponse.json({ success: true, coupons });
   } catch (error: unknown) {
@@ -46,11 +50,21 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/coupons
+// Coupons can only be created by a Super Admin -- discounting is a
+// company-wide financial decision, not something an individual business
+// or vendor session should be able to self-grant.
 export async function POST(req: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!session.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Only Super Admin can create coupons" },
+        { status: 403 }
+      );
+    }
 
     const body = await req.json();
     const {
@@ -68,6 +82,7 @@ export async function POST(req: NextRequest) {
       status,
       applicableProducts,
       applicableCategories,
+      applicableBrands,
     } = body;
 
     if (!businessId || !code || !discountType || discountValue === undefined) {
@@ -111,7 +126,10 @@ export async function POST(req: NextRequest) {
         ? applicableProducts.map((id: string) => new Types.ObjectId(id))
         : [],
       applicableCategories: applicableCategories ?? [],
-      createdBy: new Types.ObjectId(userId),
+      applicableBrands: applicableBrands
+        ? applicableBrands.map((id: string) => new Types.ObjectId(id))
+        : [],
+      createdBy: new Types.ObjectId(session.user.id),
     });
 
     logAction({
@@ -120,6 +138,7 @@ export async function POST(req: NextRequest) {
       entityId: coupon?._id?.toString(),
       after: body,
       req,
+      actor: { id: session.user.id },
     });
 
     return NextResponse.json({ success: true, coupon }, { status: 201 });

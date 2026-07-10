@@ -19,6 +19,7 @@ export interface ICoupon extends Document {
   status: CouponStatus;
   applicableProducts?: mongoose.Types.ObjectId[]; // empty = all products
   applicableCategories?: string[]; // empty = all categories
+  applicableBrands?: mongoose.Types.ObjectId[]; // empty = all brands, ref Brand
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -49,6 +50,7 @@ const CouponSchema = new Schema<ICoupon>(
     },
     applicableProducts: [{ type: Schema.Types.ObjectId, ref: "NativeProduct" }],
     applicableCategories: [{ type: String }],
+    applicableBrands: [{ type: Schema.Types.ObjectId, ref: "Brand" }],
     createdBy: { type: Schema.Types.ObjectId, required: true, ref: "User" },
   },
   { timestamps: true }

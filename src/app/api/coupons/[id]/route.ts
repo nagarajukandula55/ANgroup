@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Coupon from "@/models/Coupon";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
 
 // GET /api/coupons/[id]
 export async function GET(
@@ -11,9 +11,10 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await context.params;
 
@@ -23,7 +24,7 @@ export async function GET(
 
     await connectDB();
 
-    const coupon = await Coupon.findById(id).lean();
+    const coupon = await Coupon.findById(id).populate("applicableBrands", "name").lean();
     if (!coupon) return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
 
     return NextResponse.json({ success: true, coupon });
@@ -34,14 +35,23 @@ export async function GET(
 }
 
 // PUT /api/coupons/[id]
+// Coupons can only be edited by a Super Admin -- see POST /api/coupons for
+// why coupon creation/editing isn't left to business/vendor sessions.
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!session.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Only Super Admin can edit coupons" },
+        { status: 403 }
+      );
+    }
 
     const { id } = await context.params;
 
@@ -83,6 +93,12 @@ export async function PUT(
       );
     }
 
+    if (body.applicableBrands) {
+      body.applicableBrands = body.applicableBrands.map(
+        (bid: string) => new Types.ObjectId(bid)
+      );
+    }
+
     await connectDB();
 
     const coupon = await Coupon.findByIdAndUpdate(
@@ -99,6 +115,7 @@ export async function PUT(
       entityId: id,
       after: body,
       req,
+      actor: { id: session.user.id },
     });
 
     return NextResponse.json({ success: true, coupon });
@@ -116,13 +133,20 @@ export async function PUT(
 
 // DELETE /api/coupons/[id]
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!session.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Only Super Admin can delete coupons" },
+        { status: 403 }
+      );
+    }
 
     const { id } = await context.params;
 
@@ -139,7 +163,8 @@ export async function DELETE(
       action: "DELETE",
       entity: "Coupon",
       entityId: id,
-      req: _req,
+      req,
+      actor: { id: session.user.id },
     });
 
     return NextResponse.json({ success: true, message: "Coupon deleted" });
