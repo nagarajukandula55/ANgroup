@@ -54,6 +54,7 @@ export default function WizardContainer({
         {step === 3 && (
           <StepStructure
             draftId={draftId}
+            businessId={businessId}
             next={next}
             back={back}
           />

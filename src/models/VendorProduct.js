@@ -71,6 +71,16 @@ const VendorProductSchema = new mongoose.Schema(
     default: 0,
   },
 
+  mrp: {
+    type: Number,
+    default: 0,
+  },
+
+  suggestedSellingPrice: {
+    type: Number,
+    default: 0,
+  },
+
   vendorShippingCost: {
     type: Number,
     default: 0,
@@ -245,6 +255,14 @@ const VendorProductSchema = new mongoose.Schema(
   variantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "ProductVariant",
+  },
+
+  // What the Native storefront actually renders once approved — see
+  // api/vendor-products/[id]/approve/route.ts, which upserts this
+  // record so the approved product is visible to customers.
+  nativeProductId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "NativeProduct",
   },
 
   /* =========================================================

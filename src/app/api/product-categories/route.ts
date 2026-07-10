@@ -5,6 +5,9 @@ import { Types } from "mongoose";
 import ProductCategory from "@/models/ProductCategory";
 import NativeProduct from "@/models/NativeProduct";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // GET /api/product-categories?businessId=...&search=...
 export async function GET(req: NextRequest) {
@@ -71,11 +74,30 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/product-categories
+// Category creation is Super-Admin-only: the wizard UI (StepBasicInfo.tsx)
+// only lets vendors SELECT an existing category, never create a new one, so
+// this endpoint being reachable by any authenticated user (previously just
+// an x-user-id header check, no permission check at all) was a real gap —
+// a vendor could hit this route directly and add categories outside the
+// admin-curated taxonomy.
 export async function POST(req: NextRequest) {
   try {
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("product_categories", "create"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, error: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
 
     const body = await req.json();
     const { name, description, parentId, imageUrl, businessId } = body;
