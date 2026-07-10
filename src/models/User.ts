@@ -9,6 +9,12 @@ export enum UserRoleLegacy {
   ADMIN = "ADMIN",
   STAFF = "STAFF",
   CUSTOMER = "CUSTOMER",
+  // Was missing entirely -- every route that creates a vendor login sets
+  // role: "VENDOR" (register/vendor, vendors/apply, vendors/[id]/finalize,
+  // admin/users, admin/vendor-staff, etc.), but Mongoose's enum validator
+  // rejected it outright, so every one of those vendor-creation paths was
+  // silently failing with a ValidationError.
+  VENDOR = "VENDOR",
 }
 
 export enum AuthProvider {
