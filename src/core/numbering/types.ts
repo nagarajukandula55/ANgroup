@@ -102,6 +102,13 @@ export const DOCUMENT_TYPES = [
   // above, generated when a vendor's enableStoreFront toggle is switched on
   // (see VendorProfile.storeFrontId / /api/vendors/[id]'s PUT handler).
   "STORE_FRONT",
+  // Vendor-created materials (added inline from the vendor product wizard's
+  // BOM step, see api/vendor/materials/route.ts) -- the raw sequence from
+  // this type is used to build "<vendorCode>-MAT-00001", not this type's
+  // own INV-style formatted value, but it still needs a registered
+  // DocumentType to get an atomic, per-vendor-scoped counter the same way
+  // every other numbered entity in this file does.
+  "MATERIAL",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -143,6 +150,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   WAREHOUSE: "WH",
   SERVICE_CENTER: "SC",
   STORE_FRONT: "SF",
+  MATERIAL: "MAT",
 };
 
 export interface GeneratedNumber {

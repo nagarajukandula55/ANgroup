@@ -41,6 +41,7 @@ export default function BOMRow({
 
       <MaterialSearchSelect
         value={row.materialId ? { _id: row.materialId, materialName: row.materialName, materialCode: "", unit: row.unit } : null}
+        allowVendorCreate
         onSelect={(m: any) => {
           updateRow(index, "materialId", m._id);
           updateRow(index, "materialName", m.materialName);
