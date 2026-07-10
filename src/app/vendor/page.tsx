@@ -134,7 +134,7 @@ export default function VendorDashboard() {
             Statement
           </Link>
           <Link
-            href="/vendor/products"
+            href="/vendor/products/new"
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm bg-violet-600 hover:bg-violet-500 text-white transition-all"
           >
             <Plus className="h-4 w-4" />

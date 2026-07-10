@@ -53,6 +53,29 @@ export default function StepBasicInfo({
       .catch(() => {});
   }, [businessId]);
 
+  // Load whatever this draft already has saved -- was never fetched here at
+  // all, so resuming an existing draft (e.g. via the "Edit" link on
+  // /vendor/products, which previously 404'd outright -- see that page's
+  // fix) showed a blank form even though real data existed.
+  useEffect(() => {
+    fetch(`/api/vendor-products/${draftId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success || !d.data) return;
+        const p = d.data;
+        setForm({
+          productName: p.productName || "",
+          description: p.description || "",
+          slug: p.slug || "",
+          categoryId: (typeof p.categoryId === "object" ? p.categoryId?._id : p.categoryId) || "",
+          brandId: (typeof p.brandId === "object" ? p.brandId?._id : p.brandId) || "",
+        });
+        if (p.slug) setSlugTouched(true);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId]);
+
   // Auto-generate the slug from the product name until the vendor
   // deliberately edits it themselves — once touched, stop overwriting it.
   // Variant name is chosen in the next step (Structure, since it depends on

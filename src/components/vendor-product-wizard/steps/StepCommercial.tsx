@@ -94,6 +94,10 @@ export default function StepCommercial({
         if (d.success && d.data?.vendorId) setVendorCode(d.data.vendorId);
       })
       .catch(() => {});
+    // Also prefill the actual commercial fields if this draft already has
+    // them saved -- was never fetched at all, so resuming an existing
+    // draft (via the "Edit" link on /vendor/products, which previously
+    // 404'd outright) reset every commercial field back to its default.
     fetch(`/api/vendor-products/${draftId}`)
       .then((r) => r.json())
       .then((d) => {
@@ -101,6 +105,21 @@ export default function StepCommercial({
           setProductLabel(
             [d.data.productName, d.data.variantName].filter(Boolean).join(" ")
           );
+          const p = d.data;
+          if (p.vendorSku) setSkuTouched(true);
+          if (p.suggestedSellingPrice) setPriceTouched(true);
+          setForm((prev) => ({
+            ...prev,
+            vendorSku: p.vendorSku || prev.vendorSku,
+            vendorCost: p.vendorCost ?? prev.vendorCost,
+            vendorShippingCost: p.vendorShippingCost ?? prev.vendorShippingCost,
+            shippingCostType: p.shippingCostType || prev.shippingCostType,
+            minimumOrderQty: p.minimumOrderQty ?? prev.minimumOrderQty,
+            leadTimeDays: p.leadTimeDays ?? prev.leadTimeDays,
+            availableStock: p.availableStock ?? prev.availableStock,
+            mrp: p.mrp ?? prev.mrp,
+            suggestedSellingPrice: p.suggestedSellingPrice || prev.suggestedSellingPrice,
+          }));
         }
       })
       .catch(() => {});

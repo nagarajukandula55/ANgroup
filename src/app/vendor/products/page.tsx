@@ -38,6 +38,16 @@ export default function VendorProductsPage() {
     loadProducts();
   }, []);
 
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this draft? This cannot be undone.")) return;
+    try {
+      await fetch(`/api/vendor-products/${id}`, { method: "DELETE" });
+      setProducts((prev) => prev.filter((p) => p._id !== id));
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -155,6 +165,15 @@ export default function VendorProductsPage() {
                       >
                         BOM
                       </a>
+
+                      {item.approvalStatus === "DRAFT" && (
+                        <button
+                          onClick={() => handleDelete(item._id)}
+                          className="rounded border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

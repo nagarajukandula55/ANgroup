@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface StepPackagingProps {
   draftId: string;
@@ -33,6 +33,27 @@ export default function StepPackaging({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Was never fetched -- resuming an existing draft (via the "Edit" link on
+  // /vendor/products, which previously 404'd outright) reset this whole
+  // step back to blank even if it was already filled in and saved.
+  useEffect(() => {
+    fetch(`/api/vendor-products/${draftId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const c = d?.data?.compliance;
+        if (!c) return;
+        setForm({
+          packagingType: c.packagingType || "",
+          isFragile: !!c.isFragile,
+          temperatureSensitive: !!c.temperatureSensitive,
+          storageInstructions: c.storageInstructions || "",
+          shelfLifeDays: c.shelfLifeDays || 0,
+          bestBefore: c.bestBefore || "",
+        });
+      })
+      .catch(() => {});
+  }, [draftId]);
 
   const handleSave = async () => {
     setError(null);

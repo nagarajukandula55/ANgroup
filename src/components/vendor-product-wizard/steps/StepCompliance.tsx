@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface StepComplianceProps {
   draftId: string;
@@ -50,6 +50,32 @@ export default function StepCompliance({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Was never fetched -- resuming an existing draft reset this whole step
+  // back to blank even if it was already filled in and saved.
+  useEffect(() => {
+    fetch(`/api/vendor-products/${draftId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const c = d?.data?.compliance;
+        const n = d?.data?.nutrition;
+        if (!c && !n) return;
+        setForm({
+          ingredients: (c?.ingredients || []).join(", "),
+          allergens: (c?.allergens || []).join(", "),
+          warnings: (c?.warnings || []).join(", "),
+          usageInstructions: c?.usageInstructions || "",
+          servingSize: n?.servingSize || 0,
+          energy: n?.energy || 0,
+          protein: n?.protein || 0,
+          carbs: n?.carbs || 0,
+          sugars: n?.sugars || 0,
+          fat: n?.fat || 0,
+          sodium: n?.sodium || 0,
+        });
+      })
+      .catch(() => {});
+  }, [draftId]);
 
   const handleSave = async () => {
     setError(null);

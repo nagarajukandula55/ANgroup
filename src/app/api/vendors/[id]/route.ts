@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
+import Warehouse from "@/models/Warehouse";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
@@ -85,6 +86,33 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     }
 
     const vendor = await VendorProfile.findByIdAndUpdate(id, body, { new: true });
+
+    // Enabling the warehouse facility toggle only ever stamped an ID onto
+    // VendorProfile.warehouseFacilityId -- nothing ever created a real
+    // Warehouse record from it, so the vendor's own Warehouses page
+    // (which reads /api/warehouses, scoped by vendorId) stayed empty even
+    // after "enabling" a warehouse. Auto-create one, using the generated
+    // facility code as the warehouse code, the first time the toggle turns
+    // on -- the vendor can still edit/rename it afterward like any other
+    // warehouse they create themselves.
+    if (
+      vendor &&
+      body.enableWarehouse === true &&
+      !existing.enableWarehouse &&
+      body.warehouseFacilityId
+    ) {
+      const alreadyExists = await Warehouse.findOne({ warehouseCode: body.warehouseFacilityId });
+      if (!alreadyExists) {
+        await Warehouse.create({
+          businessId: vendor.businessId,
+          vendorId: vendor._id,
+          warehouseCode: body.warehouseFacilityId,
+          warehouseName: `${vendor.companyName} Warehouse`,
+          warehouseType: "FINISHED_GOODS",
+          active: true,
+        });
+      }
+    }
     if (!vendor) {
       return NextResponse.json({ success: false, error: "Vendor not found" }, { status: 404 });
     }
