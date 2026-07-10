@@ -42,7 +42,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const body = await req.json().catch(() => ({}));
-    const { title, description, scheduledAt, assignedTo, lineItems } = body;
+    const {
+      title,
+      description,
+      scheduledAt,
+      assignedTo,
+      lineItems,
+      city,
+      state,
+      pincode,
+      brandId,
+      imeiOrSerialNumber,
+      issueDescription,
+      faultCodeId,
+      remark,
+    } = body;
 
     await connectDB();
 
@@ -77,6 +91,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       phone: call.phone,
       email: call.email,
       address: call.address,
+      city,
+      state,
+      pincode,
+      brandId:
+        brandId && mongoose.Types.ObjectId.isValid(brandId)
+          ? new mongoose.Types.ObjectId(brandId)
+          : undefined,
+      imeiOrSerialNumber,
+      issueDescription,
+      faultCodeId:
+        faultCodeId && mongoose.Types.ObjectId.isValid(faultCodeId)
+          ? new mongoose.Types.ObjectId(faultCodeId)
+          : undefined,
+      remark,
       title: title?.trim() || call.subject,
       description: description ?? call.description,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,

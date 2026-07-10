@@ -73,6 +73,15 @@ const ALLOWED_FIELDS = [
   "phone",
   "email",
   "address",
+  "city",
+  "state",
+  "pincode",
+  "brandId",
+  "imeiOrSerialNumber",
+  "issueDescription",
+  "faultCodeId",
+  "remark",
+  "brandJobNoForPartOrder",
 ];
 
 // Statuses that mean a SalesInvoice already exists — job sheet content

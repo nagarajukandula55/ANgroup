@@ -155,8 +155,8 @@ export default function CrmCallsPage() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold">Calls</h1>
-            <p className="text-sm text-gray-400">Call entry, disposition, and follow-up pipeline</p>
+            <h1 className="text-2xl font-semibold">Appointments</h1>
+            <p className="text-sm text-gray-400">Appointment entry, disposition, and follow-up pipeline</p>
           </div>
           <button
             onClick={() => setShowForm(true)}
@@ -164,14 +164,14 @@ export default function CrmCallsPage() {
             title={businessId ? undefined : 'Select a business first to create a call'}
             className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-900"
           >
-            <Plus className="w-4 h-4" /> New Call
+            <Plus className="w-4 h-4" /> New Appointment
           </button>
         </div>
 
         {!businessId && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            No business selected — showing calls across all businesses. Select a business (top-right switcher) to create a new call.
+            No business selected — showing appointments across all businesses. Select a business (top-right switcher) to create a new appointment.
           </div>
         )}
 
@@ -183,7 +183,7 @@ export default function CrmCallsPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Phone, label: 'Open Calls', value: String(totalOpen), filterValue: null },
+            { icon: Phone, label: 'Open Appointments', value: String(totalOpen), filterValue: null },
             { icon: Clock, label: 'Follow-ups Due', value: String(followUpDue), filterValue: null },
             { icon: AlertCircle, label: 'Closed Won', value: String(won), filterValue: 'CLOSED_WON' },
             { icon: AlertCircle, label: 'Closed Lost', value: String(lost), filterValue: 'CLOSED_LOST' },
@@ -238,7 +238,7 @@ export default function CrmCallsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left px-6 py-3 text-gray-400 font-medium">Call #</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Appt #</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Customer</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Subject</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Priority</th>
@@ -251,7 +251,7 @@ export default function CrmCallsPage() {
               {calls.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
-                    No calls found
+                    No appointments found
                   </td>
                 </tr>
               ) : (
@@ -292,7 +292,7 @@ export default function CrmCallsPage() {
           <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
           <div className="w-full max-w-md bg-gray-50 border-l border-gray-200 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">New Call</h2>
+              <h2 className="font-semibold text-gray-900">New Appointment</h2>
               <button
                 onClick={() => setShowForm(false)}
                 className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100"
@@ -312,7 +312,7 @@ export default function CrmCallsPage() {
                 { field: 'phone', label: 'Phone *', required: true, type: 'tel' },
                 { field: 'email', label: 'Email', required: false, type: 'email' },
                 { field: 'source', label: 'Source (e.g. Website, Referral)', required: false, type: 'text' },
-                { field: 'subject', label: 'Call Subject *', required: true, type: 'text' },
+                { field: 'subject', label: 'Appointment Subject *', required: true, type: 'text' },
                 { field: 'estimatedValue', label: 'Estimated Value (₹)', required: false, type: 'number' },
               ] as const).map(({ field, label, required, type }) => (
                 <div key={field}>
@@ -360,7 +360,7 @@ export default function CrmCallsPage() {
                 className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                Create Call
+                Create Appointment
               </button>
             </div>
           </div>

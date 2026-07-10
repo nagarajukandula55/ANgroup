@@ -157,8 +157,8 @@ export default function CRMPage() {
               <PhoneCall className="w-5 h-5" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">Calls</h3>
-              <p className="text-sm text-gray-500">Call entry, disposition, and follow-ups</p>
+              <h3 className="font-semibold text-gray-900">Appointments</h3>
+              <p className="text-sm text-gray-500">Appointment entry, disposition, and follow-ups</p>
             </div>
             <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />
           </Link>
@@ -170,7 +170,7 @@ export default function CRMPage() {
               <ClipboardList className="w-5 h-5" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">Job Sheets</h3>
+              <h3 className="font-semibold text-gray-900">Workorders</h3>
               <p className="text-sm text-gray-500">Scheduled work through invoicing</p>
             </div>
             <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />

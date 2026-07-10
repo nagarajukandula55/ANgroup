@@ -114,6 +114,14 @@ export async function POST(req: NextRequest) {
       phone,
       email,
       address,
+      city,
+      state,
+      pincode,
+      brandId,
+      imeiOrSerialNumber,
+      issueDescription,
+      faultCodeId,
+      remark,
       title,
       description,
       scheduledAt,
@@ -163,6 +171,20 @@ export async function POST(req: NextRequest) {
       phone: phone.trim(),
       email: email?.toLowerCase()?.trim(),
       address,
+      city,
+      state,
+      pincode,
+      brandId:
+        brandId && mongoose.Types.ObjectId.isValid(brandId)
+          ? new mongoose.Types.ObjectId(brandId)
+          : undefined,
+      imeiOrSerialNumber,
+      issueDescription,
+      faultCodeId:
+        faultCodeId && mongoose.Types.ObjectId.isValid(faultCodeId)
+          ? new mongoose.Types.ObjectId(faultCodeId)
+          : undefined,
+      remark,
       title: title.trim(),
       description,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,

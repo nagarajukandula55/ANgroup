@@ -72,7 +72,7 @@ export default function JobSheetsPage() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold">Job Sheets</h1>
+            <h1 className="text-2xl font-semibold">Workorders</h1>
             <p className="text-sm text-gray-400">Work scheduled, in progress, and invoiced</p>
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function JobSheetsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left px-6 py-3 text-gray-400 font-medium">Job #</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Workorder #</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Customer</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Title</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
@@ -110,7 +110,7 @@ export default function JobSheetsPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
                     <ClipboardList className="w-6 h-6 mx-auto mb-2 text-gray-300" />
-                    No job sheets found
+                    No workorders found
                   </td>
                 </tr>
               ) : (

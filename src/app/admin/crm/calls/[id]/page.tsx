@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Clock, Send, ArrowRightCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Clock, Send, ArrowRightCircle, Plus } from 'lucide-react'
+
+interface Brand { _id: string; name: string }
+interface FaultCode { _id: string; code: string; description: string; category?: string }
 
 interface CallLog {
   _id: string
@@ -60,6 +63,75 @@ export default function CallDetailPage() {
   const [converting, setConverting] = useState(false)
   const [convertError, setConvertError] = useState<string | null>(null)
 
+  // Workorder-creation fields, per spec: Customer Name/Contact/Address
+  // (already on the call) plus city/state/pincode, Brand, IMEI/SN,
+  // Issue/VOC (fault code + free text), Remark.
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [pincode, setPincode] = useState('')
+  const [brands, setBrands] = useState<Brand[]>([])
+  const [brandId, setBrandId] = useState('')
+  const [showAddBrand, setShowAddBrand] = useState(false)
+  const [newBrandName, setNewBrandName] = useState('')
+  const [imeiOrSerialNumber, setImeiOrSerialNumber] = useState('')
+  const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
+  const [faultCodeId, setFaultCodeId] = useState('')
+  const [issueDescription, setIssueDescription] = useState('')
+  const [remark, setRemark] = useState('')
+  const [businessId, setBusinessId] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadBusinessId() {
+      try {
+        const res = await fetch('/api/auth/me')
+        if (res.ok) {
+          const d = await res.json()
+          const user = d.user ?? d
+          setBusinessId(user.activeBusinessId ?? user.businessId ?? null)
+        }
+      } catch {}
+    }
+    loadBusinessId()
+  }, [])
+
+  const loadBrands = useCallback(async () => {
+    if (!businessId) return
+    try {
+      const res = await fetch(`/api/brands?businessId=${businessId}`)
+      const d = await res.json()
+      if (d.success) setBrands(d.brands)
+    } catch {}
+  }, [businessId])
+
+  const loadFaultCodes = useCallback(async () => {
+    try {
+      const qs = businessId ? `?businessId=${businessId}` : ''
+      const res = await fetch(`/api/fault-codes${qs}`)
+      const d = await res.json()
+      if (d.success) setFaultCodes(d.faultCodes)
+    } catch {}
+  }, [businessId])
+
+  useEffect(() => { if (showConvert) { loadBrands(); loadFaultCodes() } }, [showConvert, loadBrands, loadFaultCodes])
+
+  async function addBrand() {
+    if (!newBrandName.trim() || !businessId) return
+    try {
+      const res = await fetch('/api/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newBrandName.trim(), businessId }),
+      })
+      const d = await res.json()
+      if (d.success) {
+        setNewBrandName('')
+        setShowAddBrand(false)
+        await loadBrands()
+        setBrandId(d.brand._id)
+      }
+    } catch {}
+  }
+
   const fetchCall = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -108,10 +180,21 @@ export default function CallDetailPage() {
       const res = await fetch(`/api/crm/calls/${id}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: jobTitle, scheduledAt: scheduledAt || undefined }),
+        body: JSON.stringify({
+          title: jobTitle,
+          scheduledAt: scheduledAt || undefined,
+          city: city || undefined,
+          state: state || undefined,
+          pincode: pincode || undefined,
+          brandId: brandId || undefined,
+          imeiOrSerialNumber: imeiOrSerialNumber || undefined,
+          faultCodeId: faultCodeId || undefined,
+          issueDescription: issueDescription || undefined,
+          remark: remark || undefined,
+        }),
       })
       const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to convert call')
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to convert appointment')
       router.push(`/admin/crm/jobsheets/${d.jobSheet._id}`)
     } catch (err: any) {
       setConvertError(err.message || 'Something went wrong')
@@ -131,8 +214,8 @@ export default function CallDetailPage() {
   if (error || !call) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
-        <p className="text-red-600 text-sm">{error || 'Call not found'}</p>
-        <button onClick={() => router.push('/admin/crm/calls')} className="text-sm text-gray-500 underline">Back to Calls</button>
+        <p className="text-red-600 text-sm">{error || 'Appointment not found'}</p>
+        <button onClick={() => router.push('/admin/crm/calls')} className="text-sm text-gray-500 underline">Back to Appointments</button>
       </div>
     )
   }
@@ -155,7 +238,7 @@ export default function CallDetailPage() {
               onClick={() => router.push(`/admin/crm/jobsheets/${call.jobSheetId}`)}
               className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
             >
-              View Job Sheet <ArrowRightCircle className="w-4 h-4" />
+              View Workorder <ArrowRightCircle className="w-4 h-4" />
             </button>
           )}
           {canConvert && (
@@ -163,7 +246,7 @@ export default function CallDetailPage() {
               onClick={() => setShowConvert(true)}
               className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
             >
-              Convert to Job Sheet <ArrowRightCircle className="w-4 h-4" />
+              Convert to Workorder <ArrowRightCircle className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -199,7 +282,7 @@ export default function CallDetailPage() {
           {/* Right: log call + history */}
           <div className="lg:col-span-2 space-y-4">
             <div className="rounded-2xl border border-gray-200 bg-white p-5">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Log a Call</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Log an Appointment</h3>
               {logError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">{logError}</div>}
               <form onSubmit={submitLog} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -230,14 +313,14 @@ export default function CallDetailPage() {
                   className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition disabled:opacity-50"
                 >
                   {logging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  Log Call
+                  Log Appointment
                 </button>
               </form>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Call History</h3>
+                <h3 className="text-sm font-semibold text-gray-900">Appointment History</h3>
               </div>
               <div className="divide-y divide-gray-100">
                 {call.callLogs.length === 0 ? (
@@ -262,8 +345,8 @@ export default function CallDetailPage() {
 
       {showConvert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Convert to Job Sheet</h2>
+          <div className="w-full max-w-lg bg-white rounded-2xl border border-gray-200 p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="font-semibold text-gray-900 mb-4">Convert to Workorder</h2>
             {convertError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">{convertError}</div>}
             <form onSubmit={submitConvert} className="space-y-4">
               <div>
@@ -284,11 +367,88 @@ export default function CallDetailPage() {
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
                 />
               </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400" />
+                <input placeholder="State" value={state} onChange={(e) => setState(e.target.value)} className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400" />
+                <input placeholder="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400" />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Brand</label>
+                <div className="flex gap-2">
+                  <select
+                    value={brandId}
+                    onChange={(e) => setBrandId(e.target.value)}
+                    className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                  >
+                    <option value="">Select brand…</option>
+                    {brands.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setShowAddBrand((v) => !v)} className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-100" title="Add new brand">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                {showAddBrand && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      placeholder="New brand name (e.g. Mobile, TV, Electronics, Electricals)"
+                      value={newBrandName}
+                      onChange={(e) => setNewBrandName(e.target.value)}
+                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
+                    />
+                    <button type="button" onClick={addBrand} className="px-3 py-2 rounded-xl bg-gray-900 text-white text-sm">Add</button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">IMEI / Serial Number</label>
+                <input
+                  value={imeiOrSerialNumber}
+                  onChange={(e) => setImeiOrSerialNumber(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Issue in Device / VOC (Fault Code)</label>
+                <select
+                  value={faultCodeId}
+                  onChange={(e) => {
+                    setFaultCodeId(e.target.value)
+                    const fc = faultCodes.find((f) => f._id === e.target.value)
+                    if (fc && !issueDescription) setIssueDescription(fc.description)
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-2"
+                >
+                  <option value="">Select fault code…</option>
+                  {faultCodes.map((f) => <option key={f._id} value={f._id}>{f.code} — {f.description}</option>)}
+                </select>
+                <textarea
+                  placeholder="Issue description (free text, editable)"
+                  value={issueDescription}
+                  onChange={(e) => setIssueDescription(e.target.value)}
+                  rows={2}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Remark</label>
+                <textarea
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  rows={2}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none"
+                />
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowConvert(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500">Cancel</button>
                 <button disabled={converting} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
                   {converting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Create Job Sheet
+                  Create Workorder
                 </button>
               </div>
             </form>

@@ -19,6 +19,7 @@ export type CrmJobSheetStatus =
   | "DRAFT"
   | "SCHEDULED"
   | "IN_PROGRESS"
+  | "PART_PENDING"
   | "COMPLETED"
   | "INVOICED"
   | "CANCELLED";
@@ -29,6 +30,8 @@ export interface ICrmJobSheetLineItem {
   unit: string;
   unitPrice: number;
   taxRate: number;
+  hsnCode?: string; // set when the line was picked from ServiceCenterBOM
+  serviceCenterBOMId?: Types.ObjectId; // ref ServiceCenterBOM, if picked from BOM
 }
 
 export interface ICrmJobSheet extends Document {
@@ -41,6 +44,20 @@ export interface ICrmJobSheet extends Document {
   phone: string;
   email?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+
+  // Workorder-creation fields (per CRM Appointment -> Workorder spec):
+  brandId?: Types.ObjectId; // ref Brand
+  imeiOrSerialNumber?: string;
+  issueDescription?: string; // free-text VOC, independent of faultCodeId
+  faultCodeId?: Types.ObjectId; // ref FaultCode
+  remark?: string;
+
+  // Set when status moves to PART_PENDING — optional brand job number for
+  // the part order, per spec ("ask if have Brand Job No for Part Order").
+  brandJobNoForPartOrder?: string;
 
   title: string;
   description?: string;
@@ -72,6 +89,8 @@ const CrmJobSheetLineItemSchema = new Schema<ICrmJobSheetLineItem>(
     unit: { type: String, default: "pcs" },
     unitPrice: { type: Number, default: 0 },
     taxRate: { type: Number, default: 0 },
+    hsnCode: { type: String },
+    serviceCenterBOMId: { type: Schema.Types.ObjectId, ref: "ServiceCenterBOM" },
   },
   { _id: false }
 );
@@ -87,6 +106,17 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     phone: { type: String, required: true, trim: true },
     email: { type: String, lowercase: true, trim: true },
     address: { type: String },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    pincode: { type: String, trim: true },
+
+    brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
+    imeiOrSerialNumber: { type: String, trim: true },
+    issueDescription: { type: String, default: "" },
+    faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
+    remark: { type: String, default: "" },
+
+    brandJobNoForPartOrder: { type: String, trim: true },
 
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
@@ -96,7 +126,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     status: {
       type: String,
-      enum: ["DRAFT", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "INVOICED", "CANCELLED"],
+      enum: ["DRAFT", "SCHEDULED", "IN_PROGRESS", "PART_PENDING", "COMPLETED", "INVOICED", "CANCELLED"],
       default: "DRAFT",
       index: true,
     },
