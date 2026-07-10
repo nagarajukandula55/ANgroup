@@ -133,6 +133,16 @@ export interface IVendorProfile extends Document {
   status:    VendorStatus;
   isApproved: boolean;
   isDeleted:  boolean;
+  /**
+   * Independent operational-facility toggles set by an admin on a vendor's
+   * profile — a vendor may run any combination of these. Drives which
+   * staff memberType roles are relevant for this vendor (Store
+   * Front/Service Center → CCO/ENGINEER/CENTRE_MANAGER; Warehouse →
+   * HELPER/PACKER/SCM — see BusinessMember.ts).
+   */
+  enableStoreFront?:    boolean;
+  enableServiceCenter?: boolean;
+  enableWarehouse?:     boolean;
   createdAt:  Date;
   updatedAt:  Date;
 }
@@ -198,6 +208,9 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     },
     isApproved: { type: Boolean, default: false },
     isDeleted:  { type: Boolean, default: false },
+    enableStoreFront:    { type: Boolean, default: false },
+    enableServiceCenter: { type: Boolean, default: false },
+    enableWarehouse:     { type: Boolean, default: false },
   },
   { timestamps: true }
 );

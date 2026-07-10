@@ -66,6 +66,9 @@ export interface VendorDetailData {
   };
   rejectionReason?: string;
   notes?: string;
+  enableStoreFront?: boolean;
+  enableServiceCenter?: boolean;
+  enableWarehouse?: boolean;
 }
 
 interface VendorDetailModalProps {
@@ -136,6 +139,16 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
   const [addingStaff, setAddingStaff] = useState(false);
   const [staffMessage, setStaffMessage] = useState<string | null>(null);
 
+  // Store Front / Service Center / Warehouse facility toggles — independent
+  // of each other. Drives which memberType staff roles are relevant for
+  // this vendor (see BusinessMember.ts / /vendor/staff page).
+  const [facilities, setFacilities] = useState({
+    enableStoreFront: !!vendor.enableStoreFront,
+    enableServiceCenter: !!vendor.enableServiceCenter,
+    enableWarehouse: !!vendor.enableWarehouse,
+  });
+  const [savingFacility, setSavingFacility] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
@@ -146,6 +159,27 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function toggleFacility(key: "enableStoreFront" | "enableServiceCenter" | "enableWarehouse") {
+    const nextValue = !facilities[key];
+    setSavingFacility(key);
+    setError(null);
+    try {
+      const res = await fetch(`/api/vendors/${vendor._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: nextValue }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Failed to update facility setting");
+      setFacilities((prev) => ({ ...prev, [key]: nextValue }));
+      onUpdated({ [key]: nextValue });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSavingFacility(null);
+    }
+  }
 
   async function handleAddStaff() {
     if (!staffUsername.trim() || !staffRole.trim()) {
@@ -419,6 +453,37 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
                 {businessLabel(vendor.businessId)}
               </div>
             )}
+          </section>
+
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Facilities</h3>
+            <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
+              {(
+                [
+                  { key: "enableStoreFront" as const, label: "Store Front" },
+                  { key: "enableServiceCenter" as const, label: "Service Center" },
+                  { key: "enableWarehouse" as const, label: "Warehouse" },
+                ]
+              ).map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-sm text-gray-700">{label}</span>
+                  <button
+                    type="button"
+                    disabled={savingFacility === key}
+                    onClick={() => toggleFacility(key)}
+                    className={`relative w-10 h-5 rounded-full transition disabled:opacity-50 ${
+                      facilities[key] ? "bg-green-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        facilities[key] ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section>

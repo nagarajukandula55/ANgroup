@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -37,6 +40,16 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const userId = h.get("x-user-id");
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const session = await getEnrichedSession();
+    try {
+      requirePermission(session as any, buildPermissionCode("vendors", "edit"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
     }
 
     const { id } = await context.params;

@@ -15,7 +15,12 @@ export type BusinessMemberType =
   | 'OWNER' | 'ADMIN' | 'MANAGER' | 'STAFF' | 'EMPLOYEE'
   | 'VENDOR' | 'VENDOR_WAREHOUSE' | 'VENDOR_HELPER'
   | 'VENDOR_PACKER' | 'VENDOR_DELIVERY' | 'VENDOR_LOGISTICS'
-  | 'CUSTOMER';
+  | 'CUSTOMER'
+  /* Store Front / Service Center staff roles (vendor.enableStoreFront or
+     vendor.enableServiceCenter) */
+  | 'CCO' | 'ENGINEER' | 'CENTRE_MANAGER'
+  /* Warehouse staff roles (vendor.enableWarehouse) */
+  | 'HELPER' | 'PACKER' | 'SCM';
 
 /* Keep old alias names for any files that still use them */
 export type MemberStatus = BusinessMemberStatus;
@@ -69,7 +74,9 @@ const BusinessMemberSchema = new Schema<IBusinessMember>(
       type:    String,
       enum:    ['OWNER','ADMIN','MANAGER','STAFF','EMPLOYEE','VENDOR',
                 'VENDOR_WAREHOUSE','VENDOR_HELPER','VENDOR_PACKER',
-                'VENDOR_DELIVERY','VENDOR_LOGISTICS','CUSTOMER'],
+                'VENDOR_DELIVERY','VENDOR_LOGISTICS','CUSTOMER',
+                'CCO','ENGINEER','CENTRE_MANAGER',
+                'HELPER','PACKER','SCM'],
       default: 'STAFF',
     },
     role:               { type: String,  default: null },

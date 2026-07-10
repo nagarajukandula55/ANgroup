@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
-import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
+import BusinessMember, { BusinessMemberStatus, BusinessMemberType } from "@/models/BusinessMember";
 import User from "@/models/User";
 import { logAction } from "@/lib/audit/logAction";
 
@@ -46,7 +46,19 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ success: true, staff: members });
+    return NextResponse.json({
+      success: true,
+      staff: members,
+      // So the staff-creation UI can show only the memberType roles
+      // relevant to which facilities this vendor actually has enabled
+      // (Store Front/Service Center → CCO/ENGINEER/CENTRE_MANAGER,
+      // Warehouse → HELPER/PACKER/SCM — see BusinessMember.ts).
+      vendor: {
+        enableStoreFront: !!(vendor as any).enableStoreFront,
+        enableServiceCenter: !!(vendor as any).enableServiceCenter,
+        enableWarehouse: !!(vendor as any).enableWarehouse,
+      },
+    });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
@@ -84,12 +96,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "No user found with that ID" }, { status: 404 });
     }
 
+    // Store Front/Service Center staff roles and Warehouse staff roles,
+    // in addition to the legacy VENDOR_* prefixed types — see
+    // BusinessMember.ts's memberType enum.
+    const ALLOWED_STAFF_MEMBER_TYPES: string[] = [
+      "CCO", "ENGINEER", "CENTRE_MANAGER", "HELPER", "PACKER", "SCM",
+    ];
+    const isAllowedMemberType =
+      memberType &&
+      (String(memberType).startsWith("VENDOR") || ALLOWED_STAFF_MEMBER_TYPES.includes(String(memberType)));
+
     const member = await BusinessMember.findOneAndUpdate(
       { userId: targetUser._id, businessId: vendor.businessId, vendorId: vendor._id },
       {
         $set: {
           status: BusinessMemberStatus.ACTIVE,
-          memberType: memberType && String(memberType).startsWith("VENDOR") ? memberType : "VENDOR_HELPER",
+          memberType: (isAllowedMemberType ? memberType : "VENDOR_HELPER") as BusinessMemberType,
           vendorRole: String(vendorRole).trim(),
           invitedBy: userId,
           isDeleted: false,

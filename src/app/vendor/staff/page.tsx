@@ -31,6 +31,21 @@ const MEMBER_TYPES = [
   { value: "VENDOR_LOGISTICS", label: "Logistics" },
 ];
 
+// Store Front/Service Center roles vs. Warehouse roles — only shown once
+// the vendor has the corresponding facility enabled on their profile
+// (see VendorProfile.enableStoreFront/enableServiceCenter/enableWarehouse,
+// toggled by an admin on the vendor's profile).
+const STORE_FRONT_MEMBER_TYPES = [
+  { value: "CCO", label: "CCO" },
+  { value: "ENGINEER", label: "Engineer" },
+  { value: "CENTRE_MANAGER", label: "Centre Manager" },
+];
+const WAREHOUSE_MEMBER_TYPES = [
+  { value: "HELPER", label: "Helper" },
+  { value: "PACKER", label: "Packer" },
+  { value: "SCM", label: "SCM" },
+];
+
 function staffLabel(u: StaffRow["userId"]): string {
   if (!u) return "—";
   if (typeof u === "string") return u;
@@ -46,6 +61,11 @@ export default function VendorStaffPage() {
   const [memberType, setMemberType] = useState("VENDOR_HELPER");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [facilities, setFacilities] = useState({
+    enableStoreFront: false,
+    enableServiceCenter: false,
+    enableWarehouse: false,
+  });
 
   async function load() {
     setLoading(true);
@@ -53,10 +73,23 @@ export default function VendorStaffPage() {
       const res = await fetch("/api/vendor/staff");
       const data = await res.json();
       setStaff(data.staff || []);
+      if (data.vendor) {
+        setFacilities({
+          enableStoreFront: !!data.vendor.enableStoreFront,
+          enableServiceCenter: !!data.vendor.enableServiceCenter,
+          enableWarehouse: !!data.vendor.enableWarehouse,
+        });
+      }
     } finally {
       setLoading(false);
     }
   }
+
+  const availableMemberTypes = [
+    ...MEMBER_TYPES,
+    ...(facilities.enableStoreFront || facilities.enableServiceCenter ? STORE_FRONT_MEMBER_TYPES : []),
+    ...(facilities.enableWarehouse ? WAREHOUSE_MEMBER_TYPES : []),
+  ];
 
   useEffect(() => {
     load();
@@ -189,7 +222,7 @@ export default function VendorStaffPage() {
                 <div>
                   <label className={labelCls}>Category</label>
                   <select className={inputCls} value={memberType} onChange={(e) => setMemberType(e.target.value)}>
-                    {MEMBER_TYPES.map((t) => (
+                    {availableMemberTypes.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
                       </option>
