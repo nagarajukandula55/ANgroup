@@ -155,22 +155,40 @@ export default function FinancePage() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: TrendingUp, label: 'Total Revenue', value: fmt(totalRevenue), sub: 'All invoices' },
-            { icon: CheckCircle, label: 'Collected', value: fmt(collected), sub: 'Paid invoices' },
-            { icon: Clock, label: 'Outstanding', value: fmt(outstanding), sub: 'Sent + Overdue' },
-            { icon: Calendar, label: 'This Month', value: fmt(thisMonth), sub: 'Current month' },
-          ].map(({ icon: Icon, label, value, sub }) => (
-            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-gray-500 text-sm">{label}</span>
-                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-gray-600" />
+            { icon: TrendingUp, label: 'Total Revenue', value: fmt(totalRevenue), sub: 'All invoices', filterValue: 'ALL' as const },
+            { icon: CheckCircle, label: 'Collected', value: fmt(collected), sub: 'Paid invoices', filterValue: 'PAID' as const },
+            { icon: Clock, label: 'Outstanding', value: fmt(outstanding), sub: 'Sent + Overdue', filterValue: 'UNPAID' as const },
+            { icon: Calendar, label: 'This Month', value: fmt(thisMonth), sub: 'Current month', filterValue: null },
+          ].map(({ icon: Icon, label, value, sub, filterValue }) => {
+            const isActive = filterValue !== null && filter === filterValue;
+            return (
+              <button
+                key={label}
+                type="button"
+                disabled={filterValue === null}
+                onClick={() =>
+                  filterValue &&
+                  setFilter(filter === filterValue ? 'ALL' : filterValue)
+                }
+                className={`text-left rounded-2xl border bg-white p-6 transition-colors ${
+                  filterValue === null ? 'cursor-default' : ''
+                } ${
+                  isActive
+                    ? 'border-gray-900 ring-2 ring-gray-900'
+                    : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-gray-500 text-sm">{label}</span>
+                  <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
+                    <Icon className="w-4 h-4 text-gray-600" />
+                  </div>
                 </div>
-              </div>
-              <p className="text-2xl font-semibold text-gray-900">{value}</p>
-              <p className="text-xs text-gray-600 mt-1">{sub}</p>
-            </div>
-          ))}
+                <p className="text-2xl font-semibold text-gray-900">{value}</p>
+                <p className="text-xs text-gray-600 mt-1">{sub}</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* Invoice Filter */}

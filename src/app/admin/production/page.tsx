@@ -556,13 +556,14 @@ export default function ProductionOrdersPage() {
     return matchesSearch && matchesTab;
   });
 
-  const statCards = [
+  const statCards: { label: string; value: number; icon: typeof Factory; color: string; bg: string; tab: Tab | null }[] = [
     {
       label: "Total Orders",
       value: stats.total,
       icon: Factory,
       color: "text-blue-400",
       bg: "bg-blue-500/10",
+      tab: "all",
     },
     {
       label: "In Progress",
@@ -570,6 +571,7 @@ export default function ProductionOrdersPage() {
       icon: Clock,
       color: "text-amber-400",
       bg: "bg-amber-500/10",
+      tab: "in_progress",
     },
     {
       label: "Completed This Month",
@@ -577,6 +579,7 @@ export default function ProductionOrdersPage() {
       icon: CheckCircle2,
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
+      tab: "completed",
     },
     {
       label: "Pending / Planned",
@@ -584,6 +587,7 @@ export default function ProductionOrdersPage() {
       icon: ListTodo,
       color: "text-gray-500",
       bg: "bg-white",
+      tab: null,
     },
   ];
 
@@ -622,17 +626,32 @@ export default function ProductionOrdersPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {statCards.map((s) => (
-          <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-gray-500">{s.label}</span>
-              <div className={`p-1.5 rounded-lg ${s.bg}`}>
-                <s.icon size={14} className={s.color} />
+        {statCards.map((s) => {
+          const isActive = s.tab !== null && tab === s.tab;
+          return (
+            <button
+              key={s.label}
+              type="button"
+              disabled={s.tab === null}
+              onClick={() => s.tab && setTab(s.tab)}
+              className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+                s.tab === null ? "cursor-default" : ""
+              } ${
+                isActive
+                  ? "border-gray-900 ring-2 ring-gray-900"
+                  : "border-gray-200 hover:border-gray-400"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-gray-500">{s.label}</span>
+                <div className={`p-1.5 rounded-lg ${s.bg}`}>
+                  <s.icon size={14} className={s.color} />
+                </div>
               </div>
-            </div>
-            <p className="text-2xl font-semibold text-gray-900">{s.value}</p>
-          </div>
-        ))}
+              <p className="text-2xl font-semibold text-gray-900">{s.value}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Tabs + Search */}

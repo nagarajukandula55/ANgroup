@@ -322,20 +322,32 @@ export default function StockAdjustmentsPage() {
           </div>
           <p className="text-2xl font-semibold text-gray-900">{todayAdj.length}</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <button
+          type="button"
+          onClick={() => setTypeFilter((v) => (v === "ADD" ? "" : "ADD"))}
+          className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+            typeFilter === "ADD" ? "border-gray-900 ring-2 ring-gray-900" : "border-gray-200 hover:border-gray-400"
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">
             <PackagePlus size={14} className="text-emerald-500" />
             <span className="text-xs text-gray-500">Total Added</span>
           </div>
           <p className="text-2xl font-semibold text-emerald-400">+{totalAdded}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => setTypeFilter((v) => (v === "REMOVE" ? "" : "REMOVE"))}
+          className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+            typeFilter === "REMOVE" ? "border-gray-900 ring-2 ring-gray-900" : "border-gray-200 hover:border-gray-400"
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">
             <PackageMinus size={14} className="text-red-500" />
             <span className="text-xs text-gray-500">Total Removed</span>
           </div>
           <p className="text-2xl font-semibold text-red-400">-{totalRemoved}</p>
-        </div>
+        </button>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <div className="flex items-center gap-2 mb-2">
             <Package size={14} className="text-amber-500" />

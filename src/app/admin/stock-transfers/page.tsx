@@ -390,34 +390,58 @@ export default function StockTransfersPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <button
+          type="button"
+          onClick={() => { setStatusFilter(""); setPage(1); }}
+          className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+            statusFilter === "" ? "border-gray-900 ring-2 ring-gray-900" : "border-gray-200 hover:border-gray-400"
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">
             <Package size={14} className="text-gray-500" />
             <span className="text-xs text-gray-500">Total Transfers</span>
           </div>
           <p className="text-2xl font-semibold text-gray-900">{total}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => { setStatusFilter((v) => (v === "DRAFT" ? "" : "DRAFT")); setPage(1); }}
+          className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+            statusFilter === "DRAFT" ? "border-gray-900 ring-2 ring-gray-900" : "border-gray-200 hover:border-gray-400"
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">
             <Clock size={14} className="text-gray-500" />
             <span className="text-xs text-gray-500">Draft / Pending</span>
           </div>
           <p className="text-2xl font-semibold text-gray-600">{draftCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => { setStatusFilter((v) => (v === "IN_TRANSIT" ? "" : "IN_TRANSIT")); setPage(1); }}
+          className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+            statusFilter === "IN_TRANSIT" ? "border-gray-900 ring-2 ring-gray-900" : "border-gray-200 hover:border-gray-400"
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">
             <Truck size={14} className="text-amber-500" />
             <span className="text-xs text-gray-500">In Transit</span>
           </div>
           <p className="text-2xl font-semibold text-amber-400">{inTransitCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        </button>
+        <button
+          type="button"
+          onClick={() => { setStatusFilter((v) => (v === "COMPLETED" ? "" : "COMPLETED")); setPage(1); }}
+          className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+            statusFilter === "COMPLETED" ? "border-gray-900 ring-2 ring-gray-900" : "border-gray-200 hover:border-gray-400"
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle size={14} className="text-emerald-500" />
             <span className="text-xs text-gray-500">Completed</span>
           </div>
           <p className="text-2xl font-semibold text-emerald-400">{completedCount}</p>
-        </div>
+        </button>
       </div>
 
       {/* Filters */}

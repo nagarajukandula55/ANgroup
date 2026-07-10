@@ -307,27 +307,49 @@ export default function InventoryLotsPage() {
             value: totalLots,
             icon: <Layers size={16} className="text-gray-500" />,
             cls: "",
+            active: filterStatus === "" && !filterExpiringSoon,
+            onClick: () => {
+              setFilterStatus("");
+              setFilterExpiringSoon(false);
+            },
           },
           {
             label: "Active Lots",
             value: activeLots,
             icon: <CheckCircle size={16} className="text-emerald-400" />,
             cls: "text-emerald-400",
+            active: filterStatus === "ACTIVE",
+            onClick: () =>
+              setFilterStatus((v) => (v === "ACTIVE" ? "" : "ACTIVE")),
           },
           {
             label: "Expiring Soon",
             value: expiringSoon,
             icon: <Clock size={16} className="text-amber-400" />,
             cls: "text-amber-400",
+            active: filterExpiringSoon,
+            onClick: () => setFilterExpiringSoon((v) => !v),
           },
           {
             label: "Expired",
             value: expiredLots,
             icon: <XCircle size={16} className="text-red-400" />,
             cls: "text-red-400",
+            active: filterStatus === "EXPIRED",
+            onClick: () =>
+              setFilterStatus((v) => (v === "EXPIRED" ? "" : "EXPIRED")),
           },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-4">
+          <button
+            key={s.label}
+            type="button"
+            onClick={s.onClick}
+            className={`text-left rounded-xl border bg-white p-4 transition-colors ${
+              s.active
+                ? "border-gray-900 ring-2 ring-gray-900"
+                : "border-gray-200 hover:border-gray-400"
+            }`}
+          >
             <div className="flex items-center gap-2 mb-2">
               {s.icon}
               <span className="text-xs text-gray-500">{s.label}</span>
@@ -335,7 +357,7 @@ export default function InventoryLotsPage() {
             <p className={`text-2xl font-semibold ${s.cls || "text-gray-900"}`}>
               {s.value}
             </p>
-          </div>
+          </button>
         ))}
       </div>
 

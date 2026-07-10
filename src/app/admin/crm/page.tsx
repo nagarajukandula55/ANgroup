@@ -186,21 +186,39 @@ export default function CRMPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Users, label: 'Total Leads', value: String(total) },
-            { icon: TrendingUp, label: 'Won', value: String(won) },
-            { icon: TrendingDown, label: 'Lost', value: String(lost) },
-            { icon: BarChart3, label: 'Conversion Rate', value: `${conversionRate}%` },
-          ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-gray-500 text-sm">{label}</span>
-                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-gray-700" />
+            { icon: Users, label: 'Total Leads', value: String(total), filterValue: null },
+            { icon: TrendingUp, label: 'Won', value: String(won), filterValue: 'WON' },
+            { icon: TrendingDown, label: 'Lost', value: String(lost), filterValue: 'LOST' },
+            { icon: BarChart3, label: 'Conversion Rate', value: `${conversionRate}%`, filterValue: null },
+          ].map(({ icon: Icon, label, value, filterValue }) => {
+            const isActive = filterValue !== null && statusFilter === filterValue;
+            return (
+              <button
+                key={label}
+                type="button"
+                disabled={filterValue === null}
+                onClick={() =>
+                  filterValue &&
+                  setStatusFilter(statusFilter === filterValue ? 'ALL' : filterValue)
+                }
+                className={`text-left rounded-2xl border bg-white p-6 transition-colors ${
+                  filterValue === null ? 'cursor-default' : ''
+                } ${
+                  isActive
+                    ? 'border-gray-900 ring-2 ring-gray-900'
+                    : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-gray-500 text-sm">{label}</span>
+                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <Icon className="w-4 h-4 text-gray-700" />
+                  </div>
                 </div>
-              </div>
-              <p className="text-2xl font-semibold text-gray-900">{value}</p>
-            </div>
-          ))}
+                <p className="text-2xl font-semibold text-gray-900">{value}</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* Status Filter */}

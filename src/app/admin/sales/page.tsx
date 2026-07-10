@@ -315,12 +315,15 @@ export default function SalesPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
-            { icon: IndianRupee, label: 'Revenue Collected', value: fmt(paidTotal),      color: 'bg-green-100' },
-            { icon: Clock,       label: 'Pending Payments',  value: fmt(pendingTotal),    color: 'bg-orange-100' },
-            { icon: FileText,    label: 'Total Invoices',    value: String(invoices.length), color: 'bg-purple-100' },
-            { icon: ShoppingCart,label: 'Total Orders',      value: String(orders.length),  color: 'bg-blue-100' },
-          ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            { icon: IndianRupee, label: 'Revenue Collected', value: fmt(paidTotal),      color: 'bg-green-100', onClick: () => { setTab('invoices'); setStatus(statusFilter === 'PAID' ? 'ALL' : 'PAID') }, active: tab === 'invoices' && statusFilter === 'PAID' },
+            { icon: Clock,       label: 'Pending Payments',  value: fmt(pendingTotal),    color: 'bg-orange-100', onClick: null, active: false },
+            { icon: FileText,    label: 'Total Invoices',    value: String(invoices.length), color: 'bg-purple-100', onClick: () => setTab('invoices'), active: tab === 'invoices' && statusFilter === 'ALL' },
+            { icon: ShoppingCart,label: 'Total Orders',      value: String(orders.length),  color: 'bg-blue-100', onClick: () => setTab('orders'), active: tab === 'orders' },
+          ].map(({ icon: Icon, label, value, color, onClick, active }) => (
+            <button key={label} type="button" disabled={!onClick} onClick={onClick ?? undefined}
+              className={`text-left bg-white rounded-xl border shadow-sm p-5 transition-colors ${!onClick ? 'cursor-default' : ''} ${
+                active ? 'border-gray-900 ring-2 ring-gray-900' : 'border-gray-200 hover:border-gray-400'
+              }`}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm text-gray-500">{label}</span>
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}>
@@ -328,7 +331,7 @@ export default function SalesPage() {
                 </div>
               </div>
               <p className="text-xl font-bold text-gray-900">{value}</p>
-            </div>
+            </button>
           ))}
         </div>
 
