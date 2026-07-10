@@ -776,6 +776,24 @@ export default function BusinessDetailPage() {
         </section>
 
         <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-lg">Homepage Banners</h2>
+              <p className="mt-1 text-xs text-white/50">
+                Manage the storefront's homepage hero slideshow images —
+                upload, reorder, and toggle banners without touching code.
+              </p>
+            </div>
+            <Link
+              href={`/admin/business/${id}/banners`}
+              className="bg-cyan-500 px-4 py-2 text-black font-bold rounded text-sm whitespace-nowrap"
+            >
+              Manage Banners
+            </Link>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
           <h2 className="font-bold text-lg">Modules</h2>
           <p className="text-xs text-white/50">
             Choose which application modules are available to this business.

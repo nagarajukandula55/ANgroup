@@ -60,6 +60,10 @@ const PUBLIC_PREFIXES = [
   // internal, auth-gated /api/products, /api/product-categories etc.
   "/api/categories",
   "/api/storefront/products",
+  // Native storefront: public homepage hero-slideshow banners, managed via
+  // the admin/business/[id]/banners UI instead of manually dropped image
+  // files. Read-only; create/edit/delete stay behind /api/admin/banners.
+  "/api/storefront/banners",
   "/api/products/",
   "/api/newsletter/subscribe",
   "/api/appointment-requests",   // public appointment-request submission
