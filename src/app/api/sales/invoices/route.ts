@@ -84,6 +84,18 @@ export async function GET(req: NextRequest) {
     const status = req.nextUrl.searchParams.get("status")
     if (status && status !== "ALL") filter.status = status
 
+    const from = req.nextUrl.searchParams.get("from")
+    const to   = req.nextUrl.searchParams.get("to")
+    if (from || to) {
+      filter.issueDate = {}
+      if (from) filter.issueDate.$gte = new Date(from)
+      if (to) {
+        const toDate = new Date(to)
+        toDate.setHours(23, 59, 59, 999)
+        filter.issueDate.$lte = toDate
+      }
+    }
+
     const q = req.nextUrl.searchParams.get("search")
     if (q) filter.$or = [
       { invoiceNumber:     { $regex: q, $options: "i" } },

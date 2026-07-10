@@ -8,15 +8,19 @@ import { Landmark, Send, RefreshCw, Settings2, AlertCircle, CheckCircle2, Clock 
  *
  * Built per explicit user request: "push our bills to gst portal directly
  * and also our assistant should assist with all the processes and
- * pendings." Two tabs: Filings (queue/submit/status per invoice) and
- * Settings (GSTIN + provider config, backed by GstPortalConfig). See
- * core/gst/gstPortalAdapter.ts's top comment for why the actual portal push
- * is a stub in this environment (no live GSP/ASP credentials to build
- * against) — everything around it (model, service, UI, ANu awareness) is
- * real and ready for a real provider integration to be dropped in.
+ * pendings," later extended to "GST page should be like actual GST page"
+ * with a real date-range push flow. Three tabs: Push (select a date range,
+ * push every invoice issued in it to the configured GSP in one action),
+ * Filings (per-invoice queue/submit/status), and Settings (GSTIN + GSP
+ * credentials, backed by GstPortalConfig). The actual HTTP call to the GSP
+ * lives in services/gst/gspClient.service.ts — see that file's top comment
+ * for the exact request shape assumed (modeled on the common ClearTax/
+ * Cygnet/Masters India/NIC-IRP contract) and for why it throws a clear
+ * "not configured" error instead of faking success when no real GSP
+ * credentials have been added yet.
  */
 
-type Tab = 'filings' | 'config'
+type Tab = 'push' | 'filings' | 'config'
 
 interface Filing {
   _id: string
@@ -30,8 +34,9 @@ interface Filing {
 }
 
 export default function GstFilingPage() {
-  const [tab, setTab] = useState<Tab>('filings')
+  const [tab, setTab] = useState<Tab>('push')
   const [businessId, setBusinessId] = useState<string | null>(null)
+  const [business, setBusiness] = useState<any>(null)
   const [msg, setMsg] = useState('')
 
   const [filings, setFilings] = useState<Filing[]>([])
@@ -47,6 +52,14 @@ export default function GstFilingPage() {
   const [autoSubmit, setAutoSubmit] = useState(false)
   const [savingConfig, setSavingConfig] = useState(false)
 
+  const today = new Date().toISOString().slice(0, 10)
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+  const [pushFrom, setPushFrom] = useState(firstOfMonth)
+  const [pushTo, setPushTo] = useState(today)
+  const [pushReturnType, setPushReturnType] = useState<'GSTR1' | 'GSTR3B' | 'IFF'>('GSTR1')
+  const [pushing, setPushing] = useState(false)
+  const [pushSummary, setPushSummary] = useState<{ total: number; submitted: number; failed: number } | null>(null)
+
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
       .then((r) => r.json())
@@ -61,9 +74,44 @@ export default function GstFilingPage() {
 
   useEffect(() => {
     if (!businessId) return
+    fetch(`/api/businesses/${businessId}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setBusiness(d.business) })
+      .catch(() => {})
+  }, [businessId])
+
+  useEffect(() => {
+    if (!businessId) return
     if (tab === 'filings') loadFilings()
     if (tab === 'config') loadConfig()
   }, [tab, businessId])
+
+  async function pushRange(e: React.FormEvent) {
+    e.preventDefault()
+    if (!businessId) return
+    setPushing(true)
+    setMsg('')
+    setPushSummary(null)
+    try {
+      const period = pushFrom.slice(0, 7).split('-').reverse().join('-') // "MM-YYYY" from "YYYY-MM-DD"
+      const res = await fetch('/api/gst/push-range', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ businessId, from: pushFrom, to: pushTo, returnType: pushReturnType, period }),
+      })
+      const d = await res.json()
+      if (d.success) {
+        setPushSummary(d.summary)
+        setMsg(`Pushed ${d.summary.submitted}/${d.summary.total} invoices. ${d.summary.failed} failed.`)
+      } else {
+        setMsg(d.error || 'Push failed')
+      }
+    } catch {
+      setMsg('Push failed')
+    }
+    setPushing(false)
+  }
 
   async function loadFilings() {
     if (!businessId) return
@@ -156,10 +204,22 @@ export default function GstFilingPage() {
           <p className="mt-4 max-w-2xl text-white/60">
             Push sales invoices to the GST portal and track filing status. ANu can help you understand what's pending — ask it in AI Workspace.
           </p>
+          {business && (
+            <div className="mt-6 flex flex-wrap gap-6 text-sm">
+              <div>
+                <p className="text-white/40 uppercase tracking-wider text-xs">GSTIN</p>
+                <p className="font-semibold mt-1">{business.compliance?.gstNumber || 'Not set on Business profile'}</p>
+              </div>
+              <div>
+                <p className="text-white/40 uppercase tracking-wider text-xs">Filing Cycle</p>
+                <p className="font-semibold mt-1">{business.compliance?.filingCycle || business.financial?.filingCycle || 'Monthly (default)'}</p>
+              </div>
+            </div>
+          )}
         </section>
 
         <div className="flex gap-3">
-          {(['filings', 'config'] as Tab[]).map((t) => (
+          {(['push', 'filings', 'config'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -167,12 +227,67 @@ export default function GstFilingPage() {
                 tab === t ? 'bg-cyan-400 text-black' : 'border border-white/10 text-white/60 hover:text-white'
               }`}
             >
-              {t === 'filings' ? 'Filings' : 'Settings'}
+              {t === 'push' ? 'Push Invoices' : t === 'filings' ? 'Filings' : 'Settings'}
             </button>
           ))}
         </div>
 
         {msg && <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm">{msg}</div>}
+
+        {tab === 'push' && (
+          <section className="rounded-[32px] border border-white/10 bg-white/5 p-8">
+            <h2 className="text-2xl font-bold mb-2 flex items-center gap-2"><Send className="h-6 w-6" /> Push Invoices to GST</h2>
+            <p className="text-white/50 text-sm mb-6">
+              Pick a date range — every sales invoice issued in that window gets queued and submitted to your
+              configured GSP in one action. Invoices that already have an accepted filing are skipped.
+            </p>
+            <form onSubmit={pushRange} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end max-w-3xl">
+              <div>
+                <label className="text-sm text-white/60">From</label>
+                <input type="date" value={pushFrom} onChange={(e) => setPushFrom(e.target.value)} required
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">To</label>
+                <input type="date" value={pushTo} onChange={(e) => setPushTo(e.target.value)} required
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Return Type</label>
+                <select value={pushReturnType} onChange={(e) => setPushReturnType(e.target.value as any)}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5">
+                  <option value="GSTR1">GSTR-1</option>
+                  <option value="GSTR3B">GSTR-3B</option>
+                  <option value="IFF">IFF</option>
+                </select>
+              </div>
+              <button disabled={pushing} type="submit"
+                className="rounded-full bg-cyan-400 px-6 py-2.5 font-semibold text-black disabled:opacity-50 h-fit">
+                {pushing ? 'Pushing...' : 'Push to GST'}
+              </button>
+            </form>
+            {pushSummary && (
+              <div className="mt-6 flex gap-4">
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-5 py-3">
+                  <p className="text-2xl font-bold">{pushSummary.total}</p>
+                  <p className="text-xs text-white/50">Total</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 px-5 py-3">
+                  <p className="text-2xl font-bold text-emerald-300">{pushSummary.submitted}</p>
+                  <p className="text-xs text-white/50">Submitted</p>
+                </div>
+                <div className="rounded-2xl border border-red-400/20 bg-red-400/5 px-5 py-3">
+                  <p className="text-2xl font-bold text-red-300">{pushSummary.failed}</p>
+                  <p className="text-xs text-white/50">Failed</p>
+                </div>
+              </div>
+            )}
+            <p className="mt-6 text-xs text-white/40">
+              Failures typically mean no GSP is configured yet — add GSTIN + client credentials under the
+              Settings tab. Check the Filings tab for per-invoice status and rejection reasons.
+            </p>
+          </section>
+        )}
 
         {tab === 'filings' && (
           <section className="rounded-[32px] border border-white/10 bg-white/5 p-8">
@@ -234,12 +349,12 @@ export default function GstFilingPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm text-white/60">API Key {config?.apiKeySet && '(already set — leave blank to keep)'}</label>
+                <label className="text-sm text-white/60">Client ID (GSP API Key) {config?.apiKeySet && '(already set — leave blank to keep)'}</label>
                 <input type="password" value={apiKey} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
               </div>
               <div>
-                <label className="text-sm text-white/60">API Secret {config?.apiSecretSet && '(already set — leave blank to keep)'}</label>
+                <label className="text-sm text-white/60">Client Secret (GSP API Secret) {config?.apiSecretSet && '(already set — leave blank to keep)'}</label>
                 <input type="password" value={apiSecret} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiSecret(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
               </div>

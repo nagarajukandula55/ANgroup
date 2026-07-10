@@ -68,12 +68,32 @@ export async function submitFiling(filingId: string): Promise<IGstFiling> {
   if (!invoice) throw new Error(`Invoice ${filing.invoiceId} not found`);
 
   const result = await pushToPortal(config, {
+    businessId: filing.businessId.toString(),
     gstin: config.gstin,
     returnType: filing.returnType,
     period: filing.period,
     invoiceNumber: invoice.invoiceNumber,
     invoiceDate: (invoice.issueDate ?? invoice.createdAt).toISOString(),
+    supplyType: invoice.supplyType,
     customerGstin: invoice.customer?.gstin,
+    customerName: invoice.customer?.name,
+    customerAddress: invoice.customer?.address,
+    customerStateCode: invoice.customer?.stateCode,
+    placeOfSupply: invoice.placeOfSupply,
+    items: (invoice.items || []).map((it: any) => ({
+      description: it.description,
+      hsnCode: it.hsnCode,
+      quantity: it.quantity,
+      unit: it.unit,
+      unitPrice: it.unitPrice,
+      assessableValue: it.assessableValue || it.total || 0,
+      cgstRate: it.cgstRate,
+      cgstAmount: it.cgstAmount,
+      sgstRate: it.sgstRate,
+      sgstAmount: it.sgstAmount,
+      igstRate: it.igstRate,
+      igstAmount: it.igstAmount,
+    })),
     taxableValue: invoice.subtotal ?? 0,
     cgstAmount: invoice.cgstTotal ?? 0,
     sgstAmount: invoice.sgstTotal ?? 0,
@@ -90,7 +110,102 @@ export async function submitFiling(filingId: string): Promise<IGstFiling> {
     filing.rejectionReason = result.errorMessage;
   }
   await filing.save();
+
+  // Mirror the e-invoice response onto the SalesInvoice record itself, too
+  // — those fields (irn/ackNumber/ackDate/signedQrCode/einvoiceStatus)
+  // already exist on the model for exactly this purpose (see
+  // models/SalesInvoice.ts's "e-Invoice (INV-01) readiness" fields).
+  if (result.ok && result.irn) {
+    await SalesInvoice.updateOne(
+      { _id: filing.invoiceId },
+      {
+        $set: {
+          irn: result.irn,
+          ackNumber: result.ackNumber,
+          ackDate: result.ackDate ? new Date(result.ackDate) : undefined,
+          signedQrCode: result.signedQrCode,
+          einvoiceStatus: "FILED",
+        },
+      }
+    );
+  } else if (!result.ok) {
+    await SalesInvoice.updateOne({ _id: filing.invoiceId }, { $set: { einvoiceStatus: "FAILED" } });
+  }
+
   return filing;
+}
+
+export interface PushRangeInput {
+  businessId: string;
+  from: string; // ISO date
+  to: string; // ISO date
+  returnType: "GSTR1" | "GSTR3B" | "IFF";
+  period: string;
+  submittedBy?: string;
+}
+
+export interface PushRangeResultItem {
+  invoiceId: string;
+  invoiceNumber: string;
+  status: IGstFiling["status"];
+  errorMessage?: string;
+}
+
+/**
+ * Bulk "Push Invoices to GST" for a date range — queues (or reuses) a
+ * GstFiling per SalesInvoice issued in [from, to] for this business, then
+ * immediately submits each one. Used by both the GST page's date-range
+ * push action and the Reports page's "Push to GST" button so there's one
+ * real implementation instead of two near-duplicates.
+ */
+export async function pushInvoicesForRange(input: PushRangeInput): Promise<PushRangeResultItem[]> {
+  const fromDate = new Date(input.from);
+  const toDate = new Date(input.to);
+  toDate.setHours(23, 59, 59, 999);
+
+  const invoices = await SalesInvoice.find({
+    businessId: new Types.ObjectId(input.businessId),
+    issueDate: { $gte: fromDate, $lte: toDate },
+    isDeleted: { $ne: true },
+  })
+    .select("_id invoiceNumber")
+    .lean();
+
+  const results: PushRangeResultItem[] = [];
+
+  for (const inv of invoices) {
+    try {
+      const filing = await queueFiling({
+        businessId: input.businessId,
+        invoiceId: inv._id.toString(),
+        returnType: input.returnType,
+        period: input.period,
+        submittedBy: input.submittedBy,
+      });
+
+      if (filing.status === "ACCEPTED" || filing.status === "SUBMITTED") {
+        results.push({ invoiceId: inv._id.toString(), invoiceNumber: inv.invoiceNumber, status: filing.status });
+        continue;
+      }
+
+      const submitted = await submitFiling(filing._id.toString());
+      results.push({
+        invoiceId: inv._id.toString(),
+        invoiceNumber: inv.invoiceNumber,
+        status: submitted.status,
+        errorMessage: submitted.rejectionReason,
+      });
+    } catch (err) {
+      results.push({
+        invoiceId: inv._id.toString(),
+        invoiceNumber: inv.invoiceNumber,
+        status: "FAILED",
+        errorMessage: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }
+
+  return results;
 }
 
 /**

@@ -14,9 +14,9 @@
  * other module, not a special case.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Download, Loader2, PhoneCall, ClipboardList, Receipt, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, PhoneCall, ClipboardList, Receipt, ShieldCheck, Send, Archive } from 'lucide-react'
 
 function toCSV(rows: Record<string, any>[]): string {
   if (rows.length === 0) return ''
@@ -89,6 +89,78 @@ function ReportCard({ icon: Icon, title, description, onDownload }: ReportCardPr
 export default function ReportsPage() {
   const router = useRouter()
 
+  const today = new Date().toISOString().slice(0, 10)
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+  const [from, setFrom] = useState(firstOfMonth)
+  const [to, setTo] = useState(today)
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [pushing, setPushing] = useState(false)
+  const [zipping, setZipping] = useState(false)
+  const [invoiceMsg, setInvoiceMsg] = useState<string | null>(null)
+  const [invoiceErr, setInvoiceErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          const found = d.businesses?.find((b: any) => b._id === d.user?.activeBusinessId) || d.businesses?.[0]
+          if (found) setBusinessId(found._id)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  async function pushToGst() {
+    setPushing(true)
+    setInvoiceMsg(null)
+    setInvoiceErr(null)
+    try {
+      const period = from.slice(0, 7).split('-').reverse().join('-') // "MM-YYYY"
+      const res = await fetch('/api/gst/push-range', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ businessId, from, to, returnType: 'GSTR1', period }),
+      })
+      const d = await res.json()
+      if (d.success) {
+        setInvoiceMsg(`Pushed ${d.summary.submitted}/${d.summary.total} invoices to GST (${d.summary.failed} failed — see GST page for details).`)
+      } else {
+        setInvoiceErr(d.error || 'Push failed')
+      }
+    } catch (err: any) {
+      setInvoiceErr(err.message || 'Push failed')
+    }
+    setPushing(false)
+  }
+
+  async function downloadZip() {
+    setZipping(true)
+    setInvoiceMsg(null)
+    setInvoiceErr(null)
+    try {
+      const qs = new URLSearchParams({ from, to, ...(businessId ? { businessId } : {}) })
+      const res = await fetch(`/api/reports/invoices-zip?${qs.toString()}`, { credentials: 'include' })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        throw new Error(d.error || 'Failed to generate ZIP')
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoices_${from}_to_${to}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      setInvoiceErr(err.message || 'Failed to generate ZIP')
+    }
+    setZipping(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-6xl mx-auto px-6 py-10">
@@ -100,6 +172,45 @@ export default function ReportsPage() {
             <h1 className="text-2xl font-semibold">Reports & Downloads</h1>
             <p className="text-sm text-gray-400">Export data across CRM, sales, and system activity</p>
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-8">
+          <h2 className="font-semibold text-gray-900 mb-1">Invoices — Push to GST or Download</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Pick a date range. If you use our GST integration, push every invoice in that range straight to your
+            configured GSP. Not set up yet (or don't want to use it)? Download every invoice in the range as a
+            single ZIP instead.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="text-xs text-gray-500">From</label>
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+                className="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">To</label>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+                className="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <button
+              onClick={pushToGst}
+              disabled={pushing || !businessId}
+              className="flex items-center gap-2 rounded-lg bg-gray-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {pushing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Push to GST
+            </button>
+            <button
+              onClick={downloadZip}
+              disabled={zipping}
+              className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {zipping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+              Download All Invoices (ZIP)
+            </button>
+          </div>
+          {invoiceMsg && <p className="mt-3 text-sm text-emerald-600">{invoiceMsg}</p>}
+          {invoiceErr && <p className="mt-3 text-sm text-red-600">{invoiceErr}</p>}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
