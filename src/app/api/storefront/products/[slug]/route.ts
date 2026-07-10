@@ -3,11 +3,15 @@ import { connectDB } from "@/lib/mongodb";
 import NativeProduct from "@/models/NativeProduct";
 
 /**
- * GET /api/products/[slug] — PUBLIC, unauthenticated single-product page.
- * Genuinely new route (didn't exist before -- only the auth-gated list at
- * api/products/route.ts did). Scoped to businessId via query param so a
- * storefront tenant only ever sees its own products; only public-safe
- * fields are returned, matching api/storefront/products/route.ts's shape.
+ * GET /api/storefront/products/[slug] — PUBLIC, unauthenticated
+ * single-product page. Scoped to businessId via query param so a storefront
+ * tenant only ever sees its own products; only public-safe fields are
+ * returned, matching api/storefront/products/route.ts's shape.
+ *
+ * Moved here from /api/products/[slug] — Next.js disallows sibling dynamic
+ * segments with different names under one route (/api/products/[id] vs
+ * /api/products/[slug]), which broke the build. This route is public/
+ * storefront-facing, so it belongs under /api/storefront/products.
  */
 export async function GET(req: NextRequest, context: { params: Promise<{ slug: string }> }) {
   try {

@@ -16,6 +16,11 @@ import {
   X,
 } from 'lucide-react'
 
+interface CategoryOption {
+  _id: string
+  name: string
+}
+
 interface Product {
   _id: string
   name: string
@@ -82,6 +87,46 @@ export default function ProductsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
+  const [showAddCategory, setShowAddCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
+
+  const fetchCategoryOptions = useCallback(async (bId: string) => {
+    try {
+      const res = await fetch(`/api/product-categories?businessId=${bId}`)
+      const d = await res.json()
+      if (d.success) setCategoryOptions(d.categories || [])
+    } catch {
+      // non-fatal — form falls back to an empty dropdown
+    }
+  }, [])
+
+  async function handleAddCategory() {
+    if (!businessId || !newCategoryName.trim()) return
+    setAddingCategory(true)
+    try {
+      const res = await fetch('/api/product-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCategoryName.trim(), businessId }),
+      })
+      const d = await res.json()
+      if (res.ok && d.success) {
+        await fetchCategoryOptions(businessId)
+        setForm((f) => ({ ...f, category: d.category.name }))
+        setNewCategoryName('')
+        setShowAddCategory(false)
+      } else {
+        setFormError(d.error || 'Failed to create category')
+      }
+    } catch {
+      setFormError('Failed to connect')
+    } finally {
+      setAddingCategory(false)
+    }
+  }
+
   const fetchProducts = useCallback(async (bId: string) => {
     setLoading(true)
     setError(null)
@@ -121,6 +166,7 @@ export default function ProductsPage() {
         setBusinessId(bId || null)
         if (bId) {
           fetchProducts(bId)
+          fetchCategoryOptions(bId)
         } else {
           setLoading(false)
           setError('No active business selected')
@@ -130,7 +176,7 @@ export default function ProductsPage() {
         setLoading(false)
         setError('Failed to connect')
       })
-  }, [fetchProducts])
+  }, [fetchProducts, fetchCategoryOptions])
 
   const categories = ['ALL', ...Array.from(new Set(products.map((p) => p.category ?? '').filter(Boolean)))]
 
@@ -446,11 +492,53 @@ export default function ProductsPage() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Category</label>
-                  <input
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
-                  />
+                  {!showAddCategory ? (
+                    <div className="mt-1 flex gap-2">
+                      <select
+                        value={form.category}
+                        onChange={(e) => setForm({ ...form, category: e.target.value })}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                      >
+                        <option value="">— Select category —</option>
+                        {categoryOptions.map((c) => (
+                          <option key={c._id} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCategory(true)}
+                        className="shrink-0 px-3 py-2 rounded-lg border border-gray-200 text-xs font-medium hover:bg-gray-50 transition"
+                        title="Add new category"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        autoFocus
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="New category name"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCategory}
+                        disabled={addingCategory || !newCategoryName.trim()}
+                        className="shrink-0 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 transition disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddCategory(false); setNewCategoryName('') }}
+                        className="shrink-0 px-3 py-2 rounded-lg border border-gray-200 text-xs font-medium hover:bg-gray-50 transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <label className="text-xs font-medium text-gray-500">Description</label>

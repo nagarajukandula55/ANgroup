@@ -3,9 +3,17 @@ import { connectDB } from "@/lib/mongodb";
 import NativeProduct from "@/models/NativeProduct";
 
 /**
- * GET /api/products/[slug]/related — PUBLIC. Same-category products,
- * excluding the product itself, for the storefront's product-page
- * "related products" rail. New route -- didn't exist before.
+ * GET /api/storefront/products/[slug]/related — PUBLIC. Same-category
+ * products, excluding the product itself, for the storefront's product-page
+ * "related products" rail.
+ *
+ * Moved here from /api/products/[slug]/related — Next.js does not allow two
+ * sibling dynamic segments with different names under the same route
+ * (/api/products/[id] vs /api/products/[slug]), which made the whole app
+ * fail to build. This route and its sibling ../route.ts are public/
+ * storefront-facing anyway, so they belong under /api/storefront/products
+ * next to the other public product route, not under the admin-authenticated
+ * /api/products tree.
  */
 export async function GET(req: NextRequest, context: { params: Promise<{ slug: string }> }) {
   try {

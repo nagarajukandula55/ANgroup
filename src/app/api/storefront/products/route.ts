@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import NativeProduct from "@/models/NativeProduct";
+import ProductCategory from "@/models/ProductCategory";
 
 /**
  * GET /api/storefront/products — PUBLIC, unauthenticated storefront
@@ -30,8 +32,21 @@ export async function GET(req: NextRequest) {
       isDeleted: { $ne: true },
     };
 
+    // `category` may be either the ProductCategory _id returned by
+    // GET /api/categories (the stable reference the storefront's
+    // `?category=<id>` filter is built around) or, for backward
+    // compatibility, a raw category name string. NativeProduct.category
+    // itself only stores the name (it's a plain string field, not a ref),
+    // so an id needs resolving back to the name it matches.
     const category = searchParams.get("category");
-    if (category) filter.category = category;
+    if (category) {
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        const cat = await ProductCategory.findOne({ _id: category, businessId }).lean();
+        filter.category = cat ? cat.name : "__no_match__";
+      } else {
+        filter.category = category;
+      }
+    }
 
     const search = searchParams.get("search");
     if (search) {
@@ -68,7 +83,8 @@ export async function GET(req: NextRequest) {
         inStock: (p.stock || 0) > 0,
         sku: p.sku || "",
         // SEO — so the storefront can render <title>/meta description and
-        // structured data without a second round-trip to /api/products/[slug].
+        // structured data without a second round-trip to
+        // /api/storefront/products/[slug].
         metaTitle: p.metaTitle || p.name,
         metaDescription: p.metaDescription || p.description || "",
         keywords: p.keywords || [],
