@@ -2,23 +2,25 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
-import { LogOut } from 'lucide-react'
 
 /**
  * SessionGuard — mounted once in the root layout, applies to every page.
  *
- * 1. Inactivity auto-logout: if the user does not click, type, scroll, move
- *    the mouse, or touch the screen for INACTIVITY_LIMIT_MS, the session is
- *    logged out automatically and the user is redirected to /login with a
- *    reason so the login page can explain why they landed there.
- * 2. Always-available logout: a small floating logout button rendered on
- *    every authenticated page, so a working "sign out" control exists even
- *    on pages that don't render the main Sidebar (e.g. some top-level
- *    report/detail pages that predate the shared navigation).
+ * Inactivity auto-logout: if the user does not click, type, scroll, move
+ * the mouse, or touch the screen for INACTIVITY_LIMIT_MS, the session is
+ * logged out automatically and the user is redirected to /login with a
+ * reason so the login page can explain why they landed there.
  *
- * Both behaviours are skipped on pre-auth / public routes (login, register,
- * the public vendor-application form, the public storefront, and public
- * token-shared invoice links) since there is no session to guard there.
+ * Previously this component ALSO rendered a fixed bottom-right floating
+ * "Logout" button on every authenticated page. That duplicated the real
+ * sign-out control already in Sidebar's footer and — per a live report —
+ * sat fixed at bottom-right with z-[60], overlapping/interrupting other
+ * bottom-right UI (e.g. dialogs, action bars, chat widgets). Removed here;
+ * Sidebar's own footer logout button is the one and only sign-out control.
+ *
+ * Skipped on pre-auth / public routes (login, register, the public
+ * vendor-application form, the public storefront, and public token-shared
+ * invoice links) since there is no session to guard there.
  */
 
 const INACTIVITY_LIMIT_MS = 60 * 60 * 1000 // 1 hour
@@ -89,16 +91,5 @@ export default function SessionGuard() {
     }
   }, [excluded, logout])
 
-  if (excluded) return null
-
-  return (
-    <button
-      onClick={() => logout()}
-      title="Sign out"
-      className="fixed bottom-4 right-4 z-[60] flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 shadow-md hover:bg-gray-50 hover:text-gray-900 transition-all"
-    >
-      <LogOut size={13} />
-      Logout
-    </button>
-  )
+  return null
 }

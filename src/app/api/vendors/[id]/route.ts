@@ -6,6 +6,18 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
+
+// Maps each facility toggle to the document type used to generate its
+// facility ID, and the VendorProfile field that stores the generated ID.
+const FACILITY_ID_MAP: Record<
+  string,
+  { documentType: "STORE_FRONT" | "SERVICE_CENTER" | "WAREHOUSE"; idField: string }
+> = {
+  enableStoreFront:    { documentType: "STORE_FRONT",    idField: "storeFrontId" },
+  enableServiceCenter: { documentType: "SERVICE_CENTER", idField: "serviceCenterId" },
+  enableWarehouse:     { documentType: "WAREHOUSE",       idField: "warehouseFacilityId" },
+};
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -54,6 +66,23 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
     const body = await req.json();
+
+    const existing = await VendorProfile.findById(id);
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Vendor not found" }, { status: 404 });
+    }
+
+    // For every facility toggle flipping false -> true in this update,
+    // generate a real facility ID exactly once via the canonical numbering
+    // engine, and never regenerate it if already set.
+    for (const [toggleKey, { documentType, idField }] of Object.entries(FACILITY_ID_MAP)) {
+      const turningOn = body[toggleKey] === true && !(existing as any)[toggleKey];
+      const alreadyHasId = !!(existing as any)[idField];
+      if (turningOn && !alreadyHasId && existing.businessId) {
+        const { value } = await generateDocumentNumber(String(existing.businessId), documentType);
+        body[idField] = value;
+      }
+    }
 
     const vendor = await VendorProfile.findByIdAndUpdate(id, body, { new: true });
     if (!vendor) {

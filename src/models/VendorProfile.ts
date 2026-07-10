@@ -144,6 +144,17 @@ export interface IVendorProfile extends Document {
   enableServiceCenter?: boolean;
   enableWarehouse?:     boolean;
   /**
+   * Facility/location IDs, generated exactly once via the canonical
+   * numbering engine (generateDocumentNumber with document types
+   * STORE_FRONT/SERVICE_CENTER/WAREHOUSE) the first time the corresponding
+   * enable* toggle above flips from false to true — see
+   * PUT /api/vendors/[id]. Never regenerated once set, even if the toggle
+   * is later switched off and back on.
+   */
+  storeFrontId?:        string;
+  serviceCenterId?:     string;
+  warehouseFacilityId?: string;
+  /**
    * Pincodes this vendor covers for on-site/service-center visits. Used by
    * the public appointment-request flow (POST /api/appointment-requests)
    * to route an incoming CrmCall to a matching vendor within the same
@@ -219,6 +230,9 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     enableStoreFront:    { type: Boolean, default: false },
     enableServiceCenter: { type: Boolean, default: false },
     enableWarehouse:     { type: Boolean, default: false },
+    storeFrontId:        { type: String, default: null },
+    serviceCenterId:     { type: String, default: null },
+    warehouseFacilityId: { type: String, default: null },
     servicePincodes:     { type: [String], default: [] },
   },
   { timestamps: true }

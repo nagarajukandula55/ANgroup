@@ -58,7 +58,6 @@ const ORPHANED_MODULES: Array<{
   { key: "masters-brands", label: "Brand", pluralLabel: "Brands", description: "Product brand master list.", icon: "Tags", route: "/admin/masters/brands", sortOrder: 61 },
   { key: "masters-prod-cat", label: "Product Category", pluralLabel: "Product Categories", description: "Category tree for products.", icon: "Layers", route: "/admin/masters/product-categories", sortOrder: 62 },
   { key: "masters-mat-cat", label: "Material Category", pluralLabel: "Material Categories", description: "Category tree for raw materials.", icon: "Layers", route: "/admin/masters/material-categories", sortOrder: 63 },
-  { key: "masters-vendors", label: "Vendor Directory Entry", pluralLabel: "Vendor Directory", description: "Master vendor directory (distinct from vendor-portal onboarding).", icon: "Truck", route: "/admin/masters/vendors", sortOrder: 64 },
 
   { key: "stock-transfers", label: "Stock Transfer", pluralLabel: "Stock Transfers", description: "Move stock between warehouses.", icon: "ArrowLeftRight", route: "/admin/stock-transfers", sortOrder: 70 },
   { key: "stock-adjustments", label: "Stock Adjustment", pluralLabel: "Stock Adjustments", description: "Manual stock corrections with reason codes.", icon: "SlidersHorizontal", route: "/admin/stock-adjustments", sortOrder: 71 },

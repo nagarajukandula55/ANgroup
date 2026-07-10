@@ -98,6 +98,10 @@ export const DOCUMENT_TYPES = [
   // atomically and admin-configurable like every other document type here.
   "WAREHOUSE",
   "SERVICE_CENTER",
+  // Store Front facility codes — same pattern as WAREHOUSE/SERVICE_CENTER
+  // above, generated when a vendor's enableStoreFront toggle is switched on
+  // (see VendorProfile.storeFrontId / /api/vendors/[id]'s PUT handler).
+  "STORE_FRONT",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -138,6 +142,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   JOB_SHEET: "JOB",
   WAREHOUSE: "WH",
   SERVICE_CENTER: "SC",
+  STORE_FRONT: "SF",
 };
 
 export interface GeneratedNumber {

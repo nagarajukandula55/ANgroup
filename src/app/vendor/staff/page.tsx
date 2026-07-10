@@ -14,6 +14,11 @@
 
 import { useEffect, useState } from "react";
 import { Users, Plus, Loader2, Trash2, X } from "lucide-react";
+import {
+  VENDOR_STAFF_MEMBER_TYPES as MEMBER_TYPES,
+  STORE_FRONT_MEMBER_TYPES,
+  WAREHOUSE_MEMBER_TYPES,
+} from "@/core/constants/businessMemberTypes";
 
 interface StaffRow {
   _id: string;
@@ -23,28 +28,13 @@ interface StaffRow {
   userId?: { _id: string; name?: string; email?: string; username?: string } | string;
 }
 
-const MEMBER_TYPES = [
-  { value: "VENDOR_WAREHOUSE", label: "Warehouse Staff" },
-  { value: "VENDOR_HELPER", label: "General Helper" },
-  { value: "VENDOR_PACKER", label: "Packer" },
-  { value: "VENDOR_DELIVERY", label: "Delivery" },
-  { value: "VENDOR_LOGISTICS", label: "Logistics" },
-];
-
-// Store Front/Service Center roles vs. Warehouse roles — only shown once
-// the vendor has the corresponding facility enabled on their profile
-// (see VendorProfile.enableStoreFront/enableServiceCenter/enableWarehouse,
-// toggled by an admin on the vendor's profile).
-const STORE_FRONT_MEMBER_TYPES = [
-  { value: "CCO", label: "CCO" },
-  { value: "ENGINEER", label: "Engineer" },
-  { value: "CENTRE_MANAGER", label: "Centre Manager" },
-];
-const WAREHOUSE_MEMBER_TYPES = [
-  { value: "HELPER", label: "Helper" },
-  { value: "PACKER", label: "Packer" },
-  { value: "SCM", label: "SCM" },
-];
+// Base list, plus Store Front/Service Center vs. Warehouse roles — only
+// shown once the vendor has the corresponding facility enabled on their
+// profile (see VendorProfile.enableStoreFront/enableServiceCenter/
+// enableWarehouse, toggled by an admin on the vendor's profile). All three
+// lists are drawn from core/constants/businessMemberTypes.ts, the same
+// source models/BusinessMember.ts's schema enum uses — never a hand-typed
+// duplicate list here.
 
 function staffLabel(u: StaffRow["userId"]): string {
   if (!u) return "—";

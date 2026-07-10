@@ -88,9 +88,6 @@ export const NAV_GROUPS: NavGroup[] = [
   { label: "Business", items: [
     { key: "businesses", label: "Businesses",   route: "/admin/business",   icon: "Building2" },
     { key: "vendors",    label: "Vendors",      route: "/admin/vendors",    icon: "Truck" },
-    // Full working masters-style vendor directory (distinct from Vendors
-    // above, which is the vendor-portal-facing list) — also unwired.
-    { key: "masters-vendors", label: "Vendor Directory", route: "/admin/masters/vendors", icon: "Truck" },
   ]},
   { label: "People", subgroups: [
     { key: "ppl-hr", label: "Human Resources", items: [

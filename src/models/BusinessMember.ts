@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
+import { BUSINESS_MEMBER_TYPES } from '@/core/constants/businessMemberTypes';
 
 /* ── Runtime const object (used as BusinessMemberStatus.ACTIVE etc.) ── */
 export const BusinessMemberStatus = {
@@ -11,16 +12,10 @@ export const BusinessMemberStatus = {
 /* ── Types ────────────────────────────────────────────────────────────── */
 export type BusinessMemberStatus = typeof BusinessMemberStatus[keyof typeof BusinessMemberStatus];
 
-export type BusinessMemberType =
-  | 'OWNER' | 'ADMIN' | 'MANAGER' | 'STAFF' | 'EMPLOYEE'
-  | 'VENDOR' | 'VENDOR_WAREHOUSE' | 'VENDOR_HELPER'
-  | 'VENDOR_PACKER' | 'VENDOR_DELIVERY' | 'VENDOR_LOGISTICS'
-  | 'CUSTOMER'
-  /* Store Front / Service Center staff roles (vendor.enableStoreFront or
-     vendor.enableServiceCenter) */
-  | 'CCO' | 'ENGINEER' | 'CENTRE_MANAGER'
-  /* Warehouse staff roles (vendor.enableWarehouse) */
-  | 'HELPER' | 'PACKER' | 'SCM';
+// Canonical list lives in core/constants/businessMemberTypes.ts (plain data,
+// safe to also import from client components like vendor/staff/page.tsx)
+// so the dropdown there can never drift from this schema's enum again.
+export type BusinessMemberType = (typeof BUSINESS_MEMBER_TYPES)[number];
 
 /* Keep old alias names for any files that still use them */
 export type MemberStatus = BusinessMemberStatus;
@@ -72,11 +67,7 @@ const BusinessMemberSchema = new Schema<IBusinessMember>(
     },
     memberType: {
       type:    String,
-      enum:    ['OWNER','ADMIN','MANAGER','STAFF','EMPLOYEE','VENDOR',
-                'VENDOR_WAREHOUSE','VENDOR_HELPER','VENDOR_PACKER',
-                'VENDOR_DELIVERY','VENDOR_LOGISTICS','CUSTOMER',
-                'CCO','ENGINEER','CENTRE_MANAGER',
-                'HELPER','PACKER','SCM'],
+      enum:    BUSINESS_MEMBER_TYPES,
       default: 'STAFF',
     },
     role:               { type: String,  default: null },

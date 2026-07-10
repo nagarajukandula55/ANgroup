@@ -34,7 +34,10 @@ type DocumentType =
   | "VENDOR"
   | "EMPLOYEE"
   | "BUSINESS"
-  | "VENDOR_REQUEST";
+  | "VENDOR_REQUEST"
+  | "STORE_FRONT"
+  | "SERVICE_CENTER"
+  | "WAREHOUSE";
 
 interface DocumentConfig {
   documentType: DocumentType;
@@ -88,6 +91,9 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   EMPLOYEE: "Employee ID",
   BUSINESS: "Business Code",
   VENDOR_REQUEST: "Vendor Request Number",
+  STORE_FRONT: "Store Front ID",
+  SERVICE_CENTER: "Service Center ID",
+  WAREHOUSE: "Warehouse ID",
 };
 
 const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
@@ -325,6 +331,36 @@ const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
     suffix: "",
     startFrom: 1,
   },
+  STORE_FRONT: {
+    documentType: "STORE_FRONT",
+    prefix: "SF",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  SERVICE_CENTER: {
+    documentType: "SERVICE_CENTER",
+    prefix: "SC",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  WAREHOUSE: {
+    documentType: "WAREHOUSE",
+    prefix: "WH",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
 };
 
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -351,6 +387,9 @@ const DOCUMENT_TYPES: DocumentType[] = [
   "EMPLOYEE",
   "BUSINESS",
   "VENDOR_REQUEST",
+  "STORE_FRONT",
+  "SERVICE_CENTER",
+  "WAREHOUSE",
 ];
 
 // ─── Preview Builder ──────────────────────────────────────────────────────────
