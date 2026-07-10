@@ -303,7 +303,7 @@ export default function SalesPage() {
             <p className="text-sm text-gray-500">Invoices, orders & GST records</p>
           </div>
           <button onClick={() => setShowForm(true)}
-            className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition">
+            className="ml-auto flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-indigo-700 transition">
             <Plus size={15} /> New Invoice
           </button>
         </div>
@@ -360,7 +360,7 @@ export default function SalesPage() {
               {STATUSES.map(s => (
                 <button key={s} onClick={() => setStatus(s)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                    statusFilter === s ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
+                    statusFilter === s ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
                   }`}>{s}</button>
               ))}
             </div>
@@ -369,8 +369,8 @@ export default function SalesPage() {
 
         {/* Invoices Table */}
         {tab === 'invoices' && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Invoice #</th>
@@ -451,11 +451,10 @@ export default function SalesPage() {
         )}
       </div>
 
-      {/* ── New Invoice Slide-over ── */}
+      {/* ── Create / Edit Modal: New Invoice ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => { setShowForm(false); resetForm() }} />
-          <div className="w-full max-w-2xl bg-white border-l border-gray-200 flex flex-col overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[90vh] bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
                 <h2 className="font-semibold text-gray-900">New Invoice</h2>
@@ -491,7 +490,7 @@ export default function SalesPage() {
                         }}
                         className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${
                           invoiceType === t
-                            ? 'bg-gray-900 text-white border-gray-900'
+                            ? 'bg-indigo-600 text-white border-indigo-600'
                             : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                         }`}>
                         {t === 'GST' ? 'GST Invoice' : 'Non-GST Invoice'}
@@ -508,7 +507,7 @@ export default function SalesPage() {
                       {(['INTRASTATE', 'INTERSTATE'] as const).map(t => (
                         <button key={t} type="button" onClick={() => setSupplyType(t)}
                           className={`flex-1 py-2 rounded-lg text-sm font-medium border transition ${
-                            supplyType === t ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                            supplyType === t ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                           }`}>
                           {t === 'INTRASTATE' ? 'Intrastate (CGST + SGST)' : 'Interstate (IGST)'}
                         </button>
@@ -742,7 +741,7 @@ export default function SalesPage() {
                 Cancel
               </button>
               <button onClick={handleSubmit} disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2">
                 {submitting && <Loader2 size={14} className="animate-spin" />}
                 Create Invoice
               </button>

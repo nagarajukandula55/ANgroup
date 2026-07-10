@@ -222,11 +222,10 @@ export default function PurchasePage() {
         </div>
       </div>
 
-      {/* Slide-over: New PO */}
+      {/* Create / Edit Modal: New Purchase Order */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="w-full max-w-lg bg-gray-50 border-l border-gray-200 flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg max-h-[90vh] bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
               <h2 className="font-semibold text-gray-900">New Purchase Order</h2>
               <button
@@ -349,7 +348,7 @@ export default function PurchasePage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-gray-900 text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Create PO
