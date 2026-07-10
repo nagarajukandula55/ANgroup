@@ -22,6 +22,17 @@ import { validateGSTINAgainstState } from "@/lib/validation/gst";
 // section below).
 import { STATIC_MODULES } from "@/components/sidebar";
 
+interface AuditLogEntry {
+  _id: string;
+  action: string;
+  entity: string;
+  entityId?: string | null;
+  userEmail?: string;
+  userName?: string;
+  isSuperAdmin?: boolean;
+  createdAt: string;
+}
+
 interface Business {
   _id: string;
   name: string;
@@ -170,9 +181,22 @@ export default function BusinessDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+
   useEffect(() => {
     if (id) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setLogsLoading(true);
+    fetch(`/api/audit/logs?businessId=${id}`)
+      .then((r) => r.json())
+      .then((d) => setLogs(d.success ? d.data : []))
+      .catch(() => setLogs([]))
+      .finally(() => setLogsLoading(false));
   }, [id]);
 
   async function load() {
@@ -671,6 +695,49 @@ export default function BusinessDetailPage() {
               </label>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-bold text-lg">Activity Log</h2>
+          <p className="text-xs text-white/50">
+            Recent actions taken on this business's data (creates, edits,
+            deletes) across the app — most recent first, last 200 entries.
+          </p>
+          {logsLoading ? (
+            <p className="text-sm text-white/50">Loading…</p>
+          ) : logs.length === 0 ? (
+            <p className="text-sm text-white/50">No activity recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-white/50 border-b border-white/10">
+                  <tr>
+                    <th className="py-2 pr-4">When</th>
+                    <th className="py-2 pr-4">Action</th>
+                    <th className="py-2 pr-4">Entity</th>
+                    <th className="py-2 pr-4">By</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {logs.map((log) => (
+                    <tr key={log._id}>
+                      <td className="py-2 pr-4 whitespace-nowrap text-white/70">
+                        {new Date(log.createdAt).toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2 pr-4 text-white/80">{log.action}</td>
+                      <td className="py-2 pr-4 text-white/70">
+                        {log.entity}
+                        {log.entityId ? ` (${log.entityId.slice(-6)})` : ""}
+                      </td>
+                      <td className="py-2 pr-4 text-white/70">
+                        {log.userEmail || log.userName || (log.isSuperAdmin ? "Super Admin" : "—")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
 

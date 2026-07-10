@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getEnrichedSession();
 
-    if (!session?.user || !session.business) {
+    if (!session?.user) {
       return NextResponse.json(
-        { error: "Unauthorized or missing business context" },
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
@@ -26,10 +26,32 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get("userId");
     const entity = searchParams.get("entity");
     const entityId = searchParams.get("entityId");
+    // A super admin viewing a specific business's activity log (e.g. from
+    // the Businesses page) needs logs for THAT business, not their own --
+    // they have none. Only a super admin may pass an explicit businessId;
+    // everyone else is confined to their own active business's logs.
+    const requestedBusinessId = searchParams.get("businessId");
 
-    const businessId = new Types.ObjectId(
-      session.business.businessId
-    );
+    if (!session.isSuperAdmin && !session.business) {
+      return NextResponse.json(
+        { error: "Unauthorized or missing business context" },
+        { status: 401 }
+      );
+    }
+
+    const targetBusinessId =
+      session.isSuperAdmin && requestedBusinessId
+        ? requestedBusinessId
+        : session.business?.businessId;
+
+    if (!targetBusinessId) {
+      return NextResponse.json(
+        { error: "Unauthorized or missing business context" },
+        { status: 401 }
+      );
+    }
+
+    const businessId = new Types.ObjectId(targetBusinessId);
 
     const query: any = { businessId };
 
