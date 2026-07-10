@@ -162,7 +162,13 @@ export default function ProductsPage() {
             <p className="text-sm text-gray-500">Product catalog — browse the live catalog</p>
           </div>
           <button
-            onClick={() => router.push('/vendor/products/new')}
+            onClick={() =>
+              router.push(
+                businessId
+                  ? `/vendor/products/new?businessId=${businessId}`
+                  : '/vendor/products/new'
+              )
+            }
             className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
             title="Products are created through the vendor product wizard — the single product upload source"
           >
