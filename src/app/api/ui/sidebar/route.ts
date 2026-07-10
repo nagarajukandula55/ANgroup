@@ -50,11 +50,26 @@ export async function POST(req: Request) {
     }
 
     const modules = await listModulesForBusiness(businessId);
-    const visibleModules = filterModulesByPermission(
+    let visibleModules = filterModulesByPermission(
       modules,
       session.permissions,
       session.isSuperAdmin
     );
+
+    // Per-business module-access config (Business.ts's `modules` field,
+    // editable from admin/business/[id]'s "Modules" section) — a second,
+    // independent gate on top of the permission-based ModuleDefinition
+    // filter above. Super admins always see everything, matching the rest
+    // of this route's super-admin bypass behavior. An empty/unconfigured
+    // `business.modules` list means "no restriction yet" (safe default) so
+    // businesses that have never touched this setting aren't broken.
+    const businessModules = Array.isArray(business?.modules) ? business.modules : [];
+    if (!session.isSuperAdmin && businessModules.length > 0) {
+      const enabledKeys = new Set(
+        businessModules.filter((m: any) => m?.enabled !== false).map((m: any) => m?.key)
+      );
+      visibleModules = visibleModules.filter((m: any) => enabledKeys.has(m.key));
+    }
 
     if (visibleModules.length === 0 && !session.isSuperAdmin) {
       // No visible modules at all — treat the same as the old "access

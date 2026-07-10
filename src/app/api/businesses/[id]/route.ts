@@ -52,8 +52,9 @@ export async function GET(req: Request, context: any) {
 // did). Deliberately allow-lists which fields can be edited here (name/
 // legalName/brandName/financial/compliance) rather than accepting an
 // arbitrary partial Business document, so this can't be used to smuggle in
-// changes to modules[]/accessCatalog/isActive or other fields that have
-// their own dedicated, more carefully-guarded flows elsewhere.
+// changes to accessCatalog/isActive or other fields that have their own
+// dedicated, more carefully-guarded flows elsewhere. "modules" is
+// deliberately included below — see the requirement noted next to it.
 const EDITABLE_FIELDS = [
   "name",
   "legalName",
@@ -78,6 +79,9 @@ const EDITABLE_FIELDS = [
   // InvoicingRulesSchema comment. Editable here so the Settings UI can
   // actually save it.
   "invoicingRules",
+  // Per-business module-access config — which app modules/sections are
+  // enabled for this business. See models/Business.ts's ModuleSchema.
+  "modules",
 ] as const;
 
 export async function PATCH(req: Request, context: any) {

@@ -16,6 +16,11 @@ import Link from "next/link";
 import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+// Canonical list of every real app module/section, sourced from the same
+// NAV_GROUPS the sidebar renders from — this is the checklist an admin
+// toggles per business (see Business.ts's ModuleSchema + the "Modules"
+// section below).
+import { STATIC_MODULES } from "@/components/sidebar";
 
 interface Business {
   _id: string;
@@ -50,6 +55,15 @@ interface Business {
     priceIncludesTax?: boolean;
   };
   gstStateCode?: string;
+  modules?: ModuleToggle[];
+}
+
+interface ModuleToggle {
+  key: string;
+  label: string;
+  route: string;
+  icon: string;
+  enabled: boolean;
 }
 
 type EditableForm = {
@@ -80,7 +94,33 @@ type EditableForm = {
     decimalPlaces: number;
     priceIncludesTax: boolean;
   };
+  modules: ModuleToggle[];
 };
+
+// Build the full module-toggle list for this business: every canonical
+// module key from the sidebar, merged with whatever this business already
+// has saved so per-module enabled state is preserved. If the business has
+// never had modules configured (empty array), default every module to
+// enabled — see the read-side note in api/ui/sidebar/route.ts for why an
+// empty list must mean "everything on," not "everything off."
+function buildModulesForm(biz: Business): ModuleToggle[] {
+  const saved = new Map(
+    (Array.isArray(biz.modules) ? biz.modules : []).map((m) => [m.key, m])
+  );
+  return STATIC_MODULES.map((m) => {
+    const existing = saved.get(m.key);
+    return {
+      key: m.key,
+      label: m.label,
+      route: m.route,
+      icon: m.icon,
+      // Any module not explicitly toggled off defaults to enabled — covers
+      // both "never configured at all" and "configured, but this module key
+      // didn't exist yet at save time."
+      enabled: existing ? existing.enabled !== false : true,
+    };
+  });
+}
 
 function toForm(biz: Business): EditableForm {
   return {
@@ -114,6 +154,7 @@ function toForm(biz: Business): EditableForm {
           : 2,
       priceIncludesTax: !!biz.financial?.priceIncludesTax,
     },
+    modules: buildModulesForm(biz),
   };
 }
 
@@ -599,6 +640,37 @@ export default function BusinessDetailPage() {
             />
             Prices include tax
           </label>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-bold text-lg">Modules</h2>
+          <p className="text-xs text-white/50">
+            Choose which application modules are available to this business.
+            Unchecked modules are hidden from this business's sidebar for
+            non-super-admin users.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {form.modules.map((mod) => (
+              <label
+                key={mod.key}
+                className="flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80"
+              >
+                <input
+                  type="checkbox"
+                  checked={mod.enabled}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      modules: form.modules.map((m) =>
+                        m.key === mod.key ? { ...m, enabled: e.target.checked } : m
+                      ),
+                    })
+                  }
+                />
+                {mod.label}
+              </label>
+            ))}
+          </div>
         </section>
       </div>
 

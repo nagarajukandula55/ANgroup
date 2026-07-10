@@ -43,7 +43,7 @@ interface NavGroup {
   subgroups?: NavSubGroup[];
 }
 
-const NAV_GROUPS: NavGroup[] = [
+export const NAV_GROUPS: NavGroup[] = [
   { label: "Overview", items: [
     { key: "dashboard",  label: "Dashboard",    route: "/admin",            icon: "LayoutDashboard" },
   ]},
@@ -175,7 +175,7 @@ const NAV_GROUPS: NavGroup[] = [
   ]},
 ];
 
-const STATIC_MODULES = NAV_GROUPS.flatMap((g) =>
+export const STATIC_MODULES = NAV_GROUPS.flatMap((g) =>
   g.items ? g.items : (g.subgroups ?? []).flatMap((sg) => sg.items)
 );
 
