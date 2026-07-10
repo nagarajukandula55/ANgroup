@@ -40,8 +40,49 @@ export default function PublicInvoiceView({ params }: { params: Promise<{ token:
     fetch(`/api/invoice/view/${token}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setInvoice(d.invoice);
-        else setError(d.error || "Invoice not found");
+        // The backing route (api/invoice/view/[invoiceNumber]/route.ts,
+        // which also serves this token-based lookup) returns invoice
+        // fields flat on the response object -- there is no `d.invoice`
+        // key, and its item/summary field names (name/qty/rate/gstPercent,
+        // summary.subtotal/cgst/sgst/igst/grandTotal) differ from this
+        // page's original `InvoiceItem`/`Invoice` shape. Reading `d.invoice`
+        // here always produced `undefined`, so this page showed "Invoice
+        // not found" for every share link ever generated. Map the actual
+        // response shape into what the rest of this component expects.
+        if (d.success) {
+          setInvoice({
+            _id: d.invoiceNumber,
+            invoiceNumber: d.invoiceNumber,
+            issueDate: d.invoiceDate,
+            status: d.payment?.status || "SENT",
+            customer: {
+              name: d.customer?.name,
+              email: d.customer?.email,
+              phone: d.customer?.phone,
+              address: d.customer?.address,
+              gstin: d.customer?.gstin,
+            },
+            items: (d.items || []).map((item: any) => ({
+              description: item.name,
+              quantity: item.qty,
+              unit: "",
+              unitPrice: item.rate,
+              taxRate: item.gstPercent,
+              taxAmount: (item.cgst || 0) + (item.sgst || 0) + (item.igst || 0),
+              total: item.total,
+            })),
+            subtotal: d.summary?.subtotal || 0,
+            taxTotal:
+              (d.summary?.cgst || 0) +
+              (d.summary?.sgst || 0) +
+              (d.summary?.igst || 0),
+            discountAmount: d.summary?.discount || 0,
+            grandTotal: d.summary?.grandTotal || 0,
+            currency: "INR",
+          });
+        } else {
+          setError(d.message || "Invoice not found");
+        }
       })
       .catch(() => setError("Failed to load invoice"))
       .finally(() => setLoading(false));

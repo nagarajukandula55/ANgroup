@@ -78,7 +78,7 @@ export default function VerifyInvoicePage() {
       <p>
         <b>Issued By:</b>
         {" "}
-        Native
+        {data.issuedBy}
       </p>
     </div>
   );

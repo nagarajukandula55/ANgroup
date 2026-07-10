@@ -147,18 +147,22 @@ export default function InvoicePage() {
         .toLocaleDateString("en-IN")}
     </div>
 
-    <div>
-      <b>Order Date:</b>
-      {" "}
-      {new Date(data?.orderDate)
-        .toLocaleDateString("en-IN")}
-    </div>
+    {data?.orderDate && (
+      <div>
+        <b>Order Date:</b>
+        {" "}
+        {new Date(data.orderDate)
+          .toLocaleDateString("en-IN")}
+      </div>
+    )}
 
-    <div>
-      <b>Order ID:</b>
-      {" "}
-      {safe(data?.orderId)}
-    </div>
+    {data?.orderId && (
+      <div>
+        <b>Order ID:</b>
+        {" "}
+        {safe(data?.orderId)}
+      </div>
+    )}
 
     <div>
       <b>Invoice Type:</b>
@@ -239,14 +243,6 @@ export default function InvoicePage() {
 
 <div className="productHeader">
   PRODUCT DETAILS
-  <span
-    style={{
-      float: "right",
-      fontWeight: 500,
-    }}
-  >
-    {safe(data?.something)}
-  </span>
 </div>
 
 <table className="table">

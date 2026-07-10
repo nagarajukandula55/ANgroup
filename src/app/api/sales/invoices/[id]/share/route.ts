@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
-import mongoose from "mongoose";
 import crypto from "crypto";
-
-const InvoiceSchema = new mongoose.Schema(
-  {
-    invoiceNumber: String, businessId: mongoose.Schema.Types.ObjectId,
-    createdBy: mongoose.Schema.Types.ObjectId,
-    customer: { name: String, email: String, phone: String, address: String, gstin: String },
-    items: [{ description: String, quantity: Number, unit: String, unitPrice: Number, taxRate: Number, taxAmount: Number, total: Number }],
-    subtotal: Number, taxTotal: Number, discountAmount: Number, grandTotal: Number,
-    currency: String, notes: String, terms: String, dueDate: Date, issueDate: Date,
-    status: { type: String, default: "DRAFT" },
-    shareToken: String, shareExpiry: Date,
-    paidAt: Date, paidAmount: Number, paymentMethod: String, paymentRef: String,
-  },
-  { timestamps: true }
-);
-
-const SalesInvoice = mongoose.models.SalesInvoice || mongoose.model("SalesInvoice", InvoiceSchema);
+// Was a second, inline `mongoose.Schema`/`mongoose.model("SalesInvoice", ...)`
+// defined right in this route file -- a duplicate of src/models/SalesInvoice.ts
+// with a materially different (older/flatter) shape missing invoiceType,
+// sourceOrderId, businessId's real type, and the GST-breakdown fields.
+// Because `mongoose.models.SalesInvoice || mongoose.model(...)` only
+// registers once per process, whichever module happened to import first
+// won the registration for the entire app; if this route's module loaded
+// before models/SalesInvoice.ts did, every other route reading
+// `mongoose.models.SalesInvoice` afterwards would silently get this
+// incomplete shape instead. Use the canonical model instead.
+import SalesInvoice from "@/models/SalesInvoice";
 
 /* ── POST — generate a public share link (72h) ───────────── */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {

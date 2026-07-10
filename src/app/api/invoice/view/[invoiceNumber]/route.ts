@@ -18,10 +18,30 @@ export async function GET(
 
     const { invoiceNumber } = await context.params;
 
+    // This same route also backs the public share-link viewer at
+    // /invoice/view/[token] (see api/sales/invoices/[id]/share/route.ts,
+    // which mints a shareToken and points users at /invoice/view/<token>).
+    // That token is a random hex string, not an invoiceNumber, so an
+    // invoiceNumber-only lookup here always 404'd for every share link ever
+    // generated -- the share feature was completely non-functional. Match
+    // on either field.
     const invoice =
       await SalesInvoice.findOne({
-        invoiceNumber,
+        $or: [{ invoiceNumber }, { shareToken: invoiceNumber }],
       });
+
+    if (
+      invoice &&
+      invoice.shareToken === invoiceNumber &&
+      invoice.invoiceNumber !== invoiceNumber &&
+      invoice.shareExpiry &&
+      invoice.shareExpiry.getTime() < Date.now()
+    ) {
+      return NextResponse.json(
+        { success: false, message: "This share link has expired" },
+        { status: 410 }
+      );
+    }
 
     // Was `invoice.customer?.state` read here BEFORE the `if (!invoice)`
     // null-check below — if the invoiceNumber didn't match any document,
@@ -83,8 +103,12 @@ export async function GET(
       invoiceDate:
         invoice.createdAt,
 
+      // No fallback to invoice.createdAt here on purpose: leaving this null
+      // when there's no linked Order (e.g. CRM-originated invoices) lets the
+      // page omit the "Order Date" row entirely instead of rendering
+      // `new Date("")` -> "Invalid Date" as if it were real data.
       orderDate:
-        order?.createdAt || "",
+        order?.createdAt || null,
 
       orderId:
         order?.orderId || "",
