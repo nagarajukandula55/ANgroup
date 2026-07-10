@@ -38,7 +38,7 @@ export interface ICrmJobSheet extends Document {
   businessId: Types.ObjectId;
   jobSheetNumber: string;
 
-  callId: Types.ObjectId; // originating CrmCall
+  callId?: Types.ObjectId; // originating CrmCall -- absent for a standalone/walk-in job sheet
   customerName: string;
   company?: string;
   phone: string;
@@ -100,7 +100,13 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
     jobSheetNumber: { type: String, required: true, index: true },
 
-    callId: { type: Schema.Types.ObjectId, ref: "CrmCall", required: true, index: true },
+    // Was `required: true` -- directly contradicted this route's own
+    // documented purpose ("create a STANDALONE job sheet, not tied to a
+    // call -- e.g. a direct walk-in service request", see
+    // api/crm/jobsheets/route.ts's top comment). Every walk-in/direct
+    // job sheet creation failed schema validation outright; only
+    // call-conversion (which does set callId) ever worked.
+    callId: { type: Schema.Types.ObjectId, ref: "CrmCall", index: true },
     customerName: { type: String, required: true, trim: true },
     company: { type: String, trim: true },
     phone: { type: String, required: true, trim: true },

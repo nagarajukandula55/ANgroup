@@ -16,7 +16,11 @@ import { connectDB } from "@/lib/mongodb";
 import CrmJobSheet from "@/models/CrmJobSheet";
 import CrmCall from "@/models/CrmCall";
 import SalesInvoice from "@/models/SalesInvoice";
+import Business from "@/models/Business";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { renderInvoiceForBusiness } from "@/core/invoiceTemplates/service";
+import { buildRenderDataFromInvoice } from "@/core/invoiceTemplates/fromInvoiceDoc";
+import cloudinary from "@/lib/cloudinary";
 import { logAction } from "@/lib/audit/logAction";
 import { notify } from "@/lib/notify";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
@@ -158,6 +162,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (workPerformed !== undefined) jobSheet.workPerformed = workPerformed;
     if (materialsUsed !== undefined) jobSheet.materialsUsed = materialsUsed;
     await jobSheet.save();
+
+    // Render + upload the actual viewable invoice document (HTML, same
+    // template registry api/invoice/generate/route.ts uses for order-based
+    // invoices) -- was missing entirely for CRM-originated invoices, since
+    // that route is hardcoded to look up an Order by orderId, and a
+    // job-sheet invoice has no Order at all (sourceOrderId is a synthetic
+    // "CRM_JOBSHEET:<id>" string, not a real Order._id). Without this, a
+    // closed job sheet produced invoice DATA in the database but no
+    // document a customer could actually view or print. Non-fatal, same
+    // pattern as every other "generate document as a side effect of the
+    // real action" step in this codebase -- a Cloudinary hiccup must never
+    // block the job sheet from actually closing.
+    try {
+      const business = await Business.findById(jobSheet.businessId).lean();
+      const renderData = buildRenderDataFromInvoice(
+        invoice.toObject ? invoice.toObject() : invoice,
+        null,
+        business as any
+      );
+      const html = await renderInvoiceForBusiness(String(jobSheet.businessId), renderData);
+      const buffer = Buffer.from(html, "utf-8");
+      await cloudinary.uploader.upload(
+        `data:text/html;base64,${buffer.toString("base64")}`,
+        {
+          folder: "an-group/invoices",
+          resource_type: "raw",
+          public_id: `invoice_${invoice.invoiceNumber}`,
+          overwrite: true,
+        }
+      );
+    } catch (docErr: any) {
+      console.error("CRM invoice document generation error (close, non-fatal):", docErr);
+    }
 
     // Close the originating call, if any, as CLOSED_WON — the call's whole
     // point was to arrive here.

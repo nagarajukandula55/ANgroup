@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import VendorLogoutButton from '@/components/vendor/VendorLogoutButton'
 import {
   LayoutDashboard,
   Package,
@@ -88,6 +89,7 @@ export default async function VendorLayout({
             </div>
             <p className="text-[10px] text-gray-400">AN Group Vendor System</p>
           </div>
+          <VendorLogoutButton />
         </div>
       </aside>
 
