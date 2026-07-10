@@ -36,7 +36,10 @@ export default function NativePage() {
       })
       .catch(() => setStats(p => ({ ...p, loadingProducts: false, loadingInventory: false })))
 
-    fetch('/api/sales/orders?limit=1')
+    // /api/orders/list is the real Native customer-order model (Order.ts) —
+    // /api/sales/orders is a separate manual B2B "SalesOrder" model and was
+    // giving a misleading count here.
+    fetch('/api/orders/list?limit=1')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         const total = d?.total ?? (Array.isArray(d) ? d.length : (d?.orders?.length ?? 0))
@@ -65,7 +68,7 @@ export default function NativePage() {
       color: 'bg-blue-50 text-blue-600',
     },
     {
-      href: '/admin/orders',
+      href: '/admin/native/orders',
       icon: ShoppingCart,
       title: 'Orders',
       description: 'Track and manage customer orders from placement to delivery.',

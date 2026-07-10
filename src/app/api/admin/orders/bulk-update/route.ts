@@ -6,9 +6,18 @@ import { connectDB } from "@/lib/mongodb";
 
 import { updateOrderStatus } from "@/lib/order/update-order-status";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
 
 export async function POST(req: Request) {
   try {
+    // Was callable by anyone with no session check at all — any request
+    // could change any order's status. Matches the auth gate already on
+    // /api/orders/mark-paid.
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
     await connectDB();
 
     const body = await req.json();
