@@ -377,8 +377,15 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Made required: a live-data audit (July 2026) found one real PAID
+    // order with no businessId at all (services/order.service.ts's
+    // Order.create() call never stamped one) — invisible to any
+    // business-scoped admin view. Backfilled that document to the Native
+    // business id and fixed the create call to always stamp it; enforced
+    // here so it can't silently regress.
     businessId: {
       type: String,
+      required: true,
       index: true,
     },
 

@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     const [products, total] = await Promise.all([
       NativeProduct.find(filter)
-        .select("name slug description category images basePrice unit stock createdAt")
+        .select("name slug description category images basePrice unit stock sku createdAt metaTitle metaDescription keywords")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -66,6 +66,12 @@ export async function GET(req: NextRequest) {
         price: p.basePrice || 0,
         unit: p.unit || "pcs",
         inStock: (p.stock || 0) > 0,
+        sku: p.sku || "",
+        // SEO — so the storefront can render <title>/meta description and
+        // structured data without a second round-trip to /api/products/[slug].
+        metaTitle: p.metaTitle || p.name,
+        metaDescription: p.metaDescription || p.description || "",
+        keywords: p.keywords || [],
       })),
       total,
       page,

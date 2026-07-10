@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
       metaDescription,
       keywords,
       slug,
+      images,
     } = body;
 
     if (!name || !name.trim()) {
@@ -203,6 +204,7 @@ export async function POST(request: NextRequest) {
       metaDescription: metaDescription?.trim() || undefined,
       keywords: Array.isArray(keywords) ? keywords : [],
       slug: resolvedSlug,
+      images: Array.isArray(images) ? images.filter((u: unknown) => typeof u === "string" && u.trim()) : [],
       createdBy: new mongoose.Types.ObjectId(userId),
     });
 

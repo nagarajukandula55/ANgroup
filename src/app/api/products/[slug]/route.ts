@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
       isActive: true,
       isDeleted: { $ne: true },
     })
-      .select("name slug description category images basePrice unit stock hsn taxRate createdAt")
+      .select("name slug description category images basePrice unit stock hsn taxRate sku createdAt metaTitle metaDescription keywords")
       .lean();
 
     if (!product) {
@@ -46,6 +46,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
         unit: p.unit || "pcs",
         inStock: (p.stock || 0) > 0,
         taxRate: p.taxRate || 0,
+        sku: p.sku || "",
+        // SEO fields — meta title/description for <head>, keywords for tags,
+        // canonicalSlug so the frontend can build a canonical <link> without
+        // re-deriving it (it's the same value as slug by construction here).
+        metaTitle: p.metaTitle || p.name,
+        metaDescription: p.metaDescription || p.description || "",
+        keywords: p.keywords || [],
+        canonicalSlug: p.slug,
       },
     });
   } catch (err: unknown) {

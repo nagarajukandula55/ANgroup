@@ -63,7 +63,12 @@ const NativeProductSchema = new Schema<INativeProduct>(
     sku: { type: String },
     description: { type: String },
     category: { type: String },
-    businessId: { type: Schema.Types.ObjectId, ref: "Business" },
+    // Made required: a live-data audit (July 2026) found the products
+    // collection currently empty, so there's nothing to migrate, but an
+    // optional businessId here would let a product silently fall through
+    // every business-scoped admin query (see the same real bug found and
+    // fixed on Order.businessId in services/order.service.ts).
+    businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true },
     unit: { type: String, default: "pcs" },
     basePrice: { type: Number, default: 0 },
     taxRate: { type: Number, default: 18 }, // default GST 18%

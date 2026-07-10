@@ -2,6 +2,16 @@ import Order from "@/models/Order";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 
+// This service exclusively creates orders for the Native storefront (order
+// IDs are always "NA-ORD-...", project.code defaults to "NATIVE"), but the
+// Order.create() call below never stamped a businessId onto the resulting
+// document — found via a live-data audit that turned up a real PAID order
+// with no businessId at all, invisible to any business-scoped admin view.
+// Hardcoded here (not read from env) to match how storefront read routes
+// (api/storefront/products, api/products/[slug]) already require this
+// exact id as a query param — see angroup-architecture-decisions memory.
+const NATIVE_BUSINESS_ID = "6a4abddcf35feedb2392f556";
+
 import { ProductService } from "./product.service";
 import { PricingService } from "./pricing.service";
 
@@ -447,7 +457,9 @@ export class OrderService {
       const order =
         await Order.create({
           orderId,
-      
+
+          businessId: NATIVE_BUSINESS_ID,
+
           cart: taxedItems,
       
           address,
