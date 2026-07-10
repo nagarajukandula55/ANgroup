@@ -7,6 +7,40 @@ import User from "@/models/User";
 import { logAction } from "@/lib/audit/logAction";
 
 /**
+ * List current staff for a vendor — used by the vendor detail page so
+ * admins can see who actually has access, not just add new people blind.
+ * Query: ?vendorId=<VendorProfile._id>
+ */
+export async function GET(req: NextRequest) {
+  try {
+    await connectDB();
+    const h = await headers();
+    const callerUserId = h.get("x-user-id");
+    if (!callerUserId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const vendorId = req.nextUrl.searchParams.get("vendorId");
+    if (!vendorId) {
+      return NextResponse.json({ success: false, error: "vendorId is required" }, { status: 400 });
+    }
+
+    const staff = await BusinessMember.find({
+      vendorId,
+      isDeleted: { $ne: true },
+    })
+      .populate("userId", "name email username")
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return NextResponse.json({ success: true, staff });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+  }
+}
+
+/**
  * Super-admin equivalent of /api/vendor/staff — lets a super admin attach
  * ANY user to ANY vendor as staff, for support/override cases (per the
  * user's explicit answer: "super admin can add anybody to any vendor").

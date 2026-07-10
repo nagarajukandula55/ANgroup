@@ -408,8 +408,14 @@ export default function VendorsPage() {
                 ) : vendors.map(v => {
                   const isApproved = v.isApproved || v.status === 'APPROVED'
                   const statusKey  = isApproved ? 'APPROVED' : (v.status ?? 'PENDING')
+                  // A vendor still going through review (APPLIED/PENDING) or
+                  // awaiting agreement finalization opens the review modal
+                  // (approve/reject/finalize actions); an onboarded vendor
+                  // opens the full detail page instead.
+                  const needsReviewModal = ['APPLIED', 'PENDING', 'AGREEMENT_SIGNED', 'AGREEMENT_CANCELLED'].includes(v.status || '')
+                  const openVendor = () => needsReviewModal ? setSelectedVendor(v) : router.push(`/admin/vendors/${v._id}`)
                   return (
-                    <tr key={v._id} onClick={() => setSelectedVendor(v)} className="hover:bg-gray-50 transition cursor-pointer">
+                    <tr key={v._id} onClick={openVendor} className="hover:bg-gray-50 transition cursor-pointer">
                       <td className="px-6 py-3">
                         <p className="font-medium text-gray-900">{v.companyName}</p>
                         {v.address?.city && <p className="text-xs text-gray-400">{v.address.city}{v.address.state ? `, ${v.address.state}` : ''}</p>}
@@ -431,7 +437,7 @@ export default function VendorsPage() {
                       </td>
                       <td className="px-6 py-3 text-right">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setSelectedVendor(v) }}
+                          onClick={(e) => { e.stopPropagation(); openVendor() }}
                           className="px-3 py-1 rounded-lg bg-gray-50 text-gray-700 border border-gray-200 text-xs font-medium hover:bg-gray-100 transition"
                         >
                           View
