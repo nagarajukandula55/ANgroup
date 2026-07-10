@@ -36,10 +36,14 @@ async function requireAuth(req: NextRequest) {
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { userId, businessId } = await requireAuth(req);
+    const headersList = await headers();
+    const isSuperAdmin = headersList.get("x-is-super-admin") === "true";
     if (!userId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    if (!businessId) {
+    // A Super Admin can open any individual product across any business —
+    // everyone else stays scoped to their own active business.
+    if (!businessId && !isSuperAdmin) {
       return NextResponse.json({ success: false, error: "businessId is required" }, { status: 400 });
     }
 
@@ -49,10 +53,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ success: false, error: "Invalid product id" }, { status: 400 });
     }
 
-    const product = await Product.findOne({
-      _id: id,
-      businessId: new mongoose.Types.ObjectId(businessId),
-    }).lean();
+    const query = isSuperAdmin && !businessId
+      ? { _id: id }
+      : { _id: id, businessId: new mongoose.Types.ObjectId(businessId!) };
+
+    const product = await Product.findOne(query)
+      .populate("businessId", "name brandName legalName")
+      .lean();
 
     if (!product) {
       return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });

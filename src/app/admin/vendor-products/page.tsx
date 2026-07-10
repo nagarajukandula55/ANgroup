@@ -1,88 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+/**
+ * This page was a dead stub — it called /api/admin/vendor-products/approve,
+ * an endpoint that never existed, with a hardcoded userId: "ADMIN" that
+ * bypassed real authentication entirely (a serious gap: it would have let
+ * anyone who found this route approve products with no real session check,
+ * had the backend route existed). The actually-working approvals queue is
+ * /admin/vendor-products/pending, wired to the real, now super-admin-only
+ * /api/vendor-products/[id]/approve. Redirect here so old links/bookmarks
+ * still land somewhere real.
+ */
 
-/* ================= TYPES ================= */
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-type ApprovalAction = "APPROVE" | "REJECT" | "REVISION";
-
-type VendorProduct = {
-  _id: string;
-  productName: string;
-  approvalStatus: string;
-};
-
-export default function AdminVendorProducts() {
-  const [items, setItems] = useState<VendorProduct[]>([]);
-
-  const fetchData = async () => {
-    const res = await fetch("/api/admin/vendor-products/list");
-    const data = await res.json();
-    setItems(data.data || []);
-  };
-
+export default function AdminVendorProductsRedirect() {
+  const router = useRouter();
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  const action = async (id: string, type: ApprovalAction) => {
-    await fetch("/api/admin/vendor-products/approve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        productId: id,
-        action: type,
-        userId: "ADMIN",
-      }),
-    });
-
-    fetchData();
-  };
-
-  return (
-    <div>
-      <h1 className="text-xl font-bold mb-4">
-        Vendor Product Approvals
-      </h1>
-
-      {items.map((p) => (
-        <div key={p._id} className="border p-3 rounded mb-2">
-
-          <div className="font-medium">
-            {p.productName}
-          </div>
-
-          <div className="text-sm text-gray-500">
-            Status: {p.approvalStatus}
-          </div>
-
-          <div className="flex gap-2 mt-2">
-
-            <button
-              onClick={() => action(p._id, "APPROVE")}
-              className="bg-green-600 text-white px-3 py-1 rounded"
-            >
-              Approve
-            </button>
-
-            <button
-              onClick={() => action(p._id, "REJECT")}
-              className="bg-red-600 text-white px-3 py-1 rounded"
-            >
-              Reject
-            </button>
-
-            <button
-              onClick={() => action(p._id, "REVISION")}
-              className="bg-yellow-500 text-white px-3 py-1 rounded"
-            >
-              Revision
-            </button>
-
-          </div>
-
-        </div>
-      ))}
-    </div>
-  );
+    router.replace("/admin/vendor-products/pending");
+  }, [router]);
+  return null;
 }

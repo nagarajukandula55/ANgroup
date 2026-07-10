@@ -153,6 +153,22 @@ export async function generateDocumentNumber(
  * comes from the calling business's own DocumentNumberConfig if provided
  * (businessIdForConfig) — only the COUNTER is global, not the format.
  */
+/**
+ * Scopes the atomic counter by an arbitrary ObjectId-shaped key instead of
+ * a real Business — used for vendor-scoped product codes
+ * ("ECOM-VND-0001-PRD-0001"), where the sequence must reset per-vendor, not
+ * per-business. Format still comes from the business's own
+ * DocumentNumberConfig (businessIdForConfig) for consistency with every
+ * other document type; only the counter's scope key differs.
+ */
+export async function generateScopedDocumentNumber(
+  scopeKey: string,
+  documentType: DocumentType,
+  businessIdForConfig: string | null
+): Promise<GeneratedNumber> {
+  return generateNumberInScope(scopeKey, documentType, businessIdForConfig);
+}
+
 export async function generateGlobalDocumentNumber(
   documentType: DocumentType,
   businessIdForConfig: string | null = null

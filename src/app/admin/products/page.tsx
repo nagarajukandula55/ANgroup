@@ -32,6 +32,13 @@ interface Product {
   metaDescription?: string
   keywords?: string[]
   isActive?: boolean
+  businessId?: string | { _id: string; name?: string; brandName?: string; legalName?: string }
+}
+
+function businessLabel(businessId: Product['businessId']): string {
+  if (!businessId) return '—'
+  if (typeof businessId === 'string') return businessId
+  return businessId.brandName || businessId.legalName || businessId.name || businessId._id
 }
 
 const fmt = (n: number) =>
@@ -67,8 +74,13 @@ export default function ProductsPage() {
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  // Super Admin defaults to seeing every business's products, not just
+  // whichever one happens to be their currently-active business — per
+  // explicit direction that the platform team needs full-catalog control.
+  const [viewAllBusinesses, setViewAllBusinesses] = useState(true)
 
-  const fetchProducts = useCallback(async (bId: string) => {
+  const fetchProducts = useCallback(async (bId: string | null, allBusinesses: boolean) => {
     setLoading(true)
     setError(null)
     try {
@@ -76,8 +88,9 @@ export default function ProductsPage() {
       // HSN, slug, etc.) — the Inventory Items endpoint used previously is a
       // different data model entirely and always 400'd here since it
       // requires a businessId this page never sent.
-      const res = await fetch(`/api/products?businessId=${bId}`, {
-        headers: { 'x-active-business-id': bId },
+      const qs = allBusinesses ? 'allBusinesses=true' : `businessId=${bId}`
+      const res = await fetch(`/api/products?${qs}`, {
+        headers: bId ? { 'x-active-business-id': bId } : {},
       })
       if (res.ok) {
         const d = await res.json()
@@ -104,9 +117,13 @@ export default function ProductsPage() {
       .then((r) => r.json())
       .then((d) => {
         const bId = d.user?.activeBusinessId
+        const superAdmin = !!d.user?.isSuperAdmin
         setBusinessId(bId || null)
-        if (bId) {
-          fetchProducts(bId)
+        setIsSuperAdmin(superAdmin)
+        if (superAdmin) {
+          fetchProducts(bId || null, true)
+        } else if (bId) {
+          fetchProducts(bId, false)
         } else {
           setLoading(false)
           setError('No active business selected')
@@ -117,6 +134,12 @@ export default function ProductsPage() {
         setError('Failed to connect')
       })
   }, [fetchProducts])
+
+  function toggleAllBusinesses() {
+    const next = !viewAllBusinesses
+    setViewAllBusinesses(next)
+    fetchProducts(businessId, next)
+  }
 
   const categories = ['ALL', ...Array.from(new Set(products.map((p) => p.category ?? '').filter(Boolean)))]
 
@@ -159,8 +182,31 @@ export default function ProductsPage() {
           </button>
           <div>
             <h1 className="text-2xl font-semibold">Products</h1>
-            <p className="text-sm text-gray-500">Product catalog — browse the live catalog</p>
+            <p className="text-sm text-gray-500">
+              {isSuperAdmin && viewAllBusinesses ? 'Product catalog across every business' : 'Product catalog — browse the live catalog'}
+            </p>
           </div>
+          {isSuperAdmin && (
+            <>
+              <button
+                onClick={() => router.push('/admin/vendor-products/pending')}
+                className="ml-auto flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 transition"
+                title="Products submitted by vendors awaiting Super Admin approval"
+              >
+                Pending Approvals
+              </button>
+              <button
+                onClick={toggleAllBusinesses}
+                className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border transition ${
+                  viewAllBusinesses
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {viewAllBusinesses ? 'All Businesses' : 'My Business Only'}
+              </button>
+            </>
+          )}
           <button
             onClick={() =>
               router.push(
@@ -238,6 +284,9 @@ export default function ProductsPage() {
               <tr className="border-b border-gray-200">
                 <th className="text-left px-6 py-3 text-gray-500 font-medium">Name</th>
                 <th className="text-left px-6 py-3 text-gray-500 font-medium">SKU</th>
+                {isSuperAdmin && viewAllBusinesses && (
+                  <th className="text-left px-6 py-3 text-gray-500 font-medium">Business</th>
+                )}
                 <th className="text-left px-6 py-3 text-gray-500 font-medium">Category</th>
                 <th className="text-right px-6 py-3 text-gray-500 font-medium">Base Price</th>
                 <th className="text-center px-6 py-3 text-gray-500 font-medium">Tax %</th>
@@ -249,7 +298,7 @@ export default function ProductsPage() {
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-10 text-center text-gray-500">
+                  <td colSpan={isSuperAdmin && viewAllBusinesses ? 9 : 8} className="px-6 py-10 text-center text-gray-500">
                     No products found
                   </td>
                 </tr>
@@ -257,9 +306,16 @@ export default function ProductsPage() {
                 filtered.map((p) => {
                   const { label, cls } = getStatusInfo(p)
                   return (
-                    <tr key={p._id} className="hover:bg-gray-50 transition">
+                    <tr
+                      key={p._id}
+                      onClick={() => router.push(`/admin/products/${p._id}`)}
+                      className="hover:bg-gray-50 transition cursor-pointer"
+                    >
                       <td className="px-6 py-3 font-medium text-gray-900">{p.name}</td>
                       <td className="px-6 py-3 text-gray-500 font-mono text-xs">{p.sku ?? '—'}</td>
+                      {isSuperAdmin && viewAllBusinesses && (
+                        <td className="px-6 py-3 text-gray-500">{businessLabel(p.businessId)}</td>
+                      )}
                       <td className="px-6 py-3 text-gray-500">{p.category ?? '—'}</td>
                       <td className="px-6 py-3 text-right text-gray-900">{p.basePrice != null ? fmt(p.basePrice) : '—'}</td>
                       <td className="px-6 py-3 text-center text-gray-500">{p.taxRate != null ? `${p.taxRate}%` : '—'}</td>

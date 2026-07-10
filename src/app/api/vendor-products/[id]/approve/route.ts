@@ -2,16 +2,15 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 
 import VendorProduct from "@/models/VendorProduct";
+import VendorProfile from "@/models/VendorProfile";
 import Product from "@/models/Product";
 import ProductVariant from "@/models/ProductVariant";
 import NativeProduct from "@/models/NativeProduct";
 import ProductCategory from "@/models/ProductCategory";
 import { generateSEO } from "@/services/seo.service";
-import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { generateScopedDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
-import { buildPermissionCode } from "@/core/access/actions";
 
 function generateSKU(productCode: string, variantCode: string) {
   return `${productCode}-${variantCode}`.toUpperCase();
@@ -23,12 +22,18 @@ export async function POST(req: Request, context: any) {
     if (!session?.user) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
-    try {
-      requirePermission(session as any, buildPermissionCode("vendor_products", "approve"));
-    } catch (err: any) {
+
+    // Approval is deliberately NOT gated by the generic vendor_products:approve
+    // permission -- that permission is granted broadly to vendor "full
+    // access" roles (needed for other actions in the module), which meant a
+    // vendor could self-approve their own product submission. Per explicit
+    // direction: only AN Group's own Super Admin may approve a vendor
+    // product, never the vendor/business themselves or any business-level
+    // admin.
+    if (!session.isSuperAdmin) {
       return NextResponse.json(
-        { success: false, message: err.message },
-        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+        { success: false, message: "Only an AN Group Super Admin can approve vendor products." },
+        { status: 403 }
       );
     }
 
@@ -76,14 +81,21 @@ export async function POST(req: Request, context: any) {
     /* =========================================================
        🧱 CREATE PRODUCT
     ========================================================= */
-    // Was `PRD-${Date.now()}` — collision-prone under concurrent approvals
-    // and not admin-configurable. Now uses the canonical numbering engine
-    // (core/numbering/numberingService.ts), same as every other document
-    // type, scoped to this vendor product's business.
-    const { value: productCode } = await generateDocumentNumber(
-      String(vendorProduct.businessId),
-      "PRODUCT"
+    // Product code is vendor-scoped: "<VendorProfile.vendorId>-PRD-XXXX"
+    // (e.g. "ECOM-VND-0001-PRD-0001") so every product traces directly back
+    // to which vendor introduced it, with its own per-vendor sequence
+    // rather than one shared per-business counter.
+    const vendorProfileDoc = vendorProduct.vendorId
+      ? await VendorProfile.findById(vendorProduct.vendorId).lean()
+      : null;
+    const vendorCodePrefix = (vendorProfileDoc as any)?.vendorId || "VND-0000";
+
+    const { sequence: vendorProductSeq } = await generateScopedDocumentNumber(
+      String(vendorProduct.vendorId || vendorProduct.businessId),
+      "VENDOR_PRODUCT",
+      String(vendorProduct.businessId)
     );
+    const productCode = `${vendorCodePrefix}-PRD-${String(vendorProductSeq).padStart(4, "0")}`;
 
     // Compute SEO (incl. slug) before creating -- Product.slug is a
     // required, unique top-level field, but this used to only be set on
@@ -125,11 +137,9 @@ export async function POST(req: Request, context: any) {
     /* =========================================================
        🧱 CREATE VARIANT
     ========================================================= */
-    // Was `VAR-${Date.now()}` — same fix as productCode above.
-    const { value: variantCode } = await generateDocumentNumber(
-      String(vendorProduct.businessId),
-      "PRODUCT_VARIANT"
-    );
+    // Variant code inherits the product code so the two stay visibly
+    // linked (e.g. "ECOM-VND-0001-PRD-0001-V1").
+    const variantCode = `${productCode}-V1`;
 
     const variant = await ProductVariant.create({
       companyId: vendorProduct.businessId,

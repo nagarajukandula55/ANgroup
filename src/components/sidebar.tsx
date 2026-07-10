@@ -73,8 +73,11 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "ops-purchase", label: "Purchase", items: [
       { key: "purchase",        label: "Purchase",        route: "/admin/purchase",         icon: "ShoppingCart" },
       { key: "purchase-orders", label: "Purchase Orders", route: "/admin/purchase-orders",  icon: "ShoppingCart" },
-      // Vendor product approval queue — real working page, no nav entry.
-      { key: "vendor-products", label: "Vendor Products", route: "/admin/vendor-products", icon: "ShoppingCart" },
+      // Was its own sidebar entry ("Vendor Products") pointing at a dead
+      // stub page — consolidated into the single "Products" entry above;
+      // the pending-approvals queue is now reached via a button inside that
+      // page (super admin only), not a second top-level menu item, per
+      // explicit direction to keep exactly one product-related menu entry.
     ]},
     { key: "ops-production", label: "Manufacturing", items: [
       { key: "bom",        label: "Bill of Materials", route: "/admin/bom",        icon: "Box" },

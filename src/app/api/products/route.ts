@@ -45,11 +45,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
 
+    const isSuperAdmin = headersList.get("x-is-super-admin") === "true";
+    const wantsAllBusinesses = isSuperAdmin && searchParams.get("allBusinesses") === "true";
+
     const businessId =
       headersList.get("x-active-business-id") ||
       searchParams.get("businessId");
 
-    if (!businessId) {
+    if (!businessId && !wantsAllBusinesses) {
       return NextResponse.json(
         { success: false, error: "businessId is required" },
         { status: 400 }
@@ -58,10 +61,15 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
-    const filter: Record<string, unknown> = {
-      businessId: new mongoose.Types.ObjectId(businessId),
-      isDeleted: { $ne: true },
-    };
+    // A Super Admin needs visibility across every business's products, not
+    // just whichever one they currently have active — otherwise the team
+    // has no single place to see and control the whole platform's catalog.
+    const filter: Record<string, unknown> = wantsAllBusinesses
+      ? { isDeleted: { $ne: true } }
+      : {
+          businessId: new mongoose.Types.ObjectId(businessId!),
+          isDeleted: { $ne: true },
+        };
 
     const search = searchParams.get("search");
     if (search && search.trim()) {
@@ -90,11 +98,18 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const [products, total] = await Promise.all([
-      Product.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      wantsAllBusinesses
+        ? Product.find(filter)
+            .populate("businessId", "name brandName legalName")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean()
+        : Product.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
       Product.countDocuments(filter),
     ]);
 
