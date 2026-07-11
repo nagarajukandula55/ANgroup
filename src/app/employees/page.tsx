@@ -22,6 +22,7 @@ import {
   IndianRupee,
   AlertCircle,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -538,7 +539,7 @@ function ViewModal({ employee, onClose, onEdit }: { employee: Employee; onClose:
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function EmployeesPage() {
-  const businessId = typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, onLeave: 0, newThisMonth: 0 });

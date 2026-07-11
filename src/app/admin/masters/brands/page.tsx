@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Layers,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface Brand {
   _id: string;
@@ -31,8 +32,7 @@ interface ModalState {
 }
 
 export default function BrandsPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,6 +320,7 @@ export default function BrandsPage() {
           submitting={submitting}
           onClose={closeModal}
           onSubmit={handleSubmitAdd}
+          existingLogos={Array.from(new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)))}
         />
       )}
 
@@ -333,6 +334,7 @@ export default function BrandsPage() {
           submitting={submitting}
           onClose={closeModal}
           onSubmit={handleSubmitEdit}
+          existingLogos={Array.from(new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)))}
         />
       )}
 
@@ -470,6 +472,7 @@ function BrandModal({
   submitting,
   onClose,
   onSubmit,
+  existingLogos,
 }: {
   title: string;
   formData: { name: string; description: string; logoUrl: string };
@@ -478,12 +481,34 @@ function BrandModal({
   submitting: boolean;
   onClose: () => void;
   onSubmit: () => void;
+  existingLogos: string[];
 }) {
   const [logoPreviewError, setLogoPreviewError] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [showExisting, setShowExisting] = useState(false);
 
   useEffect(() => {
     setLogoPreviewError(false);
   }, [formData.logoUrl]);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", `brand-logo-${Date.now()}`);
+      fd.append("category", "brand-logo");
+      const res = await fetch("/api/assets/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok && data?.asset?.fileUrl) {
+        setFormData({ ...formData, logoUrl: data.asset.fileUrl });
+      }
+    } catch {
+      /* preview error state below already covers a broken URL */
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -542,12 +567,57 @@ function BrandModal({
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Logo URL (optional)</label>
+            <label className="text-xs text-gray-500 block mb-1">Logo (optional)</label>
+            <div className="flex items-center gap-2">
+              <label className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-50 ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                {uploading ? "Uploading…" : "Upload Logo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {existingLogos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowExisting((s) => !s)}
+                  className="px-3 py-2 rounded-lg border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Choose Existing
+                </button>
+              )}
+            </div>
+
+            {showExisting && existingLogos.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2 p-2 border border-gray-200 rounded-lg bg-gray-50 max-h-32 overflow-y-auto">
+                {existingLogos.map((url) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => {
+                      setFormData({ ...formData, logoUrl: url });
+                      setShowExisting(false);
+                    }}
+                    className="w-12 h-12 rounded-lg border border-gray-200 bg-white overflow-hidden hover:border-gray-400"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="w-full h-full object-contain p-1" />
+                  </button>
+                ))}
+              </div>
+            )}
+
             <input
               value={formData.logoUrl}
               onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-              placeholder="https://example.com/logo.png"
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+              placeholder="Or paste a logo URL directly"
+              className="w-full mt-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
             />
           </div>
 

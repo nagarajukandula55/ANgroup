@@ -18,6 +18,7 @@ import {
   Warehouse,
   Box,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface PopulatedItem {
@@ -131,8 +132,7 @@ const EMPTY_FORM: FormState = {
 
 /* ─── Page ───────────────────────────────────────────────── */
 export default function InventoryLotsPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [lots, setLots] = useState<InventoryLot[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);

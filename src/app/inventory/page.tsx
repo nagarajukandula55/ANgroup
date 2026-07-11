@@ -5,6 +5,7 @@ import {
   Plus, Search, Package, Upload, Filter, Edit3, Trash2,
   ArrowUpDown, Tag, BarChart3, AlertTriangle, CheckCircle,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface Product {
   _id: string;
@@ -61,7 +62,7 @@ export default function InventoryPage() {
   const [adjustNote, setAdjustNote] = useState("");
   const csvRef = useRef<HTMLInputElement>(null);
 
-  const businessId = typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   useEffect(() => { fetchProducts(); }, [search, category]);
 

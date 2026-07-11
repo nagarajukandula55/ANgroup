@@ -14,6 +14,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 type AdjustmentType = "ADD" | "REMOVE" | "SET";
 
@@ -28,8 +29,7 @@ interface InventoryItem {
 
 export default function NewStockAdjustmentPage() {
   const router = useRouter();
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [itemSearch, setItemSearch] = useState("");

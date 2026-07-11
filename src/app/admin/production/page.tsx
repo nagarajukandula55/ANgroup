@@ -17,6 +17,7 @@ import {
   Package,
   CalendarDays,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -466,8 +467,7 @@ function CompleteModal({ order, onClose, onDone }: CompleteModalProps) {
 type Tab = "all" | "in_progress" | "completed";
 
 export default function ProductionOrdersPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [stats, setStats] = useState<Stats>({

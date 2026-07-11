@@ -17,6 +17,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface ProductCategory {
   _id: string;
@@ -44,8 +45,7 @@ interface ModalState {
 }
 
 export default function ProductCategoriesPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);

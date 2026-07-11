@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface FaultCode {
   _id: string
@@ -17,7 +18,7 @@ interface FaultCode {
 }
 
 export default function FaultCodesPage() {
-  const businessId = typeof window !== 'undefined' ? localStorage.getItem('businessId') : null
+  const { businessId } = useActiveBusinessId();
   const [items, setItems] = useState<FaultCode[]>([])
   const [loading, setLoading] = useState(true)
   const [code, setCode] = useState('')

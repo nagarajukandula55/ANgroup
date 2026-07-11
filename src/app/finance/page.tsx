@@ -19,6 +19,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 const INR = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -87,8 +88,7 @@ const METHOD_LABELS: Record<string, string> = {
 type Tab = "invoices" | "payments" | "overview";
 
 export default function FinancePage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [activeTab, setActiveTab] = useState<Tab>("invoices");
   const [invoices, setInvoices] = useState<Invoice[]>([]);

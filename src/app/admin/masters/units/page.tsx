@@ -16,6 +16,7 @@ import {
   Clock,
   Package,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface Unit {
   _id: string;
@@ -77,8 +78,7 @@ const DEFAULT_FORM: FormState = {
 };
 
 export default function UnitsPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);

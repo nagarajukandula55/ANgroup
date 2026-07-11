@@ -5,6 +5,7 @@ import {
   Plus, Search, FileText, Send, CheckCircle, Clock, XCircle,
   MoreVertical, Share2, Copy, Printer, IndianRupee, ChevronDown,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface InvoiceItem {
   description: string;
@@ -75,7 +76,7 @@ export default function SalesInvoicesPage() {
     status: "DRAFT" as Invoice["status"],
   });
 
-  const businessId = typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   useEffect(() => { fetchInvoices(); }, [search, statusFilter]);
 

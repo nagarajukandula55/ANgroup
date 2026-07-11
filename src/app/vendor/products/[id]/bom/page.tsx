@@ -1,181 +1,206 @@
 "use client";
 
+/**
+ * Standalone BOM page, reached via the "BOM" quick-link on the vendor
+ * products list -- was a cruder, separately-maintained duplicate of the
+ * wizard's own BOM step (StepBOM.tsx) missing: businessId in the POST
+ * body (the API requires it to attribute the BOM row -- every row added
+ * here silently misattributed or failed), the wastagePercent field (asked
+ * for in form state but never actually rendered as an input, so it was
+ * always 0), the "add a new material inline" fallback when nothing
+ * matches a search, and any error/success feedback or cost/pricing
+ * preview. Rewritten to share the exact same components the wizard step
+ * uses (BOMRow, CostSummary, PricingPreview) instead of a second,
+ * drifted implementation.
+ */
+
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import BOMRow from "@/components/vendor-product-wizard/steps/components/BOMRow";
+import CostSummary from "@/components/vendor-product-wizard/steps/components/CostSummary";
+import PricingPreview from "@/components/vendor-product-wizard/steps/components/PricingPreview";
 
-type Material = {
-  _id: string;
+interface BOMItem {
+  bomId?: string;
+  materialId: string;
   materialName: string;
-};
-
-type BOM = {
-  _id: string;
-  materialName: string;
-  quantity: number;
   unit: string;
+  quantity: number;
+  wastagePercent: number;
   currentRate: number;
-  currentCost: number;
-};
+}
 
-export default function BOMPage({
-  params,
-}: any) {
-  const [materials, setMaterials] =
-    useState<Material[]>([]);
+export default function BOMPage() {
+  const params = useParams();
+  const draftId = params?.id as string;
 
-  const [items, setItems] = useState<BOM[]>([]);
+  const [businessId, setBusinessId] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
+  const [productLabel, setProductLabel] = useState<string>("");
+  const [rows, setRows] = useState<BOMItem[]>([]);
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
+  const [savedFlash, setSavedFlash] = useState<number | null>(null);
 
-  const [form, setForm] = useState({
-    materialId: "",
-    quantity: 0,
-    unit: "",
-    currentRate: 0,
-    wastagePercent: 0,
-  });
+  const [costSummary, setCostSummary] = useState({ totalMaterialCost: 0, wastageCost: 0, finalCost: 0 });
+  const [pricing, setPricing] = useState({ sellingPrice: 0, marginAmount: 0, marginPercent: 0 });
 
-  async function load() {
-    const res = await fetch(
-      `/api/vendor-products/${params.id}/bom`
-    );
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setUserId(d?.user?.id || ""))
+      .catch(() => {});
+    fetch(`/api/vendor-products/${draftId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setBusinessId(String(d.data.businessId?._id || d.data.businessId || ""));
+          setProductLabel([d.data.productName, d.data.variantName].filter(Boolean).join(" "));
+        }
+      })
+      .catch(() => {});
+  }, [draftId]);
+
+  async function fetchBOM() {
+    const res = await fetch(`/api/vendor-products/${draftId}/bom`);
     const data = await res.json();
-    setItems(data.data || []);
+    if (!data.success) return;
+    setRows(
+      data.data.map((item: any) => ({
+        bomId: item._id,
+        materialId: item.materialId?._id || "",
+        materialName: item.materialName || "",
+        unit: item.unit || "",
+        quantity: item.quantity || 1,
+        wastagePercent: item.wastagePercent || 0,
+        currentRate: item.currentRate || 0,
+      }))
+    );
   }
 
-  async function loadMaterials() {
-    const res = await fetch("/api/materials");
+  async function fetchCost() {
+    const res = await fetch(`/api/vendor-products/${draftId}/cost`);
     const data = await res.json();
-    setMaterials(data.data || []);
+    if (data.success) setCostSummary(data.data);
+  }
+
+  async function fetchPricing() {
+    const res = await fetch(`/api/vendor-products/${draftId}/pricing`);
+    const data = await res.json();
+    if (data.success) setPricing(data.data);
   }
 
   useEffect(() => {
-    load();
-    loadMaterials();
-  }, []);
+    fetchBOM();
+  }, [draftId]);
 
-  async function addItem() {
-    await fetch(
-      `/api/vendor-products/${params.id}/bom`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      }
-    );
+  useEffect(() => {
+    fetchCost();
+    fetchPricing();
+  }, [rows]);
 
-    setForm({
-      materialId: "",
-      quantity: 0,
-      unit: "",
-      currentRate: 0,
-      wastagePercent: 0,
+  function addRow() {
+    setRows((prev) => [...prev, { materialId: "", materialName: "", unit: "", quantity: 1, wastagePercent: 0, currentRate: 0 }]);
+  }
+
+  function updateRow(index: number, field: keyof BOMItem, value: any) {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  }
+
+  async function saveRow(row: BOMItem, index: number) {
+    setRowErrors((prev) => ({ ...prev, [index]: "" }));
+    if (!row.materialId) {
+      setRowErrors((prev) => ({ ...prev, [index]: "Select a material first — search above by name." }));
+      return;
+    }
+    const grossCost = row.quantity * row.currentRate;
+    const currentCost = grossCost + (grossCost * row.wastagePercent) / 100;
+
+    const res = await fetch(`/api/vendor-products/${draftId}/bom`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        materialId: row.materialId,
+        quantity: row.quantity,
+        unit: row.unit,
+        wastagePercent: row.wastagePercent,
+        currentRate: row.currentRate,
+        currentCost,
+        remarks: "",
+        businessId,
+        createdBy: userId,
+      }),
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      setRowErrors((prev) => ({ ...prev, [index]: data.message || "Failed to save this material — please try again." }));
+      return;
+    }
+    setSavedFlash(index);
+    setTimeout(() => setSavedFlash((cur) => (cur === index ? null : cur)), 2000);
+    await fetchBOM();
+  }
 
-    load();
+  async function deleteRow(id: string) {
+    await fetch(`/api/vendor-products/${draftId}/bom?bomId=${id}`, { method: "DELETE" });
+    await fetchBOM();
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">
-        BOM Builder
-      </h1>
-
-      {/* ADD ITEM */}
-      <div className="grid grid-cols-5 gap-2">
-        <select
-          className="border p-2 bg-white text-gray-900"
-          title="Select material"
-          onChange={(e) =>
-            setForm((p) => ({
-              ...p,
-              materialId: e.target.value,
-            }))
-          }
-        >
-          <option>Select Material</option>
-          {materials.map((m) => (
-            <option key={m._id} value={m._id}>
-              {m.materialName}
-            </option>
-          ))}
-        </select>
-
-        <input
-          placeholder="Qty"
-          type="number"
-          className="border p-2 bg-white text-gray-900 placeholder:text-gray-400"
-          onChange={(e) =>
-            setForm((p) => ({
-              ...p,
-              quantity: Number(
-                e.target.value
-              ),
-            }))
-          }
-          onFocus={(e) => e.target.select()}
-        />
-
-        <input
-          placeholder="Unit"
-          className="border p-2 bg-white text-gray-900 placeholder:text-gray-400"
-          onChange={(e) =>
-            setForm((p) => ({
-              ...p,
-              unit: e.target.value,
-            }))
-          }
-        />
-
-        <input
-          placeholder="Rate"
-          type="number"
-          className="border p-2 bg-white text-gray-900 placeholder:text-gray-400"
-          onChange={(e) =>
-            setForm((p) => ({
-              ...p,
-              currentRate: Number(
-                e.target.value
-              ),
-            }))
-          }
-          onFocus={(e) => e.target.select()}
-        />
-
-        <button
-          onClick={addItem}
-          className="bg-gray-900 text-white rounded-lg px-4 py-2 hover:bg-gray-800 transition"
-        >
-          Add
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold">Bill of Materials</h1>
+        {productLabel && <p className="text-sm text-gray-500">{productLabel}</p>}
+        <p className="text-sm text-gray-500 mt-1">
+          Add every material that goes into this product, its quantity, and its rate — the rate you enter here drives
+          this product&apos;s computed cost and suggested selling price below.
+        </p>
       </div>
 
-      {/* LIST */}
-      <div className="border rounded">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b">
-              <th>Material</th>
-              <th>Qty</th>
-              <th>Rate</th>
-              <th>Cost</th>
-            </tr>
-          </thead>
+      {!businessId && (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          Loading business context — BOM rows will not save correctly until this finishes.
+        </div>
+      )}
 
-          <tbody>
-            {items.map((i) => (
-              <tr
-                key={i._id}
-                className="border-b"
-              >
-                <td>{i.materialName}</td>
-                <td>{i.quantity}</td>
-                <td>{i.currentRate}</td>
-                <td>{i.currentCost}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {rows.length > 0 && (
+        <div className="hidden sm:grid grid-cols-6 gap-2 px-1 text-xs font-medium text-gray-500">
+          <span>Material</span>
+          <span>Qty</span>
+          <span>Unit</span>
+          <span>Wastage %</span>
+          <span>Rate (₹/unit)</span>
+          <span>Actions</span>
+        </div>
+      )}
+
+      {rows.map((row, index) => (
+        <BOMRow
+          key={row.bomId || index}
+          row={row}
+          index={index}
+          updateRow={updateRow}
+          saveRow={(r) => saveRow(r, index)}
+          deleteRow={deleteRow}
+          error={rowErrors[index]}
+          justSaved={savedFlash === index}
+        />
+      ))}
+
+      <button onClick={addRow} className="rounded bg-blue-600 px-4 py-2 text-white">
+        + Add Material
+      </button>
+
+      <CostSummary
+        totalMaterialCost={costSummary.totalMaterialCost}
+        wastageCost={costSummary.wastageCost}
+        finalCost={costSummary.finalCost}
+      />
+
+      <PricingPreview
+        sellingPrice={pricing.sellingPrice}
+        marginAmount={pricing.marginAmount}
+        marginPercent={pricing.marginPercent}
+      />
     </div>
   );
 }

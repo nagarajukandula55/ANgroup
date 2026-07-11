@@ -12,6 +12,7 @@ import {
   ChevronRight,
   AlertTriangle,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface MaterialCategory {
   _id: string;
@@ -50,8 +51,7 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function MaterialCategoriesPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   const [categories, setCategories] = useState<MaterialCategory[]>([]);
   const [loading, setLoading] = useState(true);

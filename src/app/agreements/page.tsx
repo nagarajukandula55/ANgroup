@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useActiveBusinessId } from '@/hooks/useActiveBusinessId';
 
 interface Party {
   name: string;
@@ -66,12 +67,7 @@ export default function AgreementsPage() {
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [businessId, setBusinessId] = useState<string>('');
-
-  useEffect(() => {
-    const stored = localStorage.getItem('selectedBusinessId') || localStorage.getItem('businessId');
-    if (stored) setBusinessId(stored);
-  }, []);
+  const { businessId } = useActiveBusinessId();
 
   const fetchAgreements = useCallback(async () => {
     if (!businessId) return;

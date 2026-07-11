@@ -17,6 +17,7 @@ import {
   Eye,
   AlertCircle,
 } from "lucide-react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,8 +113,7 @@ function emptyItemRow(): TransferItem {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function StockTransfersPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   // list state
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);

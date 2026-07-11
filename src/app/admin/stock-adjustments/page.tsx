@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,8 +119,7 @@ function itemName(adj: StockAdjustment): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function StockAdjustmentsPage() {
-  const businessId =
-    typeof window !== "undefined" ? localStorage.getItem("businessId") : null;
+  const { businessId } = useActiveBusinessId();
 
   // list state
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([]);

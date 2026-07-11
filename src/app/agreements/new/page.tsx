@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useActiveBusinessId } from '@/hooks/useActiveBusinessId';
 
 interface TemplateVariable {
   key: string;
@@ -69,12 +70,10 @@ export default function NewAgreementPage() {
   const [jurisdiction, setJurisdiction] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [businessId, setBusinessId] = useState('');
+  const { businessId } = useActiveBusinessId();
   const [customContent, setCustomContent] = useState('');
 
   useEffect(() => {
-    const stored = localStorage.getItem('selectedBusinessId') || localStorage.getItem('businessId');
-    if (stored) setBusinessId(stored);
     fetchTemplates();
   }, []);
 
