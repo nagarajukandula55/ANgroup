@@ -7,10 +7,20 @@ interface Role { _id: string; name: string; code: string }
 interface EmployeeProfile { employeeId: string; department?: string; designation?: string; employmentType?: string; joiningDate?: string }
 interface VendorProfile { vendorId: string; companyName?: string; gstNumber?: string }
 interface User {
-  _id: string; name: string; email: string; isActive: boolean; createdAt: string;
+  _id: string; name: string; email: string; username?: string; isActive: boolean; createdAt: string;
   roles: Role[]; employeeProfile?: EmployeeProfile; vendorProfile?: VendorProfile;
 }
 interface Stats { total: number; active: number; employees: number; vendors: number; customers: number }
+interface Vendor { _id: string; vendorId: string; companyName?: string }
+interface StaffSlot {
+  _id: string; designation: string; status: 'ACTIVE' | 'INACTIVE';
+  userId?: { _id: string; name: string; email: string; username?: string } | null;
+}
+
+const DESIGNATION_LABELS: Record<string, string> = {
+  MANAGER: 'Manager', CCO: 'CCO', ENGINEER: 'Engineer',
+  WAREHOUSE_MANAGER: 'Warehouse Manager', TELECALLER: 'Telecaller',
+};
 
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: 'bg-purple-100 text-purple-700 border border-purple-200',
@@ -56,6 +66,17 @@ export default function UsersPage() {
   const [assignResults, setAssignResults] = useState<User[]>([]);
   const [assignSearching, setAssignSearching] = useState(false);
   const [businesses, setBusinesses] = useState<{ _id: string; name: string }[]>([]);
+
+  // Vendor-staff tagging -- once a business is chosen, list its vendors;
+  // once a vendor is chosen, list that vendor's 5 designation slots
+  // (auto-provisioned at vendor finalization -- see vendors/[id]/finalize)
+  // so the admin can tag the selected user into an open (INACTIVE) one.
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState('');
+  const [staffSlots, setStaffSlots] = useState<StaffSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [tagging, setTagging] = useState<string | null>(null);
+  const [tagError, setTagError] = useState('');
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -111,6 +132,7 @@ export default function UsersPage() {
     setAssignSearch('');
     setAssignResults([]);
     setFormData({ name: '', email: '', role: 'EMPLOYEE', department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '', companyName: '', gstNumber: '', contactPerson: '', phone: '', businessId: '' });
+    setVendors([]); setSelectedVendorId(''); setStaffSlots([]); setTagError('');
     setShowPanel(true);
   }
 
@@ -131,7 +153,59 @@ export default function UsersPage() {
       companyName: user.vendorProfile?.companyName || '', gstNumber: user.vendorProfile?.gstNumber || '',
       contactPerson: '', phone: '', businessId: '',
     });
+    setVendors([]); setSelectedVendorId(''); setStaffSlots([]); setTagError('');
     setShowPanel(true);
+  }
+
+  // Business picked -> load that business's vendors so one can be tagged.
+  useEffect(() => {
+    setSelectedVendorId(''); setStaffSlots([]); setTagError('');
+    if (!formData.businessId) { setVendors([]); return; }
+    fetch(`/api/vendors?businessId=${formData.businessId}&limit=200`)
+      .then(r => r.json())
+      .then(d => setVendors(d.vendors || d.data || []))
+      .catch(() => setVendors([]));
+  }, [formData.businessId]);
+
+  // Vendor picked -> load its 5 designation slots (auto-provisioned at
+  // vendor finalization: MANAGER active by default, the other 4 open).
+  useEffect(() => {
+    setStaffSlots([]); setTagError('');
+    if (!selectedVendorId) return;
+    setLoadingSlots(true);
+    fetch(`/api/admin/vendor-staff-slots?vendorId=${selectedVendorId}`)
+      .then(r => r.json())
+      .then(d => setStaffSlots(d.slots || []))
+      .catch(() => {})
+      .finally(() => setLoadingSlots(false));
+  }, [selectedVendorId]);
+
+  async function tagToSlot(slotId: string) {
+    if (!editingUser?.username) {
+      setTagError('This user has no User ID (username) set — they must set one before being tagged to a vendor.');
+      return;
+    }
+    setTagging(slotId);
+    setTagError('');
+    try {
+      const res = await fetch(`/api/admin/vendor-staff-slots/${slotId}/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: editingUser.username }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.success === false) {
+        setTagError(d.message || d.error || 'Failed to tag user to this slot');
+      } else {
+        // The activate response's slot.userId is an unpopulated ObjectId
+        // string, not {name,...} -- refetch so the list shows the real name
+        // instead of falling back to a generic "assigned".
+        const slotsRes = await fetch(`/api/admin/vendor-staff-slots?vendorId=${selectedVendorId}`);
+        const slotsData = await slotsRes.json();
+        setStaffSlots(slotsData.slots || []);
+      }
+    } catch (e) { console.error(e); setTagError('Network error'); }
+    finally { setTagging(null); }
   }
 
   async function searchAssignTargets(q: string) {
@@ -401,6 +475,55 @@ export default function UsersPage() {
                   ))}
                 </select>
               </div>
+
+              {formData.businessId && (
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Tag to a Vendor</p>
+                  {vendors.length === 0 ? (
+                    <p className="text-xs text-gray-400">No vendors under this business.</p>
+                  ) : (
+                    <>
+                      <select value={selectedVendorId} onChange={e => setSelectedVendorId(e.target.value)} className={selectCls}>
+                        <option value="">Select a vendor…</option>
+                        {vendors.map(v => (
+                          <option key={v._id} value={v._id}>{v.companyName || v.vendorId}</option>
+                        ))}
+                      </select>
+
+                      {loadingSlots && <Loader2 className="w-4 h-4 text-gray-400 animate-spin mx-auto" />}
+
+                      {tagError && (
+                        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">{tagError}</div>
+                      )}
+
+                      {staffSlots.length > 0 && (
+                        <div className="space-y-1.5">
+                          {staffSlots.map(slot => (
+                            <div key={slot._id} className="flex items-center justify-between p-2.5 rounded-xl border border-gray-100">
+                              <div>
+                                <p className="text-sm text-gray-900">{DESIGNATION_LABELS[slot.designation] || slot.designation}</p>
+                                <p className="text-xs text-gray-400">
+                                  {slot.status === 'ACTIVE'
+                                    ? `Active — ${slot.userId?.name || 'assigned'}`
+                                    : 'Open'}
+                                </p>
+                              </div>
+                              {slot.status === 'INACTIVE' ? (
+                                <button type="button" onClick={() => tagToSlot(slot._id)} disabled={tagging === slot._id}
+                                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition">
+                                  {tagging === slot._id ? 'Tagging…' : 'Tag Here'}
+                                </button>
+                              ) : (
+                                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">Active</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {formData.role === 'EMPLOYEE' && (
                 <div className="space-y-4 pt-4 border-t border-gray-100">
