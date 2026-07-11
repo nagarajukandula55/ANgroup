@@ -32,7 +32,9 @@ export type DocumentTemplateType =
   | "QUOTATION"
   | "DELIVERY_CHALLAN"
   | "CREDIT_NOTE"
-  | "PROFORMA_INVOICE";
+  | "PROFORMA_INVOICE"
+  | "WORK_ORDER"
+  | "ESTIMATE";
 
 export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "INVOICE",
@@ -41,6 +43,8 @@ export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "DELIVERY_CHALLAN",
   "CREDIT_NOTE",
   "PROFORMA_INVOICE",
+  "WORK_ORDER",
+  "ESTIMATE",
 ];
 
 export type TemplateBlockType =

@@ -10,7 +10,7 @@
  * or create a template, and reorder/configure its blocks via drag-and-drop.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -21,7 +21,10 @@ import {
   GripVertical,
   X,
   ExternalLink,
+  Upload,
 } from "lucide-react";
+import { DocumentRenderer } from "@/core/documentTemplates/renderer";
+import type { DocumentRenderData } from "@/core/documentTemplates/renderData";
 import {
   DndContext,
   closestCenter,
@@ -68,6 +71,26 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   DELIVERY_CHALLAN: "Delivery Challan",
   CREDIT_NOTE: "Credit Note",
   PROFORMA_INVOICE: "Proforma Invoice",
+  WORK_ORDER: "Work Order",
+  ESTIMATE: "Estimate",
+};
+
+// Representative sample data for the live preview -- pure client-side
+// render of the in-progress blocks/accentColor/logoUrl, no round trip,
+// so the preview updates the instant you reorder/edit a block.
+const SAMPLE_RENDER_DATA: DocumentRenderData = {
+  docTypeLabel: "SAMPLE DOCUMENT",
+  docNumber: "SAMPLE-0001",
+  date: "01 Jan 2026",
+  status: "DRAFT",
+  company: { name: "Your Business Name", address: "123 Business Street, City, State", gstin: "27AAAAA0000A1Z5" },
+  party: { name: "Sample Customer", address: "456 Customer Lane, City, State", phone: "9876543210", email: "customer@example.com" },
+  items: [
+    { description: "Sample Item / Service", hsnCode: "1234", qty: 2, unit: "pcs", unitPrice: 500, taxRate: 18, amount: 1180 },
+    { description: "Another Line Item", hsnCode: "5678", qty: 1, unit: "pcs", unitPrice: 1000, taxRate: 18, amount: 1180 },
+  ],
+  totals: { subtotal: 2000, tax: 360, grandTotal: 2360 },
+  notes: "Sample terms and conditions appear here.",
 };
 
 function SortableBlock({
@@ -152,8 +175,31 @@ export default function DocumentTemplatesPage() {
   const [selected, setSelected] = useState<DocTemplate | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  async function uploadLogo(file: File) {
+    if (!selected) return;
+    setUploadingLogo(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("name", `${selected.name} logo`);
+      form.append("category", "logo");
+      const res = await fetch("/api/assets/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (!data.success || !data.asset?.fileUrl) {
+        setError(data.message || "Failed to upload logo");
+        return;
+      }
+      setSelected({ ...selected, logoUrl: data.asset.fileUrl });
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -219,6 +265,7 @@ export default function DocumentTemplatesPage() {
           name: selected.name,
           blocks: selected.blocks,
           accentColor: selected.accentColor,
+          logoUrl: selected.logoUrl,
           isDefault: selected.isDefault,
         }),
       });
@@ -306,7 +353,7 @@ export default function DocumentTemplatesPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Template list */}
         <div className="lg:col-span-1 space-y-3">
           <button
@@ -386,6 +433,29 @@ export default function DocumentTemplatesPage() {
                   className="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer"
                   title="Accent color"
                 />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadLogo(file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs border border-gray-200 rounded-lg text-gray-500 hover:text-gray-900 hover:border-gray-400 disabled:opacity-60"
+                >
+                  {uploadingLogo ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                  {selected.logoUrl ? "Change Logo" : "Upload Logo"}
+                </button>
+                {selected.logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={selected.logoUrl} alt="Logo" className="h-9 w-9 object-contain rounded border border-gray-200" />
+                )}
               </div>
 
               {/* Block palette to add */}
@@ -443,6 +513,27 @@ export default function DocumentTemplatesPage() {
                   {saving ? "Saving…" : "Save Template"}
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Live preview -- renders the in-progress blocks/accentColor/logoUrl
+            with representative sample data via the same shared renderer the
+            real print pages use, so what's shown here is what will print. */}
+        <div className="lg:col-span-1">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 mb-2">Preview</p>
+          {selected ? (
+            <div className="border border-gray-200 rounded-xl bg-white p-4 overflow-auto max-h-[80vh] text-[11px] scale-[0.85] origin-top">
+              <DocumentRenderer
+                blocks={selected.blocks}
+                accentColor={selected.accentColor}
+                logoUrl={selected.logoUrl}
+                data={SAMPLE_RENDER_DATA}
+              />
+            </div>
+          ) : (
+            <div className="p-8 text-center text-gray-400 text-xs border border-dashed border-gray-200 rounded-xl">
+              Select a template to preview it.
             </div>
           )}
         </div>

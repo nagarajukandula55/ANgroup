@@ -49,6 +49,10 @@ export interface ICrmJobSheetLineItem {
 export interface ICrmJobSheet extends Document {
   businessId: Types.ObjectId;
   jobSheetNumber: string;
+  // Service center this job sheet was issued from -- optional; when set,
+  // its Warehouse.logoUrl overrides the business logo on the printed
+  // workorder/estimate. See core/documentTemplates/resolve.ts.
+  warehouseId?: Types.ObjectId;
 
   callId?: Types.ObjectId; // originating CrmCall -- absent for a standalone/walk-in job sheet
   customerName: string;
@@ -131,6 +135,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
   {
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
     jobSheetNumber: { type: String, required: true, index: true },
+    warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse", default: null },
 
     // Was `required: true` -- directly contradicted this route's own
     // documented purpose ("create a STANDALONE job sheet, not tied to a

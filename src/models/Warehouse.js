@@ -81,6 +81,14 @@ const WarehouseSchema = new mongoose.Schema(
 
     notes: String,
 
+    // Optional override for documents (invoices/workorders/estimates)
+    // issued from this specific service center/warehouse -- falls back to
+    // the owning Business.logo if not set. See core/documentTemplates/resolve.ts.
+    logoUrl: {
+      type: String,
+      default: "",
+    },
+
     active: {
       type: Boolean,
       default: true,

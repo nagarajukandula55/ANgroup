@@ -84,6 +84,7 @@ export interface ISalesInvoiceItem {
 export interface ISalesInvoice extends Document {
   invoiceNumber: string;
   businessId?: mongoose.Types.ObjectId;
+  warehouseId?: mongoose.Types.ObjectId;
   createdBy?: mongoose.Types.ObjectId;
   /** B2B = vendor → business (purchase side); B2C = business → end customer */
   invoiceType?: "B2B" | "B2C" | "STANDARD";
@@ -164,6 +165,10 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
   {
     invoiceNumber: { type: String, unique: true },
     businessId: { type: Schema.Types.ObjectId },
+    // Service center this invoice was issued from -- optional; when set,
+    // its Warehouse.logoUrl overrides the business logo on the printed
+    // invoice. See core/documentTemplates/resolve.ts.
+    warehouseId: { type: Schema.Types.ObjectId, ref: "Warehouse", default: null },
     createdBy: { type: Schema.Types.ObjectId },
     invoiceType: {
       type: String,

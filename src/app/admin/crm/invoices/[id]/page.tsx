@@ -21,42 +21,23 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Printer } from 'lucide-react'
+import { DocumentRenderer, DocumentFooterText } from '@/core/documentTemplates/renderer'
+import { salesInvoiceToRenderData } from '@/core/documentTemplates/adapters'
+import type { DocumentRenderData } from '@/core/documentTemplates/renderData'
 
-interface InvoiceItem {
-  description: string
-  quantity: number
-  unit: string
-  unitPrice: number
-  taxRate: number
-  taxAmount: number
-  total: number
-  hsnCode?: string
-}
-
-interface Invoice {
+interface InvoiceRaw {
   invoiceNumber: string
-  customer: { name: string; email?: string; phone?: string; address?: string; gstin?: string }
-  items: InvoiceItem[]
-  subtotal: number
-  taxTotal: number
-  discountAmount: number
-  grandTotal: number
-  cgstTotal?: number
-  sgstTotal?: number
-  igstTotal?: number
-  status: string
-  notes?: string
-  issueDate: string
-  currency: string
+  businessId?: string
+  warehouseId?: string
+  [key: string]: any
 }
-
-const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
-const fmtMoney = (n?: number) => `₹${(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function CrmInvoiceViewPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const [invoice, setInvoice] = useState<Invoice | null>(null)
+  const [invoice, setInvoice] = useState<InvoiceRaw | null>(null)
+  const [renderData, setRenderData] = useState<DocumentRenderData | null>(null)
+  const [template, setTemplate] = useState<{ blocks: any[]; accentColor: string; logoUrl?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,8 +49,28 @@ export default function CrmInvoiceViewPage() {
         setInvoice(d.invoice)
       })
       .catch((err) => setError(err.message || 'Could not load invoice'))
-      .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (!invoice?.businessId) {
+      if (invoice) setLoading(false)
+      return
+    }
+    const qs = new URLSearchParams({
+      businessId: String(invoice.businessId),
+      documentType: 'INVOICE',
+      ...(invoice.warehouseId ? { warehouseId: String(invoice.warehouseId) } : {}),
+    })
+    fetch(`/api/document-templates/resolve?${qs.toString()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) throw new Error(d.error || 'Failed to load document template')
+        setTemplate(d.template)
+        setRenderData(salesInvoiceToRenderData(invoice, d.company))
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [invoice])
 
   if (loading) {
     return (
@@ -79,7 +80,7 @@ export default function CrmInvoiceViewPage() {
     )
   }
 
-  if (error || !invoice) {
+  if (error || !invoice || !renderData || !template) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
         <p className="text-red-600 text-sm">{error || 'Invoice not found'}</p>
@@ -104,65 +105,13 @@ export default function CrmInvoiceViewPage() {
       </div>
 
       <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-2xl p-10 mb-10 print:border-none print:rounded-none print:shadow-none">
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <h2 className="text-2xl font-bold">TAX INVOICE</h2>
-            <p className="text-sm text-gray-500 mt-1">{invoice.invoiceNumber}</p>
-          </div>
-          <div className="text-right text-sm text-gray-500">
-            <p>Issue Date: {fmtDate(invoice.issueDate)}</p>
-            <p>Status: <span className="font-medium text-gray-900">{invoice.status}</span></p>
-          </div>
-        </div>
-
-        <div className="mb-8">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Bill To</p>
-          <p className="font-medium text-gray-900">{invoice.customer?.name}</p>
-          {invoice.customer?.address && <p className="text-sm text-gray-500">{invoice.customer.address}</p>}
-          {invoice.customer?.phone && <p className="text-sm text-gray-500">{invoice.customer.phone}</p>}
-          {invoice.customer?.email && <p className="text-sm text-gray-500">{invoice.customer.email}</p>}
-          {invoice.customer?.gstin && <p className="text-sm text-gray-500">GSTIN: {invoice.customer.gstin}</p>}
-        </div>
-
-        <table className="w-full text-sm mb-6">
-          <thead>
-            <tr className="border-b border-gray-200 text-left text-gray-400">
-              <th className="py-2">Description</th>
-              <th className="py-2 text-center">Qty</th>
-              <th className="py-2 text-right">Rate</th>
-              <th className="py-2 text-right">Tax</th>
-              <th className="py-2 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {invoice.items.map((item, i) => (
-              <tr key={i}>
-                <td className="py-2">{item.description}</td>
-                <td className="py-2 text-center">{item.quantity} {item.unit}</td>
-                <td className="py-2 text-right">{fmtMoney(item.unitPrice)}</td>
-                <td className="py-2 text-right">{fmtMoney(item.taxAmount)} ({item.taxRate}%)</td>
-                <td className="py-2 text-right font-medium">{fmtMoney(item.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="flex justify-end">
-          <div className="w-64 space-y-1.5 text-sm">
-            <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>{fmtMoney(invoice.subtotal)}</span></div>
-            {invoice.cgstTotal ? <div className="flex justify-between text-gray-500"><span>CGST</span><span>{fmtMoney(invoice.cgstTotal)}</span></div> : null}
-            {invoice.sgstTotal ? <div className="flex justify-between text-gray-500"><span>SGST</span><span>{fmtMoney(invoice.sgstTotal)}</span></div> : null}
-            {invoice.igstTotal ? <div className="flex justify-between text-gray-500"><span>IGST</span><span>{fmtMoney(invoice.igstTotal)}</span></div> : null}
-            {invoice.discountAmount ? <div className="flex justify-between text-gray-500"><span>Discount</span><span>-{fmtMoney(invoice.discountAmount)}</span></div> : null}
-            <div className="flex justify-between font-semibold text-gray-900 text-base border-t border-gray-200 pt-2">
-              <span>Grand Total</span><span>{fmtMoney(invoice.grandTotal)}</span>
-            </div>
-          </div>
-        </div>
-
-        {invoice.notes && (
-          <div className="mt-8 pt-4 border-t border-gray-100 text-xs text-gray-400">{invoice.notes}</div>
-        )}
+        <DocumentRenderer
+          blocks={template.blocks}
+          accentColor={template.accentColor}
+          logoUrl={template.logoUrl}
+          data={renderData}
+        />
+        <DocumentFooterText text={renderData.footerText} />
       </div>
 
       <style jsx global>{`

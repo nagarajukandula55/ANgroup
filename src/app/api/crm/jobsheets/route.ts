@@ -128,6 +128,10 @@ export async function POST(req: NextRequest) {
       issueDescription,
       faultCodeId,
       remark,
+      appointmentType,
+      requestType,
+      brandJobNoForPartOrder,
+      warehouseId,
       title,
       description,
       scheduledAt,
@@ -193,6 +197,13 @@ export async function POST(req: NextRequest) {
           ? new mongoose.Types.ObjectId(faultCodeId)
           : undefined,
       remark,
+      appointmentType: ["ONSITE", "WALKIN"].includes(appointmentType) ? appointmentType : undefined,
+      requestType: ["REPAIR", "INSTALLATION"].includes(requestType) ? requestType : undefined,
+      brandJobNoForPartOrder,
+      warehouseId:
+        warehouseId && mongoose.Types.ObjectId.isValid(warehouseId)
+          ? new mongoose.Types.ObjectId(warehouseId)
+          : undefined,
       title: title.trim(),
       description,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
