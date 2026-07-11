@@ -109,6 +109,14 @@ export const DOCUMENT_TYPES = [
   // DocumentType to get an atomic, per-vendor-scoped counter the same way
   // every other numbered entity in this file does.
   "MATERIAL",
+  // CRM job-sheet closure (api/crm/jobsheets/[id]/close) generates a
+  // SalesInvoice per job -- per explicit requirement, a GST-bearing
+  // invoice and a non-GST invoice must NOT share one running series (a
+  // business needs its GST-taxable invoice numbers to be their own
+  // consecutive sequence for filing purposes, separate from zero-GST/
+  // exempt bills). Reuses "INVOICE" for the GST case; this type is only
+  // for the non-GST case.
+  "NON_GST_INVOICE",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -151,6 +159,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   SERVICE_CENTER: "SC",
   STORE_FRONT: "SF",
   MATERIAL: "MAT",
+  NON_GST_INVOICE: "BILL",
 };
 
 export interface GeneratedNumber {

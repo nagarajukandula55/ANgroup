@@ -16,11 +16,7 @@ import { connectDB } from "@/lib/mongodb";
 import CrmJobSheet from "@/models/CrmJobSheet";
 import CrmCall from "@/models/CrmCall";
 import SalesInvoice from "@/models/SalesInvoice";
-import Business from "@/models/Business";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
-import { renderInvoiceForBusiness } from "@/core/invoiceTemplates/service";
-import { buildRenderDataFromInvoice } from "@/core/invoiceTemplates/fromInvoiceDoc";
-import cloudinary from "@/lib/cloudinary";
 import { logAction } from "@/lib/audit/logAction";
 import { notify } from "@/lib/notify";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
@@ -124,9 +120,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const taxTotal = cgstTotal + sgstTotal + igstTotal;
     const grandTotal = subtotal + taxTotal - (discountAmount || 0);
 
+    // GST-bearing invoices and non-GST (zero-tax/exempt) invoices get their
+    // own separate running number series -- a business needs its
+    // GST-taxable invoice numbers to be their own consecutive sequence for
+    // filing purposes, not interleaved with zero-GST bills. Determined by
+    // whether ANY line item actually carries GST, not the job sheet's
+    // overall total (a single taxed line is enough to make this a GST
+    // invoice even if others are zero-rated).
+    const isGstInvoice = jobSheet.lineItems.some((item: any) => (item.taxRate || 0) > 0);
     const { value: invoiceNumber } = await generateDocumentNumber(
       jobSheet.businessId.toString(),
-      "INVOICE"
+      isGstInvoice ? "INVOICE" : "NON_GST_INVOICE"
     );
 
     const invoice = await SalesInvoice.create({
@@ -163,38 +167,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (materialsUsed !== undefined) jobSheet.materialsUsed = materialsUsed;
     await jobSheet.save();
 
-    // Render + upload the actual viewable invoice document (HTML, same
-    // template registry api/invoice/generate/route.ts uses for order-based
-    // invoices) -- was missing entirely for CRM-originated invoices, since
-    // that route is hardcoded to look up an Order by orderId, and a
-    // job-sheet invoice has no Order at all (sourceOrderId is a synthetic
-    // "CRM_JOBSHEET:<id>" string, not a real Order._id). Without this, a
-    // closed job sheet produced invoice DATA in the database but no
-    // document a customer could actually view or print. Non-fatal, same
-    // pattern as every other "generate document as a side effect of the
-    // real action" step in this codebase -- a Cloudinary hiccup must never
-    // block the job sheet from actually closing.
-    try {
-      const business = await Business.findById(jobSheet.businessId).lean();
-      const renderData = buildRenderDataFromInvoice(
-        invoice.toObject ? invoice.toObject() : invoice,
-        null,
-        business as any
-      );
-      const html = await renderInvoiceForBusiness(String(jobSheet.businessId), renderData);
-      const buffer = Buffer.from(html, "utf-8");
-      await cloudinary.uploader.upload(
-        `data:text/html;base64,${buffer.toString("base64")}`,
-        {
-          folder: "an-group/invoices",
-          resource_type: "raw",
-          public_id: `invoice_${invoice.invoiceNumber}`,
-          overwrite: true,
-        }
-      );
-    } catch (docErr: any) {
-      console.error("CRM invoice document generation error (close, non-fatal):", docErr);
-    }
+    // No document is generated or stored here on purpose -- per explicit
+    // direction, an invoice/estimate document should never be persisted as
+    // a stored file; it's rendered fresh from the SalesInvoice record every
+    // time someone actually wants it. /invoice/[invoiceNumber] (backed by
+    // GET /api/invoice/view/[invoiceNumber]) already does exactly this: it
+    // reads this SalesInvoice live and renders it through the same
+    // template registry, with a "Print / Download PDF" button that uses
+    // the browser's own print-to-PDF -- nothing to upload or keep in sync
+    // here. That view route already handles this invoice's synthetic
+    // "CRM_JOBSHEET:<id>" sourceOrderId correctly (see its own comment).
 
     // Close the originating call, if any, as CLOSED_WON — the call's whole
     // point was to arrive here.
