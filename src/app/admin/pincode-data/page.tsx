@@ -14,6 +14,23 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Download } from "lucide-react";
+
+// Matches exactly what the upload handler expects (see this page's own
+// "Expected columns" note below and api/admin/pincode-data's parser).
+function downloadTemplate() {
+  const rows = [
+    "pincode,district,statename,officename",
+    "560001,Bangalore,Karnataka,Bangalore GPO",
+  ];
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "pincode-import-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface DatasetStatus {
   totalPincodes: number;
@@ -138,7 +155,15 @@ export default function PincodeDataPage() {
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="font-medium text-gray-900 mb-2">Upload New Dataset</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-medium text-gray-900">Upload New Dataset</h2>
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:text-gray-900 hover:border-gray-400 transition"
+            >
+              <Download size={12} /> Download Template
+            </button>
+          </div>
           <p className="text-sm text-gray-500 mb-4">
             Upload the latest{" "}
             <a

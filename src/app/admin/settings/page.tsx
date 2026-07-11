@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight, Receipt } from 'lucide-react'
+import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight, Receipt, Globe2, Plus, Trash2 } from 'lucide-react'
 
 /**
  * Admin Settings hub — src/app/admin/settings.
@@ -27,7 +27,16 @@ import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight, Receipt } fr
  * any feature."
  */
 
-type Tab = 'profile' | 'numbering' | 'integrations' | 'ai' | 'invoicing'
+type View = 'business' | 'platform'
+type Tab = 'numbering' | 'integrations' | 'ai' | 'invoicing'
+
+interface SsoMapping {
+  _id: string
+  urlPattern: string
+  sourceLabel: string
+  defaultRoleCode: string
+  isActive: boolean
+}
 
 interface InvoicingRules {
   dualInvoiceMode: boolean
@@ -50,13 +59,17 @@ interface DocConfig {
 }
 
 export default function AdminSettingsPage() {
-  const [tab, setTab] = useState<Tab>('profile')
+  const [view, setView] = useState<View>('business')
+  const [tab, setTab] = useState<Tab>('numbering')
   const [businessId, setBusinessId] = useState<string | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [msg, setMsg] = useState('')
 
-  // Business profile
-  const [profile, setProfile] = useState({ name: '', legalName: '', brandName: '' })
-  const [savingProfile, setSavingProfile] = useState(false)
+  // Platform (AN Group) -- SSO source mappings
+  const [ssoMappings, setSsoMappings] = useState<SsoMapping[]>([])
+  const [loadingSso, setLoadingSso] = useState(false)
+  const [ssoForm, setSsoForm] = useState({ urlPattern: '', sourceLabel: '', defaultRoleCode: '' })
+  const [savingSso, setSavingSso] = useState(false)
 
   // Invoicing rules (marketplace dual B2B/B2C invoice generation)
   const [invoicingRules, setInvoicingRules] = useState<InvoicingRules>({
@@ -84,23 +97,75 @@ export default function AdminSettingsPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
+          setIsSuperAdmin(!!d.user?.isSuperAdmin)
           const found = d.businesses?.find((b: any) => b._id === d.user?.activeBusinessId) || d.businesses?.[0]
-          if (found) {
-            setBusinessId(found._id)
-            setProfile({ name: found.name || '', legalName: found.legalName || '', brandName: found.brandName || '' })
-          }
+          if (found) setBusinessId(found._id)
         }
       })
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (!businessId) return
+    if (view === 'platform') loadSsoMappings()
+  }, [view])
+
+  async function loadSsoMappings() {
+    setLoadingSso(true)
+    try {
+      const res = await fetch('/api/admin/sso-sources', { credentials: 'include' })
+      const d = await res.json()
+      if (d.success) setSsoMappings(d.mappings || [])
+    } catch {}
+    setLoadingSso(false)
+  }
+
+  async function addSsoMapping(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingSso(true)
+    setMsg('')
+    try {
+      const res = await fetch('/api/admin/sso-sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(ssoForm),
+      })
+      const d = await res.json()
+      if (!d.success) {
+        setMsg(d.error || 'Failed to save')
+        return
+      }
+      setSsoForm({ urlPattern: '', sourceLabel: '', defaultRoleCode: '' })
+      loadSsoMappings()
+    } catch {
+      setMsg('Failed to save')
+    } finally {
+      setSavingSso(false)
+    }
+  }
+
+  async function toggleSsoActive(m: SsoMapping) {
+    await fetch(`/api/admin/sso-sources/${m._id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ isActive: !m.isActive }),
+    })
+    loadSsoMappings()
+  }
+
+  async function deleteSsoMapping(id: string) {
+    await fetch(`/api/admin/sso-sources/${id}`, { method: 'DELETE', credentials: 'include' })
+    loadSsoMappings()
+  }
+
+  useEffect(() => {
+    if (!businessId || view !== 'business') return
     if (tab === 'numbering') loadDocConfigs()
     if (tab === 'integrations') loadIntegrations()
     if (tab === 'ai') loadAiConfig()
     if (tab === 'invoicing') loadInvoicingRules()
-  }, [tab, businessId])
+  }, [tab, businessId, view])
 
   async function loadInvoicingRules() {
     try {
@@ -136,26 +201,6 @@ export default function AdminSettingsPage() {
       setMsg('Failed to save')
     }
     setSavingInvoicing(false)
-  }
-
-  async function saveProfile(e: React.FormEvent) {
-    e.preventDefault()
-    if (!businessId) return
-    setSavingProfile(true)
-    setMsg('')
-    try {
-      const res = await fetch(`/api/businesses/${businessId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(profile),
-      })
-      const d = await res.json()
-      setMsg(d.success ? '✓ Business profile updated' : d.message || 'Failed to save')
-    } catch {
-      setMsg('Failed to save')
-    }
-    setSavingProfile(false)
   }
 
   async function loadDocConfigs() {
@@ -214,7 +259,6 @@ export default function AdminSettingsPage() {
   }
 
   const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'profile', label: 'Business Profile', icon: <Building2 size={14} /> },
     { key: 'numbering', label: 'Document Numbers', icon: <Hash size={14} /> },
     { key: 'invoicing', label: 'Invoicing Rules', icon: <Receipt size={14} /> },
     { key: 'integrations', label: 'Integrations', icon: <Plug size={14} /> },
@@ -239,6 +283,96 @@ export default function AdminSettingsPage() {
           </div>
         )}
 
+        {isSuperAdmin && (
+          <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 w-fit">
+            {(['business', 'platform'] as View[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => { setView(v); setMsg('') }}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-all ${view === v ? 'bg-gray-900 text-white font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                {v === 'platform' && <Globe2 size={14} />}
+                {v === 'business' ? 'This Business' : 'Platform (AN Group)'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {view === 'platform' ? (
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">SSO Registration Sources</h3>
+              <p className="text-xs text-gray-500 mb-5">
+                Maps a registering site's URL to the default role new accounts from that origin get (see
+                /api/auth/register). Add a new storefront here without any code change.
+              </p>
+              <form onSubmit={addSsoMapping} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end mb-6">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">URL Pattern</label>
+                  <input required value={ssoForm.urlPattern} onChange={(e) => setSsoForm((p) => ({ ...p, urlPattern: e.target.value }))}
+                    placeholder="e.g. shopnative.in"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Source Label</label>
+                  <input required value={ssoForm.sourceLabel} onChange={(e) => setSsoForm((p) => ({ ...p, sourceLabel: e.target.value }))}
+                    placeholder="e.g. shopnative"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Default Role Code</label>
+                  <input required value={ssoForm.defaultRoleCode} onChange={(e) => setSsoForm((p) => ({ ...p, defaultRoleCode: e.target.value }))}
+                    placeholder="e.g. CUSTOMER_SHOPNATIVE"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
+                </div>
+                <button type="submit" disabled={savingSso} className="btn-primary rounded-xl px-4 py-2 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                  <Plus size={14} /> {savingSso ? 'Saving…' : 'Add'}
+                </button>
+              </form>
+
+              {loadingSso ? (
+                <p className="text-sm text-gray-500">Loading…</p>
+              ) : ssoMappings.length === 0 ? (
+                <p className="text-sm text-gray-400">No SSO source mappings yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {ssoMappings.map((m) => (
+                    <div key={m._id} className="rounded-xl border border-gray-200 p-3 flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{m.urlPattern}</p>
+                        <p className="text-xs text-gray-500">{m.sourceLabel} → {m.defaultRoleCode}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => toggleSsoActive(m)}
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${m.isActive ? 'text-emerald-600 bg-emerald-500/10' : 'text-gray-500 bg-gray-100'}`}
+                        >
+                          {m.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                        <button onClick={() => deleteSsoMapping(m._id)} className="text-gray-400 hover:text-red-500">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Other Platform Configuration</h3>
+              <div className="space-y-2 text-sm">
+                <Link href="/admin/roles" className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 hover:border-gray-400 transition">
+                  Roles &amp; Permissions <ChevronRight size={14} className="text-gray-400" />
+                </Link>
+                <Link href="/admin/document-numbers" className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 hover:border-gray-400 transition">
+                  Document Numbers — "AN Group (Platform)" scope <ChevronRight size={14} className="text-gray-400" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 overflow-x-auto">
           {TABS.map((t) => (
             <button
@@ -251,34 +385,16 @@ export default function AdminSettingsPage() {
           ))}
         </div>
 
-        {tab === 'profile' && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-5">Business Profile</h3>
-            <form onSubmit={saveProfile} className="space-y-4">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Business Name</label>
-                <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                  placeholder="Business name"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Legal Name</label>
-                <input value={profile.legalName} onChange={(e) => setProfile({ ...profile, legalName: e.target.value })}
-                  placeholder="Legal / registered name"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Brand Name</label>
-                <input value={profile.brandName} onChange={(e) => setProfile({ ...profile, brandName: e.target.value })}
-                  placeholder="Brand name"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400" />
-              </div>
-              <button type="submit" disabled={savingProfile} className="btn-primary rounded-xl px-5 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
-                <Save size={13} /> {savingProfile ? 'Saving…' : 'Save Profile'}
-              </button>
-            </form>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Building2 size={14} /> Business profile (name, address, GST, logo) is edited from the Businesses page only.
           </div>
-        )}
+          {businessId && (
+            <Link href={`/admin/business/${businessId}`} className="flex items-center gap-1.5 text-xs font-medium text-gray-900 hover:underline">
+              Edit Business Profile <ChevronRight size={13} />
+            </Link>
+          )}
+        </div>
 
         {tab === 'invoicing' && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
@@ -481,6 +597,8 @@ export default function AdminSettingsPage() {
               </div>
             )}
           </div>
+        )}
+        </>
         )}
       </div>
   )

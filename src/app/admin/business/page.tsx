@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Plus, Building2 } from "lucide-react";
 
 interface Business {
   _id: string;
@@ -84,117 +85,119 @@ export default function BusinessListPage() {
   }
 
   return (
-    <div className="p-10 text-white bg-[#07111f] min-h-screen">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Businesses</h1>
-          <p className="mt-1 text-sm text-white/50">
-            Every business you manage in one place — switch between them or
-            onboard a new one.
-          </p>
-        </div>
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-gray-500">Business</p>
+            <h1 className="mt-2 text-2xl font-semibold text-gray-900">Businesses</h1>
+            <p className="text-sm text-gray-400 mt-1">
+              Every business you manage in one place — switch between them or onboard a new one.
+            </p>
+          </div>
 
-        <Link
-          href="/admin/business/new"
-          className="bg-cyan-500 px-5 py-3 text-black font-bold rounded"
-        >
-          + Add Business
-        </Link>
-      </div>
-
-      {error && (
-        <div className="mt-4 rounded border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="mt-10 text-white/50">Loading businesses...</div>
-      ) : businesses.length === 0 ? (
-        <div className="mt-10 rounded border border-white/10 bg-white/5 p-8 text-center text-white/60">
-          No businesses yet.{" "}
-          <Link href="/admin/business/new" className="text-cyan-400 underline">
-            Create your first one
+          <Link
+            href="/admin/business/new"
+            className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-gray-800 transition"
+          >
+            <Plus size={16} /> Add Business
           </Link>
-          .
         </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {businesses.map((biz) => {
-            const isActive = biz._id === activeBusinessId;
-            return (
-              <div
-                key={biz._id}
-                className={`rounded-lg border p-5 flex flex-col gap-3 ${
-                  isActive
-                    ? "border-cyan-400 bg-cyan-500/10"
-                    : "border-white/10 bg-white/5"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-lg">{biz.name}</div>
-                    {biz.brandName && (
-                      <div className="text-xs text-white/50">
-                        {biz.brandName}
-                      </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-16 text-center text-gray-400">Loading businesses…</div>
+        ) : businesses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center">
+              <Building2 size={24} className="text-gray-600" />
+            </div>
+            <div className="text-center">
+              <p className="text-gray-900 font-medium">No businesses yet</p>
+              <p className="text-sm text-gray-500 mt-1">
+                <Link href="/admin/business/new" className="text-gray-900 underline">
+                  Create your first one
+                </Link>
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {businesses.map((biz) => {
+              const isActive = biz._id === activeBusinessId;
+              return (
+                <div
+                  key={biz._id}
+                  className={`rounded-2xl border p-5 flex flex-col gap-3 transition-colors ${
+                    isActive
+                      ? "border-gray-900 ring-2 ring-gray-900 bg-white"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-semibold text-gray-900">{biz.name}</div>
+                      {biz.brandName && (
+                        <div className="text-xs text-gray-500">{biz.brandName}</div>
+                      )}
+                    </div>
+                    {isActive && (
+                      <span className="text-[10px] uppercase tracking-wide bg-gray-900 text-white font-medium px-2 py-1 rounded-full">
+                        Active
+                      </span>
+                    )}
+                    {!isActive && biz.isActive === false && (
+                      <span className="text-[10px] uppercase tracking-wide bg-red-100 text-red-600 font-medium px-2 py-1 rounded-full">
+                        Inactive
+                      </span>
                     )}
                   </div>
-                  {isActive && (
-                    <span className="text-[10px] uppercase tracking-wide bg-cyan-500 text-black font-bold px-2 py-1 rounded">
-                      Active
-                    </span>
-                  )}
-                  {!isActive && biz.isActive === false && (
-                    <span className="text-[10px] uppercase tracking-wide bg-red-500/20 text-red-300 font-bold px-2 py-1 rounded">
-                      Inactive
-                    </span>
-                  )}
-                </div>
 
-                <div className="text-sm text-white/60 space-y-1">
-                  {biz.businessCode && (
-                    <div>
-                      Code: <span className="text-white/80">{biz.businessCode}</span>
-                    </div>
-                  )}
-                  {(biz.industry || biz.type) && (
-                    <div>
-                      {[biz.industry, biz.type].filter(Boolean).join(" · ")}
-                    </div>
-                  )}
-                  {biz.compliance?.gstNumber && (
-                    <div>GST: {biz.compliance.gstNumber}</div>
-                  )}
-                  {(biz.city || biz.state) && (
-                    <div>{[biz.city, biz.state].filter(Boolean).join(", ")}</div>
-                  )}
-                </div>
+                  <div className="text-sm text-gray-500 space-y-1">
+                    {biz.businessCode && (
+                      <div>
+                        Code: <span className="text-gray-700">{biz.businessCode}</span>
+                      </div>
+                    )}
+                    {(biz.industry || biz.type) && (
+                      <div>{[biz.industry, biz.type].filter(Boolean).join(" · ")}</div>
+                    )}
+                    {biz.compliance?.gstNumber && <div>GST: {biz.compliance.gstNumber}</div>}
+                    {(biz.city || biz.state) && (
+                      <div>{[biz.city, biz.state].filter(Boolean).join(", ")}</div>
+                    )}
+                  </div>
 
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={() => switchTo(biz)}
-                    disabled={isActive || switchingId === biz._id}
-                    className="flex-1 rounded border border-cyan-400/60 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {isActive
-                      ? "Currently Active"
-                      : switchingId === biz._id
-                      ? "Switching..."
-                      : "Switch to this business"}
-                  </button>
-                  <Link
-                    href={`/admin/business/${biz._id}`}
-                    className="rounded border border-white/20 px-3 py-2 text-sm font-semibold text-white/70 hover:bg-white/10"
-                  >
-                    Edit
-                  </Link>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => switchTo(biz)}
+                      disabled={isActive || switchingId === biz._id}
+                      className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-900 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      {isActive
+                        ? "Currently Active"
+                        : switchingId === biz._id
+                        ? "Switching…"
+                        : "Switch to this business"}
+                    </button>
+                    <Link
+                      href={`/admin/business/${biz._id}`}
+                      className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-400 transition"
+                    >
+                      Edit
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -80,10 +80,10 @@ function CourierProvidersPanel({ businessId }: { businessId: string | null }) {
   }
 
   return (
-    <section className="rounded-[32px] border border-white/10 bg-white/5 p-8">
+    <section className="rounded-2xl border border-gray-200 bg-white p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold flex items-center gap-2"><Plug size={20} className="text-cyan-300" /> Courier Providers</h3>
-        <p className="text-xs text-slate-400 max-w-md text-right">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Plug size={18} className="text-gray-500" /> Courier Providers</h3>
+        <p className="text-xs text-gray-400 max-w-md text-right">
           Shiprocket is live today. Other carriers are ready to plug in the moment real API credentials are added.
         </p>
       </div>
@@ -92,11 +92,11 @@ function CourierProvidersPanel({ businessId }: { businessId: string | null }) {
           const state = states[c.key] || { isActive: false, configured: false, credentials: {} }
           const isShiprocket = c.key === 'SHIPROCKET'
           return (
-            <div key={c.key} className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4">
+            <div key={c.key} className="rounded-xl border border-gray-200 bg-white px-5 py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold">{c.label}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="font-medium text-gray-900">{c.label}</p>
+                  <p className="text-xs text-gray-500">
                     {isShiprocket
                       ? 'Configured via server environment variables'
                       : state.configured
@@ -108,14 +108,14 @@ function CourierProvidersPanel({ businessId }: { businessId: string | null }) {
                   <button
                     onClick={() => setStates((p) => ({ ...p, [c.key]: { ...state, isActive: !state.isActive } }))}
                     disabled={isShiprocket}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-40 ${state.isActive ? 'bg-cyan-500' : 'bg-white/20'}`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-40 ${state.isActive ? 'bg-emerald-500' : 'bg-gray-200'}`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${state.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                   {!isShiprocket && (
                     <button
                       onClick={() => setExpanded((p) => (p === c.key ? null : c.key))}
-                      className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:text-white"
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-500 hover:text-gray-900 hover:border-gray-400"
                     >
                       {expanded === c.key ? 'Hide' : 'Configure'}
                     </button>
@@ -124,19 +124,19 @@ function CourierProvidersPanel({ businessId }: { businessId: string | null }) {
               </div>
 
               {!isShiprocket && expanded === c.key && (
-                <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
-                  <p className="text-xs text-slate-400">
+                <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                  <p className="text-xs text-gray-500">
                     Store any credential fields this provider's API requires (API key, client id/secret, etc.).
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       placeholder="Credential key (e.g. apiKey)"
-                      className="rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm"
+                      className="rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm text-gray-900"
                       id={`key-${c.key}`}
                     />
                     <input
                       placeholder="Value"
-                      className="rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm"
+                      className="rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm text-gray-900"
                       id={`val-${c.key}`}
                     />
                   </div>
@@ -155,12 +155,12 @@ function CourierProvidersPanel({ businessId }: { businessId: string | null }) {
                       keyInput.value = ''
                       if (valInput) valInput.value = ''
                     }}
-                    className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:text-white"
+                    className="rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-500 hover:text-gray-900 hover:border-gray-400"
                   >
                     + Add credential field
                   </button>
                   {Object.keys(state.credentials).length > 0 && (
-                    <ul className="text-xs text-slate-400 space-y-1">
+                    <ul className="text-xs text-gray-500 space-y-1">
                       {Object.entries(state.credentials).map(([k]) => (
                         <li key={k}>{k}: ••••••</li>
                       ))}
@@ -169,7 +169,7 @@ function CourierProvidersPanel({ businessId }: { businessId: string | null }) {
                   <button
                     onClick={() => save(c.key)}
                     disabled={saving === c.key}
-                    className="rounded-full bg-cyan-500/20 border border-cyan-400/30 px-4 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/30 disabled:opacity-50"
+                    className="rounded-lg bg-gray-900 text-white px-4 py-1.5 text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
                   >
                     {saving === c.key ? 'Saving…' : 'Save Configuration'}
                   </button>
@@ -223,49 +223,49 @@ function RateComparisonPanel() {
   }
 
   return (
-    <section className="rounded-[32px] border border-white/10 bg-white/5 p-8">
-      <h3 className="text-xl font-bold mb-4">Best Rate Comparison</h3>
+    <section className="rounded-2xl border border-gray-200 bg-white p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Best Rate Comparison</h3>
       <div className="flex gap-3">
         <input
           value={orderId}
           onChange={(e) => setOrderId(e.target.value)}
           placeholder="Order ID"
-          className="flex-1 rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm"
+          className="flex-1 rounded-lg bg-white border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
         />
         <button
           onClick={run}
           disabled={loading}
-          className="rounded-full bg-cyan-500/20 border border-cyan-400/30 px-4 py-2 text-sm text-cyan-200 hover:bg-cyan-500/30 disabled:opacity-50 flex items-center gap-2"
+          className="rounded-xl bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2"
         >
           <Search size={14} /> {loading ? 'Comparing…' : 'Compare'}
         </button>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
       {quotes && (
         <div className="mt-6 space-y-2">
           {quotes.length === 0 ? (
-            <p className="text-sm text-slate-400">No quotes available from any configured provider for this order.</p>
+            <p className="text-sm text-gray-400">No quotes available from any configured provider for this order.</p>
           ) : (
             quotes.map((q, i) => (
               <div
                 key={`${q.provider}-${q.courierId}`}
-                className={`flex items-center justify-between rounded-2xl border px-5 py-3 ${i === 0 ? 'border-cyan-400/40 bg-cyan-500/10' : 'border-white/10 bg-white/5'}`}
+                className={`flex items-center justify-between rounded-xl border px-5 py-3 ${i === 0 ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'}`}
               >
                 <div>
-                  <p className="font-semibold">{q.courierName} <span className="text-xs text-slate-400">({q.provider})</span></p>
-                  {q.etaDays != null && <p className="text-xs text-slate-400">ETA ~{q.etaDays}d</p>}
+                  <p className="font-medium text-gray-900">{q.courierName} <span className="text-xs text-gray-400">({q.provider})</span></p>
+                  {q.etaDays != null && <p className="text-xs text-gray-500">ETA ~{q.etaDays}d</p>}
                 </div>
                 <div className="text-right">
-                  <p className={`text-lg font-bold ${i === 0 ? 'text-cyan-300' : ''}`}>₹{q.rate}</p>
-                  {i === 0 && <p className="text-xs text-cyan-300">Best rate</p>}
+                  <p className={`text-lg font-semibold ${i === 0 ? 'text-blue-600' : 'text-gray-900'}`}>₹{q.rate}</p>
+                  {i === 0 && <p className="text-xs text-blue-600">Best rate</p>}
                 </div>
               </div>
             ))
           )}
           {skipped.length > 0 && (
-            <p className="text-xs text-slate-500 pt-2">Skipped (not configured): {skipped.join(', ')}</p>
+            <p className="text-xs text-gray-400 pt-2">Skipped (not configured): {skipped.join(', ')}</p>
           )}
         </div>
       )}
@@ -329,65 +329,62 @@ export default function LogisticsPage() {
   ] : []
 
   return (
-      <div className="space-y-8">
-        <section className="rounded-[40px] border border-white/10 bg-white/5 p-10">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="uppercase tracking-[0.35em] text-cyan-300 text-sm">
-                SUPPLY CHAIN CONTROL
-              </p>
-              <h1 className="mt-5 text-6xl font-black">
-                Logistics Network
-              </h1>
-              <p className="mt-6 text-lg max-w-3xl text-slate-300">
-                Track shipments, warehouse coverage, and delivery performance across every order.
-              </p>
-            </div>
-            <button onClick={load} className="rounded-full border border-white/10 p-3 text-slate-300 hover:text-white transition-all">
-              <RefreshCw size={18} />
-            </button>
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="max-w-7xl mx-auto px-6 py-10 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-gray-500">Supply Chain</p>
+            <h1 className="mt-2 text-2xl font-semibold text-gray-900">Logistics</h1>
+            <p className="text-sm text-gray-400 mt-1">Shipments, warehouse coverage, and delivery performance across every order.</p>
           </div>
-        </section>
+          <button onClick={load} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
+            <RefreshCw size={16} className="text-gray-500" />
+          </button>
+        </div>
 
         {error && (
-          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-6 text-red-200">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-600 text-sm">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="py-16 text-center text-slate-300">Loading logistics data…</div>
+          <div className="py-16 text-center text-gray-400">Loading logistics data…</div>
         ) : (
           <>
-            <section className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {stats.map((item, index) => {
                 const Icon = item.icon
                 return (
-                  <div key={index} className="rounded-[32px] border border-white/10 bg-white/5 p-8">
-                    <Icon size={36} className="text-cyan-300" />
-                    <h2 className="mt-5 text-xl font-bold">{item.title}</h2>
-                    <h3 className="mt-5 text-5xl font-black">{item.value}</h3>
+                  <div key={index} className="rounded-2xl border border-gray-200 bg-white p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-gray-500 text-sm">{item.title}</span>
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <Icon size={16} className="text-gray-700" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-gray-900">{item.value}</p>
                   </div>
                 )
               })}
             </section>
 
-            <section className="rounded-[32px] border border-white/10 bg-white/5 p-8">
-              <h3 className="text-xl font-bold mb-6">Recent Shipments</h3>
+            <section className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Shipments</h3>
               {(data?.recentShipments || []).length === 0 ? (
-                <p className="text-slate-400 text-sm">No shipments created yet.</p>
+                <p className="text-gray-400 text-sm">No shipments created yet.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {data.recentShipments.map((s: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-5 py-4">
+                    <div key={i} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-3">
                       <div>
-                        <p className="font-semibold">{s.invoiceNumber || s.orderId}</p>
-                        <p className="text-xs text-slate-400">{s.courierPartner || 'Courier not assigned'} {s.awbNumber ? `· AWB ${s.awbNumber}` : ''}</p>
+                        <p className="font-medium text-gray-900">{s.invoiceNumber || s.orderId}</p>
+                        <p className="text-xs text-gray-500">{s.courierPartner || 'Courier not assigned'} {s.awbNumber ? `· AWB ${s.awbNumber}` : ''}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-cyan-300">{s.trackingStatus || 'Pending'}</p>
+                        <p className="text-sm text-gray-900">{s.trackingStatus || 'Pending'}</p>
                         {s.trackingUrl && (
-                          <a href={s.trackingUrl} target="_blank" rel="noreferrer" className="text-xs underline text-slate-400 hover:text-white">
+                          <a href={s.trackingUrl} target="_blank" rel="noreferrer" className="text-xs underline text-gray-400 hover:text-gray-900">
                             Track
                           </a>
                         )}
@@ -404,5 +401,6 @@ export default function LogisticsPage() {
           </>
         )}
       </div>
+    </div>
   )
 }

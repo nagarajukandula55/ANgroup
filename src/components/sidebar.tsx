@@ -91,6 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { label: "Business", items: [
     { key: "businesses", label: "Businesses",   route: "/admin/business",   icon: "Building2" },
     { key: "vendors",    label: "Vendors",      route: "/admin/vendors",    icon: "Truck" },
+    { key: "customers",  label: "Customer Data", route: "/admin/customers", icon: "Users" },
   ]},
   { label: "People", subgroups: [
     { key: "ppl-hr", label: "Human Resources", items: [
