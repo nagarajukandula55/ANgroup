@@ -72,6 +72,15 @@ export async function POST(
     if (!businessId) {
       return NextResponse.json({ success: false, message: "businessId required" }, { status: 400 });
     }
+    // Only Super Admin designates a business's Owner -- a business-level
+    // "ADMIN" caller can attach/reassign staff (EMPLOYEE/VENDOR/CUSTOMER)
+    // but can't mint another Owner.
+    if (memberType === "OWNER" && !isSuperAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Only Super Admin can assign a business Owner" },
+        { status: 403 }
+      );
+    }
 
     await connectDB();
 

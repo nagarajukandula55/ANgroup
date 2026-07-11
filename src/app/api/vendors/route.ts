@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import VendorProfile from "@/models/VendorProfile";
+import User from "@/models/User";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
@@ -113,6 +114,8 @@ export async function POST(req: NextRequest) {
       address,
       bankDetails,
       notes,
+      ownerUserId,
+      ownerEmail,
     } = body;
 
     if (!businessId || !Types.ObjectId.isValid(businessId)) {
@@ -143,6 +146,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Explicit owner pick -- take an existing REGISTERED user by id or
+    // email, per the requirement that a vendor entity's Owner is a real,
+    // already-registered account, never silently created here. Optional:
+    // if neither is given, the vendor stays unlinked until finalize (the
+    // legacy path, which still resolves by vendor.email at that step).
+    let ownerUser = null as any;
+    if (ownerUserId && Types.ObjectId.isValid(ownerUserId)) {
+      ownerUser = await User.findOne({ _id: ownerUserId, isDeleted: false });
+      if (!ownerUser) {
+        return NextResponse.json(
+          { success: false, error: "No registered user found with that user ID" },
+          { status: 404 }
+        );
+      }
+    } else if (ownerEmail && String(ownerEmail).trim()) {
+      ownerUser = await User.findOne({ email: String(ownerEmail).toLowerCase().trim(), isDeleted: false });
+      if (!ownerUser) {
+        return NextResponse.json(
+          { success: false, error: "No registered user found with that email — the owner must already have an account" },
+          { status: 404 }
+        );
+      }
+    }
+
     // vendorId is GLOBALLY unique in the schema (see VendorProfile.ts) —
     // was `countDocuments()`-based (race-prone under concurrent creates;
     // the comment here used to explain a real duplicate-key bug from an
@@ -156,6 +183,7 @@ export async function POST(req: NextRequest) {
     const vendor = await VendorProfile.create({
       businessId: new Types.ObjectId(businessId),
       vendorId,
+      userId: ownerUser?._id,
       companyName: String(companyName).trim(),
       businessType,
       contactPerson,

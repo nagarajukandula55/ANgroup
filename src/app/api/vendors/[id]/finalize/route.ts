@@ -75,11 +75,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    /* ── 2. Create (or reuse) the vendor login ──────────────────────── */
-    let user = await User.findOne({
-      email: vendor.email,
-      isDeleted: false,
-    });
+    /* ── 2. Reuse the explicitly-linked owner, or fall back to matching/
+     *      creating a login by vendor.email ─────────────────────────── */
+    let user = vendor.userId
+      ? await User.findOne({ _id: vendor.userId, isDeleted: false })
+      : await User.findOne({ email: vendor.email, isDeleted: false });
 
     let tempPassword: string | null = null;
 

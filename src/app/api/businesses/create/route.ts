@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { bootstrapBusiness } from "@/services/businessBootstrap.service";
-import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
 import { logAction } from "@/lib/audit/logAction";
 
@@ -12,6 +11,17 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
         { status: 401 }
+      );
+    }
+    // Only Super Admin creates businesses -- who the actual Owner is (not
+    // necessarily the creator) is a separate, explicit assignment made
+    // afterwards via /api/admin/users/[id]/businesses, same as how a
+    // vendor's Owner is assigned rather than inferred from whoever clicked
+    // the button.
+    if (req.headers.get("x-is-super-admin") !== "true") {
+      return NextResponse.json(
+        { success: false, message: "Only Super Admin can create a business" },
+        { status: 403 }
       );
     }
 
@@ -48,21 +58,12 @@ export async function POST(req: Request) {
 
     const business = await bootstrapBusiness(body);
 
-    // Link the creator to the new business. Without this membership the
-    // business never appears in a non-super-admin creator's business list
-    // (/api/auth/me filters by ACTIVE BusinessMember), so creation looked
-    // like it "did nothing" even when it succeeded.
-    const existingMemberships = await BusinessMember.countDocuments({
-      userId,
-      isDeleted: false,
-    });
-    await BusinessMember.create({
-      userId,
-      businessId: business._id,
-      status: BusinessMemberStatus.ACTIVE,
-      memberType: "OWNER",
-      isDefaultBusiness: existingMemberships === 0,
-    });
+    // No auto-membership for the creator: creation is Super-Admin-only now
+    // (enforced above), and /api/auth/me already returns every active
+    // business to a super admin regardless of BusinessMember rows -- so no
+    // membership row is needed for them to see/manage it. The actual
+    // Owner is assigned explicitly and separately via
+    // /api/admin/users/[id]/businesses.
 
     logAction({
       action: "CREATE",

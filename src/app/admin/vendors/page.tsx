@@ -74,6 +74,25 @@ export default function VendorsPage() {
   const [unassignedRequests, setUnassignedRequests] = useState<Vendor[]>([])
   const [showRequests, setShowRequests] = useState(false)
 
+  // Owner account search -- explicitly links this vendor entity to an
+  // already-registered user (by id, resolved from a search) rather than
+  // implicitly matching by the contact email typed above.
+  const [ownerSearch, setOwnerSearch] = useState('')
+  const [ownerResults, setOwnerResults] = useState<{ _id: string; name: string; email: string }[]>([])
+  const [ownerDropOpen, setOwnerDropOpen] = useState(false)
+  const [selectedOwner, setSelectedOwner] = useState<{ _id: string; name: string; email: string } | null>(null)
+
+  useEffect(() => {
+    if (ownerSearch.length < 2) { setOwnerResults([]); return }
+    const t = setTimeout(() => {
+      fetch(`/api/users?search=${encodeURIComponent(ownerSearch)}&limit=10`)
+        .then(r => r.json())
+        .then(d => setOwnerResults(d.users || []))
+        .catch(() => setOwnerResults([]))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [ownerSearch])
+
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.json())
@@ -198,6 +217,7 @@ export default function VendorsPage() {
         businessType:   form.businessType || undefined,
         contactPerson:  form.contactPerson || undefined,
         email:          form.email || undefined,
+        ownerUserId:    selectedOwner?._id || undefined,
         phone:          form.phone || undefined,
         gstNumber:      form.gstNumber.trim().toUpperCase() || undefined,
         panNumber:      form.panNumber.trim().toUpperCase() || undefined,
@@ -233,6 +253,8 @@ export default function VendorsPage() {
       setForm({ ...emptyForm })
       setComplianceUploads({})
       setActiveTab('Basic Info')
+      setSelectedOwner(null)
+      setOwnerSearch('')
       if (businessId) fetchVendors(businessId)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
@@ -500,6 +522,53 @@ export default function VendorsPage() {
                     {field('phone', 'Phone', { type: 'tel', placeholder: '+91 98765 43210' })}
                   </div>
                   {field('email', 'Email Address', { type: 'email', placeholder: 'vendor@company.com' })}
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                      Owner Account (registered user)
+                    </label>
+                    {selectedOwner ? (
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-xl">
+                        <div>
+                          <p className="text-sm text-gray-900">{selectedOwner.name}</p>
+                          <p className="text-xs text-gray-500">{selectedOwner.email}</p>
+                        </div>
+                        <button type="button" onClick={() => { setSelectedOwner(null); setOwnerSearch('') }} className="text-gray-500 hover:text-gray-900">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={ownerSearch}
+                          onChange={(e) => { setOwnerSearch(e.target.value); setOwnerDropOpen(true) }}
+                          onFocus={() => setOwnerDropOpen(true)}
+                          placeholder="Search by registered user ID or email…"
+                          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+                        />
+                        {ownerDropOpen && ownerResults.length > 0 && (
+                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xl">
+                            {ownerResults.map((u) => (
+                              <button
+                                type="button"
+                                key={u._id}
+                                className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition"
+                                onClick={() => { setSelectedOwner(u); setOwnerDropOpen(false); setOwnerSearch('') }}
+                              >
+                                <p className="text-sm text-gray-900">{u.name}</p>
+                                <p className="text-xs text-gray-500">{u.email}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Must already be a registered account — this user becomes the vendor's Owner once approved. Leave blank to link by the email above at approval time instead.
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     {field('gstNumber', 'GSTIN', { placeholder: '27AABCU9603R1ZX', hint: gstWarning || '15-digit GST Identification Number', onBlur: handleGstBlur })}
                     {field('panNumber', 'PAN Number', { placeholder: 'AABCU9603R', hint: '10-character PAN' })}
