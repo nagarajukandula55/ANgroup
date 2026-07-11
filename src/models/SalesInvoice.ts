@@ -76,6 +76,9 @@ export interface ISalesInvoiceItem {
   // ── e-Invoice (INV-01) readiness — see this file's top comment ────────
   /** INV-01's "Assessable Value": taxable value for this line after discount, before tax. */
   assessableValue?: number;
+  /** Per-unit serial/IMEI numbers for this line -- required for offline
+   * sales of serialized goods (see api/vendor/offline-sales/route.ts). */
+  serialNumbers?: string[];
 }
 
 export interface ISalesInvoice extends Document {
@@ -203,6 +206,9 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
         igstAmount: { type: Number, default: 0 },
         // e-Invoice (INV-01) readiness — see this file's top comment
         assessableValue: { type: Number, default: 0 },
+        // Per-unit serial/IMEI numbers -- required for offline sales of
+        // serialized goods, see api/vendor/offline-sales/route.ts.
+        serialNumbers: { type: [String], default: [] },
       },
     ],
 

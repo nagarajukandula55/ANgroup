@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
+  ShoppingBag,
   FileText,
   User,
   BarChart3,
@@ -13,6 +14,7 @@ import {
   Wallet,
   Warehouse,
   Users,
+  Boxes,
 } from 'lucide-react'
 
 // NOTE: Bill of Materials is intentionally NOT a top-level nav item — BOM
@@ -22,7 +24,9 @@ import {
 const navItems = [
   { href: '/vendor', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/vendor/products', label: 'My Products', icon: Package },
+  { href: '/vendor/inventory', label: 'Inventory', icon: Boxes },
   { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart },
+  { href: '/vendor/offline-sales', label: 'Offline Sales', icon: ShoppingBag },
   { href: '/vendor/warehouses', label: 'Warehouses', icon: Warehouse },
   { href: '/vendor/staff', label: 'Staff', icon: Users },
   { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText },

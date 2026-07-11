@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ExportCsvButton from "@/components/shared/ExportCsvButton";
 
 type VendorProduct = {
   _id: string;
@@ -63,12 +64,25 @@ export default function VendorProductsPage() {
           </p>
         </div>
 
-        <a
-          href="/vendor/products/new"
-          className="rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-800 transition"
-        >
-          New Product
-        </a>
+        <div className="flex gap-2">
+          <ExportCsvButton
+            filename="vendor-products"
+            rows={products}
+            columns={[
+              { header: "Product", value: (r: VendorProduct) => r.productName },
+              { header: "Variant", value: (r: VendorProduct) => r.variantName },
+              { header: "Cost", value: (r: VendorProduct) => r.vendorCost },
+              { header: "MRP", value: (r: VendorProduct) => r.mrp },
+              { header: "Status", value: (r: VendorProduct) => r.approvalStatus },
+            ]}
+          />
+          <a
+            href="/vendor/products/new"
+            className="rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-800 transition"
+          >
+            New Product
+          </a>
+        </div>
       </div>
 
       {/* TABLE */}

@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Package,
 } from 'lucide-react'
+import ExportCsvButton from '@/components/shared/ExportCsvButton'
 
 interface Order {
   _id: string
@@ -101,14 +102,27 @@ export default function VendorOrdersPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div>
-        <p className="text-xs text-gray-500 uppercase tracking-widest">
-          Vendor Portal
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">My Orders</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {total} order{total !== 1 ? 's' : ''} total
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-widest">
+            Vendor Portal
+          </p>
+          <h1 className="text-2xl font-bold text-gray-900 mt-0.5">My Orders</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {total} order{total !== 1 ? 's' : ''} total
+          </p>
+        </div>
+        <ExportCsvButton
+          filename="vendor-orders"
+          rows={orders}
+          columns={[
+            { header: 'Order #', value: (r: Order) => r.orderNumber },
+            { header: 'Date', value: (r: Order) => formatDate(r.createdAt) },
+            { header: 'Amount', value: (r: Order) => r.totalAmount },
+            { header: 'Status', value: (r: Order) => r.status },
+            { header: 'Items', value: (r: Order) => (r.items || []).map((i) => `${i.name} x${i.quantity}`).join('; ') },
+          ]}
+        />
       </div>
 
       {/* Tab Filter */}

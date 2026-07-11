@@ -5,6 +5,7 @@ import VendorProfile from "@/models/VendorProfile";
 import Business from "@/models/Business";
 import SalesInvoice from "@/models/SalesInvoice";
 import Order from "@/models/Order";
+import NativeProduct from "@/models/NativeProduct";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -96,6 +97,39 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
+    // Stock gate — a customer can place an order regardless of stock (the
+    // storefront never blocked checkout on availability), but a vendor may
+    // only ACCEPT/PROCESS it once they actually have enough on hand. Was
+    // no check at all: any order could be confirmed regardless of stock,
+    // silently going negative with nothing to reconcile against. If short,
+    // the vendor uses Stock Adjustment (Inbound) to legally bring stock in
+    // first, then retries confirmation -- not blocked forever, just gated
+    // on having real stock.
+    const shortItems: { name: string; required: number; available: number }[] = [];
+    const productDocs = new Map<string, any>();
+    for (const line of vendorLines) {
+      const product = await NativeProduct.findById(line.productId);
+      if (!product) continue;
+      productDocs.set(String(line.productId), product);
+      const required = line.qty || 1;
+      const available = product.stock || 0;
+      if (available < required) {
+        shortItems.push({ name: line.name, required, available });
+      }
+    }
+    if (shortItems.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Not enough stock to process this order: ${shortItems
+            .map((s) => `${s.name} (need ${s.required}, have ${s.available})`)
+            .join(", ")}. Use Stock Adjustment (Inbound) to bring in more stock, then try again.`,
+          shortItems,
+        },
+        { status: 409 }
+      );
+    }
+
     const business = await (Business as any)
       .findById((vendor as any).businessId)
       .select("name legalName brandName email phone address city state pincode compliance")
@@ -182,7 +216,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       issueDate: new Date(),
     });
 
-    /* ── 3. Move the order forward ──────────────────────────────────── */
+    /* ── 3. Deduct stock — only now, once confirmation is actually going
+       through (already re-validated above), so a rejected/failed
+       confirmation never touches stock. ─────────────────────────────── */
+    for (const line of vendorLines) {
+      const product = productDocs.get(String(line.productId));
+      if (!product) continue;
+      product.stock = Math.max(0, (product.stock || 0) - (line.qty || 1));
+      await product.save();
+    }
+
+    /* ── 4. Move the order forward ──────────────────────────────────── */
     if (["CREATED", "PENDING_PAYMENT", "PAID"].includes(order.status)) {
       order.status = "PROCESSING";
     }

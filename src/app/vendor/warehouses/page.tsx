@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { Warehouse, Plus, Loader2, Pencil, Trash2, X } from "lucide-react";
+import ExportCsvButton from "@/components/shared/ExportCsvButton";
 
 interface WarehouseRow {
   _id: string;
@@ -129,12 +130,27 @@ export default function VendorWarehousesPage() {
               Manage your own storage/fulfilment locations.
             </p>
           </div>
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
-          >
-            <Plus size={16} /> Add Warehouse
-          </button>
+          <div className="flex gap-2">
+            <ExportCsvButton
+              filename="warehouses"
+              rows={warehouses}
+              columns={[
+                { header: "Code", value: (r: WarehouseRow) => r.warehouseCode },
+                { header: "Name", value: (r: WarehouseRow) => r.warehouseName },
+                { header: "Type", value: (r: WarehouseRow) => r.warehouseType },
+                { header: "City", value: (r: WarehouseRow) => r.city },
+                { header: "State", value: (r: WarehouseRow) => r.state },
+                { header: "Capacity", value: (r: WarehouseRow) => r.capacity },
+                { header: "Active", value: (r: WarehouseRow) => r.active },
+              ]}
+            />
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
+            >
+              <Plus size={16} /> Add Warehouse
+            </button>
+          </div>
         </div>
 
         {loading ? (
