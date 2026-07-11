@@ -39,6 +39,7 @@ export interface JWTPayload {
   businessIds: string[];
   activeBusinessId?: string;
   organizationId?: string;
+  mustChangePassword?: boolean;
   iat?: number;
   exp?: number;
 }

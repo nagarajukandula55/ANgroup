@@ -87,6 +87,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
   const [selectedRoleToAssign, setSelectedRoleToAssign] = useState('');
   const [assigning, setAssigning] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [tempPassword, setTempPassword] = useState('');
+  const [manualPassword, setManualPassword] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -126,6 +130,54 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       console.error(e);
     } finally {
       setAssigning(false);
+    }
+  }
+
+  async function generateTempPassword() {
+    setResetting(true);
+    setResetMsg('');
+    setTempPassword('');
+    try {
+      const res = await fetch(`/api/admin/users/${id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'generate' }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setTempPassword(d.temporaryPassword);
+        setResetMsg('Temporary password generated. Share it securely — it will not be shown again.');
+      } else {
+        setResetMsg(d.message || 'Failed to reset password');
+      }
+    } catch {
+      setResetMsg('Network error');
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  async function setManualPasswordForUser() {
+    if (!manualPassword || manualPassword.length < 6) {
+      setResetMsg('Password must be at least 6 characters');
+      return;
+    }
+    setResetting(true);
+    setResetMsg('');
+    setTempPassword('');
+    try {
+      const res = await fetch(`/api/admin/users/${id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'set', newPassword: manualPassword }),
+      });
+      const d = await res.json();
+      setResetMsg(d.success ? 'Password set. The user must change it on their next login.' : d.message || 'Failed to reset password');
+      if (d.success) setManualPassword('');
+    } catch {
+      setResetMsg('Network error');
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -302,6 +354,53 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       {/* Access & Roles Tab */}
       {activeTab === 'access' && (
         <div className="space-y-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">Password Control</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              The user's actual password can never be viewed — it's stored as a one-way hash. Reset it here instead;
+              the user must change it on their next login.
+            </p>
+            {resetMsg && (
+              <div className={`mb-4 rounded-lg px-3 py-2 text-xs ${tempPassword ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-700' : 'bg-amber-500/10 border border-amber-500/20 text-amber-700'}`}>
+                {resetMsg}
+              </div>
+            )}
+            {tempPassword && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <code className="text-sm font-mono text-gray-900 flex-1">{tempPassword}</code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(tempPassword)}
+                  className="text-xs text-blue-600 hover:underline"
+                >Copy</button>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3 items-center">
+              <button
+                onClick={generateTempPassword}
+                disabled={resetting}
+                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
+              >
+                {resetting ? 'Working…' : 'Generate Temporary Password'}
+              </button>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Set a specific password"
+                  value={manualPassword}
+                  onChange={(e) => setManualPassword(e.target.value)}
+                  className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:border-blue-500/50"
+                />
+                <button
+                  onClick={setManualPasswordForUser}
+                  disabled={resetting || !manualPassword}
+                  className="px-4 py-2 border border-gray-200 hover:bg-gray-100 disabled:opacity-50 text-gray-900 text-sm rounded-lg font-medium transition-colors"
+                >
+                  Set Password
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">Current Roles</h3>
             {user.roles.length === 0 ? (

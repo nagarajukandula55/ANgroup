@@ -56,7 +56,12 @@ function LoginForm() {
       // === 'VENDOR') has no business being dropped onto the internal admin
       // shell; their actual portal (product wizard, orders, staff, payouts)
       // lives under /vendor. Every other role keeps landing on /admin.
-      const landingPage = data.user?.role === 'VENDOR' ? '/vendor' : '/admin'
+      // A super-admin reset/temp password forces this gate first --
+      // middleware itself blocks everything else until it's cleared, so
+      // landing anywhere else would just bounce right back here.
+      const landingPage = data.user?.mustChangePassword
+        ? '/update-password'
+        : data.user?.role === 'VENDOR' ? '/vendor' : '/admin'
 
       // Hard redirect so the browser commits the httpOnly cookie before the next request.
       // router.push() triggers an RSC fetch that races with cookie propagation → 307 loop.

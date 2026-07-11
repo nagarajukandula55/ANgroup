@@ -25,7 +25,18 @@ interface JWTPayload {
   businessIds: string[];
   activeBusinessId?: string;
   organizationId?: string;
+  mustChangePassword?: boolean;
 }
+
+// Allowed while mustChangePassword is set -- everything else 403s/redirects
+// until the user actually changes their password. Exact paths, not
+// prefixes: the whole point is that nothing else is reachable.
+const PASSWORD_CHANGE_ALLOWED = new Set([
+  "/update-password",
+  "/api/auth/change-password",
+  "/api/auth/logout",
+  "/api/auth/me",
+]);
 
 async function verifyEdgeToken(token: string): Promise<JWTPayload | null> {
   try {
@@ -168,6 +179,19 @@ export async function middleware(req: NextRequest) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (payload.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.has(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return applyCors(
+        NextResponse.json(
+          { success: false, message: "Password change required", mustChangePassword: true },
+          { status: 403 }
+        ),
+        origin
+      );
+    }
+    return NextResponse.redirect(new URL("/update-password", req.url));
   }
 
   /* ── Inject user context headers ────────────────────────────────────── */

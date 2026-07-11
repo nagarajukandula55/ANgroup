@@ -88,6 +88,7 @@ export async function POST(req: Request) {
       businessIds,
       activeBusinessId,
       organizationId:   user.organizationId?.toString(),
+      mustChangePassword: !!user.mustChangePassword,
     });
 
     const safeUser = {
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
       businessIds,
       activeBusinessId,
       organizationId:   user.organizationId?.toString(),
+      mustChangePassword: !!user.mustChangePassword,
     };
 
     /* ── Set httpOnly cookie + return token in JSON ──────────────────── */

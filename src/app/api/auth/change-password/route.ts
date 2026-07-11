@@ -72,6 +72,7 @@ export async function POST(req: Request) {
     const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS)
     user.password = hashed
     user.passwordChangedAt = new Date()
+    user.mustChangePassword = false
     await user.save()
 
     logAction({

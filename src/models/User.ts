@@ -67,6 +67,10 @@ export interface IUser extends Document {
   lockUntil?: Date;
   passwordChangedAt?: Date;
   lastLogin?: Date;
+  /** Set when a super admin resets/generates this user's password (or on
+   * first-ever account creation) — forces the change-password gate before
+   * any other request succeeds. Cleared by /api/auth/change-password. */
+  mustChangePassword: boolean;
   /** sha256 hash of the raw reset token (see api/auth/reset-password/request) — never the raw token itself. */
   resetPasswordTokenHash?: string;
   resetPasswordExpires?: Date;
@@ -215,6 +219,11 @@ const UserSchema = new Schema<IUser>(
     lastLogin: {
       type: Date,
       default: null,
+    },
+
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
     },
 
     // Was missing entirely -- api/auth/reset-password/request+confirm set
