@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Brand from "@/models/Brand";
 import { logAction } from "@/lib/audit/logAction";
+import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
 
 // GET /api/brands?businessId=...&search=...&isActive=...
 export async function GET(req: NextRequest) {
@@ -23,19 +24,19 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    const query: Record<string, unknown> = {
-      businessId: new Types.ObjectId(businessId),
-    };
+    const scopeQuery = buildBusinessScopeQuery(businessId);
+    const query: Record<string, unknown> = { ...scopeQuery };
 
     if (isActive !== null) {
       query.isActive = isActive === "true";
     }
 
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
+      query.$and = [
+        { $or: scopeQuery.$or },
+        { $or: [{ name: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }] },
       ];
+      delete query.$or;
     }
 
     const brands = await Brand.find(query).sort({ name: 1 }).lean();
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, description, businessId, logoUrl } = body;
+    const { name, description, businessId, logoUrl, businessScope, businessIds } = body;
 
     if (!name || !businessId) {
       return NextResponse.json(
@@ -71,6 +72,8 @@ export async function POST(req: NextRequest) {
       description: description?.trim(),
       businessId: new Types.ObjectId(businessId),
       logoUrl: logoUrl?.trim(),
+      businessScope: businessScope || "SINGLE",
+      businessIds: Array.isArray(businessIds) ? businessIds : [],
     });
 
     logAction({

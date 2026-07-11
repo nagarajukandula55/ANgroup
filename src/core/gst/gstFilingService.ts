@@ -167,6 +167,12 @@ export async function pushInvoicesForRange(input: PushRangeInput): Promise<PushR
     businessId: new Types.ObjectId(input.businessId),
     issueDate: { $gte: fromDate, $lte: toDate },
     isDeleted: { $ne: true },
+    // B2B invoices here represent a vendor invoicing this business (vendor
+    // is the invoicing/liable party -- see SalesInvoice.invoiceType's own
+    // doc comment), not this business invoicing someone else. Only
+    // STANDARD/B2C invoices are ones this business is actually responsible
+    // for filing GST on.
+    invoiceType: { $ne: "B2B" },
   })
     .select("_id invoiceNumber")
     .lean();

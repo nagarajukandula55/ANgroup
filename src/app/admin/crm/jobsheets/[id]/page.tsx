@@ -30,9 +30,16 @@ interface BOMPart {
   brandId?: { _id: string; name: string } | string
 }
 
+interface Solution {
+  _id: string
+  code: string
+  description: string
+}
+
 interface JobSheet {
   _id: string
   jobSheetNumber: string
+  businessId?: string
   customerName: string
   phone: string
   email?: string
@@ -47,6 +54,7 @@ interface JobSheet {
   lineItems: LineItem[]
   workPerformed?: string
   materialsUsed?: string
+  solutionId?: { _id?: string } | string
   invoiceId?: string
   invoiceNumber?: string
   brandJobNoForPartOrder?: string
@@ -130,6 +138,8 @@ export default function JobSheetDetailPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [workPerformed, setWorkPerformed] = useState('')
   const [materialsUsed, setMaterialsUsed] = useState('')
+  const [solutionId, setSolutionId] = useState('')
+  const [solutions, setSolutions] = useState<Solution[]>([])
 
   const [bomParts, setBomParts] = useState<BOMPart[]>([])
   const [pickerOpenIndex, setPickerOpenIndex] = useState<number | null>(null)
@@ -159,6 +169,11 @@ export default function JobSheetDetailPage() {
       setLineItems(d.jobSheet.lineItems?.length ? d.jobSheet.lineItems : [emptyLine()])
       setWorkPerformed(d.jobSheet.workPerformed || '')
       setMaterialsUsed(d.jobSheet.materialsUsed || '')
+      const sid = d.jobSheet.solutionId
+      setSolutionId(typeof sid === 'object' ? sid?._id || '' : sid || '')
+      if (d.jobSheet.businessId) {
+        fetch(`/api/solutions?businessId=${d.jobSheet.businessId}`).then(r => r.json()).then(sd => setSolutions(sd.solutions || [])).catch(() => {})
+      }
     } catch (err: any) {
       setError(err.message || 'Could not load workorder.')
     } finally {
@@ -242,7 +257,7 @@ export default function JobSheetDetailPage() {
       const res = await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, ...extra }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null, ...extra }),
       })
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to save')
@@ -297,7 +312,7 @@ export default function JobSheetDetailPage() {
       await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null }),
       })
       const res = await fetch(`/api/crm/jobsheets/${id}/close`, {
         method: 'POST',
@@ -618,6 +633,22 @@ export default function JobSheetDetailPage() {
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
           </div>
+          {solutions.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Solution</label>
+              <select
+                disabled={isLocked}
+                value={solutionId}
+                onChange={(e) => setSolutionId(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
+              >
+                <option value="">— None —</option>
+                {solutions.map((s) => (
+                  <option key={s._id} value={s._id}>{s.code} — {s.description}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">Materials Used</label>
             <textarea

@@ -53,7 +53,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, description, parentId, imageUrl, isActive } = body;
+    const { name, description, parentId, imageUrl, isActive, businessScope, businessIds } = body;
 
     await connectDB();
 
@@ -63,6 +63,8 @@ export async function PUT(
     if (parentId !== undefined) updates.parentId = parentId ? new Types.ObjectId(parentId) : null;
     if (imageUrl !== undefined) updates.imageUrl = imageUrl?.trim() || undefined;
     if (isActive !== undefined) updates.isActive = isActive;
+    if (businessScope !== undefined) updates.businessScope = businessScope;
+    if (businessIds !== undefined) updates.businessIds = businessIds;
 
     // Prevent setting parent to self
     if (parentId && parentId === id) {

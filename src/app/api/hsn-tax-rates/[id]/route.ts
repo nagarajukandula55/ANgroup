@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import mongoose from "mongoose";
-import FaultCode from "@/models/FaultCode";
+import HsnTaxRate from "@/models/HsnTaxRate";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
@@ -21,7 +21,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("fault_codes", "edit"));
+      requirePermission(session as any, buildPermissionCode("gst", "manage_settings"));
     } catch (err: any) {
       return permissionErrorResponse(err);
     }
@@ -31,21 +31,29 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, error: "Invalid id" }, { status: 400 });
     }
 
+    const existing = await HsnTaxRate.findById(id);
+    if (existing && existing.businessId === null) {
+      return NextResponse.json(
+        { success: false, error: "Global/default HSN rates cannot be edited, only business-specific overrides" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const updates: Record<string, unknown> = {};
-    for (const field of ["code", "description", "category", "isActive", "businessScope", "businessIds"]) {
+    for (const field of ["hsnCode", "gstRate", "category", "description"]) {
       if (body[field] !== undefined) updates[field] = body[field];
     }
 
     await connectDB();
-    const faultCode = await FaultCode.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true });
-    if (!faultCode) {
-      return NextResponse.json({ success: false, error: "Fault code not found" }, { status: 404 });
+    const rate = await HsnTaxRate.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true });
+    if (!rate) {
+      return NextResponse.json({ success: false, error: "HSN rate not found" }, { status: 404 });
     }
 
-    logAction({ action: "UPDATE", entity: "FaultCode", entityId: id, after: updates, req });
+    logAction({ action: "UPDATE", entity: "HsnTaxRate", entityId: id, after: updates, req });
 
-    return NextResponse.json({ success: true, faultCode });
+    return NextResponse.json({ success: true, rate });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
@@ -59,7 +67,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("fault_codes", "delete"));
+      requirePermission(session as any, buildPermissionCode("gst", "manage_settings"));
     } catch (err: any) {
       return permissionErrorResponse(err);
     }
@@ -70,14 +78,22 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     await connectDB();
-    const faultCode = await FaultCode.findByIdAndUpdate(id, { $set: { isActive: false } }, { new: true });
-    if (!faultCode) {
-      return NextResponse.json({ success: false, error: "Fault code not found" }, { status: 404 });
+    const existing = await HsnTaxRate.findById(id);
+    if (existing && existing.businessId === null) {
+      return NextResponse.json(
+        { success: false, error: "Global/default HSN rates cannot be deleted" },
+        { status: 403 }
+      );
     }
 
-    logAction({ action: "DELETE", entity: "FaultCode", entityId: id, req });
+    const rate = await HsnTaxRate.findByIdAndDelete(id);
+    if (!rate) {
+      return NextResponse.json({ success: false, error: "HSN rate not found" }, { status: 404 });
+    }
 
-    return NextResponse.json({ success: true, message: "Fault code deactivated" });
+    logAction({ action: "DELETE", entity: "HsnTaxRate", entityId: id, req });
+
+    return NextResponse.json({ success: true, message: "HSN rate deleted" });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

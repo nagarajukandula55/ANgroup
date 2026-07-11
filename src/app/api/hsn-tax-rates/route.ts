@@ -1,10 +1,11 @@
 /**
- * GET /api/hsn-tax-rates?businessId=...&hsnCode=...
+ * GET  /api/hsn-tax-rates?businessId=...&hsnCode=...
+ * POST /api/hsn-tax-rates  { businessId, hsnCode, gstRate, category?, description? }
  * Simple HSN -> GST rate lookup used by the Workorder line-item UI to
  * auto-fill tax% when a part is picked by its HSN code. Auto-seeds
  * DEFAULT_HSN_TAX_RATES (global) on first call if nothing exists yet.
- * No POST/PUT here by design -- keep this minimal per spec scope; editing
- * can be added later if the business needs to override rates per HSN.
+ * POST creates a business-specific override (businessId required -- the
+ * global/default rows are platform-seeded, not editable here).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -12,6 +13,16 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import HsnTaxRate, { DEFAULT_HSN_TAX_RATES } from "@/models/HsnTaxRate";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
+import { logAction } from "@/lib/audit/logAction";
+
+function permissionErrorResponse(err: any) {
+  return NextResponse.json(
+    { success: false, error: err.message },
+    { status: err.code === "FORBIDDEN" ? 403 : 401 }
+  );
+}
 
 async function ensureSeeded() {
   const count = await HsnTaxRate.countDocuments({});
@@ -50,6 +61,46 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, rate: rates[0] || null, rates });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
+// POST /api/hsn-tax-rates -- creates/updates a business-specific override.
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("gst", "manage_settings"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
+
+    const body = await req.json();
+    const { businessId, hsnCode, gstRate, category, description } = body;
+
+    if (!businessId || !Types.ObjectId.isValid(businessId)) {
+      return NextResponse.json({ success: false, error: "businessId is required" }, { status: 400 });
+    }
+    if (!hsnCode?.trim() || gstRate === undefined || gstRate === null) {
+      return NextResponse.json({ success: false, error: "hsnCode and gstRate are required" }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const rate = await HsnTaxRate.findOneAndUpdate(
+      { businessId: new Types.ObjectId(businessId), hsnCode: hsnCode.trim() },
+      { $set: { gstRate: Number(gstRate), category: category?.trim(), description: description?.trim() } },
+      { new: true, upsert: true, runValidators: true }
+    );
+
+    logAction({ action: "CREATE", entity: "HsnTaxRate", entityId: rate?._id?.toString(), after: body, req });
+
+    return NextResponse.json({ success: true, rate }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

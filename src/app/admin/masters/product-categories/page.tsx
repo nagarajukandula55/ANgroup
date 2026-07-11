@@ -18,6 +18,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
+import BusinessScopeControl from "@/components/catalog/BusinessScopeControl";
 
 interface ProductCategory {
   _id: string;
@@ -27,6 +28,8 @@ interface ProductCategory {
   imageUrl?: string;
   isActive: boolean;
   productCount: number;
+  businessScope?: "SINGLE" | "MULTIPLE" | "ALL";
+  businessIds?: string[];
   createdAt: string;
 }
 
@@ -35,6 +38,8 @@ interface FormData {
   description: string;
   parentId: string;
   imageUrl: string;
+  businessScope: "SINGLE" | "MULTIPLE" | "ALL";
+  businessIds: string[];
 }
 
 type ModalType = "add" | "edit" | "delete" | null;
@@ -56,6 +61,8 @@ export default function ProductCategoriesPage() {
     description: "",
     parentId: "",
     imageUrl: "",
+    businessScope: "SINGLE",
+    businessIds: [],
   });
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -89,7 +96,7 @@ export default function ProductCategoriesPage() {
   }, [fetchCategories]);
 
   const openAdd = () => {
-    setFormData({ name: "", description: "", parentId: "", imageUrl: "" });
+    setFormData({ name: "", description: "", parentId: "", imageUrl: "", businessScope: "SINGLE", businessIds: [] });
     setFormError("");
     setModal({ type: "add" });
   };
@@ -100,6 +107,8 @@ export default function ProductCategoriesPage() {
       description: cat.description || "",
       parentId: cat.parentId?._id || "",
       imageUrl: cat.imageUrl || "",
+      businessScope: cat.businessScope || "SINGLE",
+      businessIds: cat.businessIds || [],
     });
     setFormError("");
     setModal({ type: "edit", category: cat });
@@ -132,6 +141,8 @@ export default function ProductCategoriesPage() {
           parentId: formData.parentId || null,
           imageUrl: formData.imageUrl.trim(),
           businessId,
+          businessScope: formData.businessScope,
+          businessIds: formData.businessIds,
         }),
       });
       const data = await res.json();
@@ -166,6 +177,8 @@ export default function ProductCategoriesPage() {
           description: formData.description.trim(),
           parentId: formData.parentId || null,
           imageUrl: formData.imageUrl.trim(),
+          businessScope: formData.businessScope,
+          businessIds: formData.businessIds,
         }),
       });
       const data = await res.json();
@@ -578,6 +591,11 @@ export default function ProductCategoriesPage() {
                   </div>
                 )}
               </div>
+
+              <BusinessScopeControl
+                value={{ businessScope: formData.businessScope, businessIds: formData.businessIds }}
+                onChange={(v) => setFormData((p) => ({ ...p, ...v }))}
+              />
 
               {/* Error */}
               {formError && (

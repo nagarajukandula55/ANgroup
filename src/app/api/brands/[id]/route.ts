@@ -53,7 +53,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, description, logoUrl, isActive } = body;
+    const { name, description, logoUrl, isActive, businessScope, businessIds } = body;
 
     await connectDB();
 
@@ -62,6 +62,8 @@ export async function PUT(
     if (description !== undefined) updates.description = description?.trim();
     if (logoUrl !== undefined) updates.logoUrl = logoUrl?.trim();
     if (isActive !== undefined) updates.isActive = isActive;
+    if (businessScope !== undefined) updates.businessScope = businessScope;
+    if (businessIds !== undefined) updates.businessIds = businessIds;
 
     const brand = await Brand.findByIdAndUpdate(
       id,

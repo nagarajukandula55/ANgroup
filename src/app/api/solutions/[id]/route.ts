@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import mongoose from "mongoose";
-import FaultCode from "@/models/FaultCode";
+import Solution from "@/models/Solution";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
@@ -21,7 +21,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("fault_codes", "edit"));
+      requirePermission(session as any, buildPermissionCode("solutions", "edit"));
     } catch (err: any) {
       return permissionErrorResponse(err);
     }
@@ -38,14 +38,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     await connectDB();
-    const faultCode = await FaultCode.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true });
-    if (!faultCode) {
-      return NextResponse.json({ success: false, error: "Fault code not found" }, { status: 404 });
+    const solution = await Solution.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true });
+    if (!solution) {
+      return NextResponse.json({ success: false, error: "Solution not found" }, { status: 404 });
     }
 
-    logAction({ action: "UPDATE", entity: "FaultCode", entityId: id, after: updates, req });
+    logAction({ action: "UPDATE", entity: "Solution", entityId: id, after: updates, req });
 
-    return NextResponse.json({ success: true, faultCode });
+    return NextResponse.json({ success: true, solution });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
@@ -59,7 +59,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("fault_codes", "delete"));
+      requirePermission(session as any, buildPermissionCode("solutions", "delete"));
     } catch (err: any) {
       return permissionErrorResponse(err);
     }
@@ -70,14 +70,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     await connectDB();
-    const faultCode = await FaultCode.findByIdAndUpdate(id, { $set: { isActive: false } }, { new: true });
-    if (!faultCode) {
-      return NextResponse.json({ success: false, error: "Fault code not found" }, { status: 404 });
+    const solution = await Solution.findByIdAndUpdate(id, { $set: { isActive: false } }, { new: true });
+    if (!solution) {
+      return NextResponse.json({ success: false, error: "Solution not found" }, { status: 404 });
     }
 
-    logAction({ action: "DELETE", entity: "FaultCode", entityId: id, req });
+    logAction({ action: "DELETE", entity: "Solution", entityId: id, req });
 
-    return NextResponse.json({ success: true, message: "Fault code deactivated" });
+    return NextResponse.json({ success: true, message: "Solution deactivated" });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

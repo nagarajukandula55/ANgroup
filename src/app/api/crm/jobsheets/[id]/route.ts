@@ -92,6 +92,10 @@ const ALLOWED_FIELDS = [
   "faultCodeId",
   "remark",
   "brandJobNoForPartOrder",
+  "solutionId",
+  "warehouseId",
+  "appointmentType",
+  "requestType",
 ];
 
 // Statuses that mean a SalesInvoice already exists — job sheet content

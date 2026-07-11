@@ -17,6 +17,9 @@ export interface IHsnTaxRate extends Document {
   businessId?: Types.ObjectId | null;
   hsnCode: string;
   gstRate: number;
+  // Free text GST category label (e.g. "Goods"/"Services", or a
+  // business-defined grouping) -- no fixed taxonomy is imposed.
+  category?: string;
   description?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +30,7 @@ const HsnTaxRateSchema = new Schema<IHsnTaxRate>(
     businessId: { type: Schema.Types.ObjectId, ref: "Business", default: null, index: true },
     hsnCode: { type: String, required: true, trim: true, index: true },
     gstRate: { type: Number, required: true },
+    category: { type: String, trim: true },
     description: { type: String, trim: true },
   },
   { timestamps: true }

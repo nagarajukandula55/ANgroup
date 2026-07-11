@@ -15,6 +15,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
+import BusinessScopeControl, { type BusinessScopeValue } from "@/components/catalog/BusinessScopeControl";
 
 interface Brand {
   _id: string;
@@ -22,6 +23,8 @@ interface Brand {
   description?: string;
   logoUrl?: string;
   isActive: boolean;
+  businessScope?: "SINGLE" | "MULTIPLE" | "ALL";
+  businessIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +45,8 @@ export default function BrandsPage() {
     name: "",
     description: "",
     logoUrl: "",
+    businessScope: "SINGLE" as "SINGLE" | "MULTIPLE" | "ALL",
+    businessIds: [] as string[],
   });
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -75,7 +80,7 @@ export default function BrandsPage() {
   }, [fetchBrands]);
 
   const openAdd = () => {
-    setFormData({ name: "", description: "", logoUrl: "" });
+    setFormData({ name: "", description: "", logoUrl: "", businessScope: "SINGLE", businessIds: [] });
     setFormError("");
     setModal({ type: "add" });
   };
@@ -85,6 +90,8 @@ export default function BrandsPage() {
       name: brand.name,
       description: brand.description || "",
       logoUrl: brand.logoUrl || "",
+      businessScope: brand.businessScope || "SINGLE",
+      businessIds: brand.businessIds || [],
     });
     setFormError("");
     setModal({ type: "edit", brand });
@@ -116,6 +123,8 @@ export default function BrandsPage() {
           description: formData.description.trim(),
           logoUrl: formData.logoUrl.trim(),
           businessId,
+          businessScope: formData.businessScope,
+          businessIds: formData.businessIds,
         }),
       });
       const data = await res.json();
@@ -149,6 +158,8 @@ export default function BrandsPage() {
           name: formData.name.trim(),
           description: formData.description.trim(),
           logoUrl: formData.logoUrl.trim(),
+          businessScope: formData.businessScope,
+          businessIds: formData.businessIds,
         }),
       });
       const data = await res.json();
@@ -475,8 +486,8 @@ function BrandModal({
   existingLogos,
 }: {
   title: string;
-  formData: { name: string; description: string; logoUrl: string };
-  setFormData: (d: { name: string; description: string; logoUrl: string }) => void;
+  formData: { name: string; description: string; logoUrl: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] };
+  setFormData: (d: { name: string; description: string; logoUrl: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] }) => void;
   formError: string;
   submitting: boolean;
   onClose: () => void;
@@ -620,6 +631,11 @@ function BrandModal({
               className="w-full mt-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
             />
           </div>
+
+          <BusinessScopeControl
+            value={{ businessScope: formData.businessScope, businessIds: formData.businessIds }}
+            onChange={(v) => setFormData({ ...formData, ...v })}
+          />
 
           {formError && (
             <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">

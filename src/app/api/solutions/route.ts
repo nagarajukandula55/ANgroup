@@ -1,25 +1,12 @@
-/**
- * GET  /api/fault-codes?businessId=...&search=...&isActive=...
- * POST /api/fault-codes
- *
- * Same permission-gating pattern as /api/brands: getEnrichedSession +
- * requirePermission(buildPermissionCode("fault_codes", action)). If
- * "fault_codes" isn't in the RBAC seed script, non-super-admin roles simply
- * won't have it granted yet -- requirePermission still lets super admins
- * through. Auto-seeds DEFAULT_FAULT_CODES (global, businessId=null) the
- * first time this is called and no fault codes exist at all yet, so the
- * Workorder-creation UI always has a usable starter list.
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
-import FaultCode, { DEFAULT_FAULT_CODES } from "@/models/FaultCode";
-import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
+import Solution from "@/models/Solution";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { logAction } from "@/lib/audit/logAction";
+import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -28,15 +15,7 @@ function permissionErrorResponse(err: any) {
   );
 }
 
-async function ensureSeeded() {
-  const count = await FaultCode.countDocuments({});
-  if (count === 0) {
-    await FaultCode.insertMany(
-      DEFAULT_FAULT_CODES.map((f) => ({ ...f, businessId: null, isActive: true }))
-    );
-  }
-}
-
+// GET /api/solutions?businessId=...&search=...&isActive=...
 export async function GET(req: NextRequest) {
   try {
     const session = await getEnrichedSession();
@@ -44,7 +23,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("fault_codes", "view"));
+      requirePermission(session as any, buildPermissionCode("solutions", "view"));
     } catch (err: any) {
       return permissionErrorResponse(err);
     }
@@ -55,12 +34,9 @@ export async function GET(req: NextRequest) {
     const isActive = searchParams.get("isActive");
 
     await connectDB();
-    await ensureSeeded();
 
     const query: Record<string, unknown> = {};
     if (businessId && Types.ObjectId.isValid(businessId)) {
-      // Business-specific/shared/all-businesses codes + global (businessId:
-      // null) fallback codes.
       query.$or = buildBusinessScopeQuery(businessId, { includeNullFallback: true }).$or;
     }
     if (isActive !== null) {
@@ -77,15 +53,16 @@ export async function GET(req: NextRequest) {
       else delete query.$or;
     }
 
-    const faultCodes = await FaultCode.find(query).sort({ category: 1, code: 1 }).lean();
+    const solutions = await Solution.find(query).sort({ category: 1, code: 1 }).lean();
 
-    return NextResponse.json({ success: true, faultCodes });
+    return NextResponse.json({ success: true, solutions });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
+// POST /api/solutions
 export async function POST(req: NextRequest) {
   try {
     const session = await getEnrichedSession();
@@ -93,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("fault_codes", "create"));
+      requirePermission(session as any, buildPermissionCode("solutions", "create"));
     } catch (err: any) {
       return permissionErrorResponse(err);
     }
@@ -110,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const faultCode = await FaultCode.create({
+    const solution = await Solution.create({
       code: code.trim(),
       description: description.trim(),
       category: category?.trim(),
@@ -121,18 +98,18 @@ export async function POST(req: NextRequest) {
 
     logAction({
       action: "CREATE",
-      entity: "FaultCode",
-      entityId: faultCode?._id?.toString(),
+      entity: "Solution",
+      entityId: solution?._id?.toString(),
       after: body,
       req,
     });
 
-    return NextResponse.json({ success: true, faultCode }, { status: 201 });
+    return NextResponse.json({ success: true, solution }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     if (message.includes("duplicate key") || message.includes("E11000")) {
       return NextResponse.json(
-        { success: false, error: "A fault code with this code already exists" },
+        { success: false, error: "A solution with this code already exists" },
         { status: 409 }
       );
     }

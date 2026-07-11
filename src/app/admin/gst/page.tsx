@@ -20,7 +20,7 @@ import { Landmark, Send, RefreshCw, Settings2, AlertCircle, CheckCircle2, Clock 
  * credentials have been added yet.
  */
 
-type Tab = 'push' | 'filings' | 'config'
+type Tab = 'push' | 'filings' | 'config' | 'hsn'
 
 interface Filing {
   _id: string
@@ -31,6 +31,15 @@ interface Filing {
   rejectionReason?: string
   portalReferenceId?: string
   createdAt: string
+}
+
+interface HsnRate {
+  _id: string
+  businessId: string | null
+  hsnCode: string
+  gstRate: number
+  category?: string
+  description?: string
 }
 
 export default function GstFilingPage() {
@@ -60,6 +69,11 @@ export default function GstFilingPage() {
   const [pushing, setPushing] = useState(false)
   const [pushSummary, setPushSummary] = useState<{ total: number; submitted: number; failed: number } | null>(null)
 
+  const [hsnRates, setHsnRates] = useState<HsnRate[]>([])
+  const [loadingHsn, setLoadingHsn] = useState(false)
+  const [hsnForm, setHsnForm] = useState({ hsnCode: '', gstRate: '', category: '', description: '' })
+  const [savingHsn, setSavingHsn] = useState(false)
+
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
       .then((r) => r.json())
@@ -84,7 +98,56 @@ export default function GstFilingPage() {
     if (!businessId) return
     if (tab === 'filings') loadFilings()
     if (tab === 'config') loadConfig()
+    if (tab === 'hsn') loadHsnRates()
   }, [tab, businessId])
+
+  async function loadHsnRates() {
+    if (!businessId) return
+    setLoadingHsn(true)
+    try {
+      const res = await fetch(`/api/hsn-tax-rates?businessId=${businessId}`, { credentials: 'include' })
+      const d = await res.json()
+      if (d.success) setHsnRates(d.rates || [])
+    } catch {}
+    setLoadingHsn(false)
+  }
+
+  async function addHsnRate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!businessId) return
+    setSavingHsn(true)
+    setMsg('')
+    try {
+      const res = await fetch('/api/hsn-tax-rates', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          businessId,
+          hsnCode: hsnForm.hsnCode.trim(),
+          gstRate: Number(hsnForm.gstRate),
+          category: hsnForm.category.trim(),
+          description: hsnForm.description.trim(),
+        }),
+      })
+      const d = await res.json()
+      if (!d.success) {
+        setMsg(d.error || 'Failed to save HSN mapping')
+        return
+      }
+      setHsnForm({ hsnCode: '', gstRate: '', category: '', description: '' })
+      loadHsnRates()
+    } catch {
+      setMsg('Failed to save HSN mapping')
+    } finally {
+      setSavingHsn(false)
+    }
+  }
+
+  async function deleteHsnRate(id: string) {
+    await fetch(`/api/hsn-tax-rates/${id}`, { method: 'DELETE', credentials: 'include' })
+    loadHsnRates()
+  }
 
   async function pushRange(e: React.FormEvent) {
     e.preventDefault()
@@ -142,6 +205,13 @@ export default function GstFilingPage() {
   async function saveConfig(e: React.FormEvent) {
     e.preventDefault()
     if (!businessId) return
+    // Required before this business can push invoices it handled itself --
+    // the portal push needs a real GSTIN, and enabling it with a blank one
+    // would just fail silently at push time instead of here.
+    if (!gstin.trim()) {
+      setMsg('GSTIN is required before saving GST settings.')
+      return
+    }
     setSavingConfig(true)
     setMsg('')
     try {
@@ -219,7 +289,7 @@ export default function GstFilingPage() {
         </section>
 
         <div className="flex gap-3">
-          {(['push', 'filings', 'config'] as Tab[]).map((t) => (
+          {(['push', 'filings', 'hsn', 'config'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -227,7 +297,7 @@ export default function GstFilingPage() {
                 tab === t ? 'bg-cyan-400 text-black' : 'border border-white/10 text-white/60 hover:text-white'
               }`}
             >
-              {t === 'push' ? 'Push Invoices' : t === 'filings' ? 'Filings' : 'Settings'}
+              {t === 'push' ? 'Push Invoices' : t === 'filings' ? 'Filings' : t === 'hsn' ? 'HSN Mapping' : 'Settings'}
             </button>
           ))}
         </div>
@@ -320,6 +390,69 @@ export default function GstFilingPage() {
                         >
                           {submittingId === f._id ? 'Submitting...' : 'Submit'}
                         </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === 'hsn' && (
+          <section className="rounded-[32px] border border-white/10 bg-white/5 p-8">
+            <h2 className="text-2xl font-bold mb-2">HSN / Category / GST% Mapping</h2>
+            <p className="text-white/50 text-sm mb-6">
+              Business-specific rows override the global defaults for the same HSN code. Global/default rows are
+              read-only here.
+            </p>
+
+            <form onSubmit={addHsnRate} className="grid grid-cols-1 sm:grid-cols-5 gap-4 items-end max-w-4xl mb-8">
+              <div>
+                <label className="text-sm text-white/60">HSN Code</label>
+                <input required value={hsnForm.hsnCode} onChange={(e) => setHsnForm((p) => ({ ...p, hsnCode: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">GST %</label>
+                <input required type="number" step="0.01" value={hsnForm.gstRate} onChange={(e) => setHsnForm((p) => ({ ...p, gstRate: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Category</label>
+                <input value={hsnForm.category} onChange={(e) => setHsnForm((p) => ({ ...p, category: e.target.value }))}
+                  placeholder="Goods / Services" className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Description</label>
+                <input value={hsnForm.description} onChange={(e) => setHsnForm((p) => ({ ...p, description: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5" />
+              </div>
+              <button disabled={savingHsn} type="submit"
+                className="rounded-full bg-cyan-400 px-6 py-2.5 font-semibold text-black disabled:opacity-50 h-fit">
+                {savingHsn ? 'Saving...' : 'Add / Update'}
+              </button>
+            </form>
+
+            {loadingHsn ? (
+              <p className="text-white/40">Loading...</p>
+            ) : hsnRates.length === 0 ? (
+              <p className="text-white/40">No HSN mappings yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {hsnRates.map((r) => (
+                  <div key={r._id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-6 py-3">
+                    <div className="flex items-center gap-6">
+                      <span className="font-mono text-sm">{r.hsnCode}</span>
+                      <span className="text-sm text-white/60">{r.category || '—'}</span>
+                      <span className="text-sm text-white/60">{r.description || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-semibold">{r.gstRate}%</span>
+                      {r.businessId ? (
+                        <button onClick={() => deleteHsnRate(r._id)} className="text-xs text-red-300 hover:underline">Delete</button>
+                      ) : (
+                        <span className="text-xs text-white/30">Global default</span>
                       )}
                     </div>
                   </div>

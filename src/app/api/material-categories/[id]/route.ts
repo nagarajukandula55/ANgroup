@@ -79,7 +79,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, code, description, parentCategory, unit, isActive } = body;
+    const { name, code, description, parentCategory, unit, isActive, businessScope, businessIds } = body;
 
     const category = await MaterialCategory.findOne({
       _id: new Types.ObjectId(id),
@@ -119,6 +119,8 @@ export async function PUT(
     }
     if (unit !== undefined) category.unit = unit?.trim() || undefined;
     if (isActive !== undefined) category.isActive = isActive;
+    if (businessScope !== undefined) category.businessScope = businessScope;
+    if (businessIds !== undefined) category.businessIds = businessIds;
 
     await category.save();
 

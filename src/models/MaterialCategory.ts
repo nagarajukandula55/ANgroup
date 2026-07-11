@@ -1,7 +1,10 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { BUSINESS_SCOPES, type BusinessScope } from "@/core/catalog/businessScope";
 
 export interface IMaterialCategory extends Document {
   businessId: mongoose.Types.ObjectId;
+  businessScope: BusinessScope;
+  businessIds: mongoose.Types.ObjectId[];
   name: string;
   code?: string;
   description?: string;
@@ -17,6 +20,8 @@ export interface IMaterialCategory extends Document {
 const MaterialCategorySchema = new Schema<IMaterialCategory>(
   {
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true },
+    businessScope: { type: String, enum: BUSINESS_SCOPES, default: "SINGLE" },
+    businessIds: [{ type: Schema.Types.ObjectId, ref: "Business" }],
     name: { type: String, required: true, trim: true },
     code: { type: String, trim: true },
     description: { type: String, trim: true },

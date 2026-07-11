@@ -94,6 +94,9 @@ export interface ICrmJobSheet extends Document {
   lineItems: ICrmJobSheetLineItem[];
   materialsUsed?: string;
   workPerformed?: string;
+  // Structured solution reference alongside the free-text workPerformed
+  // above -- optional, doesn't replace it.
+  solutionId?: Types.ObjectId;
   customerSignatureUrl?: string;
   internalNotes?: string;
 
@@ -183,6 +186,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     lineItems: { type: [CrmJobSheetLineItemSchema], default: [] },
     materialsUsed: { type: String, default: "" },
     workPerformed: { type: String, default: "" },
+    solutionId: { type: Schema.Types.ObjectId, ref: "Solution", default: null },
     customerSignatureUrl: { type: String, default: "" },
     internalNotes: { type: String, default: "" },
 

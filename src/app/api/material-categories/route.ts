@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import MaterialCategory from "@/models/MaterialCategory";
 import { logAction } from "@/lib/audit/logAction";
+import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/ProductCategory";
 
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     }
 
     const categories = await MaterialCategory.find({
-      businessId: new Types.ObjectId(businessId),
+      ...buildBusinessScopeQuery(businessId),
       isDeleted: false,
     })
       .populate("parentCategory", "name code")
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { businessId, name, code, description, parentCategory, unit, isActive } = body;
+    const { businessId, name, code, description, parentCategory, unit, isActive, businessScope, businessIds } = body;
 
     if (!businessId) {
       return NextResponse.json(
@@ -97,6 +98,8 @@ export async function POST(req: NextRequest) {
       unit: unit?.trim() || undefined,
       isActive: isActive !== undefined ? isActive : true,
       isDeleted: false,
+      businessScope: businessScope || "SINGLE",
+      businessIds: Array.isArray(businessIds) ? businessIds : [],
       createdBy: new Types.ObjectId(userId),
     });
 

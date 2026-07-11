@@ -8,9 +8,12 @@
  */
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
+import { BUSINESS_SCOPES, type BusinessScope } from "@/core/catalog/businessScope";
 
 export interface IFaultCode extends Document {
   businessId?: Types.ObjectId | null;
+  businessScope: BusinessScope;
+  businessIds: Types.ObjectId[];
   code: string;
   description: string;
   category?: string;
@@ -22,6 +25,8 @@ export interface IFaultCode extends Document {
 const FaultCodeSchema = new Schema<IFaultCode>(
   {
     businessId: { type: Schema.Types.ObjectId, ref: "Business", default: null, index: true },
+    businessScope: { type: String, enum: BUSINESS_SCOPES, default: "SINGLE" },
+    businessIds: [{ type: Schema.Types.ObjectId, ref: "Business" }],
     code: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     category: { type: String, trim: true },

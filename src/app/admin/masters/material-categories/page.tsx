@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
+import BusinessScopeControl from "@/components/catalog/BusinessScopeControl";
 
 interface MaterialCategory {
   _id: string;
@@ -25,6 +26,8 @@ interface MaterialCategory {
   createdAt: string;
   updatedAt: string;
   materialCount?: number;
+  businessScope?: "SINGLE" | "MULTIPLE" | "ALL";
+  businessIds?: string[];
 }
 
 interface ModalState {
@@ -39,6 +42,8 @@ interface FormData {
   parentCategory: string;
   unit: string;
   isActive: boolean;
+  businessScope: "SINGLE" | "MULTIPLE" | "ALL";
+  businessIds: string[];
 }
 
 const EMPTY_FORM: FormData = {
@@ -48,6 +53,8 @@ const EMPTY_FORM: FormData = {
   parentCategory: "",
   unit: "",
   isActive: true,
+  businessScope: "SINGLE",
+  businessIds: [],
 };
 
 export default function MaterialCategoriesPage() {
@@ -116,6 +123,8 @@ export default function MaterialCategoriesPage() {
           : "",
       unit: category.unit ?? "",
       isActive: category.isActive,
+      businessScope: category.businessScope || "SINGLE",
+      businessIds: category.businessIds || [],
     });
     setFormError("");
     setModal({ type: "edit", category });
@@ -145,6 +154,8 @@ export default function MaterialCategoriesPage() {
         parentCategory: formData.parentCategory || undefined,
         unit: formData.unit.trim() || undefined,
         isActive: formData.isActive,
+        businessScope: formData.businessScope,
+        businessIds: formData.businessIds,
       };
 
       let res: Response;
@@ -488,6 +499,11 @@ export default function MaterialCategoriesPage() {
                   />
                 </button>
               </div>
+
+              <BusinessScopeControl
+                value={{ businessScope: formData.businessScope, businessIds: formData.businessIds }}
+                onChange={(v) => setFormData({ ...formData, ...v })}
+              />
 
               {/* Error */}
               {formError && (

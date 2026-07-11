@@ -1,16 +1,10 @@
 'use client'
 
-/**
- * Bare-bones admin CRUD for FaultCode master data. Deliberately minimal
- * (per spec: acceptable to leave admin fault-codes UI bare-bones if time-
- * constrained) — a list + add form + deactivate action, no polish.
- */
-
 import { useState, useEffect, useCallback } from 'react'
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 import BusinessScopeControl, { type BusinessScopeValue } from "@/components/catalog/BusinessScopeControl";
 
-interface FaultCode {
+interface Solution {
   _id: string
   code: string
   description: string
@@ -18,9 +12,9 @@ interface FaultCode {
   isActive: boolean
 }
 
-export default function FaultCodesPage() {
+export default function SolutionsPage() {
   const { businessId } = useActiveBusinessId();
-  const [items, setItems] = useState<FaultCode[]>([])
+  const [items, setItems] = useState<Solution[]>([])
   const [loading, setLoading] = useState(true)
   const [code, setCode] = useState('')
   const [description, setDescription] = useState('')
@@ -32,9 +26,9 @@ export default function FaultCodesPage() {
     setLoading(true)
     try {
       const qs = businessId ? `?businessId=${businessId}` : ''
-      const res = await fetch(`/api/fault-codes${qs}`)
+      const res = await fetch(`/api/solutions${qs}`)
       const d = await res.json()
-      if (d.success) setItems(d.faultCodes)
+      if (d.success) setItems(d.solutions)
     } finally {
       setLoading(false)
     }
@@ -42,11 +36,11 @@ export default function FaultCodesPage() {
 
   useEffect(() => { load() }, [load])
 
-  async function addCode(e: React.FormEvent) {
+  async function addSolution(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     try {
-      const res = await fetch('/api/fault-codes', {
+      const res = await fetch('/api/solutions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, description, category, businessId, ...scope }),
@@ -61,18 +55,18 @@ export default function FaultCodesPage() {
   }
 
   async function deactivate(id: string) {
-    await fetch(`/api/fault-codes/${id}`, { method: 'DELETE' })
+    await fetch(`/api/solutions/${id}`, { method: 'DELETE' })
     load()
   }
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Fault Codes</h1>
-        <p className="text-sm text-gray-500">Master list of device fault / VOC descriptions used on Workorders.</p>
+        <h1 className="text-xl font-semibold text-gray-900">Solutions</h1>
+        <p className="text-sm text-gray-500">Master list of standard repair/resolution descriptions used on Workorders.</p>
       </div>
 
-      <form onSubmit={addCode} className="flex flex-wrap gap-2 items-end bg-white border border-gray-200 rounded-xl p-4">
+      <form onSubmit={addSolution} className="flex flex-wrap gap-2 items-end bg-white border border-gray-200 rounded-xl p-4">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Code</label>
           <input required value={code} onChange={(e) => setCode(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
@@ -109,17 +103,17 @@ export default function FaultCodesPage() {
             {loading ? (
               <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No fault codes</td></tr>
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">No solutions</td></tr>
             ) : (
-              items.map((f) => (
-                <tr key={f._id}>
-                  <td className="px-4 py-2 font-mono text-xs">{f.code}</td>
-                  <td className="px-4 py-2">{f.description}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.category || '—'}</td>
-                  <td className="px-4 py-2">{f.isActive ? 'Active' : 'Inactive'}</td>
+              items.map((s) => (
+                <tr key={s._id}>
+                  <td className="px-4 py-2 font-mono text-xs">{s.code}</td>
+                  <td className="px-4 py-2">{s.description}</td>
+                  <td className="px-4 py-2 text-gray-500">{s.category || '—'}</td>
+                  <td className="px-4 py-2">{s.isActive ? 'Active' : 'Inactive'}</td>
                   <td className="px-4 py-2">
-                    {f.isActive && (
-                      <button onClick={() => deactivate(f._id)} className="text-xs text-red-500 hover:underline">Deactivate</button>
+                    {s.isActive && (
+                      <button onClick={() => deactivate(s._id)} className="text-xs text-red-500 hover:underline">Deactivate</button>
                     )}
                   </td>
                 </tr>

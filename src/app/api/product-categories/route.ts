@@ -8,6 +8,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
 
 // GET /api/product-categories?businessId=...&search=...
 export async function GET(req: NextRequest) {
@@ -26,16 +27,15 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    const query: Record<string, unknown> = {
-      businessId: new Types.ObjectId(businessId),
-      isDeleted: false,
-    };
+    const scopeQuery = buildBusinessScopeQuery(businessId);
+    const query: Record<string, unknown> = { ...scopeQuery, isDeleted: false };
 
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
+      query.$and = [
+        { $or: scopeQuery.$or },
+        { $or: [{ name: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }] },
       ];
+      delete query.$or;
     }
 
     const categories = await ProductCategory.find(query)
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, description, parentId, imageUrl, businessId } = body;
+    const { name, description, parentId, imageUrl, businessId, businessScope, businessIds } = body;
 
     if (!name || !businessId) {
       return NextResponse.json(
@@ -130,6 +130,8 @@ export async function POST(req: NextRequest) {
       parentId: parentId ? new Types.ObjectId(parentId) : null,
       imageUrl: imageUrl?.trim() || undefined,
       businessId: new Types.ObjectId(businessId),
+      businessScope: businessScope || "SINGLE",
+      businessIds: Array.isArray(businessIds) ? businessIds : [],
       createdBy: new Types.ObjectId(userId),
     });
 
