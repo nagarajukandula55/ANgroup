@@ -15,6 +15,7 @@ export enum RoleStatus {
 export interface IRole extends Document {
   organizationId?: Types.ObjectId;
   businessId?:     Types.ObjectId;
+  vendorId?:       Types.ObjectId;
   name:            string;
   code:            string;
   description:     string;
@@ -32,10 +33,19 @@ export interface IRole extends Document {
 
 const RoleSchema = new Schema<IRole>(
   {
-    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', default: null },
-    businessId:     { type: Schema.Types.ObjectId, ref: 'Business',     default: null },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization',    default: null },
+    businessId:     { type: Schema.Types.ObjectId, ref: 'Business',       default: null },
+    // Scopes a role to one vendor's team (e.g. that vendor's own "Owner"/
+    // "Manager" default roles) -- null for platform-wide and business-wide
+    // roles. Combined with businessId in the compound unique index below so
+    // every vendor can have its own "VENDOR_OWNER"-coded role without
+    // colliding with any other vendor's.
+    vendorId:       { type: Schema.Types.ObjectId, ref: 'VendorProfile',  default: null },
     name:           { type: String, required: true, trim: true },
-    code:           { type: String, required: true, unique: true, uppercase: true, trim: true },
+    // Not globally unique -- vendor-scoped default roles intentionally reuse
+    // the same code (e.g. "VENDOR_OWNER") across every vendor. Uniqueness is
+    // enforced by the compound index on {code, businessId, vendorId} below.
+    code:           { type: String, required: true, uppercase: true, trim: true },
     description:    { type: String, default: '' },
     color:          { type: String, default: '#60a5fa' },
     type: {
@@ -58,11 +68,9 @@ const RoleSchema = new Schema<IRole>(
   { timestamps: true, versionKey: false }
 );
 
-// `code` already gets a unique index from the field's own `unique: true`
-// above -- this duplicate .index({ code: 1 }) call produced Mongoose's
-// "Duplicate schema index" warning on every boot.
+RoleSchema.index({ code: 1, businessId: 1, vendorId: 1 }, { unique: true });
 RoleSchema.index({ organizationId: 1, status: 1 });
-RoleSchema.index({ businessId: 1,     status: 1 });
+RoleSchema.index({ businessId: 1, vendorId: 1, status: 1 });
 
 const Role: Model<IRole> =
   mongoose.models.Role || mongoose.model<IRole>('Role', RoleSchema);

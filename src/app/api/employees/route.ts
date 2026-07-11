@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
-import Employee from "@/models/Employee";
+import EmployeeProfile from "@/models/EmployeeProfile";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
@@ -81,12 +81,12 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const [employees, total] = await Promise.all([
-      Employee.find(filter)
+      EmployeeProfile.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Employee.countDocuments(filter),
+      EmployeeProfile.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(total / limit);
@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
       joiningDate,
       salary,
       businessId,
+      userId: linkedUserId,
     } = body;
 
     if (!name || !name.trim()) {
@@ -150,18 +151,21 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // employeeId has a GLOBAL unique index (see models/Employee.ts —
-    // `{ employeeId: 1 }, { unique: true, sparse: true }`, no businessId
-    // in the index), but this used to count PER-BUSINESS — the same class
-    // of bug the vendor-ID generators had (two businesses' first employee
-    // would both compute EMP-0001 and the second create would crash on
-    // the unique-index violation). Now uses the canonical numbering
-    // engine's global-scope variant so employee IDs share one atomic
-    // counter across every business, same as vendor IDs.
+    // employeeId has a GLOBAL unique index (see models/EmployeeProfile.ts),
+    // no businessId in the index -- uses the canonical numbering engine's
+    // global-scope variant so employee IDs share one atomic counter across
+    // every business, same as vendor IDs.
     const { value: employeeId } = await generateGlobalDocumentNumber("EMPLOYEE", businessId);
 
-    const employee = await Employee.create({
-      userId: userId ? new mongoose.Types.ObjectId(userId) : undefined,
+    // Links to the actual employee's own account when the caller picked one
+    // from the user-search autocomplete -- previously discarded (only used
+    // to prefill name/email/phone), so an employee created here could never
+    // be found by their own login. Falls back to no link (a pure HR record)
+    // when nobody was picked.
+    const employee = await EmployeeProfile.create({
+      userId: linkedUserId && mongoose.Types.ObjectId.isValid(linkedUserId)
+        ? new mongoose.Types.ObjectId(linkedUserId)
+        : undefined,
       businessId: new mongoose.Types.ObjectId(businessId),
       employeeId,
       name: name.trim(),
@@ -176,11 +180,11 @@ export async function POST(request: NextRequest) {
 
     logAction({
       action: "CREATE",
-      entity: "Employee",
+      entity: "EmployeeProfile",
       entityId: employee._id?.toString(),
       after: employee,
       req: request,
-      actor: { businessId },
+      actor: { id: userId, businessId },
     });
 
     return NextResponse.json(
@@ -197,7 +201,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle duplicate employeeId race condition
+    // Duplicate employeeId (race condition) or duplicate {businessId,userId}
+    // (that user already has an employee record in this business).
     if (
       typeof error === "object" &&
       error !== null &&
@@ -205,7 +210,7 @@ export async function POST(request: NextRequest) {
       (error as { code: number }).code === 11000
     ) {
       return NextResponse.json(
-        { success: false, error: "Employee ID conflict, please retry" },
+        { success: false, error: "This employee already exists (duplicate ID or already-linked user)" },
         { status: 409 }
       );
     }

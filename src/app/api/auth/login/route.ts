@@ -3,7 +3,15 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import BusinessMember from "@/models/BusinessMember";
+import UserRole from "@/models/UserRole";
+import Role from "@/models/Role";
 import { signToken } from "@/lib/auth/jwt";
+
+// Anyone holding ONLY these floor roles has no admin-panel business at
+// all -- they should never see the /admin shell, just their own storefront
+// account (shopnative.in for now; angroup.in has no customer-facing UI of
+// its own yet, so it also lands there).
+const MINIMAL_FLOOR_ROLE_CODES = ["CUSTOMER_SHOPNATIVE", "CUSTOMER_ANGROUP"];
 
 export async function POST(req: Request) {
   try {
@@ -78,6 +86,20 @@ export async function POST(req: Request) {
     // Super admin gets all business access — no restriction
     const isSuperAdmin = user.role === "SUPER_ADMIN";
 
+    // A user whose ONLY roles are the minimal self-registration floor (no
+    // AN staff role, no vendor-team role, no business membership) gets
+    // redirected to shopnative.in rather than the admin panel -- there's no
+    // separate customer UI in this repo yet.
+    const userRoleDocs = await UserRole.find({ userId: user._id }).lean().exec() as any[];
+    const roleCodes = userRoleDocs.length
+      ? (await Role.find({ _id: { $in: userRoleDocs.map((r) => r.roleId) } }).distinct("code"))
+      : [];
+    const isMinimalOnly =
+      roleCodes.length > 0 &&
+      roleCodes.every((c: string) => MINIMAL_FLOOR_ROLE_CODES.includes(c)) &&
+      memberships.length === 0 &&
+      !isSuperAdmin;
+
     /* ── Build JWT payload ───────────────────────────────────────────── */
     const token = signToken({
       id:               user._id.toString(),
@@ -102,6 +124,7 @@ export async function POST(req: Request) {
       activeBusinessId,
       organizationId:   user.organizationId?.toString(),
       mustChangePassword: !!user.mustChangePassword,
+      isMinimalOnly,
     };
 
     /* ── Set httpOnly cookie + return token in JSON ──────────────────── */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Plus, Building2, X, ChevronDown, Check, Loader2, UserCog, Shield } from "lucide-react";
+import { Search, Plus, Building2, X, ChevronDown, Check, Loader2, UserCog, Shield, Trash2 } from "lucide-react";
 
 interface Business {
   _id: string;
@@ -173,6 +173,23 @@ export default function UsersPage() {
     }
   }
 
+  async function deleteUser(userId: string, name: string) {
+    if (!window.confirm(`Delete ${name}? This cannot be undone from the UI.`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        setToast("User deleted");
+        setUsers((prev) => prev.filter((u) => (u._id || u.id) !== userId));
+        if ((selectedUser?._id || selectedUser?.id) === userId) setPanelOpen(false);
+      } else {
+        setToast(data.error || "Failed to delete user");
+      }
+    } catch {
+      setToast("Network error");
+    }
+  }
+
   const filtered = users.filter(
     (u) =>
       !search ||
@@ -268,13 +285,22 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => openPanel(u)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs hover:bg-gray-100 transition"
-                    >
-                      <UserCog size={12} />
-                      Manage
-                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => openPanel(u)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs hover:bg-gray-100 transition"
+                      >
+                        <UserCog size={12} />
+                        Manage
+                      </button>
+                      <button
+                        onClick={() => deleteUser(u._id || u.id || "", u.name)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition"
+                        title="Delete user"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

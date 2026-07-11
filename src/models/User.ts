@@ -58,6 +58,12 @@ export interface IUser extends Document {
   /* Legacy (kept until BusinessMember migration) */
   businessAccess: IUserBusinessAccess[];
 
+  /** Where this account registered from, e.g. "shopnative", "angroup" --
+   * matched against SsoSourceMapping.sourceLabel at registration time and
+   * never changed after. Free string, not an enum: the mapping is
+   * admin-editable so new sources can be added without a schema change. */
+  registrationSource?: string;
+
   /* Default Context */
   defaultOrganizationId?: Types.ObjectId;
   defaultBusinessId?: Types.ObjectId;
@@ -182,6 +188,11 @@ const UserSchema = new Schema<IUser>(
         },
       },
     ],
+
+    registrationSource: {
+      type: String,
+      default: null,
+    },
 
     /* ================= Default Context ================= */
 

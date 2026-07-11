@@ -59,8 +59,12 @@ function LoginForm() {
       // A super-admin reset/temp password forces this gate first --
       // middleware itself blocks everything else until it's cleared, so
       // landing anywhere else would just bounce right back here.
+      // Minimal-floor-only accounts (shopnative/angroup self-registrations
+      // with no AN staff/vendor role) have no admin-panel business at all --
+      // send them to their actual storefront instead.
       const landingPage = data.user?.mustChangePassword
         ? '/update-password'
+        : data.user?.isMinimalOnly ? 'https://shopnative.in'
         : data.user?.role === 'VENDOR' ? '/vendor' : '/admin'
 
       // Hard redirect so the browser commits the httpOnly cookie before the next request.

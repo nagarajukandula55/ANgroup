@@ -23,11 +23,10 @@ import {
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-// Employee shape mirrors src/models/Employee.ts (the model actually backing
-// GET/POST /api/employees) — note this is a flat name/email/phone record,
-// NOT the separate EmployeeProfile/userId-populated model used by some
-// other UI attempts. We keep userId optional/loose here because the API
-// can return either a populated user object or a raw id/undefined.
+// Employee shape mirrors src/models/EmployeeProfile.ts (the single model now
+// backing every /api/employees* route). userId is optional -- a record can
+// exist with no linked login (a pure HR record) -- so name/email/phone are
+// stored directly rather than requiring a populate() everywhere.
 interface UserRef {
   _id: string
   name: string
@@ -117,10 +116,9 @@ export default function EmployeesPage() {
   // User-search autocomplete, merged in from the root page. It calls
   // /api/users?search=&limit=10 (admin-only endpoint) to look up an
   // existing platform user so their name/email/phone can be prefilled
-  // into the employee form instead of retyped by hand. Selecting a user
-  // does NOT change the POST contract — /api/employees (Employee model)
-  // stores name/email/phone directly, it has no employeeUserId field —
-  // so this is purely a prefill convenience, not a foreign-key link.
+  // into the employee form, AND so their _id gets sent as `userId` in the
+  // POST body -- linking this employee record to their real login so the
+  // record shows up under their own account, not just as loose text fields.
   const [userSearch, setUserSearch] = useState('')
   const [userResults, setUserResults] = useState<UserRef[]>([])
   const [userDropOpen, setUserDropOpen] = useState(false)
@@ -230,6 +228,7 @@ export default function EmployeesPage() {
         body: JSON.stringify({
           ...form,
           businessId,
+          userId: selectedUser?._id,
           salary: parseFloat(form.salary) || 0,
         }),
       })
@@ -248,11 +247,8 @@ export default function EmployeesPage() {
   }
 
   // Edit flow, merged in from the root page's fuller CRUD. PATCHes
-  // /api/employees/[id]. Note: that route is backed by the EmployeeProfile
-  // model rather than the Employee model used by the list/create route —
-  // a pre-existing backend inconsistency, not something introduced here.
-  // It's still the only edit endpoint available, so we call it as-is;
-  // fixing that mismatch is a backend task outside this merge's scope.
+  // /api/employees/[id] (EmployeeProfile -- the same model the list/create
+  // route above now uses too).
   const [editForm, setEditForm] = useState({
     department: '',
     designation: '',
@@ -791,8 +787,7 @@ export default function EmployeesPage() {
       )}
 
       {/* Edit modal — merged in from the root page's fuller edit flow.
-          PATCHes /api/employees/[id]; see comment above handleEditSubmit
-          about the pre-existing Employee/EmployeeProfile model mismatch. */}
+          PATCHes /api/employees/[id]. */}
       {editEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">

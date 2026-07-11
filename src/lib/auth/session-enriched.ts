@@ -61,18 +61,13 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
     // business-context not available in this request (e.g. no cookie)
   }
 
-  // If no business context we still return a valid session with basic info
-  if (!businessContext) {
-    return {
-      user: { id: userId, name: userName, email: userEmail },
-      business: null,
-      roles: userRole ? [userRole] : [],
-      permissions: [],
-      isSuperAdmin,
-    };
-  }
-
   // ── DB lookup for roles & permissions scoped to this user ──────────────
+  // Was gated behind `if (!businessContext) return early`, so any user with
+  // no active BusinessMember (every brand-new self-registered customer, by
+  // definition) always resolved to permissions: [] regardless of whatever
+  // UserRole rows they actually had. UserRole.businessId is optional, so this
+  // lookup is intentionally businessId-agnostic -- only the `business` field
+  // on the returned session stays conditional on business context.
   let roles: string[] = userRole ? [userRole] : [];
   let permissions: string[] = [];
 
@@ -136,11 +131,13 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
 
   return {
     user: { id: userId, name: userName, email: userEmail },
-    business: {
-      businessId: businessContext.businessId,
-      organizationId: businessContext.organizationId,
-      membershipId: businessContext.membershipId,
-    },
+    business: businessContext
+      ? {
+          businessId: businessContext.businessId,
+          organizationId: businessContext.organizationId,
+          membershipId: businessContext.membershipId,
+        }
+      : null,
     roles,
     permissions,
     isSuperAdmin,

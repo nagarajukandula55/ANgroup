@@ -8,6 +8,8 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
+import Role from '@/models/Role'
+import UserRole from '@/models/UserRole'
 import { logAction } from '@/lib/audit/logAction'
 
 const SALT_ROUNDS = 12
@@ -87,6 +89,21 @@ export async function POST(req: Request) {
 
     const hashedPassword = password ? await bcrypt.hash(password, SALT_ROUNDS) : undefined
 
+    // STAFF (this route's default) has no RBAC Role code of its own --
+    // maps onto the seeded EMPLOYEE base role, same as every other
+    // "generic staff" bucket in this codebase. Every other value must
+    // resolve to a real, seeded Role -- fail rather than create a
+    // roleless user.
+    const requestedRoleCode = String(userRole || 'STAFF').toUpperCase();
+    const roleCodeForLookup = requestedRoleCode === 'STAFF' ? 'EMPLOYEE' : requestedRoleCode;
+    const roleDoc = await Role.findOne({ code: roleCodeForLookup, businessId: null, vendorId: null });
+    if (!roleDoc) {
+      return NextResponse.json(
+        { success: false, message: `Role "${requestedRoleCode}" is not configured. Seed it in Roles & Permissions first.` },
+        { status: 400 }
+      );
+    }
+
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
@@ -98,6 +115,8 @@ export async function POST(req: Request) {
       isEmailVerified: false,
       authProvider: 'credentials',
     })
+
+    await UserRole.create({ userId: user._id, roleId: roleDoc._id });
 
     const userObj = user.toObject()
     delete (userObj as any).password

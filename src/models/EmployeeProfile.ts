@@ -1,20 +1,45 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IEmployeeProfile extends Document {
-  userId: mongoose.Types.ObjectId;
+  // Optional -- an employee record can exist before a login is linked (a
+  // pure HR record), or never get one at all. Denormalized name/email/phone
+  // below cover display in that case; when userId IS set, those still act
+  // as an editable snapshot rather than requiring a populate() everywhere.
+  userId?: mongoose.Types.ObjectId;
   businessId: mongoose.Types.ObjectId;
   employeeId: string;
+  name?: string;
+  email?: string;
+  phone?: string;
   department?: string;
   designation?: string;
   joiningDate?: Date;
+  terminationDate?: Date;
   reportingTo?: mongoose.Types.ObjectId;
   salary?: number;
   employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN';
-  status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED';
+  status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED' | 'INACTIVE';
+  bankDetails?: {
+    accountName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    bankName?: string;
+  };
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+  panNumber?: string;
+  aadharNumber?: string;
+  pfNumber?: string;
+  esiNumber?: string;
+  notes?: string;
   emergencyContact?: {
     name?: string;
     phone?: string;
-    relationship?: string;
+    relation?: string;
   };
   documents?: Array<{
     name: string;
@@ -28,12 +53,16 @@ export interface IEmployeeProfile extends Document {
 
 const EmployeeProfileSchema = new Schema<IEmployeeProfile>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User' },
     businessId: { type: Schema.Types.ObjectId, ref: 'Business', required: true },
     employeeId: { type: String, unique: true },
+    name: { type: String },
+    email: { type: String },
+    phone: { type: String },
     department: { type: String },
     designation: { type: String },
     joiningDate: { type: Date },
+    terminationDate: { type: Date },
     reportingTo: { type: Schema.Types.ObjectId, ref: 'User' },
     salary: { type: Number },
     employmentType: {
@@ -43,13 +72,30 @@ const EmployeeProfileSchema = new Schema<IEmployeeProfile>(
     },
     status: {
       type: String,
-      enum: ['ACTIVE', 'ON_LEAVE', 'TERMINATED'],
+      enum: ['ACTIVE', 'ON_LEAVE', 'TERMINATED', 'INACTIVE'],
       default: 'ACTIVE',
     },
+    bankDetails: {
+      accountName: { type: String },
+      accountNumber: { type: String },
+      ifscCode: { type: String },
+      bankName: { type: String },
+    },
+    address: {
+      street: { type: String },
+      city: { type: String },
+      state: { type: String },
+      pincode: { type: String },
+    },
+    panNumber: { type: String },
+    aadharNumber: { type: String },
+    pfNumber: { type: String },
+    esiNumber: { type: String },
+    notes: { type: String },
     emergencyContact: {
       name: { type: String },
       phone: { type: String },
-      relationship: { type: String },
+      relation: { type: String },
     },
     documents: [
       {
@@ -63,7 +109,11 @@ const EmployeeProfileSchema = new Schema<IEmployeeProfile>(
   { timestamps: true }
 );
 
-EmployeeProfileSchema.index({ businessId: 1, userId: 1 }, { unique: true });
+// Sparse: an employee with no linked login (userId not set) is excluded
+// from this uniqueness constraint entirely, so many such records can
+// coexist per business -- only two records both linked to the SAME user
+// in the SAME business collide.
+EmployeeProfileSchema.index({ businessId: 1, userId: 1 }, { unique: true, sparse: true });
 
 const EmployeeProfile: Model<IEmployeeProfile> =
   mongoose.models.EmployeeProfile ||

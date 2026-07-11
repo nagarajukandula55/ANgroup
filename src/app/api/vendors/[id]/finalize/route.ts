@@ -8,6 +8,9 @@ import Agreement from "@/models/Agreement";
 import User from "@/models/User";
 import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
 import VendorStaffSlot, { VENDOR_DESIGNATIONS } from "@/models/VendorStaffSlot";
+import Role from "@/models/Role";
+import UserRole from "@/models/UserRole";
+import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
 import { logAction } from "@/lib/audit/logAction";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -123,6 +126,25 @@ export async function POST(req: NextRequest, context: RouteContext) {
     vendor.finalApprovedBy = adminId as any;
     vendor.finalApprovedAt = new Date();
     await vendor.save();
+
+    // Generate this vendor's fixed default role set (Owner/Manager/Finance
+    // Manager/etc., scoped to {businessId, vendorId}), then give the
+    // vendor's own login VENDOR_OWNER -- the one place a User was created
+    // with no UserRole at all (the "no user without a role" invariant).
+    // Idempotent: safe if finalize is ever re-run for this vendor.
+    await createDefaultVendorRoles(vendor._id.toString(), (vendor.businessId as any).toString());
+    const ownerRole = await Role.findOne({
+      code: "VENDOR_OWNER",
+      businessId: vendor.businessId,
+      vendorId: vendor._id,
+    });
+    if (ownerRole) {
+      await UserRole.updateOne(
+        { userId: user._id, roleId: ownerRole._id },
+        { $setOnInsert: { userId: user._id, roleId: ownerRole._id, businessId: vendor.businessId } },
+        { upsert: true }
+      );
+    }
 
     // Every standard designation (Manager, CCO, Engineer, Warehouse
     // Manager, Telecaller) gets a seat the moment the vendor goes live.

@@ -9,6 +9,8 @@ import Business from '@/models/Business'
 // business scoping, and self-registered vendors were created as orphans not
 // linked to any business ("vendors under which business??").
 import VendorProfile from '@/models/VendorProfile'
+import Role from '@/models/Role'
+import UserRole from '@/models/UserRole'
 import { generateGlobalDocumentNumber } from '@/core/numbering/numberingService'
 import { logAction } from '@/lib/audit/logAction'
 import { generateUniqueUserId } from '@/lib/auth/generateUserId'
@@ -138,6 +140,15 @@ export async function POST(req: NextRequest) {
       isEmailVerified: false,
       authProvider: 'credentials',
     })
+
+    // Pending-approval floor role (zero permissions, matches isActive:false
+    // above) -- finalize/route.ts additively grants this vendor's own
+    // VENDOR_OWNER role once approved, so this account is never roleless
+    // in the meantime.
+    const pendingRole = await Role.findOne({ code: 'VENDOR', businessId: null, vendorId: null });
+    if (pendingRole) {
+      await UserRole.create({ userId: user._id, roleId: pendingRole._id });
+    }
 
     const { value: vendorId } = await generateGlobalDocumentNumber('VENDOR', String(business._id))
 

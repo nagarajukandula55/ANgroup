@@ -5,6 +5,8 @@ import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 
 import User from '@/models/User'
+import Role from '@/models/Role'
+import UserRole from '@/models/UserRole'
 
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
@@ -65,6 +67,17 @@ export async function POST(req: Request) {
       10
     )
 
+    // Every assignable role here (ADMIN/MANAGER/EMPLOYEE/VENDOR/CUSTOMER/
+    // SUPER_ADMIN) is seeded up front (syncSuperAdminRole) -- fail loudly
+    // if it's somehow missing rather than create a roleless user.
+    const roleDoc = await Role.findOne({ code: requestedRole, businessId: null, vendorId: null });
+    if (!roleDoc) {
+      return NextResponse.json(
+        { success: false, error: `Role "${requestedRole}" is not configured. Seed it in Roles & Permissions first.` },
+        { status: 400 }
+      );
+    }
+
     const user = await User.create({
       name: body.name,
       email: body.email,
@@ -72,6 +85,8 @@ export async function POST(req: Request) {
       role: requestedRole,
       businessId: body.businessId,
     })
+
+    await UserRole.create({ userId: user._id, roleId: roleDoc._id, businessId: body.businessId || null });
 
     logAction({
       action: "CREATE",

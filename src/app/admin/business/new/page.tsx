@@ -88,11 +88,10 @@ export default function NewBusinessPage() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        // The business list page lives at /admin/business — there is no
-        // standalone /businesses/[id] detail route, so the previous
-        // `router.push('/businesses/' + id)` always dead-ended on a 404
-        // right after a successful create.
-        router.push("/admin/business");
+        // Land straight on the edit page so Super Admin can immediately pick
+        // which modules this business gets (the "Modules" section already
+        // there) instead of an extra click from the list page.
+        router.push(`/admin/business/${data.business._id}`);
       } else {
         setError(
           data.message ||

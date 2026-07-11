@@ -4,8 +4,42 @@ import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
 import Business from '@/models/Business'
 import BusinessMember from '@/models/BusinessMember'
+import Role from '@/models/Role'
+import UserRole from '@/models/UserRole'
+import SsoSourceMapping from '@/models/SsoSourceMapping'
 import { logAction } from '@/lib/audit/logAction'
 import { generateUniqueUserId } from '@/lib/auth/generateUserId'
+
+// Safest floor if the registering origin doesn't match any configured
+// mapping (unknown/spoofed Origin) -- view-only, never the more permissive
+// shopnative default.
+const FALLBACK_ROLE_CODE = 'CUSTOMER_ANGROUP'
+const FALLBACK_SOURCE_LABEL = 'unknown'
+
+/**
+ * Best-effort SSO source detection: match the request's Origin/Referer
+ * host against the admin-editable SsoSourceMapping list (managed at
+ * /admin/sso, not hardcoded) so a new storefront can be added without a
+ * code change. Falls back to the most restrictive default role/label if
+ * nothing matches or the mapping is inactive.
+ */
+async function resolveRegistrationSource(req: NextRequest) {
+  const originHeader = req.headers.get('origin') || req.headers.get('referer') || ''
+  let host = ''
+  try {
+    host = originHeader ? new URL(originHeader).hostname.toLowerCase() : ''
+  } catch {
+    host = ''
+  }
+
+  const mappings = await SsoSourceMapping.find({ isActive: true }).lean()
+  const match = mappings.find((m: any) => host && host.includes(m.urlPattern.toLowerCase()))
+
+  if (match) {
+    return { sourceLabel: match.sourceLabel, roleCode: match.defaultRoleCode }
+  }
+  return { sourceLabel: FALLBACK_SOURCE_LABEL, roleCode: FALLBACK_ROLE_CODE }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,6 +108,21 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcryptjs.hash(password, 12)
 
+    // Resolve which floor role this registration gets BEFORE creating the
+    // User, so a missing/misconfigured Role never results in a roleless
+    // account -- every user must get a non-blank role at creation.
+    const { sourceLabel, roleCode } = await resolveRegistrationSource(req)
+    const floorRole = await Role.findOne({ code: roleCode, businessId: null, vendorId: null })
+    if (!floorRole) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Registration is temporarily unavailable (default role not configured). Please contact support.',
+        },
+        { status: 500 }
+      )
+    }
+
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
@@ -81,10 +130,13 @@ export async function POST(req: NextRequest) {
       password: hashedPassword,
       phone: phone?.trim() || undefined,
       role: 'CUSTOMER',
+      registrationSource: sourceLabel,
       isActive: true,
       isEmailVerified: false,
       authProvider: 'credentials',
     })
+
+    await UserRole.create({ userId: user._id, roleId: floorRole._id })
 
     // Every registered user (from any storefront, e.g. Native) becomes a
     // CUSTOMER-level BusinessMember of the target B2C business -- nothing

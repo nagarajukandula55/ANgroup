@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import BusinessMember, { BusinessMemberStatus, BusinessMemberType } from "@/models/BusinessMember";
 import User from "@/models/User";
+import Role from "@/models/Role";
+import UserRole from "@/models/UserRole";
 import { logAction } from "@/lib/audit/logAction";
 
 /**
@@ -65,7 +67,16 @@ export async function GET() {
   }
 }
 
-/** Body: { username: string, vendorRole: string, memberType?: string } */
+/** Body: { username: string, vendorRole: string, memberType?: string, roleCode?: string }
+ *
+ * roleCode (optional) is the ACTUAL permission grant: one of this vendor's
+ * own fixed default roles (VENDOR_OWNER/VENDOR_MANAGER/etc., generated at
+ * approval time -- see core/access/vendorDefaultRoles.service.ts). The
+ * lookup is deliberately scoped to {businessId: vendor.businessId, vendorId:
+ * vendor._id} -- never a global Role.findOne({code}) -- so a vendor can
+ * only ever hand out roles from its own generated 11, never invent a new
+ * one or reach another vendor's roles. vendorRole above stays a free-text
+ * display label; roleCode is what actually grants access. */
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
@@ -80,7 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { username, vendorRole, memberType } = body;
+    const { username, vendorRole, memberType, roleCode } = body;
     if (!username || !String(username).trim()) {
       return NextResponse.json({ success: false, error: "The staff member's user ID (vendor code) is required" }, { status: 400 });
     }
@@ -94,6 +105,38 @@ export async function POST(req: NextRequest) {
     }).lean();
     if (!targetUser) {
       return NextResponse.json({ success: false, error: "No user found with that ID" }, { status: 404 });
+    }
+
+    // Must already be Super-Admin-attached to this vendor's team before a
+    // role can be granted -- the vendor can hand out access, it can't pull
+    // someone onto its team unilaterally (that's Super Admin's call via
+    // /api/admin/users/[id]/promote).
+    const existingMembership = await BusinessMember.findOne({
+      userId: (targetUser as any)._id,
+      businessId: vendor.businessId,
+      vendorId: vendor._id,
+      isDeleted: { $ne: true },
+    }).lean();
+    if (roleCode && !existingMembership) {
+      return NextResponse.json(
+        { success: false, error: "This user must be attached to your team by Super Admin before a role can be granted" },
+        { status: 403 }
+      );
+    }
+
+    let grantedRoleDoc = null;
+    if (roleCode) {
+      grantedRoleDoc = await Role.findOne({
+        code: String(roleCode).toUpperCase(),
+        businessId: vendor.businessId,
+        vendorId: vendor._id,
+      });
+      if (!grantedRoleDoc) {
+        return NextResponse.json(
+          { success: false, error: "That role does not belong to your vendor's default role set" },
+          { status: 400 }
+        );
+      }
     }
 
     // Store Front/Service Center staff roles and Warehouse staff roles,
@@ -120,6 +163,21 @@ export async function POST(req: NextRequest) {
       },
       { upsert: true, new: true }
     );
+
+    if (grantedRoleDoc) {
+      await UserRole.updateOne(
+        { userId: (targetUser as any)._id, roleId: grantedRoleDoc._id },
+        {
+          $setOnInsert: {
+            userId: (targetUser as any)._id,
+            roleId: grantedRoleDoc._id,
+            businessId: vendor.businessId,
+            assignedBy: userId,
+          },
+        },
+        { upsert: true }
+      );
+    }
 
     logAction({
       action: "CREATE",
