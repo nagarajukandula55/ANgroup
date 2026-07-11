@@ -15,7 +15,33 @@ import {
   PhoneCall,
   ClipboardList,
   ArrowRight,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react'
+
+interface Appointment {
+  _id: string
+  customerName: string
+  subject?: string
+  status: string
+  createdAt: string
+}
+
+interface Workorder {
+  _id: string
+  jobSheetNumber: string
+  customerName: string
+  title: string
+  status: string
+  createdAt: string
+}
+
+const OPEN_APPOINTMENT_STATUSES = new Set(['NEW', 'CONTACTED', 'QUALIFIED', 'IN_PROGRESS'])
+const OPEN_WORKORDER_STATUSES = new Set(['CREATED', 'REPAIR_STARTED', 'REPAIR_IN_PROGRESS', 'REPAIR_COMPLETED'])
+
+function ageingDays(createdAt: string): number {
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
+}
 
 interface Lead {
   _id: string
@@ -59,9 +85,59 @@ export default function CRMPage() {
     notes: '',
   })
 
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [gateChecked, setGateChecked] = useState(false)
+  const [crmEnabled, setCrmEnabled] = useState(true)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [workorders, setWorkorders] = useState<Workorder[]>([])
+
   useEffect(() => {
     fetchLeads()
   }, [])
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      const user = d.user ?? d
+      setBusinessId(user.activeBusinessId ?? user.businessId ?? null)
+    }).catch(() => setGateChecked(true))
+  }, [])
+
+  useEffect(() => {
+    if (!businessId) return
+    // Reuses the exact permission + Business.modules[] gating the sidebar
+    // itself uses, so a business without CRM assigned sees the same "not
+    // enabled" state here as it would from a direct URL visit.
+    fetch('/api/ui/sidebar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        const modules = d.modules || []
+        setCrmEnabled(modules.some((m: any) => String(m.key).startsWith('crm')))
+      })
+      .catch(() => setCrmEnabled(true))
+      .finally(() => setGateChecked(true))
+
+    fetch(`/api/crm/calls?businessId=${businessId}&limit=100`).then(r => r.json()).then(d => setAppointments(d.calls || [])).catch(() => {})
+    fetch(`/api/crm/jobsheets?businessId=${businessId}&limit=100`).then(r => r.json()).then(d => setWorkorders(d.jobSheets || [])).catch(() => {})
+  }, [businessId])
+
+  const openAppointments = appointments.filter(a => OPEN_APPOINTMENT_STATUSES.has(a.status)).length
+  const openWorkorders = workorders.filter(w => OPEN_WORKORDER_STATUSES.has(w.status)).length
+  const overdueWorkorders = workorders.filter(w => OPEN_WORKORDER_STATUSES.has(w.status) && ageingDays(w.createdAt) >= 7).length
+  const now = new Date()
+  const closedThisMonth = workorders.filter(w => {
+    if (w.status !== 'CLOSED') return false
+    const d = new Date(w.createdAt)
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  }).length
+
+  const recentActivity = [
+    ...appointments.map(a => ({ id: a._id, kind: 'Appointment' as const, title: a.customerName, sub: a.subject || a.status, date: a.createdAt, href: `/admin/crm/calls/${a._id}` })),
+    ...workorders.map(w => ({ id: w._id, kind: 'Workorder' as const, title: w.jobSheetNumber, sub: w.title, date: w.createdAt, href: `/admin/crm/jobsheets/${w._id}` })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8)
 
   async function fetchLeads() {
     setLoading(true)
@@ -121,6 +197,19 @@ export default function CRMPage() {
     )
   }
 
+  if (gateChecked && !crmEnabled) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3 text-center px-6">
+        <AlertCircle className="w-10 h-10 text-gray-300" />
+        <h2 className="text-lg font-medium text-gray-900">CRM isn't enabled for this business</h2>
+        <p className="text-sm text-gray-500 max-w-sm">Ask a Super Admin to enable the CRM module for this business from Businesses &gt; Modules.</p>
+        <button onClick={() => router.push('/admin')} className="mt-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition">
+          Go to Dashboard
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-10">
@@ -144,10 +233,58 @@ export default function CRMPage() {
           </button>
         </div>
 
+        {/* Real dashboard KPIs, sourced from Appointments + Workorders (not
+            the legacy leads list below), only shown once the module-gate
+            check confirms CRM is actually enabled for this business. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[
+            { icon: PhoneCall, label: 'Open Appointments', value: String(openAppointments) },
+            { icon: ClipboardList, label: 'Open Workorders', value: String(openWorkorders) },
+            { icon: AlertCircle, label: 'Overdue (7d+)', value: String(overdueWorkorders) },
+            { icon: CheckCircle2, label: 'Closed This Month', value: String(closedThisMonth) },
+          ].map(({ icon: Icon, label, value }) => (
+            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-gray-500 text-sm">{label}</span>
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-gray-700" />
+                </div>
+              </div>
+              <p className="text-2xl font-semibold text-gray-900">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {recentActivity.length > 0 && (
+          <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400">Recent Activity</p>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {recentActivity.map(item => (
+                <button
+                  key={`${item.kind}-${item.id}`}
+                  onClick={() => router.push(item.href)}
+                  className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-gray-50 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${item.kind === 'Appointment' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {item.kind}
+                    </span>
+                    <span className="text-sm font-medium text-gray-900">{item.title}</span>
+                    <span className="text-sm text-gray-400">{item.sub}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">{fmtDate(item.date)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Full call-entry -> job sheet -> invoice -> closure lifecycle
             lives under these two sections — the lead list above is kept for
             backward compatibility (existing /api/crm/leads data) but new
-            work should flow through Calls -> Job Sheets. */}
+            work should flow through Appointments -> Workorders. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           <Link
             href="/admin/crm/calls"

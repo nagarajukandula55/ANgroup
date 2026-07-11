@@ -110,8 +110,8 @@ export const NAV_GROUPS: NavGroup[] = [
       // comment. Keys match the ModuleDefinition.key values exactly
       // ("crm_calls", "crm_jobsheets") so isVisible()'s moduleKeys.has()
       // check lines up with what /api/ui/sidebar actually returns.
-      { key: "crm_calls",     label: "Calls",      route: "/admin/crm/calls",     icon: "PhoneCall" },
-      { key: "crm_jobsheets", label: "Job Sheets", route: "/admin/crm/jobsheets", icon: "ClipboardList" },
+      { key: "crm_calls",     label: "Appointments", route: "/admin/crm/calls",     icon: "PhoneCall" },
+      { key: "crm_jobsheets", label: "Workorders",   route: "/admin/crm/jobsheets", icon: "ClipboardList" },
     ]},
   ]},
   { label: "Documents", items: [

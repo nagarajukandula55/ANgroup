@@ -125,11 +125,11 @@ export default function CrmCallsPage() {
       const qs = statusFilter !== 'ALL' ? `?status=${statusFilter}` : ''
       const res = await fetch(`/api/crm/calls${qs}`)
       const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to load calls')
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to load appointments')
       setCalls(d.calls || [])
       setStatusCounts(d.statusCounts || {})
     } catch (err: any) {
-      setError(err.message || 'Could not load calls. Please try again.')
+      setError(err.message || 'Could not load appointments. Please try again.')
       setCalls([])
     } finally {
       setLoading(false)

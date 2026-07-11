@@ -138,11 +138,11 @@ export default function CallDetailPage() {
     try {
       const res = await fetch(`/api/crm/calls/${id}`)
       const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to load call')
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to load appointment')
       setCall(d.call)
       setJobTitle(d.call?.subject || '')
     } catch (err: any) {
-      setError(err.message || 'Could not load call.')
+      setError(err.message || 'Could not load appointment.')
     } finally {
       setLoading(false)
     }
@@ -161,7 +161,7 @@ export default function CallDetailPage() {
         body: JSON.stringify({ disposition, notes, nextFollowUpAt: nextFollowUpAt || undefined }),
       })
       const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to log call')
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to log appointment')
       setNotes('')
       setNextFollowUpAt('')
       fetchCall()
@@ -224,7 +224,7 @@ export default function CallDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="flex items-center gap-4 mb-8">
           <button onClick={() => router.push('/admin/crm/calls')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
             <ArrowLeft className="w-4 h-4" />
@@ -324,7 +324,7 @@ export default function CallDetailPage() {
               </div>
               <div className="divide-y divide-gray-100">
                 {call.callLogs.length === 0 ? (
-                  <p className="px-5 py-8 text-center text-sm text-gray-400">No calls logged yet</p>
+                  <p className="px-5 py-8 text-center text-sm text-gray-400">No appointments logged yet</p>
                 ) : (
                   [...call.callLogs].reverse().map((log) => (
                     <div key={log._id} className="px-5 py-3">
