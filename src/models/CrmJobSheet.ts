@@ -15,13 +15,25 @@
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
 
+// Milestone stepper, per explicit spec:
+//   CREATED         -- workorder just created (from an appointment or direct)
+//   REPAIR_STARTED  -- CCO assigned it to an engineer
+//   REPAIR_IN_PROGRESS -- engineer is actively working the job
+//   REPAIR_COMPLETED   -- parts/solution selected, workorder+invoice
+//                          downloadable, awaiting handover
+//   CLOSED          -- SC recorded payment collected + handed over to customer
+//   CANCELLED       -- vendor requested cancel, routed to manager
+// Old DRAFT/SCHEDULED/IN_PROGRESS/PART_PENDING/COMPLETED/INVOICED enum
+// replaced outright (this is the milestone system now, not the old
+// technician-scheduling one) -- see the numbered transition routes under
+// api/crm/jobsheets/[id]/ (assign-engineer, start-repair, complete-repair,
+// handover, cancel).
 export type CrmJobSheetStatus =
-  | "DRAFT"
-  | "SCHEDULED"
-  | "IN_PROGRESS"
-  | "PART_PENDING"
-  | "COMPLETED"
-  | "INVOICED"
+  | "CREATED"
+  | "REPAIR_STARTED"
+  | "REPAIR_IN_PROGRESS"
+  | "REPAIR_COMPLETED"
+  | "CLOSED"
   | "CANCELLED";
 
 export interface ICrmJobSheetLineItem {
@@ -54,6 +66,10 @@ export interface ICrmJobSheet extends Document {
   issueDescription?: string; // free-text VOC, independent of faultCodeId
   faultCodeId?: Types.ObjectId; // ref FaultCode
   remark?: string;
+  // Carried over from the originating call/appointment (see CrmCall) so
+  // the workorder doesn't have to ask again.
+  appointmentType?: "ONSITE" | "WALKIN";
+  requestType?: "REPAIR" | "INSTALLATION";
 
   // Set when status moves to PART_PENDING — optional brand job number for
   // the part order, per spec ("ask if have Brand Job No for Part Order").
@@ -64,7 +80,9 @@ export interface ICrmJobSheet extends Document {
   scheduledAt?: Date;
   completedAt?: Date;
 
-  assignedTo?: Types.ObjectId; // technician / staff performing the job
+  assignedTo?: Types.ObjectId; // engineer performing the job
+  assignedBy?: Types.ObjectId; // CCO who made the assignment
+  engineerAssignedAt?: Date;
   status: CrmJobSheetStatus;
 
   lineItems: ICrmJobSheetLineItem[];
@@ -72,6 +90,18 @@ export interface ICrmJobSheet extends Document {
   workPerformed?: string;
   customerSignatureUrl?: string;
   internalNotes?: string;
+
+  // Cancellation -- vendor staff requests it, routed to the vendor's own
+  // Manager (the main login), per spec ("access to Cancel to manager").
+  cancelReason?: string;
+  cancelRequestedBy?: Types.ObjectId;
+  cancelledAt?: Date;
+
+  // Handover (final milestone) -- SC records what was actually collected.
+  paymentCollected?: number;
+  paymentMode?: "CASH" | "UPI" | "CARD" | "BANK_TRANSFER" | "OTHER";
+  handedOverAt?: Date;
+  handedOverBy?: Types.ObjectId;
 
   invoiceId?: Types.ObjectId; // SalesInvoice created at closure
   invoiceNumber?: string;
@@ -121,6 +151,8 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     issueDescription: { type: String, default: "" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
     remark: { type: String, default: "" },
+    appointmentType: { type: String, enum: ["ONSITE", "WALKIN"] },
+    requestType: { type: String, enum: ["REPAIR", "INSTALLATION"] },
 
     brandJobNoForPartOrder: { type: String, trim: true },
 
@@ -130,10 +162,12 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     completedAt: { type: Date },
 
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
+    assignedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    engineerAssignedAt: { type: Date },
     status: {
       type: String,
-      enum: ["DRAFT", "SCHEDULED", "IN_PROGRESS", "PART_PENDING", "COMPLETED", "INVOICED", "CANCELLED"],
-      default: "DRAFT",
+      enum: ["CREATED", "REPAIR_STARTED", "REPAIR_IN_PROGRESS", "REPAIR_COMPLETED", "CLOSED", "CANCELLED"],
+      default: "CREATED",
       index: true,
     },
 
@@ -142,6 +176,15 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     workPerformed: { type: String, default: "" },
     customerSignatureUrl: { type: String, default: "" },
     internalNotes: { type: String, default: "" },
+
+    cancelReason: { type: String },
+    cancelRequestedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    cancelledAt: { type: Date },
+
+    paymentCollected: { type: Number },
+    paymentMode: { type: String, enum: ["CASH", "UPI", "CARD", "BANK_TRANSFER", "OTHER"] },
+    handedOverAt: { type: Date },
+    handedOverBy: { type: Schema.Types.ObjectId, ref: "User" },
 
     invoiceId: { type: Schema.Types.ObjectId, ref: "SalesInvoice" },
     invoiceNumber: { type: String },

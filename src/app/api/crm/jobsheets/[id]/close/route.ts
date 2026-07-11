@@ -14,7 +14,6 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import CrmJobSheet from "@/models/CrmJobSheet";
-import CrmCall from "@/models/CrmCall";
 import SalesInvoice from "@/models/SalesInvoice";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
@@ -67,6 +66,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         jobSheet,
         invoice: existingInvoice,
       });
+    }
+
+    if (jobSheet.status !== "REPAIR_IN_PROGRESS" && jobSheet.status !== "REPAIR_STARTED") {
+      return NextResponse.json(
+        { success: false, message: `Cannot complete repair while status is ${jobSheet.status}.` },
+        { status: 409 }
+      );
     }
 
     if (!jobSheet.lineItems || jobSheet.lineItems.length === 0) {
@@ -159,7 +165,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: "SENT",
     });
 
-    jobSheet.status = "INVOICED";
+    jobSheet.status = "REPAIR_COMPLETED";
     jobSheet.completedAt = jobSheet.completedAt || new Date();
     jobSheet.invoiceId = invoice._id as any;
     jobSheet.invoiceNumber = invoice.invoiceNumber;
@@ -178,18 +184,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // here. That view route already handles this invoice's synthetic
     // "CRM_JOBSHEET:<id>" sourceOrderId correctly (see its own comment).
 
-    // Close the originating call, if any, as CLOSED_WON — the call's whole
-    // point was to arrive here.
-    let closedCall = null;
-    if (jobSheet.callId) {
-      closedCall = await CrmCall.findOneAndUpdate(
-        { _id: jobSheet.callId, isDeleted: false },
-        {
-          $set: { status: "CLOSED_WON", closedAt: new Date(), closedReason: "Job completed and invoiced" },
-        },
-        { new: true }
-      );
-    }
+    // The originating call is closed at handover (see
+    // /api/crm/jobsheets/[id]/handover), not here — repair completion just
+    // makes the invoice downloadable, the customer hasn't collected yet.
 
     logAction({
       action: "CLOSE",
@@ -214,7 +211,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }).catch(() => {});
 
     return NextResponse.json(
-      { success: true, jobSheet, invoice, call: closedCall },
+      { success: true, jobSheet, invoice },
       { status: 201 }
     );
   } catch (err: any) {

@@ -91,9 +91,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       phone: call.phone,
       email: call.email,
       address: call.address,
-      city,
-      state,
-      pincode,
+      city: city || call.city,
+      state: state || call.state,
+      pincode: pincode || call.pincode,
+      appointmentType: call.appointmentType,
+      requestType: call.requestType,
       brandId:
         brandId && mongoose.Types.ObjectId.isValid(brandId)
           ? new mongoose.Types.ObjectId(brandId)
@@ -112,7 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         assignedTo && mongoose.Types.ObjectId.isValid(assignedTo)
           ? new mongoose.Types.ObjectId(assignedTo)
           : call.assignedTo,
-      status: "SCHEDULED",
+      status: "CREATED",
       lineItems: Array.isArray(lineItems) ? lineItems : [],
       createdBy: new mongoose.Types.ObjectId(userId),
     });

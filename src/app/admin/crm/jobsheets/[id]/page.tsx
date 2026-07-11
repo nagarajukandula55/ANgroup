@@ -39,6 +39,15 @@ interface JobSheet {
   invoiceNumber?: string
   brandJobNoForPartOrder?: string
   callId?: { callNumber?: string; status?: string } | string
+  assignedTo?: { _id?: string; name?: string } | string
+  cancelReason?: string
+}
+
+interface StaffMember {
+  _id: string
+  vendorRole?: string
+  status?: string
+  userId?: { _id?: string; name?: string; email?: string }
 }
 
 const emptyLine = (): LineItem => ({ description: '', quantity: 1, unit: 'pcs', unitPrice: 0, taxRate: 0 })
@@ -60,8 +69,18 @@ export default function JobSheetDetailPage() {
   const [bomParts, setBomParts] = useState<BOMPart[]>([])
   const [pickerOpenIndex, setPickerOpenIndex] = useState<number | null>(null)
 
-  const [showPartPending, setShowPartPending] = useState(false)
-  const [brandJobNoForPartOrder, setBrandJobNoForPartOrder] = useState('')
+  const [engineers, setEngineers] = useState<StaffMember[]>([])
+  const [selectedEngineer, setSelectedEngineer] = useState('')
+  const [assigning, setAssigning] = useState(false)
+
+  const [showHandover, setShowHandover] = useState(false)
+  const [paymentCollected, setPaymentCollected] = useState('')
+  const [paymentMode, setPaymentMode] = useState('CASH')
+  const [handingOver, setHandingOver] = useState(false)
+
+  const [showCancel, setShowCancel] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
 
   const fetchJob = useCallback(async () => {
     setLoading(true)
@@ -74,7 +93,6 @@ export default function JobSheetDetailPage() {
       setLineItems(d.jobSheet.lineItems?.length ? d.jobSheet.lineItems : [emptyLine()])
       setWorkPerformed(d.jobSheet.workPerformed || '')
       setMaterialsUsed(d.jobSheet.materialsUsed || '')
-      setBrandJobNoForPartOrder(d.jobSheet.brandJobNoForPartOrder || '')
     } catch (err: any) {
       setError(err.message || 'Could not load workorder.')
     } finally {
@@ -83,6 +101,17 @@ export default function JobSheetDetailPage() {
   }, [id])
 
   useEffect(() => { fetchJob() }, [fetchJob])
+
+  useEffect(() => {
+    fetch('/api/vendor/staff')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setEngineers((d.staff || []).filter((m: StaffMember) => m.vendorRole === 'ENGINEER' && m.status === 'ACTIVE'))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Vendor's Service Center BOM parts — used as an alternative to free-text
   // description entry (autofills partName/rate/HSN-derived tax%). Silently
@@ -117,7 +146,7 @@ export default function JobSheetDetailPage() {
     setPickerOpenIndex(null)
   }
 
-  const isLocked = job?.status === 'INVOICED' || job?.status === 'CANCELLED'
+  const isLocked = job?.status === 'REPAIR_COMPLETED' || job?.status === 'CLOSED' || job?.status === 'CANCELLED'
 
   async function saveLineItems(extra: Record<string, unknown> = {}) {
     setSaving(true)
@@ -138,50 +167,50 @@ export default function JobSheetDetailPage() {
     }
   }
 
-  async function markInProgress() {
-    setSaving(true)
+  async function assignEngineer() {
+    if (!selectedEngineer) return
+    setAssigning(true)
+    setActionError(null)
     try {
-      await fetch(`/api/crm/jobsheets/${id}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/crm/jobsheets/${id}/assign-engineer`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'IN_PROGRESS' }),
+        body: JSON.stringify({ engineerId: selectedEngineer }),
       })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to assign engineer')
       fetchJob()
+    } catch (err: any) {
+      setActionError(err.message || 'Something went wrong')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  async function startRepair() {
+    setSaving(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/crm/jobsheets/${id}/start-repair`, { method: 'POST' })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to start repair')
+      fetchJob()
+    } catch (err: any) {
+      setActionError(err.message || 'Something went wrong')
     } finally {
       setSaving(false)
     }
   }
 
-  // "Part pending" — per spec, if the call is getting changed into part
-  // pending status, ask whether they have a Brand Job No for the part
-  // order (optional).
-  async function submitPartPending() {
-    setSaving(true)
-    try {
-      await fetch(`/api/crm/jobsheets/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'PART_PENDING',
-          brandJobNoForPartOrder: brandJobNoForPartOrder || undefined,
-        }),
-      })
-      setShowPartPending(false)
-      fetchJob()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function closeJob() {
+  async function completeRepair() {
     setClosing(true)
     setActionError(null)
     try {
-      // Persist any pending edits first so closure invoices the latest line items.
+      // Persist any pending edits first so completion invoices the latest line items.
       await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, status: 'COMPLETED' }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed }),
       })
       const res = await fetch(`/api/crm/jobsheets/${id}/close`, {
         method: 'POST',
@@ -189,12 +218,53 @@ export default function JobSheetDetailPage() {
         body: JSON.stringify({ workPerformed, materialsUsed }),
       })
       const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to close workorder')
-      router.push(`/admin/crm/invoices/${d.invoice._id}`)
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to complete repair')
+      fetchJob()
     } catch (err: any) {
       setActionError(err.message || 'Something went wrong')
     } finally {
       setClosing(false)
+    }
+  }
+
+  async function submitHandover() {
+    setHandingOver(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/crm/jobsheets/${id}/handover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentCollected: parseFloat(paymentCollected) || 0, paymentMode }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to hand over')
+      setShowHandover(false)
+      fetchJob()
+    } catch (err: any) {
+      setActionError(err.message || 'Something went wrong')
+    } finally {
+      setHandingOver(false)
+    }
+  }
+
+  async function submitCancel() {
+    if (!cancelReason.trim()) return
+    setCancelling(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/crm/jobsheets/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cancelReason }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to cancel')
+      setShowCancel(false)
+      fetchJob()
+    } catch (err: any) {
+      setActionError(err.message || 'Something went wrong')
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -225,42 +295,65 @@ export default function JobSheetDetailPage() {
             <h1 className="text-2xl font-semibold">{job.title}</h1>
             <p className="text-sm text-gray-400 font-mono">{job.jobSheetNumber} · {job.customerName} · {job.status.replace(/_/g, ' ')}</p>
           </div>
-          {job.invoiceId ? (
-            <button
-              onClick={() => router.push(`/admin/crm/invoices/${job.invoiceId}`)}
-              className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
-            >
-              <FileText className="w-4 h-4" /> View Invoice ({job.invoiceNumber})
-            </button>
-          ) : (
-            <div className="ml-auto flex gap-2">
-              {job.status === 'SCHEDULED' && (
-                <button onClick={markInProgress} disabled={saving} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition">
-                  Start Job
-                </button>
-              )}
-              {(job.status === 'IN_PROGRESS' || job.status === 'PART_PENDING') && (
-                <button onClick={() => setShowPartPending(true)} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-700 hover:bg-amber-100 transition">
-                  <PauseCircle className="w-4 h-4" /> Part Pending
-                </button>
-              )}
+          <div className="ml-auto flex gap-2">
+            {job.invoiceId && (
               <button
-                onClick={closeJob}
+                onClick={() => router.push(`/admin/crm/invoices/${job.invoiceId}`)}
+                className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
+              >
+                <FileText className="w-4 h-4" /> View Invoice ({job.invoiceNumber})
+              </button>
+            )}
+            {job.status === 'CREATED' && (
+              <>
+                <select
+                  value={selectedEngineer}
+                  onChange={(e) => setSelectedEngineer(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700"
+                >
+                  <option value="">Select engineer…</option>
+                  {engineers.map((e) => (
+                    <option key={e._id} value={e.userId?._id}>{e.userId?.name || e.userId?.email}</option>
+                  ))}
+                </select>
+                <button onClick={assignEngineer} disabled={assigning || !selectedEngineer} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50">
+                  {assigning ? 'Assigning…' : 'Assign Engineer'}
+                </button>
+              </>
+            )}
+            {job.status === 'REPAIR_STARTED' && (
+              <button onClick={startRepair} disabled={saving} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition">
+                Start Repair
+              </button>
+            )}
+            {job.status === 'REPAIR_IN_PROGRESS' && (
+              <button
+                onClick={completeRepair}
                 disabled={closing || lineItems.every((l) => !l.description.trim())}
                 className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
               >
                 {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Close & Generate Invoice
+                Complete Repair & Generate Invoice
               </button>
-            </div>
-          )}
+            )}
+            {job.status === 'REPAIR_COMPLETED' && (
+              <button onClick={() => setShowHandover(true)} className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition">
+                <CheckCircle2 className="w-4 h-4" /> Handover to Customer
+              </button>
+            )}
+            {job.status !== 'CLOSED' && job.status !== 'CANCELLED' && (
+              <button onClick={() => setShowCancel(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700 hover:bg-red-100 transition">
+                <PauseCircle className="w-4 h-4" /> Cancel
+              </button>
+            )}
+          </div>
         </div>
 
         {actionError && <div className="mb-6 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{actionError}</div>}
 
-        {job.status === 'PART_PENDING' && job.brandJobNoForPartOrder && (
-          <div className="mb-6 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            Part pending — Brand Job No: <span className="font-mono">{job.brandJobNoForPartOrder}</span>
+        {job.status === 'CANCELLED' && job.cancelReason && (
+          <div className="mb-6 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            Cancelled — Reason: {job.cancelReason}
           </div>
         )}
 
@@ -388,21 +481,54 @@ export default function JobSheetDetailPage() {
         </div>
       </div>
 
-      {showPartPending && (
+      {showHandover && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-2">Mark as Part Pending</h2>
-            <p className="text-xs text-gray-500 mb-4">If you have a Brand Job No for the part order, enter it below (optional).</p>
+            <h2 className="font-semibold text-gray-900 mb-2">Handover to Customer</h2>
+            <p className="text-xs text-gray-500 mb-4">Record what was collected before closing this workorder.</p>
             <input
-              value={brandJobNoForPartOrder}
-              onChange={(e) => setBrandJobNoForPartOrder(e.target.value)}
-              placeholder="Brand Job No (optional)"
+              type="number"
+              value={paymentCollected}
+              onChange={(e) => setPaymentCollected(e.target.value)}
+              placeholder="Amount collected"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-3"
+            />
+            <select
+              value={paymentMode}
+              onChange={(e) => setPaymentMode(e.target.value)}
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-4"
+            >
+              <option value="CASH">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="CARD">Card</option>
+              <option value="BANK_TRANSFER">Bank Transfer</option>
+              <option value="OTHER">Other</option>
+            </select>
+            <div className="flex gap-3">
+              <button onClick={() => setShowHandover(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500">Cancel</button>
+              <button onClick={submitHandover} disabled={handingOver || !paymentCollected} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50">
+                {handingOver ? 'Saving…' : 'Confirm Handover'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="font-semibold text-gray-900 mb-2">Cancel Workorder</h2>
+            <p className="text-xs text-gray-500 mb-4">This will be routed to the manager. Provide a reason.</p>
+            <input
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Cancellation reason"
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-4"
             />
             <div className="flex gap-3">
-              <button onClick={() => setShowPartPending(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500">Cancel</button>
-              <button onClick={submitPartPending} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50">
-                {saving ? 'Saving…' : 'Confirm'}
+              <button onClick={() => setShowCancel(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500">Back</button>
+              <button onClick={submitCancel} disabled={cancelling || !cancelReason.trim()} className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition disabled:opacity-50">
+                {cancelling ? 'Cancelling…' : 'Confirm Cancel'}
               </button>
             </div>
           </div>

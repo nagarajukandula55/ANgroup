@@ -50,6 +50,9 @@ export interface ICrmCallLogEntry {
   calledAt: Date;
 }
 
+export type CrmAppointmentType = "ONSITE" | "WALKIN";
+export type CrmRequestType = "REPAIR" | "INSTALLATION";
+
 export interface ICrmCall extends Document {
   businessId: Types.ObjectId;
   callNumber: string; // human-facing reference, e.g. CALL-2526-0001
@@ -60,12 +63,28 @@ export interface ICrmCall extends Document {
   phone: string;
   email?: string;
   address?: string;
+  // Structured, only meaningful (and only asked for in the UI) when
+  // appointmentType is ONSITE -- an engineer needs a real address/city/
+  // state/pincode to actually visit, not a free-text "address" alone.
+  city?: string;
+  state?: string;
+  pincode?: string;
 
   // ── Enquiry details ─────────────────────────────────────────────────
   source?: string; // e.g. "Website", "Referral", "Walk-in", "Ad"
   subject: string;
   description?: string;
   priority: CrmCallPriority;
+
+  // Onsite (engineer visits the customer) vs Walkin (customer brings the
+  // device in); Repair vs Installation -- captured at appointment time so
+  // the job sheet created from this call doesn't have to ask again.
+  appointmentType: CrmAppointmentType;
+  requestType: CrmRequestType;
+  // When the appointment is actually scheduled for -- distinct from
+  // nextFollowUpAt (a callback reminder) and from JobSheet.scheduledAt
+  // (set later, when a job sheet exists at all).
+  appointmentDate?: Date;
 
   // ── Pipeline ─────────────────────────────────────────────────────────
   status: CrmCallStatus;
@@ -128,6 +147,9 @@ const CrmCallSchema = new Schema<ICrmCall>(
     phone: { type: String, required: true, trim: true, index: true },
     email: { type: String, lowercase: true, trim: true },
     address: { type: String },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    pincode: { type: String, trim: true },
 
     source: { type: String, default: "" },
     subject: { type: String, required: true, trim: true },
@@ -137,6 +159,10 @@ const CrmCallSchema = new Schema<ICrmCall>(
       enum: ["LOW", "MEDIUM", "HIGH", "URGENT"],
       default: "MEDIUM",
     },
+
+    appointmentType: { type: String, enum: ["ONSITE", "WALKIN"], default: "WALKIN" },
+    requestType: { type: String, enum: ["REPAIR", "INSTALLATION"], default: "REPAIR" },
+    appointmentDate: { type: Date, index: true },
 
     status: {
       type: String,

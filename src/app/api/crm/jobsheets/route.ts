@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
         assignedTo && mongoose.Types.ObjectId.isValid(assignedTo)
           ? new mongoose.Types.ObjectId(assignedTo)
           : undefined,
-      status: "SCHEDULED",
+      status: "CREATED",
       lineItems: Array.isArray(lineItems) ? lineItems : [],
       createdBy: new mongoose.Types.ObjectId(userId),
     });

@@ -17,15 +17,15 @@ interface JobSheet {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-500',
-  SCHEDULED: 'bg-blue-500/10 text-blue-600',
-  IN_PROGRESS: 'bg-indigo-500/10 text-indigo-700',
-  COMPLETED: 'bg-emerald-500/10 text-emerald-700',
-  INVOICED: 'bg-cyan-500/10 text-cyan-700',
+  CREATED: 'bg-blue-500/10 text-blue-600',
+  REPAIR_STARTED: 'bg-indigo-500/10 text-indigo-700',
+  REPAIR_IN_PROGRESS: 'bg-amber-500/10 text-amber-700',
+  REPAIR_COMPLETED: 'bg-cyan-500/10 text-cyan-700',
+  CLOSED: 'bg-emerald-500/10 text-emerald-700',
   CANCELLED: 'bg-red-500/10 text-red-700',
 }
 
-const STATUSES = ['ALL', 'DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'INVOICED', 'CANCELLED']
+const STATUSES = ['ALL', 'CREATED', 'REPAIR_STARTED', 'REPAIR_IN_PROGRESS', 'REPAIR_COMPLETED', 'CLOSED', 'CANCELLED']
 
 const fmtDate = (d?: string) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'

@@ -136,10 +136,16 @@ export async function POST(req: NextRequest) {
       phone,
       email,
       address,
+      city,
+      state,
+      pincode,
       source,
       subject,
       description,
       priority,
+      appointmentType,
+      requestType,
+      appointmentDate,
       assignedTo,
       estimatedValue,
       currency,
@@ -160,6 +166,14 @@ export async function POST(req: NextRequest) {
     if (!effectiveBizId) {
       return NextResponse.json({ success: false, message: "businessId is required" }, { status: 400 });
     }
+    // Onsite means an engineer has to actually go somewhere -- a real
+    // address is not optional for that appointment type.
+    if (appointmentType === "ONSITE" && (!address?.trim() || !city?.trim() || !state?.trim() || !pincode?.trim())) {
+      return NextResponse.json(
+        { success: false, message: "Address, city, state, and pincode are required for an onsite appointment" },
+        { status: 400 }
+      );
+    }
 
     await connectDB();
 
@@ -173,10 +187,16 @@ export async function POST(req: NextRequest) {
       phone: phone.trim(),
       email: email?.toLowerCase()?.trim(),
       address,
+      city,
+      state,
+      pincode,
       source,
       subject: subject.trim(),
       description,
       priority: priority || "MEDIUM",
+      appointmentType: appointmentType === "ONSITE" ? "ONSITE" : "WALKIN",
+      requestType: requestType === "INSTALLATION" ? "INSTALLATION" : "REPAIR",
+      appointmentDate: appointmentDate ? new Date(appointmentDate) : undefined,
       status: "NEW",
       assignedTo:
         assignedTo && mongoose.Types.ObjectId.isValid(assignedTo)

@@ -59,13 +59,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
+// status is deliberately excluded -- milestone transitions go through the
+// dedicated routes (assign-engineer, start-repair, close, handover, cancel)
+// so each transition can enforce its own preconditions (e.g. line items
+// required to complete repair, payment mode required to hand over).
 const ALLOWED_FIELDS = [
   "title",
   "description",
   "scheduledAt",
   "completedAt",
   "assignedTo",
-  "status",
   "lineItems",
   "materialsUsed",
   "workPerformed",
@@ -90,7 +93,7 @@ const ALLOWED_FIELDS = [
 // Statuses that mean a SalesInvoice already exists — job sheet content
 // (especially lineItems, which the invoice was built FROM) must not change
 // underneath an invoice that's already been issued to the customer.
-const LOCKED_AFTER_INVOICE = new Set(["INVOICED"]);
+const LOCKED_AFTER_INVOICE = new Set(["REPAIR_COMPLETED", "CLOSED"]);
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -128,10 +131,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         { success: false, message: "Line items cannot be changed after the job has been invoiced." },
         { status: 409 }
       );
-    }
-
-    if (updates.status === "COMPLETED" && !updates.completedAt) {
-      updates.completedAt = new Date();
     }
 
     const jobSheet = await CrmJobSheet.findOneAndUpdate(
@@ -179,7 +178,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!jobSheet) {
       return NextResponse.json({ success: false, message: "Job sheet not found" }, { status: 404 });
     }
-    if (jobSheet.status === "INVOICED") {
+    if (jobSheet.invoiceId) {
       return NextResponse.json(
         { success: false, message: "An invoiced job sheet cannot be deleted — cancel the invoice first." },
         { status: 409 }
