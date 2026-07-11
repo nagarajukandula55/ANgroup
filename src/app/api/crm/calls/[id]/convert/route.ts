@@ -96,12 +96,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       pincode: pincode || call.pincode,
       appointmentType: call.appointmentType,
       requestType: call.requestType,
+      product: call.product,
+      deviceModel: call.deviceModel,
       brandId:
         brandId && mongoose.Types.ObjectId.isValid(brandId)
           ? new mongoose.Types.ObjectId(brandId)
-          : undefined,
+          : call.brandId,
       imeiOrSerialNumber,
-      issueDescription,
+      issueDescription: issueDescription || call.subject,
       faultCodeId:
         faultCodeId && mongoose.Types.ObjectId.isValid(faultCodeId)
           ? new mongoose.Types.ObjectId(faultCodeId)

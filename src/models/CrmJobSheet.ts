@@ -61,7 +61,9 @@ export interface ICrmJobSheet extends Document {
   pincode?: string;
 
   // Workorder-creation fields (per CRM Appointment -> Workorder spec):
+  product?: string; // device/category, e.g. "AC", "Washing Machine"
   brandId?: Types.ObjectId; // ref Brand
+  deviceModel?: string;
   imeiOrSerialNumber?: string;
   issueDescription?: string; // free-text VOC, independent of faultCodeId
   faultCodeId?: Types.ObjectId; // ref FaultCode
@@ -146,7 +148,9 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     state: { type: String, trim: true },
     pincode: { type: String, trim: true },
 
+    product: { type: String, trim: true },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
+    deviceModel: { type: String, trim: true },
     imeiOrSerialNumber: { type: String, trim: true },
     issueDescription: { type: String, default: "" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },

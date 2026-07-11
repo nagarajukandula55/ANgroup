@@ -20,6 +20,8 @@ import { connectDB } from "@/lib/mongodb";
 import mongoose from "mongoose";
 import ServiceCenterBOM from "@/models/ServiceCenterBOM";
 import VendorProfile from "@/models/VendorProfile";
+// Required for .populate(...) below -- model must be registered before populate can resolve it.
+import "@/models/Brand";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
@@ -70,9 +72,11 @@ export async function GET(req: NextRequest) {
     }
 
     const search = searchParams.get("search");
+    const brandId = searchParams.get("brandId");
     const query: Record<string, unknown> = {
       businessId: resolved.businessId,
       vendorId: resolved.vendorId,
+      isActive: true,
     };
     if (search) {
       query.$or = [
@@ -81,8 +85,14 @@ export async function GET(req: NextRequest) {
         { hsnCode: { $regex: search, $options: "i" } },
       ];
     }
+    // Brand filter is inclusive of brand-agnostic parts (no brandId set) --
+    // a universal consumable/labour line should still show up regardless
+    // of which device brand the workorder is for.
+    if (brandId && mongoose.Types.ObjectId.isValid(brandId)) {
+      query.$and = [{ $or: [{ brandId }, { brandId: null }, { brandId: { $exists: false } }] }];
+    }
 
-    const parts = await ServiceCenterBOM.find(query).sort({ partName: 1 }).lean();
+    const parts = await ServiceCenterBOM.find(query).populate("brandId", "name").sort({ partName: 1 }).lean();
     return NextResponse.json({ success: true, parts });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -98,7 +108,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { partName, hsnCode, rate, vendorId: explicitVendorId } = body;
+    const {
+      partName, hsnCode, rate, vendorId: explicitVendorId,
+      brandId, description, partType, unit, gstRate, warrantyDays,
+    } = body;
 
     if (!partName?.trim() || !hsnCode?.trim() || rate === undefined || rate === null) {
       return NextResponse.json(
@@ -126,10 +139,16 @@ export async function POST(req: NextRequest) {
     const part = await ServiceCenterBOM.create({
       businessId: resolved.businessId,
       vendorId: resolved.vendorId,
+      brandId: brandId && mongoose.Types.ObjectId.isValid(brandId) ? brandId : undefined,
       partName: partName.trim(),
       partCode,
+      description: description?.trim(),
+      partType: ["SPARE_PART", "LABOUR", "CONSUMABLE"].includes(partType) ? partType : "SPARE_PART",
+      unit: unit?.trim() || "pcs",
       hsnCode: hsnCode.trim(),
+      gstRate: gstRate !== undefined ? Number(gstRate) : 18,
       rate: Number(rate),
+      warrantyDays: warrantyDays !== undefined ? Number(warrantyDays) : undefined,
     });
 
     logAction({

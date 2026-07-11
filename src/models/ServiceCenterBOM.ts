@@ -14,13 +14,21 @@
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
 
+export type ServiceCenterBOMPartType = "SPARE_PART" | "LABOUR" | "CONSUMABLE";
+
 export interface IServiceCenterBOM extends Document {
   businessId: Types.ObjectId;
   vendorId: Types.ObjectId;
+  brandId?: Types.ObjectId; // ref Brand -- which device brand this part fits, if any
   partName: string;
   partCode: string;
+  description?: string; // spec/detail beyond the name, for GST-invoice line clarity
+  partType: ServiceCenterBOMPartType;
+  unit: string; // e.g. "pcs", "nos", "set"
   hsnCode: string;
+  gstRate: number; // % -- explicit on the part, not just derived from HSN lookup at billing time
   rate: number; // without tax
+  warrantyDays?: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -30,10 +38,16 @@ const ServiceCenterBOMSchema = new Schema<IServiceCenterBOM>(
   {
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
     vendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", required: true, index: true },
+    brandId: { type: Schema.Types.ObjectId, ref: "Brand", index: true },
     partName: { type: String, required: true, trim: true },
     partCode: { type: String, required: true, trim: true },
+    description: { type: String, trim: true, default: "" },
+    partType: { type: String, enum: ["SPARE_PART", "LABOUR", "CONSUMABLE"], default: "SPARE_PART" },
+    unit: { type: String, trim: true, default: "pcs" },
     hsnCode: { type: String, required: true, trim: true },
+    gstRate: { type: Number, required: true, min: 0, max: 100, default: 18 },
     rate: { type: Number, required: true, min: 0 },
+    warrantyDays: { type: Number, min: 0 },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

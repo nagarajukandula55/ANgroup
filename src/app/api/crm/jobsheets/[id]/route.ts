@@ -17,6 +17,7 @@ import { buildPermissionCode } from "@/core/access/actions";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/User";
 import "@/models/CrmCall";
+import "@/models/Brand";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -47,6 +48,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const jobSheet = await CrmJobSheet.findOne({ _id: id, isDeleted: false })
       .populate("assignedTo", "name email")
       .populate("callId", "callNumber status")
+      .populate("brandId", "name")
       .lean();
 
     if (!jobSheet) {
@@ -82,7 +84,9 @@ const ALLOWED_FIELDS = [
   "city",
   "state",
   "pincode",
+  "product",
   "brandId",
+  "deviceModel",
   "imeiOrSerialNumber",
   "issueDescription",
   "faultCodeId",

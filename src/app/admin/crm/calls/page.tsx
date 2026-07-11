@@ -14,12 +14,17 @@ interface Call {
   phone: string
   email?: string
   subject: string
+  product?: string
+  deviceModel?: string
+  brandId?: { name?: string } | string
   status: string
   priority: string
   nextFollowUpAt?: string
   createdAt: string
   assignedTo?: { name?: string; email?: string }
 }
+
+interface Brand { _id: string; name: string }
 
 const STATUS_COLORS: Record<string, string> = {
   NEW: 'bg-blue-500/10 text-blue-600',
@@ -33,6 +38,8 @@ const STATUS_COLORS: Record<string, string> = {
   NO_RESPONSE: 'bg-gray-200 text-gray-500',
 }
 
+const OPEN_STATUSES = new Set(['NEW', 'CONTACTED', 'QUALIFIED', 'IN_PROGRESS'])
+
 const PRIORITY_COLORS: Record<string, string> = {
   LOW: 'bg-gray-100 text-gray-500',
   MEDIUM: 'bg-blue-100 text-blue-600',
@@ -45,6 +52,24 @@ const STATUSES = ['ALL', 'NEW', 'CONTACTED', 'QUALIFIED', 'JOB_CREATED', 'IN_PRO
 const fmtDate = (d?: string) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
+// Ageing since creation, in whole days. Only meaningful while the
+// appointment is still open (not yet dispositioned/converted) -- per spec,
+// an appointment crossing day 2 should visibly flag as overdue attention.
+function ageingDays(createdAt: string): number {
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
+}
+
+function AgeingBadge({ call }: { call: Call }) {
+  if (!OPEN_STATUSES.has(call.status)) return <span className="text-gray-300 text-xs">—</span>
+  const days = ageingDays(call.createdAt)
+  const overdue = days >= 2
+  return (
+    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${overdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+      {days}d
+    </span>
+  )
+}
+
 export default function CrmCallsPage() {
   const router = useRouter()
   const [calls, setCalls] = useState<Call[]>([])
@@ -55,6 +80,7 @@ export default function CrmCallsPage() {
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [brands, setBrands] = useState<Brand[]>([])
 
   // A super admin browsing with no active business selected (the "all
   // businesses" view) has no x-active-business-id header, so POST /api/crm/calls
@@ -77,10 +103,19 @@ export default function CrmCallsPage() {
     loadBusinessId()
   }, [])
 
+  useEffect(() => {
+    if (!businessId) return
+    fetch(`/api/brands?businessId=${businessId}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
+  }, [businessId])
+
+  // Required set per spec: customer name, phone, email, source, product,
+  // device brand, model, and the issue itself -- nothing else. "source" is
+  // deliberately just Website (auto/public form) vs User Contact (staff
+  // took it directly) rather than the old open-ended text field.
   const [form, setForm] = useState({
-    customerName: '', company: '', phone: '', email: '', address: '',
-    source: '', subject: '', description: '', priority: 'MEDIUM',
-    estimatedValue: '',
+    customerName: '', phone: '', email: '',
+    source: 'User Contact', product: '', brandId: '', deviceModel: '',
+    subject: '',
   })
 
   const fetchCalls = useCallback(async () => {
@@ -106,7 +141,7 @@ export default function CrmCallsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!businessId) {
-      setFormError('Select a business first (top-right business switcher) before creating a call.')
+      setFormError('Select a business first (top-right business switcher) before creating an appointment.')
       return
     }
     setSubmitting(true)
@@ -118,9 +153,9 @@ export default function CrmCallsPage() {
         body: JSON.stringify({ ...form, businessId }),
       })
       const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create call')
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create appointment')
       setShowForm(false)
-      setForm({ customerName: '', company: '', phone: '', email: '', address: '', source: '', subject: '', description: '', priority: 'MEDIUM', estimatedValue: '' })
+      setForm({ customerName: '', phone: '', email: '', source: 'User Contact', product: '', brandId: '', deviceModel: '', subject: '' })
       fetchCalls()
     } catch (err: any) {
       setFormError(err.message || 'Something went wrong')
@@ -159,10 +194,16 @@ export default function CrmCallsPage() {
             <p className="text-sm text-gray-400">Appointment entry, disposition, and follow-up pipeline</p>
           </div>
           <button
+            onClick={() => router.push('/admin/crm/jobsheets?new=1')}
+            className="ml-auto flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-100 transition"
+          >
+            <Plus className="w-4 h-4" /> New Job Sheet (no appointment)
+          </button>
+          <button
             onClick={() => setShowForm(true)}
             disabled={!businessId}
             title={businessId ? undefined : 'Select a business first to create a call'}
-            className="ml-auto flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-600"
+            className="flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-600"
           >
             <Plus className="w-4 h-4" /> New Appointment
           </button>
@@ -235,22 +276,23 @@ export default function CrmCallsPage() {
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
+          <table className="w-full text-sm min-w-[820px]">
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Appt #</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Customer</th>
-                <th className="text-left px-6 py-3 text-gray-400 font-medium">Subject</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Device</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Issue</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Priority</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
-                <th className="text-left px-6 py-3 text-gray-400 font-medium">Follow-up</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">Ageing</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {calls.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
+                  <td colSpan={8} className="px-6 py-10 text-center text-gray-400">
                     No appointments found
                   </td>
                 </tr>
@@ -266,6 +308,9 @@ export default function CrmCallsPage() {
                       {call.customerName}
                       <p className="text-gray-400 text-xs">{call.phone}</p>
                     </td>
+                    <td className="px-6 py-3 text-gray-500 text-xs">
+                      {[call.product, typeof call.brandId === 'object' ? call.brandId?.name : undefined, call.deviceModel].filter(Boolean).join(' · ') || '—'}
+                    </td>
                     <td className="px-6 py-3 text-gray-500">{call.subject}</td>
                     <td className="px-6 py-3 text-center">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[call.priority] ?? 'bg-gray-100 text-gray-500'}`}>
@@ -277,7 +322,7 @@ export default function CrmCallsPage() {
                         {call.status.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-gray-400 text-xs">{fmtDate(call.nextFollowUpAt)}</td>
+                    <td className="px-6 py-3 text-center"><AgeingBadge call={call} /></td>
                     <td className="px-6 py-3 text-gray-400">{fmtDate(call.createdAt)}</td>
                   </tr>
                 ))
@@ -306,42 +351,73 @@ export default function CrmCallsPage() {
                   {formError}
                 </div>
               )}
-              {([
-                { field: 'customerName', label: 'Customer Name *', required: true, type: 'text' },
-                { field: 'company', label: 'Company', required: false, type: 'text' },
-                { field: 'phone', label: 'Phone *', required: true, type: 'tel' },
-                { field: 'email', label: 'Email', required: false, type: 'email' },
-                { field: 'source', label: 'Source (e.g. Website, Referral)', required: false, type: 'text' },
-                { field: 'subject', label: 'Appointment Subject *', required: true, type: 'text' },
-                { field: 'estimatedValue', label: 'Estimated Value (₹)', required: false, type: 'number' },
-              ] as const).map(({ field, label, required, type }) => (
-                <div key={field}>
-                  <label className="block text-xs text-gray-500 mb-1.5">{label}</label>
-                  <input
-                    type={type}
-                    required={required}
-                    value={(form as any)[field]}
-                    onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                  />
-                </div>
-              ))}
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Priority</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Customer Name *</label>
+                <input
+                  type="text" required value={form.customerName}
+                  onChange={(e) => setForm((p) => ({ ...p, customerName: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Contact No *</label>
+                <input
+                  type="tel" required value={form.phone}
+                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Email *</label>
+                <input
+                  type="email" required value={form.email}
+                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Source *</label>
                 <select
-                  value={form.priority}
-                  onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))}
+                  value={form.source}
+                  onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
                 >
-                  {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((p) => <option key={p} value={p}>{p}</option>)}
+                  <option value="Website">Website</option>
+                  <option value="User Contact">User Contact</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Description / Notes</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Product *</label>
+                <input
+                  type="text" required value={form.product} placeholder="e.g. AC, Washing Machine"
+                  onChange={(e) => setForm((p) => ({ ...p, product: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Device Brand *</label>
+                <select
+                  required value={form.brandId}
+                  onChange={(e) => setForm((p) => ({ ...p, brandId: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                >
+                  <option value="">Select brand…</option>
+                  {brands.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Model *</label>
+                <input
+                  type="text" required value={form.deviceModel}
+                  onChange={(e) => setForm((p) => ({ ...p, deviceModel: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Issue with Device *</label>
                 <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                  rows={3}
+                  required value={form.subject} rows={3}
+                  onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none"
                 />
               </div>

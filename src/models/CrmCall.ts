@@ -71,8 +71,18 @@ export interface ICrmCall extends Document {
   pincode?: string;
 
   // ── Enquiry details ─────────────────────────────────────────────────
-  source?: string; // e.g. "Website", "Referral", "Walk-in", "Ad"
-  subject: string;
+  // "Website" (auto, submitted via the public appointment form) vs
+  // "User Contact" (staff took the call/walk-in manually) -- the only two
+  // values the appointment-creation UI actually offers now; source stays a
+  // free-text field on the model since Referral/Ad still exist as legacy
+  // values on old records.
+  source?: string;
+  product?: string; // device/category, e.g. "AC", "Washing Machine"
+  brandId?: Types.ObjectId; // ref Brand
+  deviceModel?: string;
+  subject: string; // the "Issue with device" text -- kept as the schema's
+  // required field name so nothing downstream (job sheet conversion,
+  // search, etc.) needs to change; the UI just labels it "Issue".
   description?: string;
   priority: CrmCallPriority;
 
@@ -152,6 +162,9 @@ const CrmCallSchema = new Schema<ICrmCall>(
     pincode: { type: String, trim: true },
 
     source: { type: String, default: "" },
+    product: { type: String, trim: true },
+    brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
+    deviceModel: { type: String, trim: true },
     subject: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     priority: {

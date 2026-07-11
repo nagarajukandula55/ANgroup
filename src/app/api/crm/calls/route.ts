@@ -25,6 +25,7 @@ import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/User";
+import "@/models/Brand";
 
 /* ── GET /api/crm/calls ───────────────────────────────────────────── */
 export async function GET(req: NextRequest) {
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
         .skip((page - 1) * limit)
         .limit(limit)
         .populate("assignedTo", "name email")
+        .populate("brandId", "name")
         .lean(),
       CrmCall.countDocuments(filter),
       CrmCall.aggregate([
@@ -140,6 +142,9 @@ export async function POST(req: NextRequest) {
       state,
       pincode,
       source,
+      product,
+      brandId,
+      deviceModel,
       subject,
       description,
       priority,
@@ -191,6 +196,9 @@ export async function POST(req: NextRequest) {
       state,
       pincode,
       source,
+      product,
+      brandId: brandId && mongoose.Types.ObjectId.isValid(brandId) ? new mongoose.Types.ObjectId(brandId) : undefined,
+      deviceModel,
       subject: subject.trim(),
       description,
       priority: priority || "MEDIUM",

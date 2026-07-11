@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Plus, Trash2, CheckCircle2, FileText, PauseCircle } from 'lucide-react'
+import {
+  ArrowLeft, Loader2, Plus, Trash2, CheckCircle2, FileText, PauseCircle,
+  Check, Wrench, Printer,
+} from 'lucide-react'
 
 interface LineItem {
   description: string
@@ -18,8 +21,13 @@ interface BOMPart {
   _id: string
   partName: string
   partCode: string
+  description?: string
+  partType: 'SPARE_PART' | 'LABOUR' | 'CONSUMABLE'
+  unit: string
   hsnCode: string
+  gstRate: number
   rate: number
+  brandId?: { _id: string; name: string } | string
 }
 
 interface JobSheet {
@@ -31,7 +39,11 @@ interface JobSheet {
   address?: string
   title: string
   description?: string
+  product?: string
+  deviceModel?: string
+  brandId?: { _id?: string; name?: string } | string
   status: string
+  createdAt: string
   lineItems: LineItem[]
   workPerformed?: string
   materialsUsed?: string
@@ -52,6 +64,59 @@ interface StaffMember {
 
 const emptyLine = (): LineItem => ({ description: '', quantity: 1, unit: 'pcs', unitPrice: 0, taxRate: 0 })
 
+// The milestone stepper -- the actual visual progress track that was
+// missing entirely before (status was just a text label next to action
+// buttons). CANCELLED is a branch, not a stage on the track itself.
+const MILESTONES = [
+  { key: 'CREATED', label: 'Created' },
+  { key: 'REPAIR_STARTED', label: 'Assigned' },
+  { key: 'REPAIR_IN_PROGRESS', label: 'In Repair' },
+  { key: 'REPAIR_COMPLETED', label: 'Completed' },
+  { key: 'CLOSED', label: 'Closed' },
+] as const
+
+function MilestoneStepper({ status }: { status: string }) {
+  if (status === 'CANCELLED') {
+    return (
+      <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
+        <PauseCircle className="w-4 h-4" /> Cancelled
+      </div>
+    )
+  }
+  const currentIdx = MILESTONES.findIndex((m) => m.key === status)
+  return (
+    <div className="flex items-center w-full">
+      {MILESTONES.map((m, i) => {
+        const done = i < currentIdx
+        const active = i === currentIdx
+        return (
+          <div key={m.key} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center gap-1.5 shrink-0">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-colors ${
+                done ? 'bg-emerald-600 border-emerald-600 text-white'
+                : active ? 'bg-gray-900 border-gray-900 text-white'
+                : 'bg-white border-gray-200 text-gray-300'
+              }`}>
+                {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
+              </div>
+              <span className={`text-[11px] font-medium whitespace-nowrap ${active ? 'text-gray-900' : done ? 'text-emerald-700' : 'text-gray-400'}`}>
+                {m.label}
+              </span>
+            </div>
+            {i < MILESTONES.length - 1 && (
+              <div className={`flex-1 h-0.5 mx-1 mb-4 ${i < currentIdx ? 'bg-emerald-600' : 'bg-gray-200'}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ageingDays(createdAt: string): number {
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
+}
+
 export default function JobSheetDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -68,6 +133,7 @@ export default function JobSheetDetailPage() {
 
   const [bomParts, setBomParts] = useState<BOMPart[]>([])
   const [pickerOpenIndex, setPickerOpenIndex] = useState<number | null>(null)
+  const [bomSearch, setBomSearch] = useState('')
 
   const [engineers, setEngineers] = useState<StaffMember[]>([])
   const [selectedEngineer, setSelectedEngineer] = useState('')
@@ -113,15 +179,18 @@ export default function JobSheetDetailPage() {
       .catch(() => {})
   }, [])
 
-  // Vendor's Service Center BOM parts — used as an alternative to free-text
-  // description entry (autofills partName/rate/HSN-derived tax%). Silently
-  // ignored (empty list) if this account has no vendor profile / BOM parts.
+  // Vendor's Service Center BOM parts — filtered server-side to this
+  // workorder's device brand (plus brand-agnostic parts) so the picker
+  // isn't a flat unfiltered dump of every part the vendor stocks.
   useEffect(() => {
-    fetch('/api/service-center-bom')
+    if (!job) return
+    const brandId = typeof job.brandId === 'object' ? job.brandId?._id : job.brandId
+    const qs = brandId ? `?brandId=${brandId}` : ''
+    fetch(`/api/service-center-bom${qs}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setBomParts(d.parts || []) })
       .catch(() => {})
-  }, [])
+  }, [job?.brandId])
 
   function updateLine(i: number, updates: Partial<LineItem>) {
     setLineItems((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...updates } : l)))
@@ -129,22 +198,40 @@ export default function JobSheetDetailPage() {
   function addLine() { setLineItems((prev) => [...prev, emptyLine()]) }
   function removeLine(i: number) { setLineItems((prev) => prev.filter((_, idx) => idx !== i)) }
 
-  async function pickBomPart(i: number, part: BOMPart) {
-    let taxRate = lineItems[i]?.taxRate || 0
-    try {
-      const res = await fetch(`/api/hsn-tax-rates?hsnCode=${encodeURIComponent(part.hsnCode)}`)
-      const d = await res.json()
-      if (d.success && d.rate) taxRate = d.rate.gstRate
-    } catch {}
+  // "1-click add a labour/service-charge line" -- picks the vendor's own
+  // LABOUR-type BOM entry if one exists (so the rate is whatever the
+  // vendor configured), else falls back to a blank editable labour line.
+  function addLabourCharge() {
+    const labourPart = bomParts.find((p) => p.partType === 'LABOUR')
+    setLineItems((prev) => [...prev, {
+      description: labourPart?.partName || 'Labour / Service Charge',
+      quantity: 1,
+      unit: labourPart?.unit || 'nos',
+      unitPrice: labourPart?.rate || 0,
+      taxRate: labourPart?.gstRate ?? 18,
+      hsnCode: labourPart?.hsnCode,
+      serviceCenterBOMId: labourPart?._id,
+    }])
+  }
+
+  function pickBomPart(i: number, part: BOMPart) {
     updateLine(i, {
       description: part.partName,
       unitPrice: part.rate,
       hsnCode: part.hsnCode,
       serviceCenterBOMId: part._id,
-      taxRate,
+      taxRate: part.gstRate,
+      unit: part.unit,
     })
     setPickerOpenIndex(null)
+    setBomSearch('')
   }
+
+  const filteredBomParts = useMemo(() => {
+    if (!bomSearch.trim()) return bomParts
+    const q = bomSearch.trim().toLowerCase()
+    return bomParts.filter((p) => p.partName.toLowerCase().includes(q) || p.partCode.toLowerCase().includes(q))
+  }, [bomParts, bomSearch])
 
   const isLocked = job?.status === 'REPAIR_COMPLETED' || job?.status === 'CLOSED' || job?.status === 'CANCELLED'
 
@@ -283,19 +370,43 @@ export default function JobSheetDetailPage() {
   const subtotal = lineItems.reduce((s, l) => s + (l.quantity || 0) * (l.unitPrice || 0), 0)
   const taxTotal = lineItems.reduce((s, l) => s + ((l.quantity || 0) * (l.unitPrice || 0)) * ((l.taxRate || 0) / 100), 0)
   const grandTotal = subtotal + taxTotal
+  const days = ageingDays(job.createdAt)
+  const isOpen = job.status !== 'CLOSED' && job.status !== 'CANCELLED'
+  const overdue = isOpen && days >= 7
+  const deviceLine = [job.product, typeof job.brandId === 'object' ? job.brandId?.name : undefined, job.deviceModel].filter(Boolean).join(' · ')
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        <div className="flex items-center gap-4 mb-8">
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        <div className="flex items-center gap-4 mb-6">
           <button onClick={() => router.push('/admin/crm/jobsheets')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h1 className="text-2xl font-semibold">{job.title}</h1>
-            <p className="text-sm text-gray-400 font-mono">{job.jobSheetNumber} · {job.customerName} · {job.status.replace(/_/g, ' ')}</p>
+            <p className="text-sm text-gray-400 font-mono">
+              {job.jobSheetNumber} · {job.customerName}
+              {deviceLine && <> · {deviceLine}</>}
+            </p>
           </div>
+          {isOpen && (
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${overdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+              {days}d open
+            </span>
+          )}
           <div className="ml-auto flex gap-2">
+            <button
+              onClick={() => window.open(`/admin/crm/jobsheets/${id}/print?doc=workorder`, '_blank')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition"
+            >
+              <Printer className="w-4 h-4" /> Print Workorder
+            </button>
+            <button
+              onClick={() => window.open(`/admin/crm/jobsheets/${id}/print?doc=estimate`, '_blank')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition"
+            >
+              <Printer className="w-4 h-4" /> Print Estimate
+            </button>
             {job.invoiceId && (
               <button
                 onClick={() => router.push(`/admin/crm/invoices/${job.invoiceId}`)}
@@ -304,49 +415,56 @@ export default function JobSheetDetailPage() {
                 <FileText className="w-4 h-4" /> View Invoice ({job.invoiceNumber})
               </button>
             )}
-            {job.status === 'CREATED' && (
-              <>
-                <select
-                  value={selectedEngineer}
-                  onChange={(e) => setSelectedEngineer(e.target.value)}
-                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700"
-                >
-                  <option value="">Select engineer…</option>
-                  {engineers.map((e) => (
-                    <option key={e._id} value={e.userId?._id}>{e.userId?.name || e.userId?.email}</option>
-                  ))}
-                </select>
-                <button onClick={assignEngineer} disabled={assigning || !selectedEngineer} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50">
-                  {assigning ? 'Assigning…' : 'Assign Engineer'}
-                </button>
-              </>
-            )}
-            {job.status === 'REPAIR_STARTED' && (
-              <button onClick={startRepair} disabled={saving} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition">
-                Start Repair
-              </button>
-            )}
-            {job.status === 'REPAIR_IN_PROGRESS' && (
-              <button
-                onClick={completeRepair}
-                disabled={closing || lineItems.every((l) => !l.description.trim())}
-                className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
-              >
-                {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Complete Repair & Generate Invoice
-              </button>
-            )}
-            {job.status === 'REPAIR_COMPLETED' && (
-              <button onClick={() => setShowHandover(true)} className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition">
-                <CheckCircle2 className="w-4 h-4" /> Handover to Customer
-              </button>
-            )}
-            {job.status !== 'CLOSED' && job.status !== 'CANCELLED' && (
-              <button onClick={() => setShowCancel(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700 hover:bg-red-100 transition">
-                <PauseCircle className="w-4 h-4" /> Cancel
-              </button>
-            )}
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-6">
+          <MilestoneStepper status={job.status} />
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-6">
+          {job.status === 'CREATED' && (
+            <>
+              <select
+                value={selectedEngineer}
+                onChange={(e) => setSelectedEngineer(e.target.value)}
+                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700"
+              >
+                <option value="">Select engineer…</option>
+                {engineers.map((e) => (
+                  <option key={e._id} value={e.userId?._id}>{e.userId?.name || e.userId?.email}</option>
+                ))}
+              </select>
+              <button onClick={assignEngineer} disabled={assigning || !selectedEngineer} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50">
+                {assigning ? 'Assigning…' : 'Assign Engineer'}
+              </button>
+            </>
+          )}
+          {job.status === 'REPAIR_STARTED' && (
+            <button onClick={startRepair} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition">
+              <Wrench className="w-4 h-4" /> Start Repair
+            </button>
+          )}
+          {job.status === 'REPAIR_IN_PROGRESS' && (
+            <button
+              onClick={completeRepair}
+              disabled={closing || lineItems.every((l) => !l.description.trim())}
+              className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
+            >
+              {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Complete Repair & Generate Invoice
+            </button>
+          )}
+          {job.status === 'REPAIR_COMPLETED' && (
+            <button onClick={() => setShowHandover(true)} className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition">
+              <CheckCircle2 className="w-4 h-4" /> Handover to Customer
+            </button>
+          )}
+          {job.status !== 'CLOSED' && job.status !== 'CANCELLED' && (
+            <button onClick={() => setShowCancel(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700 hover:bg-red-100 transition">
+              <PauseCircle className="w-4 h-4" /> Cancel
+            </button>
+          )}
         </div>
 
         {actionError && <div className="mb-6 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{actionError}</div>}
@@ -361,15 +479,28 @@ export default function JobSheetDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Line Items</h3>
             {!isLocked && (
-              <button onClick={addLine} className="flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900">
-                <Plus className="w-3.5 h-3.5" /> Add Item
-              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={addLabourCharge} className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                  <Wrench className="w-3.5 h-3.5" /> Add Labour Charge
+                </button>
+                <button onClick={addLine} className="flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900">
+                  <Plus className="w-3.5 h-3.5" /> Add Item
+                </button>
+              </div>
             )}
+          </div>
+
+          <div className="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+            <span className="col-span-4">Description</span>
+            <span className="col-span-2">Qty</span>
+            <span className="col-span-2">Rate</span>
+            <span className="col-span-2">Tax %</span>
+            <span className="col-span-2 text-right pr-8">Part</span>
           </div>
 
           <div className="space-y-2">
             {lineItems.map((item, i) => (
-              <div key={i} className="border border-gray-100 rounded-lg p-2">
+              <div key={i} className="border border-gray-100 rounded-lg p-2 relative">
                 <div className="grid grid-cols-12 gap-2 items-center">
                   <input
                     disabled={isLocked}
@@ -408,8 +539,8 @@ export default function JobSheetDetailPage() {
                   {!isLocked && bomParts.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setPickerOpenIndex(pickerOpenIndex === i ? null : i)}
-                      className="col-span-1 text-xs text-blue-600 hover:underline"
+                      onClick={() => { setPickerOpenIndex(pickerOpenIndex === i ? null : i); setBomSearch('') }}
+                      className="col-span-1 text-xs text-blue-600 hover:underline text-right"
                       title="Pick from Service Center BOM"
                     >
                       BOM
@@ -422,18 +553,43 @@ export default function JobSheetDetailPage() {
                   )}
                 </div>
                 {pickerOpenIndex === i && (
-                  <div className="mt-2 max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
-                    {bomParts.map((p) => (
-                      <button
-                        key={p._id}
-                        type="button"
-                        onClick={() => pickBomPart(i, p)}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 flex justify-between"
-                      >
-                        <span>{p.partName} <span className="text-gray-400">({p.partCode})</span></span>
-                        <span className="text-gray-500">HSN {p.hsnCode} · ₹{p.rate}</span>
-                      </button>
-                    ))}
+                  <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-2 py-1.5 bg-gray-50 border-b border-gray-200">
+                      <input
+                        autoFocus
+                        value={bomSearch}
+                        onChange={(e) => setBomSearch(e.target.value)}
+                        placeholder="Type at least 2 characters to search spare parts by name or code…"
+                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded"
+                      />
+                    </div>
+                    <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-100 text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+                      <span className="col-span-5">Part</span>
+                      <span className="col-span-2">Code</span>
+                      <span className="col-span-2">HSN</span>
+                      <span className="col-span-1">GST%</span>
+                      <span className="col-span-2 text-right">Rate</span>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto divide-y divide-gray-50">
+                      {filteredBomParts.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-3">No matching parts in this vendor's BOM.</p>
+                      ) : (
+                        filteredBomParts.map((p) => (
+                          <button
+                            key={p._id}
+                            type="button"
+                            onClick={() => pickBomPart(i, p)}
+                            className="w-full grid grid-cols-12 gap-2 text-left px-3 py-1.5 text-xs hover:bg-gray-50"
+                          >
+                            <span className="col-span-5 truncate">{p.partName}</span>
+                            <span className="col-span-2 font-mono text-gray-400">{p.partCode}</span>
+                            <span className="col-span-2 text-gray-500">{p.hsnCode}</span>
+                            <span className="col-span-1 text-gray-500">{p.gstRate}%</span>
+                            <span className="col-span-2 text-right text-gray-700">₹{p.rate}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </div>
                 )}
                 {item.hsnCode && (
