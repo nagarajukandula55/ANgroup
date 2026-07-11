@@ -25,7 +25,8 @@ async function getModels() {
   const UserRole = mongoose.models.UserRole || (await import('@/models/UserRole')).default;
   const EmployeeProfile = mongoose.models.EmployeeProfile || (await import('@/models/EmployeeProfile')).default;
   const VendorProfile = mongoose.models.VendorProfile || (await import('@/models/VendorProfile')).default;
-  return { User, Role, UserRole, EmployeeProfile, VendorProfile };
+  const BusinessMember = mongoose.models.BusinessMember || (await import('@/models/BusinessMember')).default;
+  return { User, Role, UserRole, EmployeeProfile, VendorProfile, BusinessMember };
 }
 
 export async function GET(
@@ -98,14 +99,14 @@ export async function PUT(
 
     await connectDB();
     const { id } = await params;
-    const { User, Role, UserRole, EmployeeProfile, VendorProfile } = await getModels();
+    const { User, Role, UserRole, EmployeeProfile, VendorProfile, BusinessMember } = await getModels();
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
     const body = await request.json();
-    const { name, email, password, status, isActive, role, employeeData, vendorData } = body;
+    const { name, email, password, status, isActive, role, employeeData, vendorData, businessId } = body;
 
     // Was letting `role` be set to ANY string (including SUPER_ADMIN) with
     // no escalation guard -- same anti-escalation rule as api/admin/users
@@ -159,15 +160,32 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Update role if provided
+    // Update role if provided. Was silently minting a blank, zero-permission
+    // Role for any unrecognized string -- same fix as api/admin/users POST,
+    // see that route's comment. Every assignable role is seeded up front now.
     if (role) {
-      let roleDoc = await Role.findOne({ code: role.toUpperCase() });
+      const roleDoc = await Role.findOne({ code: role.toUpperCase() });
       if (!roleDoc) {
-        roleDoc = await Role.create({ name: role, code: role.toUpperCase(), description: role, isSystem: false });
+        return NextResponse.json(
+          { error: `Role "${role}" does not exist. Configure it in Roles & Permissions first.` },
+          { status: 400 }
+        );
       }
       // Replace existing user role
       await UserRole.deleteMany({ userId: id });
       await UserRole.create({ userId: id, roleId: roleDoc._id });
+    }
+
+    // Assign to a business -- this is the "tag an existing user to a
+    // business/vendor" half of provisioning; upsert rather than create so
+    // re-assigning (or re-running this call) doesn't produce duplicate
+    // memberships for the same user+business.
+    if (businessId && mongoose.Types.ObjectId.isValid(businessId)) {
+      await BusinessMember.findOneAndUpdate(
+        { userId: id, businessId },
+        { $set: { memberType: (role || 'EMPLOYEE').toUpperCase(), status: 'ACTIVE' } },
+        { upsert: true, setDefaultsOnInsert: true }
+      );
     }
 
     // Update employee profile if provided

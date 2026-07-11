@@ -1,4 +1,5 @@
 import Permission, { PermissionType, PermissionStatus } from "@/models/Permission";
+import Role, { RoleType, RoleStatus } from "@/models/Role";
 import type { IModuleDefinition } from "@/core/module-registry/ModuleDefinition.model";
 import { STANDARD_ACTIONS, buildPermissionCode, resolveActionsForModule } from "./actions";
 
@@ -59,6 +60,68 @@ export async function syncPermissionsForModule(
     },
     { $set: { isActive: false, status: PermissionStatus.INACTIVE } }
   );
+}
+
+/**
+ * Keeps the SUPER_ADMIN role holding every active permission in the system.
+ * The isSuperAdmin flag already bypasses every requirePermission() check
+ * unconditionally (see middleware/permission.guard.ts), so this role's
+ * permissions array is never actually load-bearing for access control --
+ * but the Roles admin UI reads Role.permissions to show what a role grants,
+ * and an admin seeing "Super Admin: 0 permissions" reads as a broken/blank
+ * role even though it isn't. Call this after any permission-set change
+ * (module create/edit, seedSystemModules) so it can never drift stale.
+ */
+export async function syncSuperAdminRole(): Promise<void> {
+  const allCodes = await Permission.find({ isActive: true }).distinct("code");
+
+  await Role.updateOne(
+    { code: "SUPER_ADMIN" },
+    {
+      $setOnInsert: {
+        code: "SUPER_ADMIN",
+        name: "Super Admin",
+        description: "Full, unconditional system access.",
+        type: RoleType.SYSTEM,
+        status: RoleStatus.ACTIVE,
+        isSystem: true,
+        isProtected: true,
+      },
+      $set: { permissions: allCodes },
+    },
+    { upsert: true }
+  );
+
+  // The legacy coarse role buckets (api/admin/users' ASSIGNABLE_ROLES) used
+  // to get silently minted as blank, zero-permission Role docs the first
+  // time anyone typed one into the Add/Edit User form -- an admin had no
+  // idea they existed or that they granted nothing. Ensuring these exist
+  // as real, visible, editable-in-the-Roles-UI documents up front closes
+  // that hole; $setOnInsert only, so an admin's later customization here
+  // is never stomped by a re-run of this sync.
+  const BASE_ROLES = [
+    { code: "ADMIN", name: "Admin", description: "Administrative access, permissions configured per business." },
+    { code: "MANAGER", name: "Manager", description: "Management access, permissions configured per business." },
+    { code: "EMPLOYEE", name: "Employee", description: "Standard staff access, permissions configured per business." },
+    { code: "VENDOR", name: "Vendor", description: "Vendor-portal access, permissions configured per business." },
+    { code: "CUSTOMER", name: "Customer", description: "No admin-panel access by default." },
+  ];
+  for (const role of BASE_ROLES) {
+    await Role.updateOne(
+      { code: role.code },
+      {
+        $setOnInsert: {
+          ...role,
+          type: RoleType.SYSTEM,
+          status: RoleStatus.ACTIVE,
+          isSystem: true,
+          isProtected: true,
+          permissions: [],
+        },
+      },
+      { upsert: true }
+    );
+  }
 }
 
 /**

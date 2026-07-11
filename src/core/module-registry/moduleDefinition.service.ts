@@ -1,7 +1,7 @@
 import type { FlattenMaps, Types } from "mongoose";
 import ModuleDefinition, { IModuleDefinition } from "./ModuleDefinition.model";
 import type { FieldDefinition } from "./types";
-import { syncPermissionsForModule } from "@/core/access/permissionSync.service";
+import { syncPermissionsForModule, syncSuperAdminRole } from "@/core/access/permissionSync.service";
 
 // .lean() returns plain objects shaped by FlattenMaps<T>, not the Document
 // interface itself (Document-only members like .save()/.populate() aren't
@@ -89,6 +89,7 @@ export async function createModuleDefinition(
   // no developer has to remember to add them, and no module can end up
   // permission-less the way several original-repo modules effectively were.
   await syncPermissionsForModule(moduleDef);
+  await syncSuperAdminRole();
 
   return moduleDef;
 }
@@ -136,6 +137,7 @@ export async function updateModuleDefinition(
   // applicableActions -> which permissions exist at all).
   if (updates.applicableActions !== undefined || updates.label !== undefined) {
     await syncPermissionsForModule(moduleDef);
+    await syncSuperAdminRole();
   }
 
   return moduleDef.toObject();

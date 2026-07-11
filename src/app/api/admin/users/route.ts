@@ -41,7 +41,19 @@ export async function GET(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    requirePermission(session as any, buildPermissionCode("users", "view"));
+    // Was an unguarded call -- a FORBIDDEN throw fell straight to this
+    // route's outer catch and came back as a generic 500, not a 403, same
+    // failure this route's own top comment complains about fixing for
+    // GET's auth entirely. Every other route in this codebase catches this
+    // specific throw to return the real status code.
+    try {
+      requirePermission(session as any, buildPermissionCode("users", "view"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
 
     await connectDB();
     const { User, Role, UserRole, EmployeeProfile, VendorProfile } = await getModels();
@@ -196,10 +208,20 @@ export async function POST(request: NextRequest) {
       isDeleted: false,
     });
 
-    // Find or create role
-    let roleDoc = await Role.findOne({ code: role.toUpperCase() });
+    // Was silently minting a brand-new, zero-permission Role the moment
+    // anyone typed an unrecognized role string here -- that's exactly how
+    // this system ended up with users holding a "role" that granted
+    // nothing and was invisible in the Roles admin UI. Every assignable
+    // role (ADMIN/MANAGER/EMPLOYEE/VENDOR/CUSTOMER/SUPER_ADMIN) is now
+    // seeded up front (see permissionSync.service.ts's syncSuperAdminRole)
+    // -- if it's missing here, that's a real configuration problem to
+    // surface, not paper over.
+    const roleDoc = await Role.findOne({ code: role.toUpperCase() });
     if (!roleDoc) {
-      roleDoc = await Role.create({ name: role, code: role.toUpperCase(), description: role, isSystem: false });
+      return NextResponse.json(
+        { error: `Role "${role}" does not exist. Configure it in Roles & Permissions first.` },
+        { status: 400 }
+      );
     }
 
     // Create UserRole

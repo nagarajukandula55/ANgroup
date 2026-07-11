@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, UserCog, Loader2, Edit2, Eye } from 'lucide-react';
+import { UserPlus, Search, UserCog, Loader2, Edit2, Eye } from 'lucide-react';
 
 interface Role { _id: string; name: string; code: string }
 interface EmployeeProfile { employeeId: string; department?: string; designation?: string; employmentType?: string; joiningDate?: string }
@@ -38,21 +38,33 @@ export default function UsersPage() {
   const [showPanel, setShowPanel]   = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [stats, setStats]           = useState<Stats>({ total: 0, active: 0, employees: 0, vendors: 0, customers: 0 });
-  const [empCount, setEmpCount]     = useState(0);
-  const [venCount, setVenCount]     = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState({
-    name: '', email: '', username: '', password: '', role: 'EMPLOYEE',
+    name: '', email: '', role: 'EMPLOYEE',
     department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '',
-    companyName: '', gstNumber: '', contactPerson: '', phone: '',
+    companyName: '', gstNumber: '', contactPerson: '', phone: '', businessId: '',
   });
+
+  // Assign panel -- every user must already exist (created themselves via
+  // customer registration); this searches for that existing account by
+  // name/email/User ID and only then lets an admin tag a designation +
+  // business/vendor onto it. Minting a brand-new identity from the admin
+  // panel is deliberately no longer possible here.
+  const [assignSearch, setAssignSearch] = useState('');
+  const [assignResults, setAssignResults] = useState<User[]>([]);
+  const [assignSearching, setAssignSearching] = useState(false);
+  const [businesses, setBusinesses] = useState<{ _id: string; name: string }[]>([]);
 
   useEffect(() => {
     fetch('/api/auth/me')
       .then((r) => r.json())
       .then((d) => setIsSuperAdmin(!!d?.user?.isSuperAdmin))
+      .catch(() => {});
+    fetch('/api/businesses/list')
+      .then((r) => r.json())
+      .then((d) => setBusinesses(d.businesses || d.data || []))
       .catch(() => {});
   }, []);
 
@@ -72,7 +84,6 @@ export default function UsersPage() {
       const all: User[] = allData.users || [];
       const ec = all.filter(u => u.roles.some(r => r.code === 'EMPLOYEE')).length;
       const vc = all.filter(u => u.roles.some(r => r.code === 'VENDOR')).length;
-      setEmpCount(ec); setVenCount(vc);
       setStats({
         total:     allData.total || all.length,
         active:    all.filter(u => u.isActive === true).length,   // ← use isActive not status
@@ -89,47 +100,68 @@ export default function UsersPage() {
     return () => clearTimeout(t);
   }, [fetchUsers]);
 
+  // "Add User" no longer mints a new identity -- it opens the same panel
+  // pre-selected on the search step, since every real user already exists
+  // via self-registration (see admin/users/page.tsx's old handleSubmit,
+  // which used to POST a brand-new User + password straight from this
+  // panel). Assigning starts from picking an existing account.
   function openAdd() {
     setEditingUser(null);
     setFormError('');
-    setFormData({ name: '', email: '', username: '', password: '', role: 'EMPLOYEE', department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '', companyName: '', gstNumber: '', contactPerson: '', phone: '' });
+    setAssignSearch('');
+    setAssignResults([]);
+    setFormData({ name: '', email: '', role: 'EMPLOYEE', department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '', companyName: '', gstNumber: '', contactPerson: '', phone: '', businessId: '' });
     setShowPanel(true);
+  }
+
+  function selectAssignTarget(user: User) {
+    openEdit(user);
+    setAssignResults([]);
+    setAssignSearch('');
   }
 
   function openEdit(user: User) {
     setEditingUser(user);
     setFormError('');
     setFormData({
-      name: user.name, email: user.email, username: '', password: '', role: user.roles[0]?.code || 'EMPLOYEE',
+      name: user.name, email: user.email, role: user.roles[0]?.code || 'EMPLOYEE',
       department: user.employeeProfile?.department || '', designation: user.employeeProfile?.designation || '',
       employmentType: user.employeeProfile?.employmentType || 'FULL_TIME',
       joiningDate: user.employeeProfile?.joiningDate?.slice(0, 10) || '',
       companyName: user.vendorProfile?.companyName || '', gstNumber: user.vendorProfile?.gstNumber || '',
-      contactPerson: '', phone: '',
+      contactPerson: '', phone: '', businessId: '',
     });
     setShowPanel(true);
   }
 
+  async function searchAssignTargets(q: string) {
+    setAssignSearch(q);
+    if (!q.trim()) { setAssignResults([]); return; }
+    setAssignSearching(true);
+    try {
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(q.trim())}&limit=10`);
+      const data = await res.json();
+      setAssignResults(data.users || []);
+    } catch (e) { console.error(e); }
+    finally { setAssignSearching(false); }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!editingUser) return; // must have picked an existing user first
     setSubmitting(true);
     setFormError('');
     try {
       const body: Record<string, unknown> = { name: formData.name, email: formData.email, role: formData.role };
-      if (!editingUser) {
-        body.password = formData.password;
-        if (formData.username.trim()) body.username = formData.username.trim();
-      }
+      if (formData.businessId) body.businessId = formData.businessId;
       if (formData.role === 'EMPLOYEE') {
         body.employeeData = { department: formData.department, designation: formData.designation, employmentType: formData.employmentType, joiningDate: formData.joiningDate || undefined };
       }
       if (formData.role === 'VENDOR') {
         body.vendorData = { companyName: formData.companyName, gstNumber: formData.gstNumber, contactPerson: formData.contactPerson, phone: formData.phone };
       }
-      const url    = editingUser ? `/api/admin/users/${editingUser._id}` : '/api/admin/users';
-      const method = editingUser ? 'PUT' : 'POST';
-      const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const data   = await res.json().catch(() => ({}));
+      const res  = await fetch(`/api/admin/users/${editingUser._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setShowPanel(false);
         fetchUsers();
@@ -150,11 +182,6 @@ export default function UsersPage() {
     fetchUsers();
   }
 
-  const previewId = !editingUser
-    ? formData.role === 'EMPLOYEE' ? `EMP-${String(empCount + 1).padStart(3, '0')}`
-    : formData.role === 'VENDOR'   ? `VEN-${String(venCount + 1).padStart(3, '0')}`
-    : null : null;
-
   const inputCls = 'w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 placeholder-gray-400';
   const selectCls = 'w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10';
   const labelCls = 'block text-xs font-medium text-gray-600 mb-1.5';
@@ -169,7 +196,7 @@ export default function UsersPage() {
         </div>
         <button onClick={openAdd}
           className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
-          <Plus size={15} /> Add User
+          <UserPlus size={15} /> Assign User
         </button>
       </div>
 
@@ -292,12 +319,48 @@ export default function UsersPage() {
           <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={() => setShowPanel(false)} />
           <div className="w-full max-w-md bg-white border-l border-gray-200 flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">{editingUser ? 'Edit User' : 'Add User'}</h2>
+              <h2 className="font-semibold text-gray-900">{editingUser ? `Assign — ${editingUser.name}` : 'Assign User'}</h2>
               <button onClick={() => setShowPanel(false)}
                 className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200">
                 <span className="text-gray-600 text-lg leading-none">&times;</span>
               </button>
             </div>
+
+            {!editingUser ? (
+              // Step 1: find the existing account. Every user already exists —
+              // they registered as a customer themselves — so this is a search,
+              // never a create form. See openAdd()'s comment.
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+                <p className="text-xs text-gray-500">
+                  Search for the existing user by name, email, or User ID, then tag them with a designation and business/vendor.
+                </p>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" value={assignSearch} onChange={e => searchAssignTargets(e.target.value)}
+                    placeholder="Search by name, email, or User ID..." autoFocus
+                    className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10" />
+                </div>
+                {assignSearching && <Loader2 className="w-4 h-4 text-gray-400 animate-spin mx-auto" />}
+                <div className="space-y-1">
+                  {assignResults.map(u => (
+                    <button key={u._id} onClick={() => selectAssignTarget(u)} type="button"
+                      className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl border border-gray-100 hover:border-gray-300 hover:bg-gray-50 transition">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0 ${getAvatarColor(u.name)}`}>
+                        {u.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{u.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                      </div>
+                      {u.roles[0] && <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${getRoleColor(u.roles[0].code)}`}>{u.roles[0].code}</span>}
+                    </button>
+                  ))}
+                  {assignSearch.trim() && !assignSearching && assignResults.length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-4">No existing user matches — they need to register first.</p>
+                  )}
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {formError && (
                 <div className="px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
@@ -314,23 +377,8 @@ export default function UsersPage() {
                 <input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
                   className={inputCls} placeholder="john@example.com" />
               </div>
-              {!editingUser && (
-                <div>
-                  <label className={labelCls}>User ID <span className="text-gray-400 font-normal">(optional, must be unique)</span></label>
-                  <input type="text" value={formData.username}
-                    onChange={e => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
-                    className={inputCls} placeholder="e.g. jdoe" autoComplete="off" />
-                </div>
-              )}
-              {!editingUser && (
-                <div>
-                  <label className={labelCls}>Password</label>
-                  <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
-                    className={inputCls} placeholder="••••••••" />
-                </div>
-              )}
               <div>
-                <label className={labelCls}>Role</label>
+                <label className={labelCls}>Designation / Role</label>
                 <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className={selectCls}>
                   {[
                     // SUPER_ADMIN only ever offered to an already-super-admin
@@ -344,11 +392,15 @@ export default function UsersPage() {
                 </select>
               </div>
 
-              {previewId && (
-                <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                  <p className="text-xs text-blue-700">Will be assigned: <span className="font-mono font-semibold">{previewId}</span></p>
-                </div>
-              )}
+              <div>
+                <label className={labelCls}>Business <span className="text-gray-400 font-normal">(optional)</span></label>
+                <select value={formData.businessId} onChange={e => setFormData({ ...formData, businessId: e.target.value })} className={selectCls}>
+                  <option value="">— None —</option>
+                  {businesses.map(b => (
+                    <option key={b._id} value={b._id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
 
               {formData.role === 'EMPLOYEE' && (
                 <div className="space-y-4 pt-4 border-t border-gray-100">
@@ -408,10 +460,11 @@ export default function UsersPage() {
               <div className="pb-2">
                 <button type="submit" disabled={submitting}
                   className="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2">
-                  {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : editingUser ? 'Update User' : 'Create User'}
+                  {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save Assignment'}
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}

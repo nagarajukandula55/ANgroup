@@ -1,16 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import EmployeeProfile from "@/models/EmployeeProfile";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/User";
 
+function permissionErrorResponse(err: any) {
+  return NextResponse.json(
+    { success: false, error: err.message },
+    { status: err.code === "FORBIDDEN" ? 403 : 401 }
+  );
+}
+
+// Was entirely ungated (all three handlers below) -- any authenticated user
+// of any role could view/edit/delete any employee's profile, salary
+// included. Same requirePermission pattern as api/employees/route.ts.
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("employees", "view"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
 
     const { id } = await context.params;
     await connectDB();
@@ -29,9 +45,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("employees", "edit"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
 
     const { id } = await context.params;
     await connectDB();
@@ -78,9 +98,13 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("employees", "delete"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
 
     const { id } = await context.params;
     await connectDB();

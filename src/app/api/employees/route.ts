@@ -5,18 +5,34 @@ import { connectDB } from "@/lib/mongodb";
 import Employee from "@/models/Employee";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
+
+function permissionErrorResponse(err: any) {
+  return NextResponse.json(
+    { success: false, error: err.message },
+    { status: err.code === "FORBIDDEN" ? 403 : 401 }
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const headersList = await headers();
-    const userId = headersList.get("x-user-id");
-
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: x-user-id header is required" },
-        { status: 401 }
-      );
+    // Was entirely ungated -- any authenticated user of any role (including
+    // CUSTOMER) could list any business's employee records, salaries
+    // included, just by passing a businessId. Same requirePermission
+    // pattern every other admin-data route in this codebase already uses.
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    try {
+      requirePermission(session as any, buildPermissionCode("employees", "view"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
+    const headersList = await headers();
+    const userId = session.user.id;
 
     const { searchParams } = new URL(request.url);
 
@@ -93,15 +109,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const headersList = await headers();
-    const userId = headersList.get("x-user-id");
-
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: x-user-id header is required" },
-        { status: 401 }
-      );
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    try {
+      requirePermission(session as any, buildPermissionCode("employees", "create"));
+    } catch (err: any) {
+      return permissionErrorResponse(err);
+    }
+    const userId = session.user.id;
 
     const body = await request.json();
 

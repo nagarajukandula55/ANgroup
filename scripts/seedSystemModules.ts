@@ -48,7 +48,7 @@
 
 import { connectDB } from "../src/core/db/mongodb";
 import ModuleDefinition from "../src/core/module-registry/ModuleDefinition.model";
-import { syncPermissionsForModule } from "../src/core/access/permissionSync.service";
+import { syncPermissionsForModule, syncSuperAdminRole } from "../src/core/access/permissionSync.service";
 
 interface SeedModule {
   key: string;
@@ -192,6 +192,10 @@ async function main() {
 
     results.push({ key: mod.key, action: "created" });
   }
+
+  // Keep the Super Admin role's permissions array holding every permission
+  // that exists after this run -- never leave it blank/stale.
+  await syncSuperAdminRole();
 
   console.log(`\nSeeded ${SYSTEM_MODULES.length} system modules:`);
   console.table(results);
