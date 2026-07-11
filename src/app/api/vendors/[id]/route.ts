@@ -7,7 +7,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
-import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { generateDocumentNumber, generateScopedDocumentNumber } from "@/core/numbering/numberingService";
 
 // Maps each facility toggle to the document type used to generate its
 // facility ID, and the VendorProfile field that stores the generated ID.
@@ -80,8 +80,20 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       const turningOn = body[toggleKey] === true && !(existing as any)[toggleKey];
       const alreadyHasId = !!(existing as any)[idField];
       if (turningOn && !alreadyHasId && existing.businessId) {
-        const { value } = await generateDocumentNumber(String(existing.businessId), documentType);
-        body[idField] = value;
+        if (documentType === "SERVICE_CENTER") {
+          // Service Centre id is "<vendorId>-SC-0001" -- scoped per vendor,
+          // same pattern as vendor-scoped material codes -- not a flat
+          // business-wide SC-0001 counter shared across every vendor.
+          const { sequence } = await generateScopedDocumentNumber(
+            String(existing._id),
+            documentType,
+            String(existing.businessId)
+          );
+          body[idField] = `${existing.vendorId}-SC-${String(sequence).padStart(4, "0")}`;
+        } else {
+          const { value } = await generateDocumentNumber(String(existing.businessId), documentType);
+          body[idField] = value;
+        }
       }
     }
 

@@ -7,6 +7,7 @@ import VendorProfile from "@/models/VendorProfile";
 import Agreement from "@/models/Agreement";
 import User from "@/models/User";
 import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
+import VendorStaffSlot, { VENDOR_DESIGNATIONS } from "@/models/VendorStaffSlot";
 import { logAction } from "@/lib/audit/logAction";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -122,6 +123,34 @@ export async function POST(req: NextRequest, context: RouteContext) {
     vendor.finalApprovedBy = adminId as any;
     vendor.finalApprovedAt = new Date();
     await vendor.save();
+
+    // Every standard designation (Manager, CCO, Engineer, Warehouse
+    // Manager, Telecaller) gets a seat the moment the vendor goes live.
+    // MANAGER is the vendor's own main login -- already active, tagged to
+    // the vendor's own userId, no separate step needed. The rest start
+    // INACTIVE; Super Admin tags a real user to a seat later (POST
+    // /api/admin/vendor-staff-slots/[id]/activate) to make it live. A real
+    // BusinessMember can't represent an unfilled seat (userId is required
+    // and there's no user yet), hence the separate slot model.
+    await Promise.all(
+      VENDOR_DESIGNATIONS.map((designation) => {
+        const isManager = designation === "MANAGER";
+        return VendorStaffSlot.updateOne(
+          { vendorId: vendor._id, designation },
+          {
+            $setOnInsert: {
+              businessId: vendor.businessId,
+              vendorId: vendor._id,
+              designation,
+              status: isManager ? "ACTIVE" : "INACTIVE",
+              userId: isManager ? vendor.userId : null,
+              activatedAt: isManager ? new Date() : undefined,
+            },
+          },
+          { upsert: true }
+        );
+      })
+    );
 
     logAction({
       action: "APPROVE",

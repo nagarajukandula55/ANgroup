@@ -21,9 +21,8 @@ import { useEffect, useState } from "react";
  * page already uses: GET /api/auth/me's user.activeBusinessId (server
  * session, kept in sync by the real business switcher).
  */
-export function useActiveBusinessId(): { businessId: string | null; loading: boolean } {
+export function useActiveBusinessId(): { businessId: string | null } {
   const [businessId, setBusinessId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,14 +32,11 @@ export function useActiveBusinessId(): { businessId: string | null; loading: boo
         if (cancelled) return;
         setBusinessId(d?.user?.activeBusinessId || d?.businesses?.[0]?._id || null);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return { businessId, loading };
+  return { businessId };
 }
