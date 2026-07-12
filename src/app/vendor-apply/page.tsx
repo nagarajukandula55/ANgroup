@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
@@ -128,6 +129,11 @@ function VendorApplyForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ requestNumber: string; businessName?: string } | null>(null);
   const [gstWarning, setGstWarning] = useState<string | null>(null);
+  // Validated against an EXISTING User account (created via /register
+  // beforehand) -- a vendor application no longer creates a login inline,
+  // it links to one the applicant already registered.
+  const [userIdCheck, setUserIdCheck] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [userIdCheckedName, setUserIdCheckedName] = useState<string | null>(null);
 
   // Generic supporting documents every applicant is asked for, regardless
   // of business/industry (which isn't known yet for a general request).
@@ -163,7 +169,7 @@ function VendorApplyForm() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/assets/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/vendors/apply/upload-document", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
       setter({ url: data.asset?.fileUrl, uploading: false });
@@ -177,12 +183,36 @@ function VendorApplyForm() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/assets/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/vendors/apply/upload-document", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
       setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], url: data.asset?.fileUrl, uploading: false } }));
     } catch {
       setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], uploading: false } }));
+    }
+  }
+
+  async function checkUserId() {
+    const uname = form.username.trim().toLowerCase();
+    if (!uname) {
+      setUserIdCheck("idle");
+      setUserIdCheckedName(null);
+      return;
+    }
+    setUserIdCheck("checking");
+    try {
+      const res = await fetch(`/api/users/lookup?username=${encodeURIComponent(uname)}`);
+      const data = await res.json();
+      if (data.success && data.exists) {
+        setUserIdCheck("valid");
+        setUserIdCheckedName(data.name || null);
+      } else {
+        setUserIdCheck("invalid");
+        setUserIdCheckedName(null);
+      }
+    } catch {
+      setUserIdCheck("invalid");
+      setUserIdCheckedName(null);
     }
   }
 
@@ -206,6 +236,10 @@ function VendorApplyForm() {
     if (!form.contactPerson.trim()) return setError("Contact person is required");
     if (!form.email.trim()) return setError("Email is required");
     if (!form.phone.trim()) return setError("Phone is required");
+    if (!form.username.trim())
+      return setError("User ID is required — register an account first at /register, then enter it here");
+    if (userIdCheck !== "valid")
+      return setError("Please enter a valid, already-registered User ID (click outside the field to check)");
     if (form.gstRegistered && !form.gstNumber.trim())
       return setError("GSTIN is required for GST-registered vendors");
     if (!form.gstRegistered && !form.panNumber.trim())
@@ -248,7 +282,7 @@ function VendorApplyForm() {
           companyName: form.companyName.trim(),
           contactPerson: form.contactPerson.trim(),
           email: form.email.trim(),
-          username: form.username.trim() || undefined,
+          userId: form.username.trim(),
           phone: form.phone.trim(),
           gstRegistered: form.gstRegistered,
           gstNumber: form.gstRegistered ? form.gstNumber.trim().toUpperCase() : undefined,
@@ -365,13 +399,32 @@ function VendorApplyForm() {
           <Field label="Phone" required>
             <input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" />
           </Field>
-          <Field label="User ID (optional, must be unique)">
+          <Field
+            label="User ID"
+            required
+            hint={
+              userIdCheck === "checking"
+                ? "Checking…"
+                : userIdCheck === "valid"
+                ? `Matched: ${userIdCheckedName || "registered account"}`
+                : userIdCheck === "invalid"
+                ? "No registered account with this User ID"
+                : "Don't have one yet? Register first, then come back with your User ID."
+            }
+          >
             <input
               className={inputCls}
               value={form.username}
-              onChange={(e) => set("username", e.target.value.toLowerCase().replace(/\s+/g, ""))}
+              onChange={(e) => {
+                set("username", e.target.value.toLowerCase().replace(/\s+/g, ""));
+                setUserIdCheck("idle");
+              }}
+              onBlur={checkUserId}
               placeholder="e.g. acmetraders"
             />
+            <Link href="/register" target="_blank" className="text-[10px] text-cyan-700 hover:underline mt-1 inline-block">
+              Don&apos;t have an account? Register here →
+            </Link>
           </Field>
         </div>
 

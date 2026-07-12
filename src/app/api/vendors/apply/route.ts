@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import Business from "@/models/Business";
+import User from "@/models/User";
 import { Types } from "mongoose";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
 
     const {
       businessId,
+      userId,
       companyName,
       contactPerson,
       email,
@@ -54,6 +56,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, message: "Company name, contact person, email and phone are required" },
         { status: 400 }
+      );
+    }
+
+    // A vendor application must be tied to an already-registered User
+    // account (created via /register beforehand) rather than minting one
+    // inline -- the applicant supplies that account's User ID here, and it
+    // must actually exist. This also means finalize/route.ts's "create a
+    // user with a temp password" branch is now the fallback path for
+    // legacy applications, not the norm.
+    if (!userId || !String(userId).trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Please register an account first at /register, then enter your User ID here.",
+        },
+        { status: 400 }
+      );
+    }
+    const normalizedUserId = String(userId).toLowerCase().trim();
+    const applicantUser = await User.findOne({
+      username: normalizedUserId,
+      isDeleted: { $ne: true },
+    })
+      .select("_id email")
+      .lean();
+    if (!applicantUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "No registered account found with that User ID. Please register first at /register, then apply with the User ID you were given.",
+        },
+        { status: 404 }
       );
     }
 
@@ -125,6 +161,7 @@ export async function POST(req: NextRequest) {
 
     const vendor = await VendorProfile.create({
       businessId: business ? new Types.ObjectId(businessId) : null,
+      userId: (applicantUser as any)._id,
       vendorId,
       requestNumber,
       companyName: String(companyName).trim(),
