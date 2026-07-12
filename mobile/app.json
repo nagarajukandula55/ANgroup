@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "AN Group",
+    "slug": "an-group-mobile",
+    "scheme": "angroup",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#111827"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.angroup.mobile"
+    },
+    "android": {
+      "package": "com.angroup.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#111827"
+      }
+    },
+    "plugins": ["expo-router"],
+    "extra": {
+      "anApiUrl": "https://YOUR-ANGROUP-DEPLOYMENT-URL",
+      "anBusinessId": "YOUR-NATIVE-BUSINESS-ID"
+    }
+  }
+}

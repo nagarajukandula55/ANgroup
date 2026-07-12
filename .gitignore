@@ -32,3 +32,9 @@ Thumbs.db
 # Scratch files generated to help paste CFA-blocked source past Windows
 # Controlled Folder Access — not real source, never meant to be committed.
 _manual_sync/
+
+# Mobile app (Expo/React Native) build artifacts
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
