@@ -447,8 +447,8 @@ export default function IntegrationsPage() {
 
   /* Email */
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({
-    provider: 'SMTP',
-    enabled: false,
+    provider: 'RESEND',
+    enabled: true,
     fromName: '',
     fromEmail: '',
     configured: false,

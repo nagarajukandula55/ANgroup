@@ -8,6 +8,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { sendAccountCredentialsEmail } from "@/services/email/resend.service";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/Role";
 
@@ -283,6 +284,11 @@ export async function POST(request: NextRequest) {
       req: request,
       actor: { id: callerUserId, businessId },
     });
+
+    // Best-effort: user creation must succeed even if the credentials email fails.
+    if (password) {
+      sendAccountCredentialsEmail({ to: email, name, tempPassword: password, businessId }).catch(() => {});
+    }
 
     return NextResponse.json({ user: createdUser }, { status: 201 });
   } catch (error: any) {

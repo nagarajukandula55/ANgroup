@@ -12,6 +12,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { sendAccountCredentialsEmail } from "@/services/email/resend.service";
 
 // Same anti-escalation allow-list as api/admin/users/route.ts's POST --
 // SUPER_ADMIN is deliberately excluded and checked separately below.
@@ -97,6 +98,14 @@ export async function POST(req: Request) {
       req,
       actor: { id: session.user.id, businessId: body?.businessId?.toString() },
     });
+
+    // Best-effort: staff creation must succeed even if the credentials email fails.
+    sendAccountCredentialsEmail({
+      to: user.email,
+      name: user.name,
+      tempPassword: body.password,
+      businessId: body?.businessId?.toString(),
+    }).catch(() => {})
 
     return NextResponse.json({
       success: true,

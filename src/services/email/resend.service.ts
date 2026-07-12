@@ -144,6 +144,85 @@ export async function sendAgreementOtpEmail({
   }
 }
 
+/** Registration welcome email -- best-effort, non-fatal (see callers). */
+export async function sendWelcomeEmail({
+  to,
+  name,
+  businessId,
+}: {
+  to: string;
+  name: string;
+  businessId?: string;
+}) {
+  try {
+    const { apiKey, from } = await resolveResendCreds(businessId);
+    if (!apiKey) {
+      throw new Error("No Resend API key configured (neither business-specific nor global RESEND_API_KEY)");
+    }
+    const resend = new Resend(apiKey);
+
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject: "Welcome to AN Group",
+      html: `
+        <p>Hi ${name},</p>
+        <p>Your account has been created successfully. You can now sign in and get started.</p>
+      `,
+    });
+
+    return { success: true, result };
+  } catch (err: any) {
+    console.error("RESEND WELCOME EMAIL ERROR", err);
+    return { success: false, error: err?.message || "Unknown email error" };
+  }
+}
+
+/** Sent when an admin/vendor creates a login for someone else with an
+ * admin-assigned temporary password -- pairs with mustChangePassword: true
+ * set on the User doc, so the recipient is prompted to change it on first
+ * login. Best-effort, non-fatal (see callers). */
+export async function sendAccountCredentialsEmail({
+  to,
+  name,
+  loginUrl,
+  tempPassword,
+  businessId,
+}: {
+  to: string;
+  name: string;
+  loginUrl?: string;
+  tempPassword?: string;
+  businessId?: string;
+}) {
+  try {
+    const { apiKey, from } = await resolveResendCreds(businessId);
+    if (!apiKey) {
+      throw new Error("No Resend API key configured (neither business-specific nor global RESEND_API_KEY)");
+    }
+    const resend = new Resend(apiKey);
+
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject: "Your AN Group account is ready",
+      html: `
+        <p>Hi ${name},</p>
+        <p>An account has been created for you on AN Group.</p>
+        <p>Login email: <b>${to}</b></p>
+        ${tempPassword ? `<p>Temporary password: <b>${tempPassword}</b></p>` : ""}
+        ${loginUrl ? `<p><a href="${loginUrl}">Click here to sign in</a>.</p>` : ""}
+        <p>You'll be asked to set a new password the first time you sign in.</p>
+      `,
+    });
+
+    return { success: true, result };
+  } catch (err: any) {
+    console.error("RESEND ACCOUNT CREDENTIALS EMAIL ERROR", err);
+    return { success: false, error: err?.message || "Unknown email error" };
+  }
+}
+
 export async function sendInvoiceEmail({
   to,
   customerName,

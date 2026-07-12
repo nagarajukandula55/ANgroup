@@ -9,6 +9,7 @@ import UserRole from '@/models/UserRole'
 import SsoSourceMapping from '@/models/SsoSourceMapping'
 import { logAction } from '@/lib/audit/logAction'
 import { generateUniqueUserId } from '@/lib/auth/generateUserId'
+import { sendWelcomeEmail } from '@/services/email/resend.service'
 
 // Safest floor if the registering origin doesn't match any configured
 // mapping (unknown/spoofed Origin) -- view-only, never the more permissive
@@ -177,6 +178,9 @@ export async function POST(req: NextRequest) {
       after: { name: user.name, email: user.email, role: user.role },
       req,
     });
+
+    // Best-effort: registration must succeed even if the welcome email fails.
+    sendWelcomeEmail({ to: user.email, name: user.name }).catch(() => {})
 
     return NextResponse.json(
       {

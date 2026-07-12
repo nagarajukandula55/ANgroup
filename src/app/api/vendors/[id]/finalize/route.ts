@@ -12,6 +12,7 @@ import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
 import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
 import { logAction } from "@/lib/audit/logAction";
+import { sendAccountCredentialsEmail } from "@/services/email/resend.service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -183,6 +184,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       req,
       actor: { id: adminId },
     });
+
+    // Best-effort: approval must succeed even if the credentials email fails.
+    if (tempPassword) {
+      sendAccountCredentialsEmail({
+        to: vendor.email,
+        name: vendor.contactPerson || vendor.companyName,
+        tempPassword,
+        loginUrl: "/vendor",
+        businessId: (vendor.businessId as any)?.toString(),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

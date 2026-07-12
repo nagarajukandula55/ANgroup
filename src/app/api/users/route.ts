@@ -11,6 +11,7 @@ import User from '@/models/User'
 import Role from '@/models/Role'
 import UserRole from '@/models/UserRole'
 import { logAction } from '@/lib/audit/logAction'
+import { sendAccountCredentialsEmail } from '@/services/email/resend.service'
 
 const SALT_ROUNDS = 12
 
@@ -129,6 +130,11 @@ export async function POST(req: Request) {
       after: userObj,
       req,
     })
+
+    // Best-effort: user creation must succeed even if the credentials email fails.
+    if (password) {
+      sendAccountCredentialsEmail({ to: user.email, name: user.name, tempPassword: password }).catch(() => {})
+    }
 
     return NextResponse.json({ success: true, user: userObj }, { status: 201 })
   } catch (error: any) {
