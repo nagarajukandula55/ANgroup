@@ -452,81 +452,37 @@ export default function UsersPage() {
                   className={inputCls} placeholder="john@example.com" />
               </div>
               <div>
-                <label className={labelCls}>Designation / Role</label>
-                <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className={selectCls}>
-                  {[
-                    // SUPER_ADMIN only ever offered to an already-super-admin
-                    // caller — the API enforces this too, this is just so a
-                    // regular admin never sees the option in the first place.
-                    ...(isSuperAdmin ? ['SUPER_ADMIN'] : []),
-                    'ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER',
-                  ].map(r => (
-                    <option key={r} value={r}>{r === 'SUPER_ADMIN' ? 'Super Admin' : r}</option>
+                <label className={labelCls}>Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['EMPLOYEE', 'VENDOR'] as const).map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, role: r })}
+                      className={`py-2.5 rounded-xl border text-sm font-medium transition ${
+                        formData.role === r
+                          ? 'bg-gray-900 border-gray-900 text-white'
+                          : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      {r === 'EMPLOYEE' ? 'Employee' : 'Vendor'}
+                    </button>
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <label className={labelCls}>Business <span className="text-gray-400 font-normal">(optional)</span></label>
-                <select value={formData.businessId} onChange={e => setFormData({ ...formData, businessId: e.target.value })} className={selectCls}>
-                  <option value="">— None —</option>
-                  {businesses.map(b => (
-                    <option key={b._id} value={b._id}>{b.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {formData.businessId && (
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Tag to a Vendor</p>
-                  {vendors.length === 0 ? (
-                    <p className="text-xs text-gray-400">No vendors under this business.</p>
-                  ) : (
-                    <>
-                      <select value={selectedVendorId} onChange={e => setSelectedVendorId(e.target.value)} className={selectCls}>
-                        <option value="">Select a vendor…</option>
-                        {vendors.map(v => (
-                          <option key={v._id} value={v._id}>{v.companyName || v.vendorId}</option>
-                        ))}
-                      </select>
-
-                      {loadingSlots && <Loader2 className="w-4 h-4 text-gray-400 animate-spin mx-auto" />}
-
-                      {tagError && (
-                        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">{tagError}</div>
-                      )}
-
-                      {staffSlots.length > 0 && (
-                        <div className="space-y-1.5">
-                          {staffSlots.map(slot => (
-                            <div key={slot._id} className="flex items-center justify-between p-2.5 rounded-xl border border-gray-100">
-                              <div>
-                                <p className="text-sm text-gray-900">{DESIGNATION_LABELS[slot.designation] || slot.designation}</p>
-                                <p className="text-xs text-gray-400">
-                                  {slot.status === 'ACTIVE'
-                                    ? `Active — ${slot.userId?.name || 'assigned'}`
-                                    : 'Open'}
-                                </p>
-                              </div>
-                              {slot.status === 'INACTIVE' ? (
-                                <button type="button" onClick={() => tagToSlot(slot._id)} disabled={tagging === slot._id}
-                                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition">
-                                  {tagging === slot._id ? 'Tagging…' : 'Tag Here'}
-                                </button>
-                              ) : (
-                                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">Active</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
                 </div>
-              )}
+                <p className="mt-1.5 text-[11px] text-gray-400">
+                  Admin/Manager/Super Admin access is granted separately from a user's own detail page (Access &amp; Roles tab).
+                </p>
+              </div>
 
               {formData.role === 'EMPLOYEE' && (
                 <div className="space-y-4 pt-4 border-t border-gray-100">
+                  <div>
+                    <label className={labelCls}>Business</label>
+                    <div className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-500 bg-gray-50">
+                      AN Group
+                    </div>
+                    <p className="mt-1 text-[11px] text-gray-400">Employees belong to AN Group itself, not a specific tenant business.</p>
+                  </div>
                   <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Employee Details</p>
                   <div>
                     <label className={labelCls}>Department</label>
@@ -556,7 +512,66 @@ export default function UsersPage() {
 
               {formData.role === 'VENDOR' && (
                 <div className="space-y-4 pt-4 border-t border-gray-100">
-                  <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Vendor Details</p>
+                  <div>
+                    <label className={labelCls}>Business</label>
+                    <select value={formData.businessId} onChange={e => setFormData({ ...formData, businessId: e.target.value })} className={selectCls}>
+                      <option value="">Select a business…</option>
+                      {businesses.map(b => (
+                        <option key={b._id} value={b._id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {formData.businessId && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Tag to a Vendor</p>
+                      {vendors.length === 0 ? (
+                        <p className="text-xs text-gray-400">No vendors under this business.</p>
+                      ) : (
+                        <>
+                          <select value={selectedVendorId} onChange={e => setSelectedVendorId(e.target.value)} className={selectCls}>
+                            <option value="">Select a vendor…</option>
+                            {vendors.map(v => (
+                              <option key={v._id} value={v._id}>{v.companyName || v.vendorId}</option>
+                            ))}
+                          </select>
+
+                          {loadingSlots && <Loader2 className="w-4 h-4 text-gray-400 animate-spin mx-auto" />}
+
+                          {tagError && (
+                            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">{tagError}</div>
+                          )}
+
+                          {staffSlots.length > 0 && (
+                            <div className="space-y-1.5">
+                              {staffSlots.map(slot => (
+                                <div key={slot._id} className="flex items-center justify-between p-2.5 rounded-xl border border-gray-100">
+                                  <div>
+                                    <p className="text-sm text-gray-900">{DESIGNATION_LABELS[slot.designation] || slot.designation}</p>
+                                    <p className="text-xs text-gray-400">
+                                      {slot.status === 'ACTIVE'
+                                        ? `Active — ${slot.userId?.name || 'assigned'}`
+                                        : 'Open'}
+                                    </p>
+                                  </div>
+                                  {slot.status === 'INACTIVE' ? (
+                                    <button type="button" onClick={() => tagToSlot(slot._id)} disabled={tagging === slot._id}
+                                      className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition">
+                                      {tagging === slot._id ? 'Tagging…' : 'Tag Here'}
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">Active</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold pt-2">Vendor Details</p>
                   <div>
                     <label className={labelCls}>Company Name *</label>
                     <input type="text" required value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })}

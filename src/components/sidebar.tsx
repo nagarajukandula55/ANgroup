@@ -12,6 +12,7 @@ import {
   BarChart3, Ruler, Tags, Layers, Bot, MapPin, FolderOpen, Settings,
   ArrowLeftRight, SlidersHorizontal, ShieldCheck,
 } from "lucide-react";
+import { useToast } from "@/components/shared/Toast";
 
 const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
 
@@ -183,6 +184,7 @@ export const STATIC_MODULES = NAV_GROUPS.flatMap((g) =>
 export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
+  const toast    = useToast();
 
   const [modules, setModules]           = useState<any[]>(STATIC_MODULES);
   const [open, setOpen]                 = useState(false);
@@ -309,8 +311,12 @@ export default function Sidebar() {
         setBizDropdown(false);
         router.refresh();
         loadSidebarModules(biz._id);
+      } else {
+        toast.error(data.message || "Failed to switch business");
       }
-    } catch { /* silent */ } finally { setSwitching(false); }
+    } catch {
+      toast.error("Failed to connect to server");
+    } finally { setSwitching(false); }
   }
 
   async function exitBusiness() {
@@ -324,8 +330,12 @@ export default function Sidebar() {
         setUser((prev) => prev ? { ...prev, activeBusinessId: null } : prev);
         setBizDropdown(false);
         router.refresh();
+      } else {
+        toast.error(data.message || "Failed to exit business");
       }
-    } catch { /* silent */ } finally { setSwitching(false); }
+    } catch {
+      toast.error("Failed to connect to server");
+    } finally { setSwitching(false); }
   }
 
   async function handleLogout() {
