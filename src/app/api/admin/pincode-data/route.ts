@@ -38,7 +38,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/admin/pincode-data — replace the entire pincode dataset from
+ * POST /api/admin/pincode-data — load (a piece of) the pincode dataset from
  * an uploaded CSV (multipart/form-data, field "file"). Expects the same
  * columns as the official India Post "All India Pincode Directory" export
  * (pincode, district, statename, officename, ...) — see
@@ -49,6 +49,17 @@ export async function GET() {
  * Vercel, whose filesystem is read-only at runtime — a file-based "admin
  * upload" would silently do nothing in production. See PincodeEntry.ts's
  * comment for the full reasoning.
+ *
+ * Chunked: the official directory export (~23MB) is well over Vercel's
+ * serverless request-body cap (~4.5MB) — a single-shot upload of the real
+ * file gets rejected by the platform itself with a plain-text "Request
+ * Entity Too Large" response before this handler even runs, which the
+ * frontend then fails to JSON-parse. The admin UI (admin/pincode-data/page.tsx)
+ * now splits the CSV into line-based chunks client-side and POSTs them
+ * sequentially, each one comfortably under the platform limit, tagging the
+ * first chunk with append=false (wipes the previous dataset) and every
+ * later chunk with append=true (adds to it), with isFinal=true on the last
+ * one to write PincodeDatasetMeta once the whole file has landed.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -62,6 +73,8 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ success: false, message: "No file uploaded" }, { status: 400 });
     }
+    const append = formData.get("append") === "true";
+    const isFinal = formData.get("isFinal") !== "false"; // defaults true for non-chunked callers
 
     const isCsv =
       file.type === "text/csv" ||
@@ -74,13 +87,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 30MB cap — the full official directory is ~23MB; this leaves
-    // headroom for a somewhat larger future export without accepting
-    // arbitrarily large uploads.
-    const MAX_BYTES = 30 * 1024 * 1024;
+    // Well under Vercel's serverless request-body cap (~4.5MB) — the
+    // frontend keeps chunks far smaller than this in normal operation, but
+    // this remains a hard backstop against a chunk that somehow slipped
+    // through oversized (or a direct API caller bypassing the UI).
+    const MAX_BYTES = 4 * 1024 * 1024;
     if (file.size > MAX_BYTES) {
       return NextResponse.json(
-        { success: false, message: "File is too large (max 30MB)" },
+        { success: false, message: "This chunk is too large (max 4MB per request)" },
         { status: 400 }
       );
     }
@@ -101,21 +115,33 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Replace wholesale rather than upsert-merge: a refreshed directory
-    // export is the new source of truth in full, and stale entries that
-    // no longer appear in the new file (e.g. a discontinued pincode)
-    // should disappear, not linger from a previous upload.
-    await PincodeEntry.deleteMany({});
+    // Replace wholesale on the first chunk of a new upload rather than
+    // upsert-merge: a refreshed directory export is the new source of
+    // truth in full, and stale entries that no longer appear in the new
+    // file (e.g. a discontinued pincode) should disappear, not linger from
+    // a previous upload. Later chunks of the same upload just add to it.
+    if (!append) {
+      await PincodeEntry.deleteMany({});
+    }
 
     const CHUNK_SIZE = 2000;
     for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
-      const chunk = entries.slice(i, i + CHUNK_SIZE);
-      await PincodeEntry.insertMany(chunk, { ordered: false });
+      const batch = entries.slice(i, i + CHUNK_SIZE);
+      // ordered:false so a duplicate pincode straddling two upload chunks
+      // (same pincode's rows split across the client-side line boundary)
+      // just gets skipped by the unique index instead of aborting the batch.
+      await PincodeEntry.insertMany(batch, { ordered: false }).catch(() => {});
     }
+
+    if (!isFinal) {
+      return NextResponse.json({ success: true, totalRows, skippedRows, chunkComplete: true });
+    }
+
+    const liveCount = await PincodeEntry.countDocuments();
 
     await PincodeDatasetMeta.deleteMany({});
     const meta = await PincodeDatasetMeta.create({
-      totalPincodes: entries.length,
+      totalPincodes: liveCount,
       sourceFileName: file.name,
       uploadedBy: userId,
       uploadedAt: new Date(),
@@ -125,13 +151,13 @@ export async function POST(req: NextRequest) {
       action: "CREATE",
       entity: "PincodeDatasetMeta",
       entityId: meta._id?.toString(),
-      after: { totalPincodes: entries.length, sourceFileName: file.name },
+      after: { totalPincodes: liveCount, sourceFileName: file.name },
       req,
     });
 
     return NextResponse.json({
       success: true,
-      totalPincodes: entries.length,
+      totalPincodes: liveCount,
       totalRows,
       skippedRows,
     });

@@ -45,6 +45,7 @@ export default function PincodeDataPage() {
   const [status, setStatus] = useState<DatasetStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
@@ -52,21 +53,70 @@ export default function PincodeDataPage() {
     loadStatus();
   }, []);
 
+  // The server may reject an oversized request before our code ever runs
+  // (platform body-size limit) and respond with a plain-text body like
+  // "Request Entity Too Large" instead of JSON — res.json() throws a
+  // SyntaxError on that, which used to surface as a raw, confusing parse
+  // error. Read as text first and parse defensively so every failure path
+  // produces a readable message instead.
+  async function parseJsonResponse(res: Response): Promise<any> {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      if (res.status === 413) {
+        throw new Error("This chunk was too large for the server to accept. Try again — it should be split into smaller pieces automatically.");
+      }
+      throw new Error(text?.slice(0, 200) || `Server error (${res.status})`);
+    }
+  }
+
   async function loadStatus() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/pincode-data");
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       if (data.success) {
         setStatus({ totalPincodes: data.totalPincodes, lastUpload: data.lastUpload });
       } else {
         setError(data.message || "Failed to load dataset status");
       }
-    } catch {
-      setError("Failed to connect to server");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect to server");
     } finally {
       setLoading(false);
     }
+  }
+
+  // Splits the CSV into line-based chunks well under the server's per-chunk
+  // limit (4MB) and Vercel's serverless request-body cap (~4.5MB) — the
+  // official India Post directory export is ~23MB, far too large for a
+  // single request. Each chunk keeps the header line so the server's CSV
+  // parser (shared with the one-shot path) works unchanged per chunk.
+  const MAX_CHUNK_BYTES = 3 * 1024 * 1024;
+
+  function splitCsvIntoChunks(csvText: string): string[] {
+    const lines = csvText.split(/\r\n|\n|\r/);
+    if (lines.length === 0) return [];
+    const header = lines[0];
+    const chunks: string[] = [];
+    let current: string[] = [header];
+    let currentBytes = new Blob([header]).size;
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      const lineBytes = new Blob([line]).size + 1;
+      if (currentBytes + lineBytes > MAX_CHUNK_BYTES && current.length > 1) {
+        chunks.push(current.join("\n"));
+        current = [header];
+        currentBytes = new Blob([header]).size;
+      }
+      current.push(line);
+      currentBytes += lineBytes;
+    }
+    if (current.length > 1) chunks.push(current.join("\n"));
+    return chunks;
   }
 
   async function handleUpload(file: File) {
@@ -74,24 +124,46 @@ export default function PincodeDataPage() {
     setError(null);
     setResult(null);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/admin/pincode-data", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Upload failed");
+      const csvText = await file.text();
+      const chunks = file.size > MAX_CHUNK_BYTES ? splitCsvIntoChunks(csvText) : [csvText];
+      if (chunks.length === 0) {
+        throw new Error("The file appears to be empty");
       }
+
+      let totalRows = 0;
+      let skippedRows = 0;
+      let totalPincodes = 0;
+
+      for (let i = 0; i < chunks.length; i++) {
+        setUploadProgress(chunks.length > 1 ? `Uploading part ${i + 1} of ${chunks.length}…` : null);
+        const blob = new Blob([chunks[i]], { type: "text/csv" });
+        const formData = new FormData();
+        formData.append("file", blob, file.name);
+        formData.append("append", i > 0 ? "true" : "false");
+        formData.append("isFinal", i === chunks.length - 1 ? "true" : "false");
+
+        const res = await fetch("/api/admin/pincode-data", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await parseJsonResponse(res);
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || `Upload failed on part ${i + 1} of ${chunks.length}`);
+        }
+        totalRows += data.totalRows || 0;
+        skippedRows += data.skippedRows || 0;
+        if (data.totalPincodes != null) totalPincodes = data.totalPincodes;
+      }
+
       setResult(
-        `Loaded ${data.totalPincodes.toLocaleString()} pincodes from ${data.totalRows.toLocaleString()} rows` +
-          (data.skippedRows ? ` (${data.skippedRows.toLocaleString()} invalid rows skipped)` : "")
+        `Loaded ${totalPincodes.toLocaleString()} pincodes from ${totalRows.toLocaleString()} rows` +
+          (skippedRows ? ` (${skippedRows.toLocaleString()} invalid rows skipped)` : "")
       );
       await loadStatus();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
+      setUploadProgress(null);
       setUploading(false);
     }
   }
@@ -184,7 +256,7 @@ export default function PincodeDataPage() {
             }`}
           >
             <span className="text-sm font-medium text-gray-700">
-              {uploading ? "Processing…" : "Click to select a CSV file"}
+              {uploading ? (uploadProgress || "Processing…") : "Click to select a CSV file"}
             </span>
             <span className="text-xs text-gray-400">
               Expected columns: pincode, district, statename, officename
