@@ -1,4 +1,7 @@
 "use client";
+// build-cache-buster: forcing a fresh deploy diff to rule out a stale
+// Vercel build artifact serving old compiled output despite the source
+// commit being current.
 
 /**
  * ANu floating overlay — available on every admin page without disturbing
