@@ -463,7 +463,8 @@ export default function SocialMediaPage() {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             onClick={() => setPanelOpen(false)}
           />
-          <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-[#0f0f1a] border-l border-white/10 shadow-2xl z-50 overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+          <div className="relative w-full max-w-lg max-h-[90vh] bg-[#0f0f1a] border border-white/10 rounded-2xl shadow-2xl overflow-y-auto pointer-events-auto">
             <div className="sticky top-0 bg-[#0f0f1a]/95 backdrop-blur-sm border-b border-white/10 px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">
                 {editingPost ? 'Edit Post' : 'Create Post'}
@@ -631,6 +632,7 @@ export default function SocialMediaPage() {
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </>
       )}

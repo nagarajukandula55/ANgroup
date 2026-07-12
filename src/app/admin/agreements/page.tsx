@@ -1865,10 +1865,10 @@ export default function AgreementsPage() {
       {showNewForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={closeForm} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeForm} />
 
           {/* Panel */}
-          <div className="w-full md:w-2/3 lg:w-1/2 bg-white flex flex-col shadow-2xl overflow-hidden">
+          <div className="relative w-full md:w-2/3 lg:w-1/2 max-h-[90vh] bg-white rounded-2xl border border-gray-200 flex flex-col shadow-2xl overflow-hidden">
             {/* Panel Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-base font-semibold text-gray-900">New Agreement</h2>
@@ -2225,10 +2225,10 @@ export default function AgreementsPage() {
       {(detailAgreement || detailLoading) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={closeDetail} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeDetail} />
 
           {/* Panel */}
-          <div className="w-full md:w-2/3 lg:w-1/2 bg-white flex flex-col shadow-2xl overflow-hidden">
+          <div className="relative w-full md:w-2/3 lg:w-1/2 max-h-[90vh] bg-white rounded-2xl border border-gray-200 flex flex-col shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-base font-semibold text-gray-900">
                 {detailAgreement ? detailAgreement.title : 'Loading...'}
