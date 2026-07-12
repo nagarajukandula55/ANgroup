@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Loader2, Package, ShoppingCart, BarChart3,
-  Truck, Hash, ArrowRight, Store, Layers,
+  Truck, Hash, ArrowRight, Store, Layers, Smartphone,
 } from 'lucide-react'
 
 interface NativeStats {
@@ -191,6 +191,27 @@ export default function NativePage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
               >
                 SDK Docs <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Mobile App Settings (Android/iOS app in /mobile) */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:col-span-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <Smartphone className="w-5 h-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Mobile App Settings</p>
+                  <p className="text-sm text-gray-500">Business tenant, iOS/Android min version, force-update, maintenance mode</p>
+                </div>
+              </div>
+              <Link
+                href="/admin/native/mobile-settings"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+              >
+                Configure <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>

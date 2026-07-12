@@ -97,6 +97,11 @@ const PUBLIC_PREFIXES = [
   // the admin/business/[id]/banners UI instead of manually dropped image
   // files. Read-only; create/edit/delete stay behind /api/admin/banners.
   "/api/storefront/banners",
+  // Mobile app (/mobile) launch-time config -- read-only, called before
+  // the user is signed in. Editing lives at the separate, protected
+  // /api/admin/mobile-app/config path (see that route's own comment for
+  // why it's deliberately not this same path).
+  "/api/mobile-app/config",
   "/api/products/",
   "/api/newsletter/subscribe",
   "/api/appointment-requests",   // public appointment-request submission
