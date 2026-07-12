@@ -25,8 +25,15 @@ export async function GET(req: NextRequest) {
     const businessId = searchParams.get("businessId");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10) || 50, 200);
 
+    // Global notifications (no businessId -- e.g. super-admin approval
+    // alerts from notifySuperAdmins()) must always show regardless of
+    // which business is currently selected, so a plain `businessId`
+    // filter would silently hide them the moment a business is active.
+    // Match either the selected business or a notification with none.
     const query: Record<string, unknown> = { userId: session.user.id };
-    if (businessId) query.businessId = businessId;
+    if (businessId) {
+      query.$or = [{ businessId }, { businessId: null }, { businessId: { $exists: false } }];
+    }
 
     const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })

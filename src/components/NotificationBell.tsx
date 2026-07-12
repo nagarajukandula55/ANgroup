@@ -50,7 +50,7 @@ export default function NotificationBell() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((d) => setBusinessId(d.user?.activeBusinessId ?? null))
+      .then((d) => setBusinessId(d.user?.activeBusinessId ?? d.businesses?.[0]?._id ?? null))
       .catch(() => {});
   }, []);
 
@@ -62,19 +62,30 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  function load() {
-    setLoading(true);
+  function load(silent = false) {
+    if (!silent) setLoading(true);
     fetch(`/api/notifications${businessId ? `?businessId=${businessId}` : ""}`)
       .then((r) => r.json())
       .then((d) => setItems(d.notifications ?? []))
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (!silent) setLoading(false); });
   }
 
   useEffect(() => {
     if (open) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Background poll so the unread badge updates even while the panel is
+  // closed (e.g. a super admin sees a new vendor-application alert appear
+  // without having to click the bell first) -- previously only loaded on
+  // open, despite a comment claiming this polling already existed.
+  useEffect(() => {
+    load(true);
+    const interval = setInterval(() => load(true), 60000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId]);
 
   const unreadCount = items.filter((n) => !n.isRead).length;
 
