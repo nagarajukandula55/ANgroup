@@ -174,8 +174,8 @@ export default function ProfilePage() {
     setSavingPassword(true)
     setPasswordMsg(null)
     try {
-      const res = await fetch('/api/auth/me/password', {
-        method: 'PUT',
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           currentPassword,
