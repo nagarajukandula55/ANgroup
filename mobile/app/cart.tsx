@@ -1,7 +1,9 @@
 import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useCart } from "@/context/CartContext";
 
 export default function CartScreen() {
+  const router = useRouter();
   const { items, remove, total } = useCart();
 
   if (items.length === 0) {
@@ -31,11 +33,8 @@ export default function CartScreen() {
         <Text style={styles.totalLabel}>Total</Text>
         <Text style={styles.totalValue}>₹{total.toLocaleString("en-IN")}</Text>
       </View>
-      {/* Checkout wiring (address, Razorpay React Native SDK,
-          /api/payment/verify) is a follow-up — this proves the
-          browse -> add-to-cart pipeline end to end first. */}
-      <Pressable style={styles.checkoutButton} disabled>
-        <Text style={styles.checkoutText}>Checkout (coming soon)</Text>
+      <Pressable style={styles.checkoutButton} onPress={() => router.push("/checkout")}>
+        <Text style={styles.checkoutText}>Checkout</Text>
       </Pressable>
     </View>
   );
@@ -51,6 +50,6 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 16 },
   totalLabel: { fontSize: 16, fontWeight: "600" },
   totalValue: { fontSize: 16, fontWeight: "700" },
-  checkoutButton: { backgroundColor: "#9ca3af", borderRadius: 10, padding: 14, alignItems: "center", marginTop: 16 },
+  checkoutButton: { backgroundColor: "#111827", borderRadius: 10, padding: 14, alignItems: "center", marginTop: 16 },
   checkoutText: { color: "#fff", fontWeight: "600" },
 });

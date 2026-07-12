@@ -24,7 +24,8 @@
     "plugins": ["expo-router"],
     "extra": {
       "anApiUrl": "https://YOUR-ANGROUP-DEPLOYMENT-URL",
-      "anBusinessId": "YOUR-NATIVE-BUSINESS-ID"
+      "anBusinessId": "YOUR-NATIVE-BUSINESS-ID",
+      "razorpayKeyId": "YOUR-RAZORPAY-KEY-ID"
     }
   }
 }

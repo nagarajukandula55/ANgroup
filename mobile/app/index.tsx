@@ -48,6 +48,22 @@ export default function HomeScreen() {
       numColumns={2}
       contentContainerStyle={styles.list}
       columnWrapperStyle={styles.row}
+      ListHeaderComponent={
+        <View style={styles.nav}>
+          <Link href="/cart" asChild>
+            <Pressable><Text style={styles.navLink}>Cart</Text></Pressable>
+          </Link>
+          <Link href="/orders" asChild>
+            <Pressable><Text style={styles.navLink}>Orders</Text></Pressable>
+          </Link>
+          <Link href="/wishlist" asChild>
+            <Pressable><Text style={styles.navLink}>Wishlist</Text></Pressable>
+          </Link>
+          <Link href="/profile" asChild>
+            <Pressable><Text style={styles.navLink}>Profile</Text></Pressable>
+          </Link>
+        </View>
+      }
       ListEmptyComponent={
         <View style={styles.center}>
           <Text>No products found.</Text>
@@ -79,6 +95,8 @@ const styles = StyleSheet.create({
   errorHint: { color: "#6b7280", fontSize: 12, marginTop: 8, textAlign: "center" },
   list: { padding: 8 },
   row: { gap: 8 },
+  nav: { flexDirection: "row", justifyContent: "space-around", paddingVertical: 10, marginBottom: 4, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#e5e7eb" },
+  navLink: { fontSize: 13, fontWeight: "600", color: "#111827" },
   card: { flex: 1, margin: 4, backgroundColor: "#fff", borderRadius: 12, padding: 8, borderWidth: 1, borderColor: "#e5e7eb" },
   image: { width: "100%", aspectRatio: 1, borderRadius: 8, backgroundColor: "#f3f4f6" },
   imagePlaceholder: { alignItems: "center", justifyContent: "center" },

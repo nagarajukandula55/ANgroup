@@ -38,19 +38,41 @@ npm run android    # requires Android Studio / emulator
 - `app/` — Expo Router screens: home (product grid), login, product
   detail, cart.
 
+## What's built
+
+- Checkout (`app/checkout.tsx`): address form, order creation via
+  `/api/orders/create`, payment via `react-native-razorpay` (native
+  module — see note below), verification via `/api/payment/verify`.
+  ANgroup's backend always creates a Razorpay order regardless of
+  `paymentMethod` (confirmed by reading `order.service.ts` — there's no
+  COD path server-side), so this is the only checkout flow possible today.
+- Order history (`app/orders/index.tsx`) and order detail/tracking
+  (`app/orders/[id].tsx`), using the same "filter /api/orders/list
+  client-side" workaround Native's web SDK uses, since ANgroup has no
+  customer-scoped orders endpoint.
+- Wishlist screen (`app/wishlist.tsx`), wired to the existing
+  `src/api/wishlist.ts` client.
+- Profile screen (`app/profile.tsx`): name/email, links to orders/wishlist,
+  sign out.
+
+**`react-native-razorpay` requires a native module** — it will NOT work in
+Expo Go. Use `npx expo prebuild` + a custom dev client (or EAS Build) once
+you're ready to test the checkout flow on a device/simulator. Set
+`app.json`'s `expo.extra.razorpayKeyId` to the same key ANgroup's web
+checkout uses.
+
 ## What's NOT built yet (next phases)
 
-- Checkout: address collection, Razorpay **React Native** SDK (different
-  package from the web checkout Native uses), `/api/payment/verify` call
-- Order history / order tracking screens
-- Wishlist screen (the API client — `src/api/wishlist.ts` — is ready, no
-  screen wired to it yet)
-- Profile / change password / addresses
+- Change password / saved addresses (beyond the one-off checkout address
+  form)
 - Push notifications: needs a `POST /api/notifications/register-device`
   route added to ANgroup (doesn't exist yet) + Expo Notifications setup
 - App icons/splash assets (`assets/icon.png` etc. — referenced in
   `app.json` but not created), store screenshots, privacy policy page
 - EAS Build/Submit configuration for actual App Store / Play Store release
+- Server-side COD support doesn't exist on ANgroup at all — if you want a
+  cash-on-delivery option in the app, that has to be added to
+  `order.service.ts`/`orders/create` first, not just the client
 
 ## Reused from Native
 
