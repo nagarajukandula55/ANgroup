@@ -186,7 +186,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     });
 
     // Best-effort: approval must succeed even if the credentials email fails.
-    if (tempPassword) {
+    if (tempPassword && vendor.email) {
       sendAccountCredentialsEmail({
         to: vendor.email,
         name: vendor.contactPerson || vendor.companyName,
