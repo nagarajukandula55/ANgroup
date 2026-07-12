@@ -79,7 +79,7 @@ export async function askAnu(input: AnuQueryInput): Promise<AnuQueryResult> {
   const anthropicCfg = aiConfig?.providers?.anthropic;
   const openaiCfg = aiConfig?.providers?.openai;
 
-  const systemPrompt = await buildAnuContext(input.businessId);
+  const systemPrompt = await buildAnuContext(input.businessId, input.language);
 
   try {
     if (anthropicCfg?.isEnabled && anthropicCfg?.apiKey) {

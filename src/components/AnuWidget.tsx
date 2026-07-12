@@ -18,6 +18,26 @@ interface ChatMessage {
   content: string;
 }
 
+const LANGUAGE_STORAGE_KEY = "an_anu_language";
+
+// Auto-detect is the default (ANu mirrors whatever language the user types
+// in) -- this list is just for an explicit override, so replies stay in
+// one language even if the user's own message mixes English with another
+// language, common in real usage.
+const LANGUAGES = [
+  { value: "", label: "Auto-detect" },
+  { value: "English", label: "English" },
+  { value: "Hindi", label: "हिन्दी (Hindi)" },
+  { value: "Tamil", label: "தமிழ் (Tamil)" },
+  { value: "Telugu", label: "తెలుగు (Telugu)" },
+  { value: "Kannada", label: "ಕನ್ನಡ (Kannada)" },
+  { value: "Malayalam", label: "മലയാളം (Malayalam)" },
+  { value: "Marathi", label: "मराठी (Marathi)" },
+  { value: "Bengali", label: "বাংলা (Bengali)" },
+  { value: "Gujarati", label: "ગુજરાતી (Gujarati)" },
+  { value: "Punjabi", label: "ਪੰਜਾਬੀ (Punjabi)" },
+];
+
 export default function AnuWidget() {
   const [open, setOpen] = useState(false);
   const [teachOpen, setTeachOpen] = useState(false);
@@ -26,6 +46,7 @@ export default function AnuWidget() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState("");
 
   const [teachTopic, setTeachTopic] = useState("");
   const [teachSummary, setTeachSummary] = useState("");
@@ -39,7 +60,21 @@ export default function AnuWidget() {
       .then((r) => r.json())
       .then((d) => setBusinessId(d.user?.activeBusinessId ?? null))
       .catch(() => {});
+    try {
+      setLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY) || "");
+    } catch {
+      /* ignore */
+    }
   }, []);
+
+  function changeLanguage(value: string) {
+    setLanguage(value);
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, value);
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -57,7 +92,7 @@ export default function AnuWidget() {
       const res = await fetch("/api/anu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, messages: nextMessages }),
+        body: JSON.stringify({ businessId, messages: nextMessages, language: language || undefined }),
       });
       const data = await res.json();
       if (data.success) {
@@ -117,13 +152,25 @@ export default function AnuWidget() {
               <Bot size={16} />
               <span className="text-sm font-semibold">ANu Assistant</span>
             </div>
-            <button
-              onClick={() => setTeachOpen((v) => !v)}
-              title="Teach ANu something new"
-              className="p-1.5 rounded-lg hover:bg-white/10 transition"
-            >
-              <GraduationCap size={15} />
-            </button>
+            <div className="flex items-center gap-1">
+              <select
+                value={language}
+                onChange={(e) => changeLanguage(e.target.value)}
+                title="Reply language"
+                className="text-[11px] bg-white/10 border border-white/20 rounded-lg px-1.5 py-1 text-white outline-none [&>option]:text-gray-900"
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setTeachOpen((v) => !v)}
+                title="Teach ANu something new"
+                className="p-1.5 rounded-lg hover:bg-white/10 transition"
+              >
+                <GraduationCap size={15} />
+              </button>
+            </div>
           </div>
 
           {teachOpen && (

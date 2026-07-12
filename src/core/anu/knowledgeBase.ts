@@ -153,7 +153,7 @@ const STATIC_KNOWLEDGE: AnuKnowledgeEntry[] = [
  * a live list of this business's actual enabled modules (so ANu never tells
  * a user about a module they don't have, or misses one they do).
  */
-export async function buildAnuContext(businessId: string): Promise<string> {
+export async function buildAnuContext(businessId: string, language?: string): Promise<string> {
   const modules = await listModulesForBusiness(businessId).catch(() => []);
 
   const moduleList = modules
@@ -205,8 +205,18 @@ export async function buildAnuContext(businessId: string): Promise<string> {
     }
   }
 
+  // Indian-market platform, many users are far more comfortable in their
+  // own language than English -- default is to mirror whatever language
+  // the user's own message is written in (no separate translation step;
+  // the configured LLM providers handle this natively), with an explicit
+  // override when the widget's language picker sends one.
+  const languageInstruction = language
+    ? `Always reply in ${language}, regardless of what language the user writes in, unless they explicitly ask you to switch languages.`
+    : "Reply in the same language the user's message is written in (detect it yourself) — do not default to English if they wrote in another language.";
+
   return [
     "You are ANu, the in-house AI assistant for this ERP platform. You help users understand and use the system — answer 'how do I...' and 'what can I do...' questions grounded ONLY in the information below. If asked about something not covered here, say you're not sure rather than guessing at a feature that may not exist.",
+    languageInstruction,
     "",
     staticSection,
     dynamicSection ? "\n" + dynamicSection : "",

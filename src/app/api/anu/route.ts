@@ -6,8 +6,11 @@ import type { AnuMessage } from "@/core/anu/types";
 
 // POST /api/anu — ask ANu (the in-house AI assistant) a question, grounded
 // in this business's actual enabled modules and platform knowledge. Body:
-// { businessId: string, messages: AnuMessage[] } where messages is the full
-// conversation so far (oldest first); the caller (UI) owns history/trimming.
+// { businessId: string, messages: AnuMessage[], language?: string } where
+// messages is the full conversation so far (oldest first, caller owns
+// history/trimming) and language is an optional explicit reply-language
+// override (e.g. "Hindi") — omit it to have ANu auto-match whatever
+// language the user's own message is written in.
 export async function POST(req: NextRequest) {
   try {
     const h = await headers();
@@ -17,6 +20,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const businessId: string | undefined = body?.businessId;
     const messages: AnuMessage[] | undefined = body?.messages;
+    const language: string | undefined = body?.language;
 
     if (!businessId) {
       return NextResponse.json({ error: "businessId is required" }, { status: 400 });
@@ -26,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
-    const result = await askAnu({ businessId, userId, messages });
+    const result = await askAnu({ businessId, userId, messages, language });
 
     if (result.error) {
       // Not a 500 — this is an expected "not configured yet" state, not a

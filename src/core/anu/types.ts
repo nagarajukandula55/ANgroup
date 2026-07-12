@@ -25,6 +25,15 @@ export interface AnuQueryInput {
   userId: string;
   /** Full conversation so far, oldest first. Caller is responsible for trimming/pagination. */
   messages: AnuMessage[];
+  /**
+   * Explicit reply language (e.g. "Hindi", "Tamil", "English"), or omitted
+   * to auto-detect from the user's own message language. Indian-market
+   * platform, many users are far more comfortable asking (and reading
+   * answers) in their own language than in English -- this is purely an
+   * instruction to the model, no separate translation step or model swap
+   * needed since the configured providers already handle this natively.
+   */
+  language?: string;
 }
 
 export interface AnuQueryResult {
