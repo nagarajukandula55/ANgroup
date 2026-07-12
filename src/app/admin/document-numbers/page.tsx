@@ -44,9 +44,16 @@ interface DocumentConfig {
   prefix: string;
   separator: string;
   includeFinancialYear: boolean;
+  // "hyphenated" -> "2024-25" (the default), "compact" -> "2425". Optional
+  // on the frontend model since older saved configs predate this field --
+  // treat a missing value as "hyphenated" everywhere it's read.
+  financialYearFormat?: "hyphenated" | "compact";
   includeMonth: boolean;
   sequenceLength: number;
   suffix: string;
+  // Optional custom template overriding the structured builder entirely --
+  // see numberingService.ts's renderTemplate for supported tokens.
+  template?: string;
   startFrom: number;
 }
 
@@ -394,16 +401,46 @@ const DOCUMENT_TYPES: DocumentType[] = [
 
 // ─── Preview Builder ──────────────────────────────────────────────────────────
 
+// Sample values for tokens a real generating call site would supply (e.g.
+// {vendorId}) -- preview-only, so a template designer can see roughly what
+// it'll look like without a real vendor/customer on hand.
+const TEMPLATE_PREVIEW_CONTEXT: Record<string, string> = {
+  vendorId: "VND-0001",
+  customerId: "CUST-0001",
+  businessCode: "BIZ-01",
+};
+
 function buildPreview(config: DocumentConfig): string {
   const {
     prefix,
     separator,
     includeFinancialYear,
+    financialYearFormat,
     includeMonth,
     sequenceLength,
     suffix,
     startFrom,
+    template,
   } = config;
+
+  const financialYear = financialYearFormat === "compact" ? "2425" : "2024-25";
+  const seq = String(startFrom).padStart(sequenceLength, "0");
+
+  if (template && template.trim()) {
+    return template.replace(/\{(\w+)\}/g, (match, key: string) => {
+      const builtins: Record<string, string> = {
+        prefix,
+        fy: financialYear,
+        month: "04",
+        year: "2024",
+        seq,
+        suffix,
+      };
+      if (key in builtins) return builtins[key];
+      if (key in TEMPLATE_PREVIEW_CONTEXT) return TEMPLATE_PREVIEW_CONTEXT[key];
+      return `{${key}}`;
+    });
+  }
 
   const parts: string[] = [];
 
@@ -412,7 +449,7 @@ function buildPreview(config: DocumentConfig): string {
   }
 
   if (includeFinancialYear) {
-    parts.push("2024-25");
+    parts.push(financialYear);
   }
 
   if (includeMonth) {
@@ -423,7 +460,6 @@ function buildPreview(config: DocumentConfig): string {
     parts.push(suffix);
   }
 
-  const seq = String(startFrom).padStart(sequenceLength, "0");
   parts.push(seq);
 
   return parts.join(separator);
@@ -640,11 +676,45 @@ function DocumentCard({
                 onChange={(val) => update({ includeFinancialYear: val })}
                 label="Include Financial Year (e.g. 2024-25)"
               />
+              {current.includeFinancialYear && (
+                <div className="pl-4 flex items-center gap-2">
+                  <label className="text-xs text-gray-500">Format:</label>
+                  <select
+                    value={current.financialYearFormat || "hyphenated"}
+                    onChange={(e) => update({ financialYearFormat: e.target.value as "hyphenated" | "compact" })}
+                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  >
+                    <option value="hyphenated">2024-25 (hyphenated)</option>
+                    <option value="compact">2425 (compact)</option>
+                  </select>
+                </div>
+              )}
               <Toggle
                 checked={current.includeMonth}
                 onChange={(val) => update({ includeMonth: val })}
                 label="Include Month (e.g. Apr)"
               />
+            </div>
+
+            {/* Custom Template */}
+            <div className="pt-3">
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Custom Template (optional — overrides everything above)
+              </label>
+              <input
+                type="text"
+                value={current.template || ""}
+                onChange={(e) => update({ template: e.target.value })}
+                placeholder="e.g. {prefix}-{vendorId}-{fy}-{seq}"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 font-mono focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+              <p className="mt-1.5 text-[11px] text-gray-400 leading-relaxed">
+                Available tokens: <code className="font-mono">{"{prefix} {fy} {month} {year} {seq} {suffix}"}</code>.
+                Some document types also supply extra tokens their generating code knows about, e.g.{" "}
+                <code className="font-mono">{"{vendorId}"}</code> for vendor product codes — a token with no value
+                at generation time will fail loudly rather than produce a wrong number, so test the preview above
+                before saving.
+              </p>
             </div>
           </div>
 
@@ -908,9 +978,11 @@ export default function DocumentNumbersPage() {
           prefix: config.prefix,
           separator: config.separator,
           includeFinancialYear: config.includeFinancialYear,
+          financialYearFormat: config.financialYearFormat || "hyphenated",
           includeMonth: config.includeMonth,
           sequenceLength: config.sequenceLength,
           suffix: config.suffix,
+          template: config.template || "",
           startFrom: config.startFrom,
         }),
       });

@@ -38,9 +38,28 @@ export interface IDocumentNumberConfig extends Document {
   prefix: string;            // e.g. "INV", "PO", "GRN"
   separator: string;         // default "-"
   includeFinancialYear: boolean; // e.g. "2024-25"
+  // "hyphenated" -> "2024-25" (the format this field's name and every
+  // other doc-comment in this model always implied); "compact" -> "2425"
+  // for anyone who prefers the shorter form. Was previously hardcoded to
+  // compact in the generator regardless of this setting -- see
+  // core/numbering/numberingService.ts's history.
+  financialYearFormat: "hyphenated" | "compact";
   includeMonth: boolean;     // e.g. "06"
   sequenceLength: number;    // zero-pad length, default 4
   suffix: string;            // optional suffix after sequence
+
+  // Custom template (optional) — when set, overrides the structured
+  // prefix/separator/fy/month/seq/suffix builder entirely. Supports
+  // placeholder tokens: {prefix} {fy} {month} {year} {seq} {suffix}, plus
+  // arbitrary caller-supplied tokens like {vendorId}, {customerId},
+  // {businessCode} for document types whose generating code passes that
+  // context (see generateDocumentNumber's `context` param) — e.g. vendor
+  // product codes pass {vendorId} so every vendor's own code appears in
+  // their products' numbers instead of a fixed literal. A token with no
+  // matching context at generation time throws rather than silently
+  // producing a wrong/colliding number — design the template against
+  // what the specific document type's generating code actually supplies.
+  template: string;
 
   // Control
   startFrom: number;         // reset/start from this number
@@ -69,9 +88,11 @@ const DocumentNumberConfigSchema = new Schema<IDocumentNumberConfig>(
     prefix: { type: String, default: "" },
     separator: { type: String, default: "-" },
     includeFinancialYear: { type: Boolean, default: true },
+    financialYearFormat: { type: String, enum: ["hyphenated", "compact"], default: "hyphenated" },
     includeMonth: { type: Boolean, default: false },
     sequenceLength: { type: Number, default: 4, min: 1, max: 8 },
     suffix: { type: String, default: "" },
+    template: { type: String, default: "" },
     startFrom: { type: Number, default: 1 },
     isActive: { type: Boolean, default: true },
     formatPreview: { type: String, default: "" },

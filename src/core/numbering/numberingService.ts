@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import DocumentNumberConfig from "@/models/DocumentNumberConfig";
 import NumberSequence from "./NumberSequence.model";
-import { getFinancialYearCode } from "./financialYear";
+import { getFinancialYear, getFinancialYearCode } from "./financialYear";
 import { DEFAULT_PREFIXES, type DocumentType, type GeneratedNumber } from "./types";
 
 /**
@@ -59,6 +59,25 @@ function formatNumber(input: FormatInput): string {
   return parts.join(input.separator || "-");
 }
 
+/**
+ * Renders a custom template string (DocumentNumberConfig.template) by
+ * substituting {token} placeholders. Built-in tokens are always available;
+ * everything else comes from the `context` map the calling code supplies
+ * (e.g. {vendorId} for vendor product codes) — a token with no match
+ * throws rather than silently leaving "{vendorId}" in a real document
+ * number or dropping it and risking a collision.
+ */
+function renderTemplate(template: string, builtins: Record<string, string>, context: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) => {
+    if (key in builtins) return builtins[key];
+    if (key in context) return context[key];
+    throw new Error(
+      `Document number template uses {${key}}, but no value for it was supplied. ` +
+        `Available: ${[...Object.keys(builtins), ...Object.keys(context)].join(", ") || "(none)"}.`
+    );
+  });
+}
+
 // Fixed sentinel ObjectId used ONLY for platform-wide (not per-business)
 // counters — see generateGlobalDocumentNumber() below. Any valid-looking
 // constant works since NumberSequence.businessId just needs to be *a*
@@ -68,7 +87,8 @@ const GLOBAL_SCOPE_ID = "000000000000000000000000";
 async function generateNumberInScope(
   scopeId: string,
   documentType: DocumentType,
-  configBusinessId: string | null
+  configBusinessId: string | null,
+  context: Record<string, string> = {}
 ): Promise<GeneratedNumber> {
   const config = configBusinessId
     ? (await DocumentNumberConfig.findOne({ businessId: configBusinessId, documentType }).lean() as any)
@@ -77,11 +97,13 @@ async function generateNumberInScope(
   const prefix = config?.prefix || DEFAULT_PREFIXES[documentType] || documentType.slice(0, 3);
   const separator = config?.separator ?? "-";
   const includeFinancialYear = config?.includeFinancialYear ?? true;
+  const financialYearFormat: "hyphenated" | "compact" = config?.financialYearFormat ?? "hyphenated";
   const includeMonth = config?.includeMonth ?? false;
   const sequenceLength = config?.sequenceLength ?? 4;
   const suffix = config?.suffix ?? "";
   const startFrom = config?.startFrom ?? 1;
   const isActive = config?.isActive ?? true;
+  const template: string = config?.template ?? "";
 
   if (!isActive) {
     throw new Error(
@@ -89,12 +111,13 @@ async function generateNumberInScope(
     );
   }
 
-  // Compact "2526" form, not the hyphenated "2025-26" -- per an explicit
-  // requirement that document numbers use the short FY code, matching the
-  // format getFinancialYearCode() was originally built for (see
-  // financialYear.ts) but that nothing was actually calling.
-  const financialYear = getFinancialYearCode();
-  const periodKey = includeFinancialYear ? financialYear : "ALL";
+  // The DB-side period key always uses the compact code as a stable
+  // internal identifier regardless of display format -- what actually
+  // shows up in a generated number is a separate concern (financialYear
+  // below), controlled by financialYearFormat.
+  const periodKeyCode = getFinancialYearCode();
+  const periodKey = includeFinancialYear ? periodKeyCode : "ALL";
+  const financialYear = financialYearFormat === "compact" ? getFinancialYearCode() : getFinancialYear();
 
   // Ensure the counter exists and is seeded to (startFrom - 1) BEFORE the
   // atomic increment, so the increment always produces the right next
@@ -115,28 +138,46 @@ async function generateNumberInScope(
 
   const sequence = updated!.value;
 
-  const value = formatNumber({
-    prefix,
-    separator,
-    includeFinancialYear,
-    includeMonth,
-    sequenceLength,
-    suffix,
-    sequence,
-    financialYear,
-  });
+  let value: string;
+  if (template.trim()) {
+    const now = new Date();
+    value = renderTemplate(
+      template,
+      {
+        prefix,
+        fy: financialYear,
+        month: String(now.getMonth() + 1).padStart(2, "0"),
+        year: String(now.getFullYear()),
+        seq: String(sequence).padStart(sequenceLength, "0"),
+        suffix,
+      },
+      context
+    );
+  } else {
+    value = formatNumber({
+      prefix,
+      separator,
+      includeFinancialYear,
+      includeMonth,
+      sequenceLength,
+      suffix,
+      sequence,
+      financialYear,
+    });
+  }
 
   return { value, sequence };
 }
 
 export async function generateDocumentNumber(
   businessId: string,
-  documentType: DocumentType
+  documentType: DocumentType,
+  context: Record<string, string> = {}
 ): Promise<GeneratedNumber> {
   if (!businessId) {
     throw new Error("businessId is required to generate a document number");
   }
-  return generateNumberInScope(businessId, documentType, businessId);
+  return generateNumberInScope(businessId, documentType, businessId, context);
 }
 
 /**
@@ -164,14 +205,16 @@ export async function generateDocumentNumber(
 export async function generateScopedDocumentNumber(
   scopeKey: string,
   documentType: DocumentType,
-  businessIdForConfig: string | null
+  businessIdForConfig: string | null,
+  context: Record<string, string> = {}
 ): Promise<GeneratedNumber> {
-  return generateNumberInScope(scopeKey, documentType, businessIdForConfig);
+  return generateNumberInScope(scopeKey, documentType, businessIdForConfig, context);
 }
 
 export async function generateGlobalDocumentNumber(
   documentType: DocumentType,
-  businessIdForConfig: string | null = null
+  businessIdForConfig: string | null = null,
+  context: Record<string, string> = {}
 ): Promise<GeneratedNumber> {
-  return generateNumberInScope(GLOBAL_SCOPE_ID, documentType, businessIdForConfig);
+  return generateNumberInScope(GLOBAL_SCOPE_ID, documentType, businessIdForConfig, context);
 }

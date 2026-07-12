@@ -9,6 +9,7 @@ import NativeProduct from "@/models/NativeProduct";
 import ProductCategory from "@/models/ProductCategory";
 import { generateSEO } from "@/services/seo.service";
 import { generateScopedDocumentNumber } from "@/core/numbering/numberingService";
+import DocumentNumberConfig from "@/models/DocumentNumberConfig";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 
@@ -90,12 +91,27 @@ export async function POST(req: Request, context: any) {
       : null;
     const vendorCodePrefix = (vendorProfileDoc as any)?.vendorId || "VND-0000";
 
-    const { sequence: vendorProductSeq } = await generateScopedDocumentNumber(
+    // vendorId in context lets a business configure a custom template for
+    // VENDOR_PRODUCT (Settings > Document Numbers) that includes
+    // {vendorId} -- e.g. "{vendorId}-PRD-{seq}" -- so it's dynamically
+    // this vendor's own code, not a fixed literal. No template configured
+    // -> falls back to this route's original "{vendorId}-PRD-0001" shape.
+    const numberConfig = await DocumentNumberConfig.findOne({
+      businessId: String(vendorProduct.businessId),
+      documentType: "VENDOR_PRODUCT",
+    })
+      .select("template")
+      .lean();
+
+    const { sequence: vendorProductSeq, value: generatedCode } = await generateScopedDocumentNumber(
       String(vendorProduct.vendorId || vendorProduct.businessId),
       "VENDOR_PRODUCT",
-      String(vendorProduct.businessId)
+      String(vendorProduct.businessId),
+      { vendorId: vendorCodePrefix }
     );
-    const productCode = `${vendorCodePrefix}-PRD-${String(vendorProductSeq).padStart(4, "0")}`;
+    const productCode = (numberConfig as any)?.template?.trim()
+      ? generatedCode
+      : `${vendorCodePrefix}-PRD-${String(vendorProductSeq).padStart(4, "0")}`;
 
     // Compute SEO (incl. slug) before creating -- Product.slug is a
     // required, unique top-level field, but this used to only be set on

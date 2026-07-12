@@ -7,9 +7,21 @@ import DocumentNumberConfig, {
 // Was @/lib/accounting/getFinancialYear — one of 3 duplicate FY calculators
 // that didn't even agree on output format with each other (see
 // core/numbering/financialYear.ts's top comment). Now uses the canonical one.
-import { getFinancialYearCode } from "@/core/numbering/financialYear";
+import { getFinancialYear, getFinancialYearCode } from "@/core/numbering/financialYear";
 import { DEFAULT_PREFIXES } from "@/core/numbering/types";
 import { logAction } from "@/lib/audit/logAction";
+
+// Sample values shown in a custom-template preview for tokens that only a
+// real generating call site can supply (e.g. {vendorId}) -- lets an admin
+// see roughly what their template will look like without needing a real
+// vendor/customer to test against. Real generation still requires the
+// actual caller to pass these tokens (see numberingService.ts's
+// renderTemplate) -- this is preview-only.
+const PREVIEW_CONTEXT: Record<string, string> = {
+  vendorId: "VND-0001",
+  customerId: "CUST-0001",
+  businessCode: "BIZ-01",
+};
 
 /* helper: build the format preview string from config fields */
 function buildPreview(
@@ -18,11 +30,35 @@ function buildPreview(
   includeFinancialYear: boolean,
   includeMonth: boolean,
   sequenceLength: number,
-  suffix: string
+  suffix: string,
+  financialYearFormat: "hyphenated" | "compact" = "hyphenated",
+  template?: string
 ): string {
+  const financialYear = financialYearFormat === "compact" ? getFinancialYearCode() : getFinancialYear();
+
+  if (template && template.trim()) {
+    try {
+      return template.replace(/\{(\w+)\}/g, (match, key: string) => {
+        const builtins: Record<string, string> = {
+          prefix,
+          fy: financialYear,
+          month: "MM",
+          year: String(new Date().getFullYear()),
+          seq: "0".repeat(sequenceLength),
+          suffix,
+        };
+        if (key in builtins) return builtins[key];
+        if (key in PREVIEW_CONTEXT) return PREVIEW_CONTEXT[key];
+        return `{${key}}`; // unknown token -- shown literally in the preview as a hint
+      });
+    } catch {
+      return "(invalid template)";
+    }
+  }
+
   const parts: string[] = [];
   if (prefix) parts.push(prefix);
-  if (includeFinancialYear) parts.push(getFinancialYearCode());
+  if (includeFinancialYear) parts.push(financialYear);
   if (includeMonth) parts.push("MM");
   parts.push("0".repeat(sequenceLength));
   if (suffix) parts.push(suffix);
@@ -70,12 +106,14 @@ export async function GET(req: NextRequest) {
         prefix,
         separator: "-",
         includeFinancialYear: true,
+        financialYearFormat: "hyphenated",
         includeMonth: false,
         sequenceLength: 4,
         suffix: "",
+        template: "",
         startFrom: 1,
         isActive: true,
-        formatPreview: buildPreview(prefix, "-", true, false, 4, ""),
+        formatPreview: buildPreview(prefix, "-", true, false, 4, "", "hyphenated", ""),
         _saved: false,
       };
     });
@@ -107,9 +145,11 @@ export async function POST(req: NextRequest) {
       prefix = "",
       separator = "-",
       includeFinancialYear = true,
+      financialYearFormat = "hyphenated",
       includeMonth = false,
       sequenceLength = 4,
       suffix = "",
+      template = "",
       startFrom = 1,
       isActive = true,
     } = body;
@@ -120,13 +160,22 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
 
+    if (financialYearFormat !== "hyphenated" && financialYearFormat !== "compact") {
+      return NextResponse.json(
+        { error: 'financialYearFormat must be "hyphenated" or "compact"' },
+        { status: 400 }
+      );
+    }
+
     const formatPreview = buildPreview(
       prefix,
       separator,
       includeFinancialYear,
       includeMonth,
       sequenceLength,
-      suffix
+      suffix,
+      financialYearFormat,
+      template
     );
 
     const config = await DocumentNumberConfig.findOneAndUpdate(
@@ -136,9 +185,11 @@ export async function POST(req: NextRequest) {
           prefix,
           separator,
           includeFinancialYear,
+          financialYearFormat,
           includeMonth,
           sequenceLength,
           suffix,
+          template,
           startFrom,
           isActive,
           formatPreview,
