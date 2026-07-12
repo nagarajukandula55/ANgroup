@@ -192,6 +192,7 @@ export default function Sidebar() {
   const [activeBiz, setActiveBiz]       = useState<Business | null>(null);
   const [bizDropdown, setBizDropdown]   = useState(false);
   const [switching, setSwitching]       = useState(false);
+  const [unreadCount, setUnreadCount]   = useState(0);
   // Tracks which subgroups are open — default all open
   const [openSubgroups, setOpenSubgroups] = useState<Record<string, boolean>>(() => {
     const allOpen: Record<string, boolean> = {};
@@ -201,6 +202,22 @@ export default function Sidebar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadUser(); }, []);
+
+  // Polls rather than a websocket/SSE push -- simplest option that keeps the
+  // bell badge reasonably fresh without adding realtime infra. 30s is
+  // frequent enough to feel "live" without hammering the API from every
+  // open admin tab.
+  useEffect(() => {
+    function loadUnreadCount() {
+      fetch("/api/notifications/unread-count")
+        .then((r) => r.json())
+        .then((d) => setUnreadCount(d.success ? d.count : 0))
+        .catch(() => {});
+    }
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Restore the desktop collapsed/expanded preference across visits.
   useEffect(() => {
@@ -508,10 +525,21 @@ export default function Sidebar() {
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >
-                  <IconComp
-                    size={14}
-                    className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"}
-                  />
+                  <span className="relative">
+                    <IconComp
+                      size={14}
+                      className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"}
+                    />
+                    {m.key === "notifications" && unreadCount > 0 && (
+                      <span
+                        className={`absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[14px] h-[14px] px-0.5 rounded-full text-[9px] font-bold ${
+                          active ? "bg-white text-indigo-600" : "bg-red-500 text-white"
+                        }`}
+                      >
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </span>
                   {!collapsed && <span className="text-[13px] font-medium">{m.label}</span>}
                   {!collapsed && active && <ChevronRight size={12} className="ml-auto text-gray-400" />}
                 </Link>

@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { bootstrapBusiness } from "@/services/businessBootstrap.service";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
 import { logAction } from "@/lib/audit/logAction";
+import { notifyUser } from "@/services/notification.service";
 
 export async function POST(req: Request) {
   try {
@@ -71,6 +72,15 @@ export async function POST(req: Request) {
       entityId: business._id?.toString(),
       after: business,
       req,
+    });
+
+    notifyUser({
+      userId,
+      businessId: business._id?.toString(),
+      title: "Business created",
+      message: `"${business.name}" was created successfully.`,
+      type: "success",
+      link: `/admin/business/${business._id}`,
     });
 
     return NextResponse.json({

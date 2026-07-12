@@ -21,6 +21,7 @@ import { validateGSTINAgainstState } from "@/lib/validation/gst";
 // toggles per business (see Business.ts's ModuleSchema + the "Modules"
 // section below).
 import { STATIC_MODULES } from "@/components/sidebar";
+import { useToast } from "@/components/shared/Toast";
 
 interface AuditLogEntry {
   _id: string;
@@ -178,6 +179,7 @@ function toForm(biz: Business): EditableForm {
 export default function BusinessDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const toast = useToast();
   const id = typeof params?.id === "string" ? params.id : String(params?.id ?? "");
 
   const [business, setBusiness] = useState<Business | null>(null);
@@ -303,11 +305,15 @@ export default function BusinessDetailPage() {
         setForm(toForm(data.business));
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
+        toast.success("Changes saved");
       } else {
-        setError(data.message || "Failed to save changes");
+        const message = data.message || "Failed to save changes";
+        setError(message);
+        toast.error(message);
       }
     } catch {
       setError("Failed to connect to server");
+      toast.error("Failed to connect to server");
     } finally {
       setSaving(false);
     }
@@ -330,12 +336,16 @@ export default function BusinessDetailPage() {
       const res = await fetch(`/api/businesses/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
+        toast.success(`Business "${business?.name}" deleted`);
         router.push("/admin/business");
       } else {
-        setError(data.message || "Failed to delete business");
+        const message = data.message || "Failed to delete business";
+        setError(message);
+        toast.error(message);
       }
     } catch {
       setError("Failed to connect to server");
+      toast.error("Failed to connect to server");
     } finally {
       deletingRef.current = false;
       setDeleting(false);

@@ -8,6 +8,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { notifyUser } from "@/services/notification.service";
 
 export async function GET(req: Request, context: any) {
   try {
@@ -229,6 +230,13 @@ export async function DELETE(req: Request, context: any) {
       after: { isActive: false },
       req,
       actor: { id: session.user.id },
+    });
+
+    notifyUser({
+      userId: session.user.id,
+      title: "Business deleted",
+      message: `"${(business as any).name}" was deleted.`,
+      type: "warning",
     });
 
     return NextResponse.json({ success: true });

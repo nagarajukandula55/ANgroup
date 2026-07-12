@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+import { useToast } from "@/components/shared/Toast";
 
 export default function NewBusinessPage() {
   const router = useRouter();
+  const toast = useToast();
 
   const [form, setForm] = useState({
     name: "",
@@ -96,22 +98,25 @@ export default function NewBusinessPage() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
+        toast.success(`Business "${form.name}" created`);
         // Land straight on the edit page so Super Admin can immediately pick
         // which modules this business gets (the "Modules" section already
         // there) instead of an extra click from the list page.
         router.push(`/admin/business/${data.business._id}`);
       } else {
-        setError(
+        const message =
           data.message ||
-            `Failed to create business (HTTP ${res.status}) — check the server logs / database connection`
-        );
+          `Failed to create business (HTTP ${res.status}) — check the server logs / database connection`;
+        setError(message);
+        toast.error(message);
       }
     } catch (err: any) {
-      setError(
+      const message =
         err?.name === "AbortError"
           ? "Request timed out after 25s — the server is not responding. Check that the database (MONGODB_URI) is reachable and restart the server."
-          : "Failed to connect to server"
-      );
+          : "Failed to connect to server";
+      setError(message);
+      toast.error(message);
     } finally {
       clearTimeout(timeout);
       savingRef.current = false;
