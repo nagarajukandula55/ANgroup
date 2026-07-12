@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
+import { useToast } from '@/components/shared/Toast';
 
 interface Role {
   _id: string;
@@ -81,6 +82,7 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const toast = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'access' | 'activity'>('profile');
@@ -147,11 +149,15 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       if (d.success) {
         setTempPassword(d.temporaryPassword);
         setResetMsg('Temporary password generated. Share it securely — it will not be shown again.');
+        toast.success('Temporary password generated');
       } else {
-        setResetMsg(d.message || 'Failed to reset password');
+        const message = d.message || 'Failed to reset password';
+        setResetMsg(message);
+        toast.error(message);
       }
     } catch {
       setResetMsg('Network error');
+      toast.error('Network error');
     } finally {
       setResetting(false);
     }
@@ -172,10 +178,18 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify({ mode: 'set', newPassword: manualPassword }),
       });
       const d = await res.json();
-      setResetMsg(d.success ? 'Password set. The user must change it on their next login.' : d.message || 'Failed to reset password');
-      if (d.success) setManualPassword('');
+      if (d.success) {
+        setResetMsg('Password set. The user must change it on their next login.');
+        toast.success('Password updated');
+        setManualPassword('');
+      } else {
+        const message = d.message || 'Failed to reset password';
+        setResetMsg(message);
+        toast.error(message);
+      }
     } catch {
       setResetMsg('Network error');
+      toast.error('Network error');
     } finally {
       setResetting(false);
     }

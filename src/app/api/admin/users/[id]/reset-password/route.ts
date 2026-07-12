@@ -18,6 +18,7 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { notifyUser } from "@/services/notification.service";
 
 const SALT_ROUNDS = 12;
 const MIN_LENGTH = 6;
@@ -85,6 +86,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       after: { mode },
       req,
       actor: { id: session.user.id },
+    });
+
+    notifyUser({
+      userId: id,
+      title: "Password changed",
+      message: "Your password was changed by an administrator. You'll be asked to set a new one on your next login.",
+      type: "warning",
     });
 
     return NextResponse.json({
