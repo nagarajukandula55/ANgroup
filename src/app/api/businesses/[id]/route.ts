@@ -185,3 +185,57 @@ export async function PATCH(req: Request, context: any) {
     );
   }
 }
+
+// DELETE /api/businesses/[id] — soft-delete a business (isActive: false),
+// same convention BusinessService.listBusinesses() / /api/businesses/list
+// already use to filter what shows up as "active" — consistent with how
+// PATCH above treats isActive, and avoids destroying historical data
+// (orders/invoices/etc.) tied to this businessId. Super-admin only: unlike
+// PATCH there's no non-super-admin path here, since deleting a business is
+// not something a regular business-scoped edit permission should ever grant.
+export async function DELETE(req: Request, context: any) {
+  try {
+    await connectDB();
+
+    const id = context?.params?.id;
+    if (!id) {
+      return NextResponse.json({ success: false, message: "Missing business id" }, { status: 400 });
+    }
+
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    if (!session.isSuperAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Only Super Admins can delete a business" },
+        { status: 403 }
+      );
+    }
+
+    const business = await Business.findByIdAndUpdate(
+      id,
+      { $set: { isActive: false } },
+      { new: true }
+    ).lean();
+    if (!business) {
+      return NextResponse.json({ success: false, message: "Business not found" }, { status: 404 });
+    }
+
+    logAction({
+      action: "DELETE",
+      entity: "Business",
+      entityId: id,
+      after: { isActive: false },
+      req,
+      actor: { id: session.user.id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, message: err?.message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

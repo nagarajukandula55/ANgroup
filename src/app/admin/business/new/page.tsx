@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
@@ -27,6 +27,11 @@ export default function NewBusinessPage() {
     pincode: "",
   });
   const [saving, setSaving] = useState(false);
+  // React state updates aren't applied to the DOM synchronously, so a fast
+  // double-click could fire createBusiness() twice before the button's
+  // disabled={saving} attribute actually commits, creating two Business
+  // documents. This ref is checked/set synchronously to close that window.
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [gstWarning, setGstWarning] = useState<string | null>(null);
 
@@ -51,6 +56,8 @@ export default function NewBusinessPage() {
   }
 
   async function createBusiness() {
+    if (savingRef.current) return;
+
     if (!form.name.trim()) {
       setError("Business name is required");
       return;
@@ -69,6 +76,7 @@ export default function NewBusinessPage() {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     setError(null);
 
@@ -106,6 +114,7 @@ export default function NewBusinessPage() {
       );
     } finally {
       clearTimeout(timeout);
+      savingRef.current = false;
       setSaving(false);
     }
   }

@@ -10,7 +10,7 @@
 // /api/businesses/[id] GET+PATCH endpoint, matching this admin/business/
 // section's existing style (see ../page.tsx).
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
@@ -194,6 +194,10 @@ export default function BusinessDetailPage() {
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+
   // Uploads via the same Cloudinary pipeline already used elsewhere
   // (api/assets/upload/route.js) and stores the returned secure URL onto
   // the form so a subsequent Save Changes persists it via PATCH
@@ -228,6 +232,13 @@ export default function BusinessDetailPage() {
     if (id) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setIsSuperAdmin(!!d.isSuperAdmin))
+      .catch(() => setIsSuperAdmin(false));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -302,9 +313,38 @@ export default function BusinessDetailPage() {
     }
   }
 
+  async function deleteBusiness() {
+    if (deletingRef.current) return;
+    if (
+      !window.confirm(
+        `Delete "${business?.name}"? This deactivates the business — it will stop appearing everywhere in the app, but its historical data is kept.`
+      )
+    ) {
+      return;
+    }
+
+    deletingRef.current = true;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/businesses/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        router.push("/admin/business");
+      } else {
+        setError(data.message || "Failed to delete business");
+      }
+    } catch {
+      setError("Failed to connect to server");
+    } finally {
+      deletingRef.current = false;
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
-      <div className="p-10 text-white bg-[#07111f] min-h-screen">
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-10">
         Loading business...
       </div>
     );
@@ -312,13 +352,13 @@ export default function BusinessDetailPage() {
 
   if (!business || !form) {
     return (
-      <div className="p-10 text-white bg-[#07111f] min-h-screen">
-        <div className="rounded border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+      <div className="min-h-screen bg-gray-50 text-gray-900 p-10">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
           {error || "Business not found"}
         </div>
         <Link
           href="/admin/business"
-          className="mt-4 inline-block text-cyan-400 underline text-sm"
+          className="mt-4 inline-block text-cyan-700 hover:underline text-sm"
         >
           &larr; Back to businesses
         </Link>
@@ -327,45 +367,57 @@ export default function BusinessDetailPage() {
   }
 
   const inputCls =
-    "w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/60";
-  const labelCls = "block text-xs uppercase tracking-wide text-white/50 mb-1";
+    "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400";
+  const labelCls = "block text-xs uppercase tracking-wide text-gray-400 mb-1";
 
   return (
-    <div className="p-10 text-white bg-[#07111f] min-h-screen">
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <button
             onClick={() => router.push("/admin/business")}
-            className="text-xs text-cyan-400 underline mb-2"
+            className="text-xs text-cyan-700 hover:underline mb-2"
           >
             &larr; Back to businesses
           </button>
           <h1 className="text-3xl font-bold">{business.name}</h1>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-gray-400">
             {[business.industry, business.type].filter(Boolean).join(" · ") ||
               "Business profile"}
           </p>
         </div>
-        {business.isActive === false && (
-          <span className="text-[10px] uppercase tracking-wide bg-red-500/20 text-red-300 font-bold px-2 py-1 rounded h-fit">
-            Inactive
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {business.isActive === false && (
+            <span className="text-[10px] uppercase tracking-wide bg-red-50 text-red-600 font-bold px-2 py-1 rounded h-fit border border-red-200">
+              Inactive
+            </span>
+          )}
+          {isSuperAdmin && (
+            <button
+              onClick={deleteBusiness}
+              disabled={deleting}
+              className="text-sm font-medium px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition disabled:opacity-40 whitespace-nowrap"
+            >
+              {deleting ? "Deleting…" : "Delete Business"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div className="mt-4 rounded border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
           {error}
         </div>
       )}
       {saved && (
-        <div className="mt-4 rounded border border-green-500/40 bg-green-500/10 px-4 py-2 text-sm text-green-300">
+        <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
           Changes saved.
         </div>
       )}
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
           <h2 className="font-bold text-lg">Identity</h2>
           <div>
             <label className={labelCls}>Display Name</label>
@@ -439,14 +491,14 @@ export default function BusinessDetailPage() {
             </select>
           </div>
 
-          <div className="pt-2 text-xs text-white/40 space-y-1">
+          <div className="pt-2 text-xs text-gray-400 space-y-1">
             {business.email && <div>Email: {business.email}</div>}
             {business.phone && <div>Phone: {business.phone}</div>}
             {business.website && <div>Website: {business.website}</div>}
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
           <h2 className="font-bold text-lg">Address</h2>
           <div>
             <label className={labelCls}>Street Address</label>
@@ -497,7 +549,7 @@ export default function BusinessDetailPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
           <h2 className="font-bold text-lg">Compliance</h2>
           <div>
             <label className={labelCls}>GST Number</label>
@@ -617,7 +669,7 @@ export default function BusinessDetailPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
           <h2 className="font-bold text-lg">Financial Settings</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
@@ -688,7 +740,7 @@ export default function BusinessDetailPage() {
               />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm text-white/70">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
             <input
               type="checkbox"
               checked={form.financial.priceIncludesTax}
@@ -706,9 +758,9 @@ export default function BusinessDetailPage() {
           </label>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
           <h2 className="font-bold text-lg">Branding</h2>
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-gray-400">
             Logo and favicon shown on invoices and consumed by storefronts
             (e.g. Native) via GET /api/businesses/public.
           </p>
@@ -725,10 +777,10 @@ export default function BusinessDetailPage() {
                   <img
                     src={form.logo}
                     alt="Logo preview"
-                    className="h-12 w-12 rounded border border-white/10 object-contain bg-white/5"
+                    className="h-12 w-12 rounded border border-gray-200 object-contain bg-gray-50"
                   />
                 ) : (
-                  <div className="h-12 w-12 rounded border border-white/10 bg-white/5 flex items-center justify-center text-[10px] text-white/40">
+                  <div className="h-12 w-12 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400">
                     None
                   </div>
                 )}
@@ -740,9 +792,9 @@ export default function BusinessDetailPage() {
                     const file = e.target.files?.[0];
                     if (file) handleBrandingUpload(file, "logo", setUploadingLogo);
                   }}
-                  className="text-xs text-white/70 file:mr-3 file:rounded file:border-0 file:bg-cyan-500 file:px-3 file:py-1.5 file:text-black file:text-xs file:font-bold"
+                  className="text-xs text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-cyan-500 file:px-3 file:py-1.5 file:text-black file:text-xs file:font-bold"
                 />
-                {uploadingLogo && <span className="text-xs text-white/50">Uploading…</span>}
+                {uploadingLogo && <span className="text-xs text-gray-400">Uploading…</span>}
               </div>
             </div>
             <div>
@@ -752,10 +804,10 @@ export default function BusinessDetailPage() {
                   <img
                     src={form.favicon}
                     alt="Favicon preview"
-                    className="h-12 w-12 rounded border border-white/10 object-contain bg-white/5"
+                    className="h-12 w-12 rounded border border-gray-200 object-contain bg-gray-50"
                   />
                 ) : (
-                  <div className="h-12 w-12 rounded border border-white/10 bg-white/5 flex items-center justify-center text-[10px] text-white/40">
+                  <div className="h-12 w-12 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400">
                     None
                   </div>
                 )}
@@ -767,35 +819,35 @@ export default function BusinessDetailPage() {
                     const file = e.target.files?.[0];
                     if (file) handleBrandingUpload(file, "favicon", setUploadingFavicon);
                   }}
-                  className="text-xs text-white/70 file:mr-3 file:rounded file:border-0 file:bg-cyan-500 file:px-3 file:py-1.5 file:text-black file:text-xs file:font-bold"
+                  className="text-xs text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-cyan-500 file:px-3 file:py-1.5 file:text-black file:text-xs file:font-bold"
                 />
-                {uploadingFavicon && <span className="text-xs text-white/50">Uploading…</span>}
+                {uploadingFavicon && <span className="text-xs text-gray-400">Uploading…</span>}
               </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-bold text-lg">Homepage Banners</h2>
-              <p className="mt-1 text-xs text-white/50">
+              <p className="mt-1 text-xs text-gray-400">
                 Manage the storefront's homepage hero slideshow images —
                 upload, reorder, and toggle banners without touching code.
               </p>
             </div>
             <Link
               href={`/admin/business/${id}/banners`}
-              className="bg-cyan-500 px-4 py-2 text-black font-bold rounded text-sm whitespace-nowrap"
+              className="bg-gray-900 px-4 py-2 text-white font-medium rounded-xl text-sm whitespace-nowrap hover:bg-gray-800 transition"
             >
               Manage Banners
             </Link>
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
           <h2 className="font-bold text-lg">Modules</h2>
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-gray-400">
             Choose which application modules are available to this business.
             Unchecked modules are hidden from this business's sidebar for
             non-super-admin users.
@@ -804,7 +856,7 @@ export default function BusinessDetailPage() {
             {form.modules.map((mod) => (
               <label
                 key={mod.key}
-                className="flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80"
+                className="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
               >
                 <input
                   type="checkbox"
@@ -824,20 +876,20 @@ export default function BusinessDetailPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-white/5 p-6 space-y-4 lg:col-span-2">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
           <h2 className="font-bold text-lg">Activity Log</h2>
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-gray-400">
             Recent actions taken on this business's data (creates, edits,
             deletes) across the app — most recent first, last 200 entries.
           </p>
           {logsLoading ? (
-            <p className="text-sm text-white/50">Loading…</p>
+            <p className="text-sm text-gray-400">Loading…</p>
           ) : logs.length === 0 ? (
-            <p className="text-sm text-white/50">No activity recorded yet.</p>
+            <p className="text-sm text-gray-400">No activity recorded yet.</p>
           ) : (
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-white/50 border-b border-white/10">
+                <thead className="text-left text-gray-400 border-b border-gray-200">
                   <tr>
                     <th className="py-2 pr-4">When</th>
                     <th className="py-2 pr-4">Action</th>
@@ -845,18 +897,18 @@ export default function BusinessDetailPage() {
                     <th className="py-2 pr-4">By</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-gray-100">
                   {logs.map((log) => (
                     <tr key={log._id}>
-                      <td className="py-2 pr-4 whitespace-nowrap text-white/70">
+                      <td className="py-2 pr-4 whitespace-nowrap text-gray-600">
                         {new Date(log.createdAt).toLocaleString("en-IN")}
                       </td>
-                      <td className="py-2 pr-4 text-white/80">{log.action}</td>
-                      <td className="py-2 pr-4 text-white/70">
+                      <td className="py-2 pr-4 text-gray-700">{log.action}</td>
+                      <td className="py-2 pr-4 text-gray-600">
                         {log.entity}
                         {log.entityId ? ` (${log.entityId.slice(-6)})` : ""}
                       </td>
-                      <td className="py-2 pr-4 text-white/70">
+                      <td className="py-2 pr-4 text-gray-600">
                         {log.userEmail || log.userName || (log.isSuperAdmin ? "Super Admin" : "—")}
                       </td>
                     </tr>
@@ -872,10 +924,11 @@ export default function BusinessDetailPage() {
         <button
           onClick={save}
           disabled={saving}
-          className="bg-cyan-500 px-6 py-3 text-black font-bold rounded disabled:opacity-40"
+          className="bg-gray-900 px-6 py-3 text-white font-medium rounded-xl disabled:opacity-40 hover:bg-gray-800 transition"
         >
           {saving ? "Saving..." : "Save Changes"}
         </button>
+      </div>
       </div>
     </div>
   );
