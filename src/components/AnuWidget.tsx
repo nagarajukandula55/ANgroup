@@ -119,7 +119,10 @@ export default function AnuWidget() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="ANu"
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all duration-150 relative"
+        style={{ position: "fixed", bottom: "1.5rem", right: "1.5rem" }}
+        className={`z-40 w-14 h-14 rounded-full bg-gradient-to-br from-gray-800 to-gray-950 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 hover:scale-110 active:scale-95 transition-transform duration-150 relative ${
+          !open ? "anu-avatar-idle" : ""
+        }`}
       >
         {open ? <X size={20} /> : <Bot size={22} />}
         {!open && (
@@ -128,7 +131,10 @@ export default function AnuWidget() {
       </button>
 
       {open && (
-        <div className="fixed bottom-24 right-6 z-40 w-80 max-w-[calc(100vw-3rem)] h-[28rem] max-h-[70vh] bg-white rounded-2xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden transition-all duration-200">
+        <div
+          style={{ position: "fixed", bottom: "6rem", right: "1.5rem" }}
+          className="z-40 w-80 max-w-[calc(100vw-3rem)] h-[28rem] max-h-[70vh] bg-white rounded-2xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden transition-all duration-200"
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-900 text-white">
             <div className="flex items-center gap-2">
               <Bot size={16} />
@@ -176,7 +182,7 @@ export default function AnuWidget() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
             {messages.length === 0 && (
               <p className="text-xs text-gray-400">
-                Ask me how something in this app works — modules, permissions, document numbering, HR, CRM, vendors, the mobile app, anything. Try me in any language — just type your question the way you'd normally write it.
+                Ask me how something in this app works — modules, permissions, document numbering, HR, CRM, vendors, the mobile app, anything. Try me in any language — just type your question the way you'd normally write it. I keep track of what we've discussed, so you don't have to repeat context every time.
               </p>
             )}
             {messages.map((m, i) => (

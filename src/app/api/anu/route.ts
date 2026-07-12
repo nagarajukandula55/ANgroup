@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/core/db/mongodb";
 import { askAnu } from "@/core/anu/anuService";
 import type { AnuMessage } from "@/core/anu/types";
+import AnuInteractionLog from "@/models/AnuInteractionLog";
 
 // POST /api/anu — ask ANu (the in-house AI assistant) a question, grounded
 // in this business's actual enabled modules and platform knowledge. Body:
@@ -36,6 +37,19 @@ export async function POST(req: NextRequest) {
       // Not a 500 — this is an expected "not configured yet" state, not a
       // server failure, so the UI can show a friendly setup prompt.
       return NextResponse.json({ success: false, error: result.error }, { status: 200 });
+    }
+
+    // Best-effort, fire-and-forget: this is the "natural learning" memory
+    // trail buildAnuContext() reads back in on future questions -- must
+    // never block or fail the actual reply if the write hiccups.
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    if (lastUserMessage) {
+      AnuInteractionLog.create({
+        businessId,
+        userId,
+        question: lastUserMessage.content,
+        answer: result.reply,
+      }).catch(() => {});
     }
 
     return NextResponse.json({ success: true, reply: result.reply, provider: result.provider });

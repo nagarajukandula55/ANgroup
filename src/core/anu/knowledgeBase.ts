@@ -2,6 +2,7 @@ import type { AnuKnowledgeEntry } from "./types";
 import { listModulesForBusiness } from "@/core/module-registry/moduleDefinition.service";
 import { listPendingFilings } from "@/core/gst/gstFilingService";
 import AnuKnowledge from "@/models/AnuKnowledge";
+import AnuInteractionLog from "@/models/AnuInteractionLog";
 
 /**
  * Static platform knowledge ANu is grounded in, regardless of business.
@@ -205,6 +206,27 @@ export async function buildAnuContext(businessId: string, language?: string): Pr
     }
   }
 
+  // Recent memory: the last few things this business asked ANu, across
+  // ALL past sessions (not just messages already in the current widget's
+  // open panel) -- this is what makes ANu feel like a continuous presence
+  // rather than a stateless Q&A box that forgets everything the moment
+  // the panel closes. Deliberately small (5) and recency-only, not a full
+  // transcript, to keep the prompt light.
+  const recentInteractions = await AnuInteractionLog.find({ businessId })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean()
+    .catch(() => []);
+  const memorySection = recentInteractions.length
+    ? [
+        "",
+        "## Recently discussed with this business (most recent first — for continuity, don't repeat unless relevant)",
+        recentInteractions
+          .map((r: any) => `- Q: ${String(r.question).slice(0, 200)}\n  A: ${String(r.answer).slice(0, 200)}`)
+          .join("\n"),
+      ].join("\n")
+    : "";
+
   // Indian-market platform, many users are far more comfortable in their
   // own language than English -- default is to mirror whatever language
   // the user's own message is written in (no separate translation step;
@@ -224,5 +246,6 @@ export async function buildAnuContext(businessId: string, language?: string): Pr
     "## Modules currently enabled for this business",
     moduleList || "(none enabled yet)",
     gstSection,
+    memorySection,
   ].join("\n");
 }

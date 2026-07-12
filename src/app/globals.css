@@ -307,3 +307,28 @@ tr:last-child td { border-bottom: none; }
     background: white !important;
   }
 }
+
+/* ==========================================
+   ANu — idle "alive" motion for the launcher
+   bubble (bottom-right, fixed). Gentle bob +
+   occasional small hop, so it reads as a
+   present being in the system, not a static
+   icon -- deliberately subtle, never covers
+   the button's own hover/press transform.
+========================================== */
+@keyframes anu-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes anu-hop {
+  0%, 92%, 100% { transform: translateX(0) rotate(0deg); }
+  94% { transform: translateX(-3px) rotate(-4deg); }
+  96% { transform: translateX(3px) rotate(4deg); }
+  98% { transform: translateX(-2px) rotate(-2deg); }
+}
+.anu-avatar-idle {
+  animation: anu-bob 3.2s ease-in-out infinite, anu-hop 6s ease-in-out infinite;
+}
+.anu-avatar-idle:hover {
+  animation-play-state: paused;
+}
