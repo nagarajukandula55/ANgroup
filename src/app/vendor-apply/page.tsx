@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
-import { getComplianceDocsForIndustry, type ComplianceDocRequirement } from "@/core/vendorCompliance";
+import { getComplianceDocsForIndustry, UNIVERSAL_VENDOR_DOCS, type ComplianceDocRequirement } from "@/core/vendorCompliance";
+
+// GST + PAN already have dedicated cards below (tied to the gstRegistered
+// toggle); MSME + Trade License are the remaining universal docs, rendered
+// the same way as industry-specific compliance docs (number + upload).
+const OTHER_UNIVERSAL_DOCS = UNIVERSAL_VENDOR_DOCS.filter(
+  (d) => d.key !== "gst_certificate" && d.key !== "pan_card"
+);
 
 function Field({
   label,
@@ -53,7 +60,7 @@ function UploadDropzone({
       }`}
     >
       <span className={uploadedUrl ? "text-emerald-700 font-medium" : "text-gray-500"}>
-        {uploading ? "Uploading…" : uploadedUrl ? "Uploaded — click to replace" : "Click to upload document"}
+        {uploading ? "Uploading…" : uploadedUrl ? "Uploaded — click to replace" : "Click to upload (PDF/image, max 10MB)"}
       </span>
       <input
         type="file"
@@ -549,6 +556,38 @@ function VendorApplyForm() {
               state={regDoc}
               onUpload={(file) => uploadGenericDoc(setRegDoc, file)}
             />
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <p className="text-xs font-medium text-gray-700">Required documents — every vendor</p>
+            {OTHER_UNIVERSAL_DOCS.map((doc) => {
+              const uploaded = complianceUploads[doc.key];
+              return (
+                <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
+                  <p className="text-sm font-medium text-gray-900">
+                    {doc.label}
+                    <span className="text-red-500 ml-0.5">*</span>
+                  </p>
+                  {doc.helpText && <p className="text-[11px] text-gray-400 mt-0.5 mb-2">{doc.helpText}</p>}
+                  {doc.collectNumber && (
+                    <input
+                      type="text"
+                      placeholder={doc.numberLabel || "License number"}
+                      value={uploaded?.number || ""}
+                      onChange={(e) =>
+                        setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], number: e.target.value } }))
+                      }
+                      className={`${inputCls} mb-2`}
+                    />
+                  )}
+                  <UploadDropzone
+                    uploading={!!uploaded?.uploading}
+                    uploadedUrl={uploaded?.url}
+                    onFile={(file) => uploadComplianceDoc(doc, file)}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {requiredComplianceDocs.length > 0 && (

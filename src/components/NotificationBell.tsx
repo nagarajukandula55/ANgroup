@@ -9,6 +9,7 @@
  * ANu (bottom-left) or the toast stack (bottom-right).
  */
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Check, CheckCheck, Trash2, Info, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 
 interface NotificationItem {
@@ -39,6 +40,7 @@ function timeAgo(dateStr: string) {
 }
 
 export default function NotificationBell() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,6 +101,14 @@ export default function NotificationBell() {
     }
   }
 
+  function openNotification(n: NotificationItem) {
+    if (!n.isRead) markRead(n._id);
+    if (n.link) {
+      setOpen(false);
+      router.push(n.link);
+    }
+  }
+
   async function remove(id: string) {
     try {
       await fetch(`/api/notifications/${id}`, { method: "DELETE" });
@@ -147,7 +157,11 @@ export default function NotificationBell() {
                   const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.info;
                   const Icon = cfg.icon;
                   return (
-                    <div key={n._id} className={`flex gap-2.5 px-4 py-3 ${!n.isRead ? "bg-blue-50/30" : ""}`}>
+                    <div
+                      key={n._id}
+                      onClick={() => openNotification(n)}
+                      className={`flex gap-2.5 px-4 py-3 ${!n.isRead ? "bg-blue-50/30" : ""} ${n.link ? "cursor-pointer hover:bg-gray-50" : ""}`}
+                    >
                       <div className={`mt-0.5 w-7 h-7 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
                         <Icon size={13} className={cfg.color} />
                       </div>
@@ -158,11 +172,11 @@ export default function NotificationBell() {
                       </div>
                       <div className="flex flex-col gap-1 shrink-0">
                         {!n.isRead && (
-                          <button onClick={() => markRead(n._id)} title="Mark as read" className="p-1 rounded text-gray-400 hover:text-green-600">
+                          <button onClick={(e) => { e.stopPropagation(); markRead(n._id); }} title="Mark as read" className="p-1 rounded text-gray-400 hover:text-green-600">
                             <Check size={12} />
                           </button>
                         )}
-                        <button onClick={() => remove(n._id)} title="Delete" className="p-1 rounded text-gray-400 hover:text-red-600">
+                        <button onClick={(e) => { e.stopPropagation(); remove(n._id); }} title="Delete" className="p-1 rounded text-gray-400 hover:text-red-600">
                           <Trash2 size={12} />
                         </button>
                       </div>

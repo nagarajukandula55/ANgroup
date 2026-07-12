@@ -9,7 +9,7 @@ import {
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { validateGSTINAgainstState } from '@/lib/validation/gst'
 import { VendorDetailModal, VendorDetailData } from '@/components/shared/VendorDetailModal'
-import { getComplianceDocsForIndustry, type ComplianceDocRequirement } from '@/core/vendorCompliance'
+import { getComplianceDocsForIndustry, getRequiredVendorDocs, UNIVERSAL_VENDOR_DOCS, type ComplianceDocRequirement } from '@/core/vendorCompliance'
 
 type Vendor = VendorDetailData
 
@@ -126,7 +126,8 @@ export default function VendorsPage() {
   }
 
   const selectedOnboardingBusiness = allBusinesses.find(b => b._id === form.onboardingBusinessId)
-  const requiredComplianceDocs = getComplianceDocsForIndustry(selectedOnboardingBusiness?.industry)
+  const industryComplianceDocs = getComplianceDocsForIndustry(selectedOnboardingBusiness?.industry)
+  const requiredComplianceDocs = getRequiredVendorDocs(selectedOnboardingBusiness?.industry)
 
   async function handleComplianceUpload(doc: ComplianceDocRequirement, file: File) {
     setComplianceUploads(prev => ({ ...prev, [doc.key]: { ...prev[doc.key], uploading: true } }))
@@ -478,7 +479,7 @@ export default function VendorsPage() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-lg max-h-[90vh] bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+          <div className="relative w-full max-w-2xl max-h-[90vh] bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
 
             {/* Form header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
@@ -674,12 +675,58 @@ export default function VendorsPage() {
                     </p>
                   </div>
 
-                  {requiredComplianceDocs.length > 0 && (
+                  {selectedOnboardingBusiness && (
+                    <div className="space-y-3 pt-2">
+                      <p className="text-xs font-medium text-gray-700">
+                        Required documents — every vendor
+                      </p>
+                      {UNIVERSAL_VENDOR_DOCS.map(doc => {
+                        const uploaded = complianceUploads[doc.key]
+                        return (
+                          <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
+                            <p className="text-sm font-medium text-gray-900">{doc.label}<span className="text-red-500 ml-0.5">*</span></p>
+                            {doc.helpText && <p className="text-[11px] text-gray-400 mt-0.5 mb-2">{doc.helpText}</p>}
+
+                            {doc.collectNumber && (
+                              <input
+                                type="text"
+                                placeholder={doc.numberLabel || 'License number'}
+                                value={uploaded?.number || ''}
+                                onChange={e => setComplianceUploads(prev => ({ ...prev, [doc.key]: { ...prev[doc.key], number: e.target.value } }))}
+                                className="w-full mb-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
+                              />
+                            )}
+
+                            <label className={`flex items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-3 text-xs cursor-pointer transition ${
+                              uploaded?.uploading ? 'border-gray-200 bg-gray-50 opacity-60' : uploaded?.url ? 'border-emerald-300 bg-emerald-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                            }`}>
+                              <span className={uploaded?.url ? 'text-emerald-700 font-medium' : 'text-gray-500'}>
+                                {uploaded?.uploading ? 'Uploading…' : uploaded?.url ? 'Uploaded — click to replace' : 'Click to upload document (PDF/image, max 10MB)'}
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                className="hidden"
+                                disabled={uploaded?.uploading}
+                                onChange={e => {
+                                  const file = e.target.files?.[0]
+                                  if (file) handleComplianceUpload(doc, file)
+                                  e.target.value = ''
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {industryComplianceDocs.length > 0 && (
                     <div className="space-y-3 pt-2">
                       <p className="text-xs font-medium text-gray-700">
                         Required documents for {selectedOnboardingBusiness?.brandName || selectedOnboardingBusiness?.name}&apos;s industry
                       </p>
-                      {requiredComplianceDocs.map(doc => {
+                      {industryComplianceDocs.map(doc => {
                         const uploaded = complianceUploads[doc.key]
                         return (
                           <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
@@ -720,9 +767,9 @@ export default function VendorsPage() {
                     </div>
                   )}
 
-                  {selectedOnboardingBusiness && requiredComplianceDocs.length === 0 && (
+                  {selectedOnboardingBusiness && industryComplianceDocs.length === 0 && (
                     <p className="text-xs text-gray-400 italic">
-                      No industry-specific compliance documents required for this business.
+                      No additional industry-specific compliance documents required for this business.
                     </p>
                   )}
                 </div>

@@ -6,6 +6,7 @@ import User from "@/models/User";
 import { Types } from "mongoose";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
+import { notifySuperAdmins } from "@/services/notification.service";
 
 /**
  * POST /api/vendors/apply — PUBLIC vendor signup request.
@@ -187,6 +188,13 @@ export async function POST(req: NextRequest) {
       entityId: vendor._id?.toString(),
       after: vendor,
       req,
+    });
+
+    await notifySuperAdmins({
+      title: "New vendor application",
+      message: `${String(companyName).trim()} applied (request ${requestNumber}) and needs review${business ? ` for ${business.brandName || business.name}` : ""}.`,
+      type: "warning",
+      link: "/admin/vendors",
     });
 
     return NextResponse.json(

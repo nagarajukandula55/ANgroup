@@ -1,4 +1,5 @@
 import Notification from "@/models/Notification";
+import User from "@/models/User";
 
 /**
  * Server-side helper for other routes/services to raise a persistent,
@@ -26,5 +27,37 @@ export async function notifyUser({
     await Notification.create({ userId, businessId, title, message, type, link });
   } catch (err) {
     console.error("[notification] failed to create notification:", err);
+  }
+}
+
+/**
+ * Fan-out helper for anything that needs super-admin attention (vendor
+ * applications, role/access requests, mobile-app-settings changes, etc.):
+ * notifies every SUPER_ADMIN user at once so the person who happens to be
+ * online sees and can act on it, instead of one specific admin's queue.
+ * `link` should point straight at the page where the action is taken (e.g.
+ * the vendor review tab), not just a generic notifications list, so
+ * clicking the notification lands the admin exactly where they need to act.
+ */
+export async function notifySuperAdmins({
+  title,
+  message,
+  type = "info",
+  link,
+}: {
+  title: string;
+  message: string;
+  type?: "info" | "success" | "warning" | "error";
+  link?: string;
+}) {
+  try {
+    const superAdmins = await User.find({ role: "SUPER_ADMIN" }).select("_id").lean();
+    await Promise.all(
+      superAdmins.map((u) =>
+        Notification.create({ userId: u._id, title, message, type, link })
+      )
+    );
+  } catch (err) {
+    console.error("[notification] failed to notify super admins:", err);
   }
 }

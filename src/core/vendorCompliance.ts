@@ -21,6 +21,43 @@ export interface ComplianceDocRequirement {
   numberLabel?: string;
 }
 
+/**
+ * Documents every vendor must upload regardless of industry — baseline
+ * Indian business-registration/tax documents, not domain-specific
+ * compliance. Shown before the industry-specific list on every onboarding
+ * and vendor-signup form.
+ */
+export const UNIVERSAL_VENDOR_DOCS: ComplianceDocRequirement[] = [
+  {
+    key: "gst_certificate",
+    label: "GST Certificate",
+    helpText: "GST registration certificate for this vendor's business.",
+    collectNumber: true,
+    numberLabel: "GSTIN",
+  },
+  {
+    key: "pan_card",
+    label: "PAN Card",
+    helpText: "PAN of the vendor business or proprietor.",
+    collectNumber: true,
+    numberLabel: "PAN Number",
+  },
+  {
+    key: "msme_certificate",
+    label: "MSME (Udyam) Registration",
+    helpText: "MSME/Udyam registration certificate, if the vendor is registered as an MSME.",
+    collectNumber: true,
+    numberLabel: "Udyam Registration Number",
+  },
+  {
+    key: "trade_license",
+    label: "Trade License",
+    helpText: "Local municipal trade license for operating this business.",
+    collectNumber: true,
+    numberLabel: "Trade License Number",
+  },
+];
+
 export const INDUSTRY_COMPLIANCE_DOCS: Partial<Record<Industry, ComplianceDocRequirement[]>> = {
   FOOD_BEVERAGE: [
     {
@@ -68,8 +105,13 @@ export const INDUSTRY_COMPLIANCE_DOCS: Partial<Record<Industry, ComplianceDocReq
   ],
 };
 
-/** Returns the compliance doc requirements for a business's industry, or an empty list if none apply. */
+/** Returns only the industry-specific compliance doc requirements, or an empty list if none apply. */
 export function getComplianceDocsForIndustry(industry?: string | null): ComplianceDocRequirement[] {
   if (!industry) return [];
   return INDUSTRY_COMPLIANCE_DOCS[industry as Industry] || [];
+}
+
+/** Returns the universal docs every vendor must upload, plus any industry-specific ones on top. */
+export function getRequiredVendorDocs(industry?: string | null): ComplianceDocRequirement[] {
+  return [...UNIVERSAL_VENDOR_DOCS, ...getComplianceDocsForIndustry(industry)];
 }

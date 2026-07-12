@@ -1,7 +1,4 @@
 "use client";
-// build-cache-buster: forcing a fresh deploy diff to rule out a stale
-// Vercel build artifact serving old compiled output despite the source
-// commit being current.
 
 /**
  * ANu floating overlay — available on every admin page without disturbing
@@ -137,19 +134,21 @@ export default function AnuWidget() {
 
   return (
     <>
-      {/* Launcher bubble — bottom-left, deliberately opposite corner from
-          the toast stack (bottom-right, see components/shared/Toast.tsx)
-          so an open ANu panel never overlaps an active toast. */}
+      {/* Launcher bubble — bottom-right. Previously bottom-left, but that
+          put it directly behind the admin sidebar (fixed/sticky, z-50,
+          full-height, opaque, anchored to the left edge), which painted
+          over it completely: the button was in the DOM and functioning,
+          just visually hidden underneath the sidebar on every page. */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="ANu assistant"
-        className="fixed bottom-6 left-6 z-40 w-12 h-12 rounded-full bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition"
+        className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-gray-900 text-white shadow-lg flex items-center justify-center hover:bg-gray-800 transition"
       >
         {open ? <X size={18} /> : <Bot size={20} />}
       </button>
 
       {open && (
-        <div className="fixed bottom-24 left-6 z-40 w-80 max-w-[calc(100vw-3rem)] h-[28rem] max-h-[70vh] bg-white rounded-2xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-24 right-6 z-40 w-80 max-w-[calc(100vw-3rem)] h-[28rem] max-h-[70vh] bg-white rounded-2xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-900 text-white">
             <div className="flex items-center gap-2">
               <Bot size={16} />
