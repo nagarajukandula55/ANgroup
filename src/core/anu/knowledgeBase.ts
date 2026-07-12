@@ -149,6 +149,61 @@ const STATIC_KNOWLEDGE: AnuKnowledgeEntry[] = [
   },
 ];
 
+const STOPWORDS = new Set([
+  "the", "a", "an", "is", "are", "was", "were", "do", "does", "did", "how", "what",
+  "where", "when", "who", "why", "can", "could", "should", "would", "to", "for",
+  "of", "in", "on", "at", "and", "or", "it", "this", "that", "i", "me", "my",
+  "you", "your", "we", "our", "with", "about", "from", "as", "be", "have", "has",
+]);
+
+function scoreEntry(queryWords: string[], topic: string, summary: string): number {
+  const haystack = `${topic} ${summary}`.toLowerCase();
+  let score = 0;
+  for (const w of queryWords) {
+    if (haystack.includes(w)) score += w.length >= 5 ? 2 : 1;
+  }
+  return score;
+}
+
+/**
+ * Local, no-LLM fallback: keyword-matches the user's question against
+ * STATIC_KNOWLEDGE + this business's AnuKnowledge entries + recent
+ * interaction history, and returns the best match's summary directly —
+ * no external API call at all. This is NOT the locally-hosted-model path
+ * that's explicitly deferred (see types.ts) — it's plain retrieval over
+ * text already in the database, so ANu can answer from what it already
+ * knows even for a business that hasn't configured an Anthropic/OpenAI
+ * key yet, instead of hard-erroring with "ANu isn't set up yet".
+ */
+export async function localAnswer(businessId: string, question: string): Promise<string | null> {
+  const queryWords = question
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+  if (queryWords.length === 0) return null;
+
+  const dynamicEntries = await AnuKnowledge.find({ $or: [{ businessId: null }, { businessId }] })
+    .lean()
+    .catch(() => []);
+
+  const candidates: { topic: string; summary: string }[] = [
+    ...STATIC_KNOWLEDGE,
+    ...dynamicEntries.map((k: any) => ({ topic: k.topic, summary: k.summary })),
+  ];
+
+  let best: { entry: { topic: string; summary: string }; score: number } | null = null;
+  for (const entry of candidates) {
+    const score = scoreEntry(queryWords, entry.topic, entry.summary);
+    if (score > 0 && (!best || score > best.score)) best = { entry, score };
+  }
+
+  // Require at least a couple of matched signal words so a one-off overlap
+  // (e.g. just "how") doesn't return an unrelated topic with false confidence.
+  if (!best || best.score < 2) return null;
+
+  return best.entry.summary;
+}
+
 /**
  * Build ANu's grounding context for one query: static platform knowledge +
  * a live list of this business's actual enabled modules (so ANu never tells

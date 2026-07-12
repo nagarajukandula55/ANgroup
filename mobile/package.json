@@ -1,17 +1,24 @@
 {
   "name": "an-group-mobile",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start": "expo start --dev-client",
+    "android": "expo start --dev-client --android",
+    "ios": "expo start --dev-client --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prebuild": "expo prebuild",
+    "build:dev": "eas build --profile development",
+    "build:preview": "eas build --profile preview",
+    "build:production": "eas build --profile production",
+    "submit:ios": "eas submit --platform ios --latest",
+    "submit:android": "eas submit --platform android --latest"
   },
   "dependencies": {
     "expo": "~51.0.0",
+    "expo-dev-client": "~4.0.0",
     "expo-router": "~3.5.0",
     "expo-secure-store": "~13.0.0",
     "expo-status-bar": "~1.12.0",

@@ -18,14 +18,22 @@ Edit `app.json`'s `expo.extra`:
   `NEXT_PUBLIC_AN_API`)
 - `anBusinessId` — Native's Business `_id` inside ANgroup (same value as
   Native's `NEXT_PUBLIC_AN_BUSINESS_ID`)
+- `razorpayKeyId` — the same Razorpay key ANgroup's web checkout uses
 
 Then:
 
 ```bash
-npm run start      # Expo dev server — scan the QR with Expo Go
+npm run start      # Expo dev server
 npm run ios        # requires macOS + Xcode
 npm run android    # requires Android Studio / emulator
 ```
+
+**Note:** this app requires a dev client, not plain Expo Go — see "Store
+readiness" below for why (`react-native-razorpay` is a native module).
+Run `npm run prebuild` once, then `npm run build:dev` (or open the
+generated `ios`/`android` folders directly in Xcode/Android Studio) to
+get an installable dev client before `npm run start` will actually work
+on a device.
 
 ## What's here
 
@@ -61,15 +69,59 @@ you're ready to test the checkout flow on a device/simulator. Set
 `app.json`'s `expo.extra.razorpayKeyId` to the same key ANgroup's web
 checkout uses.
 
+## Store readiness (this pass)
+
+- App icon, Android adaptive icon, splash image, and web favicon are now
+  generated placeholder assets in `assets/` (dark "AN" mark) — wired into
+  `app.json`. Swap these for real branded artwork before submitting; they
+  exist now purely so the app doesn't fail store icon requirements or
+  ship with Expo's default icon.
+- `eas.json` added with `development`/`preview`/`production` build
+  profiles and a `submit` profile for both stores (placeholders for
+  Apple ID / ASC app ID / team ID and a Google Play service account key
+  path — fill these in once you have the developer accounts).
+- `app.json` now has real version metadata stores require:
+  `ios.buildNumber`, `android.versionCode`, `ios.infoPlist.
+  ITSAppUsesNonExemptEncryption: false` (skips the export-compliance
+  question — true only if you add real encryption beyond HTTPS/standard
+  auth), and an `extra.eas.projectId` placeholder (`eas init` fills this
+  in for real).
+- Added `expo-dev-client` and switched the dev scripts to
+  `--dev-client` — required because `react-native-razorpay` is a native
+  module and won't run in plain Expo Go; see EAS Build section below.
+- Added a public Privacy Policy page at `/privacy` on the main ANgroup
+  web app (both stores require a live URL for this at submission) — the
+  contact email in it (`support@angroup.in`) is a placeholder, confirm
+  it's real before submitting.
+- `mobile/.gitignore` added (node_modules, `.expo/`, signing
+  keys/certs, the Google Play service account JSON — never commit that
+  file).
+
+### Building & submitting once you have developer accounts
+
+```bash
+npm install -g eas-cli
+cd mobile
+eas login
+eas init                          # fills in extra.eas.projectId
+eas build --profile development   # installable dev client for real-device testing
+eas build --profile production    # store-ready build (App Bundle / IPA)
+eas submit --platform ios --latest
+eas submit --platform android --latest
+```
+
+Fill in `eas.json`'s `submit.production` block (Apple ID, ASC app ID,
+Apple Team ID, and the Google Play service account JSON path) before the
+first `eas submit`.
+
 ## What's NOT built yet (next phases)
 
 - Change password / saved addresses (beyond the one-off checkout address
   form)
 - Push notifications: needs a `POST /api/notifications/register-device`
   route added to ANgroup (doesn't exist yet) + Expo Notifications setup
-- App icons/splash assets (`assets/icon.png` etc. — referenced in
-  `app.json` but not created), store screenshots, privacy policy page
-- EAS Build/Submit configuration for actual App Store / Play Store release
+- Real branded icon/splash artwork (current assets are placeholders) and
+  store screenshots
 - Server-side COD support doesn't exist on ANgroup at all — if you want a
   cash-on-delivery option in the app, that has to be added to
   `order.service.ts`/`orders/create` first, not just the client

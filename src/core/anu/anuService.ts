@@ -1,6 +1,6 @@
 import AIConfig from "@/models/AIConfig";
 import type { AnuQueryInput, AnuQueryResult } from "./types";
-import { buildAnuContext } from "./knowledgeBase";
+import { buildAnuContext, localAnswer } from "./knowledgeBase";
 
 /**
  * ANu's provider call layer. Deliberately thin: resolve which provider this
@@ -92,11 +92,21 @@ export async function askAnu(input: AnuQueryInput): Promise<AnuQueryResult> {
       return { reply, provider: "openai" };
     }
 
+    // No LLM provider configured for this business -- fall back to local
+    // keyword retrieval over the same knowledge base instead of hard
+    // erroring. Not the deferred "locally-hosted model" path (see
+    // types.ts's decision note) -- plain text matching, no model involved.
+    const lastUserMessage = [...input.messages].reverse().find((m) => m.role === "user");
+    const localReply = lastUserMessage ? await localAnswer(input.businessId, lastUserMessage.content) : null;
+    if (localReply) {
+      return { reply: localReply, provider: "none" };
+    }
+
     return {
       reply: "",
       provider: "none",
       error:
-        "ANu isn't set up yet for this business. Add an Anthropic or OpenAI API key in Settings > AI to enable it.",
+        "I don't have anything on that yet. Add an Anthropic or OpenAI API key in Settings > AI for full conversational answers, or teach me about this from the graduation-cap icon.",
     };
   } catch (err: any) {
     return {
