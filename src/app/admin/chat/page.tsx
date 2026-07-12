@@ -155,6 +155,16 @@ export default function ChatPage() {
         setEmployees(list.filter((e: Employee) => e.isActive !== false))
         return
       }
+      // Was silently falling through to the /api/admin/users fallback with
+      // no explanation on failure -- the most common failure here is "no
+      // active business selected" (both routes require one), which just
+      // looked like "chat has nobody to DM" with zero indication why.
+      if (res.status === 400) {
+        const d = await res.json().catch(() => ({}))
+        if (String(d.error || '').toLowerCase().includes('businessid')) {
+          setError('Select a business (top of the sidebar) to see coworkers and start a DM or group.')
+        }
+      }
     } catch { /* fallback */ }
     try {
       const res = await fetch('/api/admin/users?limit=100')

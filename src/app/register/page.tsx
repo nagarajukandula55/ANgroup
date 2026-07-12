@@ -397,159 +397,50 @@ export default function RegisterPage() {
 
           {/* Vendor Form */}
           {activeTab === 'vendor' && (
+            // This tab used to duplicate a second, thinner vendor-signup
+            // form here (no document uploads, no bank details, no
+            // pre-registered-User-ID validation) alongside the real,
+            // fuller vendor application flow at /vendor-apply -- two
+            // divergent forms for the same thing, and this one is why
+            // "vendor register from signup asks for very few details."
+            // Rather than keep maintaining both, point here at the real
+            // one: register your own login first (the Customer tab), then
+            // apply as a vendor with full company/bank details and
+            // required documents.
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <InputField
-                  label="Company Name"
-                  value={vendCompany}
-                  onChange={setVendCompany}
-                  placeholder="Acme Pvt. Ltd."
-                  required
-                />
-                <InputField
-                  label="Contact Person"
-                  value={vendContact}
-                  onChange={setVendContact}
-                  placeholder="Your name"
-                  required
-                />
+              <div className="rounded-xl bg-violet-50 border border-violet-200 px-4 py-4 space-y-2">
+                <p className="text-sm text-gray-800 font-medium">Two quick steps to become a vendor:</p>
+                <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
+                  <li>Register a regular account first (use the Customer tab above) to get your User ID.</li>
+                  <li>Then submit your vendor application with company details, bank details, and required documents (GST certificate, PAN, etc.).</li>
+                </ol>
               </div>
-              <InputField
-                label="Business Email"
-                value={vendEmail}
-                onChange={setVendEmail}
-                placeholder="vendor@company.com"
-                type="email"
-                required
-              />
-              <InputField
-                label="User ID (optional, must be unique)"
-                value={vendUsername}
-                onChange={(v) => setVendUsername(v.toLowerCase().replace(/\s+/g, ''))}
-                placeholder="e.g. acmevendor"
-              />
-              <PasswordField
-                label="Password *"
-                value={vendPassword}
-                onChange={setVendPassword}
-              />
-              <InputField
-                label="Phone Number"
-                value={vendPhone}
-                onChange={setVendPhone}
-                placeholder="+91 98765 43210"
-                type="tel"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <InputField
-                    label="GST Number (optional)"
-                    value={vendGst}
-                    onChange={setVendGst}
-                    onBlur={handleVendGstBlur}
-                    placeholder="22AAAAA0000A1Z5"
-                  />
-                  {vendGstWarning && (
-                    <span className="text-xs text-red-500 mt-1 block">
-                      {vendGstWarning}
-                    </span>
-                  )}
-                </div>
-                <InputField
-                  label="PAN Number (optional)"
-                  value={vendPan}
-                  onChange={setVendPan}
-                  placeholder="AAAAA0000A"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">
-                  Business Category
-                </label>
-                <select
-                  value={vendCategory}
-                  onChange={(e) => setVendCategory(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
-                >
-                  <option value="">
-                    Select category
-                  </option>
-                  {BUSINESS_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat.toUpperCase()}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">
-                    City
-                  </label>
-                  <CitySelect
-                    value={vendCity}
-                    state={vendState}
-                    onChange={setVendCity}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">
-                    State
-                  </label>
-                  <StateSelect
-                    value={vendState}
-                    onChange={(value) => {
-                      setVendState(value)
-                      setVendCity('')
-                    }}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-400 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">
-                    Pincode
-                  </label>
-                  <PincodeInput
-                    value={vendPincode}
-                    onChange={setVendPincode}
-                    onResolved={({ state, city }) => {
-                      // Only autofill if not already set — don't clobber a deliberate user choice
-                      setVendState((prev) => prev || state)
-                      setVendCity((prev) => prev || city)
-                    }}
-                    placeholder="400001"
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-400 transition-colors"
-                  />
-                </div>
-              </div>
-              <div className="rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3">
-                <p className="text-xs text-yellow-700">
-                  Your account will be reviewed and approved within 24 hours.
-                  You will receive an email notification once approved.
-                </p>
-              </div>
+              <Link
+                href="/vendor-apply"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all"
+              >
+                Go to Vendor Application
+              </Link>
             </div>
           )}
 
-          {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !!success}
-            className="w-full mt-6 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Creating account...
-              </>
-            ) : (
-              <>
-                {activeTab === 'customer' && 'Create Account'}
-                {activeTab === 'vendor' && 'Submit Vendor Application'}
-              </>
-            )}
-          </button>
+          {/* Submit — vendor tab's CTA is the "Go to Vendor Application" link above instead */}
+          {activeTab === 'customer' && (
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !!success}
+              className="w-full mt-6 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                'Create Account'
+              )}
+            </button>
+          )}
         </div>
 
         {/* Footer */}
