@@ -1,6 +1,7 @@
 import type { AnuKnowledgeEntry } from "./types";
 import { listModulesForBusiness } from "@/core/module-registry/moduleDefinition.service";
 import { listPendingFilings } from "@/core/gst/gstFilingService";
+import AnuKnowledge from "@/models/AnuKnowledge";
 
 /**
  * Static platform knowledge ANu is grounded in, regardless of business.
@@ -40,6 +41,111 @@ const STATIC_KNOWLEDGE: AnuKnowledgeEntry[] = [
     summary:
       "Sales invoices can be pushed directly to the GST portal from Admin > GST Filing. An admin first configures the business's GSTIN and portal provider in Settings > GST Filing, then queues an invoice for a return period (GSTR1 / GSTR3B / IFF) and submits it. Each filing tracks a status: PENDING (queued, not yet sent), SUBMITTED (sent, awaiting portal decision), ACCEPTED, REJECTED, or FAILED (our own push attempt failed before reaching the portal). You can help users understand what's pending, why something failed or was rejected (see the filing's rejectionReason), and what to do next — but you cannot submit a filing yourself; that always requires an admin action in the UI.",
   },
+  {
+    topic: "First Login / Password Changes",
+    summary:
+      "Every new user account created by an admin (staff, vendor, or via user creation) is flagged mustChangePassword — the very next login redirects them to /update-password before they can do anything else. A Super Admin can also reset ANY user's password at any time from Admin > Users > [that user] > Access & Roles tab: either generate a random temporary password (shown once, copy it immediately) or set a specific one. Either way, mustChangePassword is set again so the user must pick their own password on next login. A user can also change their own password anytime from Profile.",
+  },
+  {
+    topic: "Email (Resend)",
+    summary:
+      "Resend is the platform's email provider for registration, staff/vendor login credentials, password resets, invoices, and newsletter signups. Configure it per business in Settings > Integrations > Email tab (defaults to the Resend provider) — enter the Resend API key and from-address there, and it can be tested with a one-click test send.",
+  },
+  {
+    topic: "Notifications",
+    summary:
+      "Two layers of feedback: (1) Toasts — small popups in the corner of the screen confirming an action just succeeded or failed, disappear automatically. (2) The Notification Center (bell icon in the sidebar, with an unread-count badge) — a persistent list of things that happened (business created/deleted, password changed by an admin, leave request submitted, etc.), viewable anytime at Notifications, can be marked read or deleted.",
+  },
+  {
+    topic: "Businesses",
+    summary:
+      "Only a Super Admin can create or delete a Business (Admin > Businesses > New Business / a business's own page has a Delete Business button). Deleting a business is a soft-delete (isActive: false) — it disappears from every list but its historical data is kept, not destroyed. Each business has its own Modules toggle list (which app sections it can use) and its own document-numbering configuration.",
+  },
+  {
+    topic: "Vendor Onboarding",
+    summary:
+      "A vendor applies at the public /vendor-apply page: they must already have a registered User account (via /register) and provide that account's User ID — the form validates it exists before letting them submit. They upload supporting documents (GST certificate, PAN, business registration, plus industry-specific compliance docs) at application time. An admin reviews the application (Vendor Review), which drafts a partner Agreement; once the vendor signs it (OTP-verified e-signature), the admin does final approval (Finalize), which activates the vendor, links their pre-existing User login (no new account is minted since they registered first), assigns them a serialized Vendor ID, and creates their business membership. Vendor products only appear in the public storefront/mobile app catalog after a SEPARATE admin approval step for each product (Vendor Products > approve) — applying as a vendor does not automatically list any products.",
+  },
+  {
+    topic: "Document Numbering & Custom Templates",
+    summary:
+      "Every document type (invoices, purchase orders, vendor IDs, vendor product codes, etc.) is numbered by one shared engine, configurable per business per document type in Settings > Document Numbers: prefix, separator, whether to include the financial year (choose 2024-25 hyphenated or 2425 compact format) and/or month, sequence zero-pad length, suffix, and a starting number. For full control, a Custom Template can be set instead — a string using tokens like {prefix}-{fy}-{seq}, which fully overrides the structured builder. Some document types also support extra dynamic tokens their generating code supplies, e.g. {vendorId} for vendor product codes, so every vendor's own code appears automatically in their products' numbers instead of a fixed value. The live preview in Settings > Document Numbers shows exactly what a template will produce before saving.",
+  },
+  {
+    topic: "HR Module",
+    summary:
+      "HR (Admin > HR) has three parts: Documents (store employee files like offer letters, contracts, ID proofs, with optional expiry-date tracking), Leave (employees apply for leave, an admin approves or rejects each request, day counts are computed automatically from the date range), and Payroll (per-employee monthly pay records — basic salary, allowances, deductions, computed net salary — marked Paid when processed).",
+  },
+  {
+    topic: "CRM Overview",
+    summary:
+      "CRM (Admin > CRM) is the single dashboard for anyone with CRM access: Appointments (customer call/visit entries) and Workorders (scheduled work through to invoicing) side by side, plus revenue figures (this month, total, outstanding — sourced from invoices generated when a workorder closes) and status-breakdown analytics for both appointments and workorders. A legacy Leads list is also there for backward compatibility.",
+  },
+  {
+    topic: "Mobile App (Android/iOS)",
+    summary:
+      "A React Native mobile app (in the same repo, at /mobile) is being built as a second client of this same backend — browsing, login, and cart already work end to end; checkout/payment, order history, wishlist screen, and push notifications are in progress. It represents ONE business tenant (same model as the Native web storefront) — which business, plus iOS/Android minimum-version gates, force-update, maintenance mode, and push-notification toggle are all controlled from Admin > Native App > Mobile App Settings (Super Admin only), without needing a new app build.",
+  },
+  {
+    topic: "Inventory & Products",
+    summary:
+      "Inventory tracks stock by product, with Inventory Lots for batch/lot-level tracking, Stock Transfers (moving stock between warehouses), and Stock Adjustments (correcting counts, e.g. after a physical audit). Products, Materials (raw materials used in production), Units, Brands, and Product/Material Categories are all managed under Admin > Masters. Bill of Materials (BOM) defines what materials/quantities go into producing a product; Production tracks manufacturing runs against a BOM.",
+  },
+  {
+    topic: "Sales, Orders & Purchase",
+    summary:
+      "Orders are customer/storefront purchases; Sales covers manual/B2B sales entries; Purchase and Purchase Orders manage buying from vendors. Coupons let a business create discount codes applied at checkout. Warehouses are physical storage locations stock is tracked against.",
+  },
+  {
+    topic: "Finance",
+    summary:
+      "Finance covers the business's invoices and financial records. Vendor Settlements tracks money owed to / paid to vendors, separate from customer-facing sales invoices.",
+  },
+  {
+    topic: "Businesses, Vendors, Customers (Admin lists)",
+    summary:
+      "Admin > Businesses lists every tenant business on the platform (Super Admin manages these). Admin > Vendors lists onboarded vendors (see the Vendor Onboarding topic for the full application-to-approval flow). Admin > Customer Data lists registered customer accounts.",
+  },
+  {
+    topic: "Reports & Analytics",
+    summary:
+      "Admin > Reports & Downloads generates exportable reports (CSV/PDF depending on the report). Admin > Analytics shows dashboards/trends across sales, inventory, and other business activity.",
+  },
+  {
+    topic: "Social Media & AI Studio",
+    summary:
+      "Admin > Social Media manages connected social accounts and posts. Admin > AI Studio is for AI-assisted image/content generation for products and marketing.",
+  },
+  {
+    topic: "Logistics & Shipping",
+    summary:
+      "Admin > Logistics & Shipping tracks shipment/delivery status for orders, integrating with configured shipping providers (e.g. Shiprocket, set up in Settings > Integrations).",
+  },
+  {
+    topic: "Team Chat",
+    summary:
+      "Admin > Team Chat is internal messaging between users of the same business — separate from the ANu assistant and from the customer-facing notification system.",
+  },
+  {
+    topic: "Roles & Permissions (detail)",
+    summary:
+      "Admin > Roles & Permissions manages Roles, each holding a set of granted permission codes (module + action, e.g. 'orders.view', 'orders.edit'). Admin > Access Control is the matrix view for granting/revoking permissions per role. A brand-new module (created via the module registry) automatically gets its own set of standard actions (view/create/edit/delete/export/approve/manage_settings) that can be granted to any role — no code changes needed.",
+  },
+  {
+    topic: "SSO / Auth & Document Templates",
+    summary:
+      "Admin > SSO / Auth configures single sign-on source mappings (e.g. which storefront domain maps to which default role for auto-registered users) and holds the Native App SDK connection docs. Admin > Document Templates manages reusable templates for generated documents (agreements, letters, etc.) — separate from Invoice Branding (Admin > Invoice Branding), which controls the visual template/logo used specifically on customer invoices.",
+  },
+  {
+    topic: "System Status & Modules Registry",
+    summary:
+      "Admin > System Status shows platform health (background jobs, integration connectivity, etc.). Admin > Modules is the module registry itself — the canonical list of every module and its route/icon, used to seed new businesses and control what shows in a business's sidebar (per-business toggles live on that business's own edit page, not here).",
+  },
+  {
+    topic: "Pincode Data",
+    summary:
+      "Admin > Pincode Data manages the India pincode -> state/district/city lookup dataset used for address autofill everywhere in the app (checkout, business/vendor forms). An admin can upload a refreshed official India Post directory CSV any time; large files are automatically split into smaller chunked uploads to work around server request-size limits.",
+  },
 ];
 
 /**
@@ -57,6 +163,22 @@ export async function buildAnuContext(businessId: string): Promise<string> {
   const staticSection = STATIC_KNOWLEDGE.map(
     (k) => `## ${k.topic}\n${k.summary}`
   ).join("\n\n");
+
+  // Dynamic knowledge: platform-wide entries (businessId: null) + anything
+  // taught specifically for this business. Lets an admin extend ANu's
+  // knowledge from the UI (see api/anu/knowledge/route.ts) without a code
+  // deploy -- this is the "ANu updates/learns" layer sitting alongside the
+  // hand-maintained STATIC_KNOWLEDGE above.
+  const dynamicEntries = await AnuKnowledge.find({
+    $or: [{ businessId: null }, { businessId }],
+  })
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean()
+    .catch(() => []);
+  const dynamicSection = dynamicEntries.length
+    ? dynamicEntries.map((k: any) => `## ${k.topic}\n${k.summary}`).join("\n\n")
+    : "";
 
   // Live GST-pendings snapshot, same "don't hallucinate — inject the real
   // live data" principle as the enabled-modules list below. Only fetched if
@@ -87,6 +209,7 @@ export async function buildAnuContext(businessId: string): Promise<string> {
     "You are ANu, the in-house AI assistant for this ERP platform. You help users understand and use the system — answer 'how do I...' and 'what can I do...' questions grounded ONLY in the information below. If asked about something not covered here, say you're not sure rather than guessing at a feature that may not exist.",
     "",
     staticSection,
+    dynamicSection ? "\n" + dynamicSection : "",
     "",
     "## Modules currently enabled for this business",
     moduleList || "(none enabled yet)",
