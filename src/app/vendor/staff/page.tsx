@@ -28,6 +28,12 @@ interface StaffRow {
   userId?: { _id: string; name?: string; email?: string; username?: string } | string;
 }
 
+interface VendorRoleOption {
+  code: string;
+  name: string;
+  description?: string;
+}
+
 // Base list, plus Store Front/Service Center vs. Warehouse roles — only
 // shown once the vendor has the corresponding facility enabled on their
 // profile (see VendorProfile.enableStoreFront/enableServiceCenter/
@@ -48,9 +54,11 @@ export default function VendorStaffPage() {
   const [showForm, setShowForm] = useState(false);
   const [username, setUsername] = useState("");
   const [vendorRole, setVendorRole] = useState("");
+  const [roleCode, setRoleCode] = useState("");
   const [memberType, setMemberType] = useState("VENDOR_HELPER");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roles, setRoles] = useState<VendorRoleOption[]>([]);
   const [facilities, setFacilities] = useState({
     enableStoreFront: false,
     enableServiceCenter: false,
@@ -63,6 +71,7 @@ export default function VendorStaffPage() {
       const res = await fetch("/api/vendor/staff");
       const data = await res.json();
       setStaff(data.staff || []);
+      setRoles(data.roles || []);
       if (data.vendor) {
         setFacilities({
           enableStoreFront: !!data.vendor.enableStoreFront,
@@ -87,25 +96,51 @@ export default function VendorStaffPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
+    if (!roleCode) {
+      setError("Pick a role — this is what actually grants access, not just a label.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
+      const pickedRole = roles.find((r) => r.code === roleCode);
       const res = await fetch("/api/vendor/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, vendorRole, memberType }),
+        body: JSON.stringify({
+          username,
+          vendorRole: vendorRole.trim() || pickedRole?.name || roleCode,
+          memberType,
+          roleCode,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed to add staff member");
       setShowForm(false);
       setUsername("");
       setVendorRole("");
+      setRoleCode("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
     }
+  }
+
+  // Reuses the same form to grant an ADDITIONAL role to someone already on
+  // the team — same POST endpoint, appends rather than overwrites (see
+  // api/vendor/staff/route.ts) so one person can hold multiple roles (e.g.
+  // Manager + Finance Manager), same as multiple different people can each
+  // independently hold the same role (e.g. three CCOs).
+  function openAddRoleFor(row: StaffRow) {
+    const uname = typeof row.userId === "object" ? row.userId?.username : undefined;
+    if (!uname) return;
+    setUsername(uname);
+    setVendorRole("");
+    setRoleCode("");
+    setMemberType(row.memberType || "VENDOR_HELPER");
+    setShowForm(true);
   }
 
   async function handleRemove(id: string) {
@@ -168,7 +203,13 @@ export default function VendorStaffPage() {
                         {s.status || "ACTIVE"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => openAddRoleFor(s)}
+                        className="text-xs font-medium text-gray-600 hover:text-gray-900 mr-3"
+                      >
+                        + Add role
+                      </button>
                       <button
                         onClick={() => handleRemove(s._id)}
                         className="p-1.5 rounded-lg border border-gray-200 hover:bg-red-50 transition"
@@ -210,6 +251,32 @@ export default function VendorStaffPage() {
                   </p>
                 </div>
                 <div>
+                  <label className={labelCls}>Role *</label>
+                  <select
+                    required
+                    className={inputCls}
+                    value={roleCode}
+                    onChange={(e) => setRoleCode(e.target.value)}
+                  >
+                    <option value="">Select a role…</option>
+                    {roles.map((r) => (
+                      <option key={r.code} value={r.code}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                  {roleCode && (
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      {roles.find((r) => r.code === roleCode)?.description}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    This is what actually grants access — the same role can be given to
+                    multiple people (e.g. three CCOs), and one person can hold several
+                    roles at once via &quot;+ Add role&quot;.
+                  </p>
+                </div>
+                <div>
                   <label className={labelCls}>Category</label>
                   <select className={inputCls} value={memberType} onChange={(e) => setMemberType(e.target.value)}>
                     {availableMemberTypes.map((t) => (
@@ -220,13 +287,12 @@ export default function VendorStaffPage() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelCls}>Role / Title *</label>
+                  <label className={labelCls}>Display Title (optional)</label>
                   <input
-                    required
                     className={inputCls}
                     value={vendorRole}
                     onChange={(e) => setVendorRole(e.target.value)}
-                    placeholder="e.g. Warehouse Manager"
+                    placeholder="Defaults to the role name above"
                   />
                 </div>
                 <button

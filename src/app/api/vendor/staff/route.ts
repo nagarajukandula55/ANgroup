@@ -48,9 +48,25 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .lean();
 
+    // The vendor's own fixed default role set (Owner, Manager, Finance
+    // Manager, etc. — see vendorDefaultRoles.service.ts), scoped to
+    // {businessId, vendorId} so this vendor can only ever see/grant its
+    // own 11 roles, never another vendor's or a full business-wide role.
+    // Surfaced here so the staff UI can offer real permission-granting
+    // roles instead of only a free-text label — previously this list was
+    // never exposed to the frontend at all, which is why "Owner" wasn't
+    // pickable here and admins were falling back to the business-wide
+    // Admin > Users flow (which grants access to the ENTIRE business, not
+    // just this vendor) just to hand out a Manager/Owner-equivalent role.
+    const roles = await Role.find({ businessId: vendor.businessId, vendorId: vendor._id, status: "ACTIVE" })
+      .select("code name description")
+      .sort({ name: 1 })
+      .lean();
+
     return NextResponse.json({
       success: true,
       staff: members,
+      roles,
       // So the staff-creation UI can show only the memberType roles
       // relevant to which facilities this vendor actually has enabled
       // (Store Front/Service Center → CCO/ENGINEER/CENTRE_MANAGER,
@@ -149,13 +165,26 @@ export async function POST(req: NextRequest) {
       memberType &&
       (String(memberType).startsWith("VENDOR") || ALLOWED_STAFF_MEMBER_TYPES.includes(String(memberType)));
 
+    // A staff member can hold more than one role (e.g. Manager + Finance
+    // Manager, or several people all holding "CCO") -- BusinessMember has
+    // one doc per (user, business, vendor), so a second role grant for the
+    // same person appends its label to vendorRole's display instead of
+    // overwriting the first one. The actual access grant is additive
+    // regardless (separate UserRole rows below), this is just display text.
+    const newRoleLabel = String(vendorRole).trim();
+    const existingLabel = (existingMembership as any)?.vendorRole as string | undefined;
+    const combinedLabel =
+      existingLabel && !existingLabel.split(", ").includes(newRoleLabel)
+        ? `${existingLabel}, ${newRoleLabel}`
+        : existingLabel || newRoleLabel;
+
     const member = await BusinessMember.findOneAndUpdate(
       { userId: targetUser._id, businessId: vendor.businessId, vendorId: vendor._id },
       {
         $set: {
           status: BusinessMemberStatus.ACTIVE,
           memberType: (isAllowedMemberType ? memberType : "VENDOR_HELPER") as BusinessMemberType,
-          vendorRole: String(vendorRole).trim(),
+          vendorRole: combinedLabel,
           invitedBy: userId,
           isDeleted: false,
         },

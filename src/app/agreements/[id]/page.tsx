@@ -460,7 +460,8 @@ export default function AgreementDetailPage() {
   const statusCfg = STATUS_CONFIG[agreement.status] || STATUS_CONFIG.DRAFT;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-6">
+    <>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-6 print:hidden">
       {signingParty && (
         <SigningModal
           partyName={signingParty.name}
@@ -617,10 +618,10 @@ export default function AgreementDetailPage() {
 
               {agreement.status === 'FULLY_SIGNED' && (
                 <button
-                  onClick={() => alert('PDF download would be available in production with a PDF generation service (e.g. Puppeteer or a PDF API).')}
+                  onClick={() => window.print()}
                   className="w-full py-2.5 bg-green-600/20 text-green-400 border border-green-500/30 rounded-xl hover:bg-green-600/30 transition-colors text-sm font-medium"
                 >
-                  📥 Download Signed PDF
+                  📥 Download Signed Copy
                 </button>
               )}
 
@@ -646,5 +647,62 @@ export default function AgreementDetailPage() {
         </div>
       </div>
     </div>
+
+    {/* Print-only signed copy — hidden on screen, the actual "Download
+        Signed Copy" mechanism is the browser's Print > Save as PDF (see
+        the CRM invoice viewer for the same established pattern in this
+        repo; a server-side PDF renderer was previously tried and removed
+        because it depended on the serverless filesystem). Light-themed
+        since the rest of this page is a dark UI unsuitable for print. */}
+    <div className="hidden print:block bg-white text-gray-900 p-10">
+      <h1 className="text-2xl font-bold mb-1">{agreement.title}</h1>
+      <p className="text-xs text-gray-500 mb-6">
+        {TEMPLATE_LABELS[agreement.templateType] || agreement.templateType} · Fully Signed ·{' '}
+        Created {new Date(agreement.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+      </p>
+
+      <div
+        className="text-sm leading-relaxed mb-8"
+        dangerouslySetInnerHTML={{ __html: agreement.content || '' }}
+      />
+
+      <h2 className="text-base font-semibold mb-3 border-t border-gray-300 pt-4">Signatures</h2>
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="border-b border-gray-300 text-left">
+            <th className="py-1.5 pr-3">Party</th>
+            <th className="py-1.5 pr-3">Role</th>
+            <th className="py-1.5 pr-3">Email</th>
+            <th className="py-1.5">Signed On</th>
+          </tr>
+        </thead>
+        <tbody>
+          {agreement.parties.map((party, i) => {
+            const sig = agreement.signatures?.find((s) => s.partyEmail === party.email);
+            return (
+              <tr key={i} className="border-b border-gray-200">
+                <td className="py-1.5 pr-3">{party.name}</td>
+                <td className="py-1.5 pr-3">{party.role}</td>
+                <td className="py-1.5 pr-3">{party.email}</td>
+                <td className="py-1.5">
+                  {sig?.signedAt
+                    ? new Date(sig.signedAt).toLocaleString('en-IN')
+                    : 'Not signed'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <p className="text-[10px] text-gray-500 mt-6">
+        Governing Law: {agreement.governingLaw} · Jurisdiction: {agreement.jurisdiction}
+      </p>
+      <p className="text-[10px] text-gray-500 mt-1">{agreement.stampDutyNotice}</p>
+      <p className="text-[10px] text-gray-400 mt-4">
+        Electronic signatures on this agreement are valid under Section 5 of the Information Technology Act, 2000, and are admissible as evidence under the Indian Evidence Act, 1872.
+      </p>
+    </div>
+    </>
   );
 }

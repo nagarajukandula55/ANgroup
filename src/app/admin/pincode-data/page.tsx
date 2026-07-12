@@ -261,6 +261,10 @@ export default function PincodeDataPage() {
             <span className="text-xs text-gray-400">
               Expected columns: pincode, district, statename, officename
             </span>
+            <span className="text-xs text-gray-400">
+              CSV only, any size — large files (e.g. the ~23MB official India Post export) are
+              automatically split into ≤4MB chunks and uploaded in sequence.
+            </span>
             <input
               type="file"
               accept=".csv,text/csv"

@@ -90,7 +90,13 @@ export default function CustomersPage() {
     }
   }
 
+  const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // matches api/customers/upload's server-side MAX_BYTES
+
   async function handleUpload(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`File is ${(file.size / (1024 * 1024)).toFixed(1)}MB — the limit is 10MB. Split it into smaller files and upload each separately.`)
+      return
+    }
     setUploading(true)
     setError(null)
     try {
@@ -152,9 +158,12 @@ export default function CustomersPage() {
           >
             <Download size={12} /> Download Template
           </button>
-          <label className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+          <label
+            title="CSV only, up to 10MB"
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+          >
             {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-            {uploading ? 'Uploading…' : 'Upload CSV'}
+            {uploading ? 'Uploading…' : 'Upload CSV (max 10MB)'}
             <input
               type="file"
               accept=".csv,text/csv"

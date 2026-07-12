@@ -2373,14 +2373,10 @@ export default function AgreementsPage() {
                     )}
                     {da.status === 'FULLY_SIGNED' && (
                       <button
-                        onClick={() =>
-                          alert(
-                            'PDF download would be available in production with a PDF generation service.'
-                          )
-                        }
+                        onClick={() => window.open(`/agreements/${da._id}`, '_blank')}
                         className="text-sm font-medium text-green-600 hover:text-green-700 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
                       >
-                        Download Signed PDF
+                        View / Download Signed Copy
                       </button>
                     )}
                   </div>
