@@ -84,6 +84,7 @@ export async function POST(req: Request) {
       password: hashedPassword,
       role: requestedRole,
       businessId: body.businessId,
+      mustChangePassword: true,
     })
 
     await UserRole.create({ userId: user._id, roleId: roleDoc._id, businessId: body.businessId || null });

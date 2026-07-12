@@ -114,6 +114,7 @@ export async function POST(req: Request) {
       isActive: isActive !== false,
       isEmailVerified: false,
       authProvider: 'credentials',
+      mustChangePassword: true,
     })
 
     await UserRole.create({ userId: user._id, roleId: roleDoc._id });

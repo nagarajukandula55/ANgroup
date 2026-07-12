@@ -98,6 +98,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         isEmailVerified: false,
         authProvider: "credentials",
         defaultBusinessId: vendor.businessId,
+        mustChangePassword: true,
       });
     } else if (!user.isActive) {
       user.isActive = true;

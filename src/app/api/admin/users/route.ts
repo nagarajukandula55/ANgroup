@@ -206,6 +206,7 @@ export async function POST(request: NextRequest) {
       isEmailVerified: false,
       authProvider: 'credentials',
       isDeleted: false,
+      mustChangePassword: true,
     });
 
     // Was silently minting a brand-new, zero-permission Role the moment

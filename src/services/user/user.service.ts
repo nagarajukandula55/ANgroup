@@ -24,6 +24,7 @@ export class UserService {
       isActive: true,
       isEmailVerified: false,
       role: "CUSTOMER",
+      mustChangePassword: true,
     });
 
     const member = await BusinessMember.create({
