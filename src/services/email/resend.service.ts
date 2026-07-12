@@ -111,12 +111,14 @@ export async function sendAgreementOtpEmail({
   partyName,
   agreementTitle,
   otp,
+  signingLink,
   businessId,
 }: {
   to: string;
   partyName: string;
   agreementTitle: string;
   otp: string;
+  signingLink?: string;
   businessId?: string;
 }) {
   try {
@@ -129,10 +131,12 @@ export async function sendAgreementOtpEmail({
     const result = await resend.emails.send({
       from,
       to,
-      subject: `Your OTP for signing "${agreementTitle}"`,
+      subject: `Action required: sign "${agreementTitle}"`,
       html: `
         <p>Dear ${partyName},</p>
-        <p>Your OTP to sign the agreement "${agreementTitle}" is: <b>${otp}</b></p>
+        <p>You have been requested to sign the agreement "${agreementTitle}".</p>
+        ${signingLink ? `<p><a href="${signingLink}">Click here to review and sign</a></p>` : ""}
+        <p>Your OTP to verify your identity and sign is: <b>${otp}</b></p>
         <p>This OTP is valid for 30 minutes.</p>
       `,
     });

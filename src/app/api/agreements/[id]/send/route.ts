@@ -4,6 +4,7 @@ import Agreement, { IParty, ISignature } from '@/models/Agreement';
 import mongoose from 'mongoose';
 import bcryptjs from 'bcryptjs';
 import { logAction } from "@/lib/audit/logAction";
+import { sendAgreementOtpEmail } from "@/services/email/resend.service";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const signingLinks: { partyEmail: string; partyName: string; signingLink: string; otp: string }[] = [];
+    const signingLinks: { partyEmail: string; partyName: string; signingLink: string; emailSent: boolean }[] = [];
 
     for (const party of agreement.parties) {
       const partyEmail: string = party.email as string;
@@ -95,20 +96,24 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
       const signingLink = `${baseUrl}/agreements/${id}/sign?email=${encodeURIComponent(partyEmail)}`;
 
+      const emailResult = await sendAgreementOtpEmail({
+        to: partyEmail,
+        partyName: party.name,
+        agreementTitle: agreement.title,
+        otp: rawOtp,
+        signingLink,
+        businessId: (agreement as any).businessId?.toString?.(),
+      });
+      if (!emailResult.success) {
+        console.error(`AGREEMENT SEND EMAIL FAILED for ${partyEmail}:`, emailResult.error);
+      }
+
       signingLinks.push({
         partyEmail,
         partyName: party.name,
         signingLink,
-        otp: rawOtp,
+        emailSent: emailResult.success,
       });
-
-      // In production, send email here
-      console.log(`[EMAIL SIMULATION] Sending signing invitation to ${partyEmail} (${party.name})`);
-      console.log(`  Agreement: ${agreement.title}`);
-      console.log(`  Signing Link: ${signingLink}`);
-      console.log(`  OTP: ${rawOtp} (expires in 30 minutes)`);
-      console.log(`  Subject: Action Required: Please sign "${agreement.title}"`);
-      console.log(`  Body: Dear ${party.name}, you have been requested to sign the agreement "${agreement.title}". Please click the link above and use OTP ${rawOtp} to verify your identity and sign.`);
     }
 
     agreement.status = 'PENDING_SIGNATURE';
@@ -129,9 +134,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         partyEmail: sl.partyEmail,
         partyName: sl.partyName,
         signingLink: sl.signingLink,
-        // Return OTP for demo mode
-        otp: sl.otp,
-        note: 'OTP is shown here for demo purposes only. In production, this would be sent via email.',
+        emailSent: sl.emailSent,
       })),
       agreement: {
         _id: agreement._id,

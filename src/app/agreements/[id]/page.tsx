@@ -67,7 +67,6 @@ function SigningModal({ partyName, partyEmail, agreementId, onClose, onSigned }:
   const [modalStep, setModalStep] = useState<ModalStep>('otp');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [demoOtp, setDemoOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [signatureConsent, setSignatureConsent] = useState(false);
@@ -89,7 +88,7 @@ function SigningModal({ partyName, partyEmail, agreementId, onClose, onSigned }:
       const data = await res.json();
       if (res.ok) {
         setOtpSent(true);
-        setDemoOtp(data.otp || '');
+        if (!data.sent) setOtpError(data.message || 'OTP generated but the email failed to send.');
       } else {
         setOtpError(data.error || 'Failed to send OTP');
       }
@@ -252,16 +251,6 @@ function SigningModal({ partyName, partyEmail, agreementId, onClose, onSigned }:
                 </p>
               </div>
 
-              {demoOtp && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 text-center">
-                  <p className="text-yellow-400 text-xs font-medium">Demo Mode - OTP</p>
-                  <p className="text-yellow-300 text-2xl font-mono font-bold tracking-widest mt-1">
-                    {demoOtp}
-                  </p>
-                  <p className="text-yellow-600 text-xs mt-1">In production, this would be sent via email only</p>
-                </div>
-              )}
-
               {otpSent && (
                 <div>
                   <label className="block text-sm text-gray-400 mb-1.5">Enter 6-digit OTP</label>
@@ -388,7 +377,7 @@ export default function AgreementDetailPage() {
   const [loading, setLoading] = useState(true);
   const [signingParty, setSigningParty] = useState<{ name: string; email: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [sendResult, setSendResult] = useState<Array<{ partyEmail: string; otp: string; signingLink: string }> | null>(null);
+  const [sendResult, setSendResult] = useState<Array<{ partyEmail: string; emailSent: boolean; signingLink: string }> | null>(null);
 
   const fetchAgreement = useCallback(async () => {
     try {
@@ -518,12 +507,14 @@ export default function AgreementDetailPage() {
               <h3 className="text-yellow-400 font-medium">Agreement Sent for Signing</h3>
               <button onClick={() => setSendResult(null)} className="text-yellow-600 hover:text-yellow-400 text-sm">✕</button>
             </div>
-            <p className="text-yellow-600 text-xs mb-3">Demo Mode: OTPs are shown below. In production, these would be sent via email only.</p>
+            <p className="text-yellow-600 text-xs mb-3">Each party has been emailed a signing link and OTP.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {sendResult.map((r) => (
                 <div key={r.partyEmail} className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
                   <p className="text-yellow-300 text-sm font-medium">{r.partyEmail}</p>
-                  <p className="text-yellow-400/70 text-xs mt-0.5">OTP: <span className="font-mono font-bold">{r.otp}</span></p>
+                  <p className={`text-xs mt-0.5 ${r.emailSent ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {r.emailSent ? 'Email sent' : 'Email failed to send'}
+                  </p>
                 </div>
               ))}
             </div>
