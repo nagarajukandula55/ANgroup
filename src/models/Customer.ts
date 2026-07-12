@@ -20,8 +20,19 @@ export interface ICustomer extends Document {
   pincode?: string;
   // Free text: "manual", a business name, an import batch label, etc. --
   // not an enum since this will grow organically as businesses are
-  // aggregated in.
+  // aggregated in. Kept alongside the more structured fields below rather
+  // than replaced, so existing free-text values keep working.
   source?: string;
+  // Which capture point actually created this record, e.g. "CRM_LEAD",
+  // "APPOINTMENT_REQUEST", "NEWSLETTER", "VENDOR_APPLY", "REGISTRATION" --
+  // a stable, queryable code (unlike the free-text `source` above) so
+  // "how many customers came from newsletter signups" is a real filter,
+  // not a string-match guess.
+  sourceModule?: string;
+  // Set only when this customer was captured via a specific vendor's own
+  // flow (e.g. a vendor's storefront lead) -- null for anything captured
+  // directly by the business itself.
+  vendorId?: Types.ObjectId | null;
   notes?: string;
   isActive: boolean;
   createdAt: Date;
@@ -39,6 +50,8 @@ const CustomerSchema = new Schema<ICustomer>(
     state: { type: String, trim: true },
     pincode: { type: String, trim: true },
     source: { type: String, trim: true, default: "manual" },
+    sourceModule: { type: String, trim: true, index: true },
+    vendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", default: null },
     notes: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
   },

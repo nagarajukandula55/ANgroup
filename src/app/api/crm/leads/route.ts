@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose, { Schema, Document, Model } from 'mongoose'
 import { logAction } from '@/lib/audit/logAction'
+import { captureCustomer } from '@/services/customer.service'
 
 /* =========================================================
  * Inline Lead model (to avoid extra model file dependency)
@@ -165,6 +166,15 @@ export async function POST(req: Request) {
       after: body,
       req,
       actor: { id: userId },
+    })
+
+    captureCustomer({
+      businessId,
+      name: name.trim(),
+      phone: phone?.trim(),
+      email: email?.trim(),
+      sourceModule: "CRM_LEAD",
+      sourceLabel: source || "CRM Lead",
     })
 
     return NextResponse.json({ success: true, lead }, { status: 201 })

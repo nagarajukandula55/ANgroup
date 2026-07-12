@@ -30,6 +30,7 @@ import VendorProfile from "@/models/VendorProfile";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { notify } from "@/lib/notify";
+import { captureCustomer } from "@/services/customer.service";
 
 const PINCODE_REGEX = /^[1-9][0-9]{5}$/;
 
@@ -146,6 +147,17 @@ export async function POST(req: NextRequest) {
       businessId: String(businessId),
       message: `📞 New appointment request ${call.callNumber}\nCustomer: ${call.customerName}\nSubject: ${call.subject}`,
     }).catch(() => {});
+
+    captureCustomer({
+      businessId,
+      name: call.customerName,
+      phone: call.phone,
+      email: call.email,
+      address: addressParts,
+      sourceModule: "APPOINTMENT_REQUEST",
+      sourceLabel: "Public Appointment Request",
+      vendorId: routedVendorId,
+    });
 
     logAction({
       action: "CREATE",

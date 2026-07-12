@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import NewsletterSubscriber from "@/models/NewsletterSubscriber";
 import { sendNewsletterWelcomeEmail } from "@/services/email/resend.service";
+import { captureCustomer } from "@/services/customer.service";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Best-effort — subscription itself already succeeded above regardless.
     sendNewsletterWelcomeEmail({ to: email, businessId }).catch(() => {});
+    captureCustomer({ businessId, email, sourceModule: "NEWSLETTER", sourceLabel: "Newsletter signup" });
 
     return NextResponse.json(
       {

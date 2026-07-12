@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/sidebar';
 import AnuWidget from '@/components/AnuWidget';
+import NotificationBell from '@/components/NotificationBell';
 
 // Appointment/workorder "processing" screens (and their print sub-routes)
 // are deliberately full-screen with no sidebar -- they were being squeezed
@@ -26,6 +27,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         {children}
       </main>
       <AnuWidget />
+      <NotificationBell />
     </div>
   );
 }
