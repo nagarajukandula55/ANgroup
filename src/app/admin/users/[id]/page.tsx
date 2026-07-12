@@ -119,17 +119,24 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     if (!selectedRoleToAssign) return;
     setAssigning(true);
     try {
-      await fetch(`/api/users/${id}/roles`, {
+      const assignRes = await fetch(`/api/users/${id}/roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roleId: selectedRoleToAssign }),
       });
+      const assignData = await assignRes.json().catch(() => ({}));
+      if (!assignRes.ok) {
+        toast.error(assignData.error || 'Failed to assign role');
+        return;
+      }
       const res = await fetch(`/api/admin/users/${id}`);
       const data = await res.json();
       if (data.user) setUser(data.user);
       setSelectedRoleToAssign('');
+      toast.success('Role assigned');
     } catch (e) {
       console.error(e);
+      toast.error('Failed to connect to server');
     } finally {
       setAssigning(false);
     }
@@ -197,12 +204,19 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
   async function removeRole(roleId: string) {
     try {
-      await fetch(`/api/users/${id}/roles/${roleId}`, { method: 'DELETE' });
+      const delRes = await fetch(`/api/users/${id}/roles/${roleId}`, { method: 'DELETE' });
+      const delData = await delRes.json().catch(() => ({}));
+      if (!delRes.ok) {
+        toast.error(delData.error || 'Failed to remove role');
+        return;
+      }
       const res = await fetch(`/api/admin/users/${id}`);
       const data = await res.json();
       if (data.user) setUser(data.user);
+      toast.success('Role removed');
     } catch (e) {
       console.error(e);
+      toast.error('Failed to connect to server');
     }
   }
 

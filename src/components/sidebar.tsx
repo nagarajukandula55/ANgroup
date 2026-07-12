@@ -343,16 +343,18 @@ export default function Sidebar() {
   const isVisible = (key: string) =>
     moduleKeys.has(key) ||
     (key === "admin-modules" && user?.isSuperAdmin) ||
-    // Document Templates is core platform config, not a per-business
-    // toggleable module (like Modules above) — always show it rather than
-    // requiring every business's module set to separately include it.
-    key === "admin-document-templates" ||
-    // Same reasoning for Invoice Branding — was unreachable from the nav
-    // for every business until this entry existed at all.
-    key === "admin-invoice-templates" ||
-    // Same reasoning for GST — was unreachable from the nav for every
-    // business until this entry existed at all.
-    key === "admin-gst";
+    // Document Templates / Invoice Branding / GST are core platform
+    // config, not per-business toggleable modules — but these three used
+    // to be shown unconditionally to EVERY logged-in user regardless of
+    // role or permissions (a real over-exposure bug: a plain customer or
+    // employee account saw GST filing / invoice branding / document
+    // templates in their sidebar with no permission check at all). Now
+    // gated the same way "admin-modules" already correctly was, to
+    // super admins only, until these get proper per-business permission
+    // codes like every other module.
+    (key === "admin-document-templates" && user?.isSuperAdmin) ||
+    (key === "admin-invoice-templates" && user?.isSuperAdmin) ||
+    (key === "admin-gst" && user?.isSuperAdmin);
 
   return (
     <>

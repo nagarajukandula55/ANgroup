@@ -12,6 +12,26 @@ import "@/models/User";
 
 const ASSIGNABLE_ROLES = ['ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER'];
 
+// Floor/registration-default role codes (see auth/register/route.ts,
+// auth/login/route.ts's MINIMAL_FLOOR_ROLE_CODES) that every user keeps
+// forever by design (promote/route.ts's "never leave someone with zero
+// roles" invariant) -- but that means whichever role got inserted first
+// (almost always this floor role, created at signup) used to always win
+// `roles[0]` on the frontend (admin/users/[id]/page.tsx's primaryRole),
+// so an employee who was later assigned a real role still showed
+// "Customer" as their displayed role/badge. Sorting these to the end
+// fixes the display without touching the underlying additive-roles
+// design (a user legitimately keeps both).
+const FLOOR_ROLE_CODES = new Set(["CUSTOMER", "CUSTOMER_ANGROUP", "CUSTOMER_SHOPNATIVE"]);
+
+function sortRolesFloorLast(roles: any[]): any[] {
+  return [...roles].sort((a, b) => {
+    const aFloor = FLOOR_ROLE_CODES.has(a?.code) ? 1 : 0;
+    const bFloor = FLOOR_ROLE_CODES.has(b?.code) ? 1 : 0;
+    return aFloor - bFloor;
+  });
+}
+
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
     { error: err.message },
@@ -61,7 +81,7 @@ export async function GET(
     }
 
     const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
-    const roles = userRoles.map((ur: Record<string, unknown>) => ur.roleId);
+    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId));
 
     const employeeProfile = await EmployeeProfile.findOne({
       userId: id,
@@ -208,7 +228,7 @@ export async function PUT(
 
     // Re-fetch enriched user
     const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
-    const roles = userRoles.map((ur: Record<string, unknown>) => ur.roleId);
+    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId));
 
     logAction({
       action: "UPDATE",

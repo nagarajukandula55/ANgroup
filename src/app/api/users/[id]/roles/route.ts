@@ -42,11 +42,19 @@ export async function POST(
     const { id: userId } = await context.params;
     const body = await req.json();
 
-    const { roleId, businessMemberId } = body;
+    // businessId is optional -- UserRole's real schema (models/UserRole.ts)
+    // only has userId/roleId/businessId/assignedBy, no "businessMemberId"
+    // at all. This route used to hard-require a "businessMemberId" that
+    // doesn't exist anywhere in the schema and that the admin/users/[id]
+    // page's simple "Assign Role" dropdown never sent -- every assignment
+    // from that screen 400'd before ever reaching UserService.assignRole,
+    // which is why assigning a role (including a pre-existing "system"
+    // role) silently never applied.
+    const { roleId, businessId } = body;
 
-    if (!roleId || !businessMemberId) {
+    if (!roleId) {
       return NextResponse.json(
-        { error: "roleId and businessMemberId are required" },
+        { error: "roleId is required" },
         { status: 400 }
       );
     }
@@ -54,7 +62,7 @@ export async function POST(
     const result = await UserService.assignRole({
       userId,
       roleId,
-      businessMemberId,
+      businessId,
       assignedBy: session.user.id,
     });
 
@@ -62,7 +70,7 @@ export async function POST(
       action: "UPDATE",
       entity: "User",
       entityId: userId,
-      after: { roleId, businessMemberId },
+      after: { roleId, businessId },
       req,
     });
 
