@@ -1863,7 +1863,7 @@ export default function AgreementsPage() {
 
       {/* ── Slide-over Panel ── */}
       {showNewForm && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={closeForm} />
 
@@ -2223,7 +2223,7 @@ export default function AgreementsPage() {
 
       {/* ── Detail / Send / Sign Panel ── */}
       {(detailAgreement || detailLoading) && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={closeDetail} />
 
