@@ -410,6 +410,34 @@ const TEMPLATE_PREVIEW_CONTEXT: Record<string, string> = {
   businessCode: "BIZ-01",
 };
 
+// Always-available built-ins, automatically resolved by the numbering
+// engine (core/numbering/numberingService.ts) with no per-call-site wiring
+// needed -- businessCode/businessName are derived from whichever business
+// the number is being generated for.
+const UNIVERSAL_TOKENS: { token: string; label: string }[] = [
+  { token: "{prefix}", label: "Configured prefix" },
+  { token: "{fy}", label: "Financial year" },
+  { token: "{month}", label: "Month (01-12)" },
+  { token: "{year}", label: "Calendar year" },
+  { token: "{day}", label: "Day of month" },
+  { token: "{seq}", label: "Sequence number" },
+  { token: "{suffix}", label: "Configured suffix" },
+  { token: "{businessCode}", label: "This business's code" },
+  { token: "{businessName}", label: "This business's name" },
+];
+
+// Extra tokens only certain document types' generating code actually
+// supplies as context (see numberingService.ts's generateScopedDocumentNumber
+// call sites) -- offering these for every type would let someone save a
+// template that fails at generation time for a type that never wires it in.
+const TYPE_SPECIFIC_TOKENS: Partial<Record<DocumentType, { token: string; label: string }[]>> = {
+  VENDOR_PRODUCT: [{ token: "{vendorId}", label: "This product's vendor code" }],
+};
+
+function tokensForDocType(docType: DocumentType): { token: string; label: string }[] {
+  return [...UNIVERSAL_TOKENS, ...(TYPE_SPECIFIC_TOKENS[docType] || [])];
+}
+
 function buildPreview(config: DocumentConfig): string {
   const {
     prefix,
@@ -433,8 +461,11 @@ function buildPreview(config: DocumentConfig): string {
         fy: financialYear,
         month: "04",
         year: "2024",
+        day: "01",
         seq,
         suffix,
+        businessCode: TEMPLATE_PREVIEW_CONTEXT.businessCode,
+        businessName: "Sample Business",
       };
       if (key in builtins) return builtins[key];
       if (key in TEMPLATE_PREVIEW_CONTEXT) return TEMPLATE_PREVIEW_CONTEXT[key];
@@ -698,9 +729,24 @@ function DocumentCard({
 
             {/* Custom Template */}
             <div className="pt-3">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Custom Template (optional — overrides everything above)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-gray-500">
+                  Custom Template (optional — overrides everything above)
+                </label>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    update({ template: (current.template || "") + e.target.value });
+                  }}
+                  className="text-[11px] border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+                >
+                  <option value="">+ Insert token…</option>
+                  {tokensForDocType(docType).map((t) => (
+                    <option key={t.token} value={t.token}>{t.token} — {t.label}</option>
+                  ))}
+                </select>
+              </div>
               <input
                 type="text"
                 value={current.template || ""}
@@ -709,11 +755,8 @@ function DocumentCard({
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 font-mono focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
               <p className="mt-1.5 text-[11px] text-gray-400 leading-relaxed">
-                Available tokens: <code className="font-mono">{"{prefix} {fy} {month} {year} {seq} {suffix}"}</code>.
-                Some document types also supply extra tokens their generating code knows about, e.g.{" "}
-                <code className="font-mono">{"{vendorId}"}</code> for vendor product codes — a token with no value
-                at generation time will fail loudly rather than produce a wrong number, so test the preview above
-                before saving.
+                Use the dropdown above to insert a token, or type your own. A token with no value at generation
+                time will fail loudly rather than produce a wrong number, so test the preview above before saving.
               </p>
             </div>
           </div>

@@ -1,8 +1,10 @@
 import { Types } from "mongoose";
 import DocumentNumberConfig from "@/models/DocumentNumberConfig";
+import Business from "@/models/Business";
 import NumberSequence from "./NumberSequence.model";
 import { getFinancialYear, getFinancialYearCode } from "./financialYear";
 import { DEFAULT_PREFIXES, type DocumentType, type GeneratedNumber } from "./types";
+
 
 /**
  * THE canonical document-number generator for the entire platform.
@@ -141,18 +143,29 @@ async function generateNumberInScope(
   let value: string;
   if (template.trim()) {
     const now = new Date();
-    value = renderTemplate(
-      template,
-      {
-        prefix,
-        fy: financialYear,
-        month: String(now.getMonth() + 1).padStart(2, "0"),
-        year: String(now.getFullYear()),
-        seq: String(sequence).padStart(sequenceLength, "0"),
-        suffix,
-      },
-      context
-    );
+    const builtins: Record<string, string> = {
+      prefix,
+      fy: financialYear,
+      month: String(now.getMonth() + 1).padStart(2, "0"),
+      year: String(now.getFullYear()),
+      day: String(now.getDate()).padStart(2, "0"),
+      seq: String(sequence).padStart(sequenceLength, "0"),
+      suffix,
+    };
+
+    // {businessCode}/{businessName} are automatic built-ins derived from
+    // configBusinessId -- every generator function already takes a
+    // businessId, so there's no reason to make every call site fetch and
+    // pass these itself. Only looked up when the template actually
+    // references one, to avoid an extra DB round-trip on the common
+    // structured-format (no custom template) path.
+    if (configBusinessId && (template.includes("{businessCode}") || template.includes("{businessName}"))) {
+      const business = await Business.findById(configBusinessId).select("businessCode name").lean();
+      if ((business as any)?.businessCode) builtins.businessCode = (business as any).businessCode;
+      if ((business as any)?.name) builtins.businessName = (business as any).name;
+    }
+
+    value = renderTemplate(template, builtins, context);
   } else {
     value = formatNumber({
       prefix,

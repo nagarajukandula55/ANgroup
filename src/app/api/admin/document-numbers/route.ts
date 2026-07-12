@@ -21,6 +21,7 @@ const PREVIEW_CONTEXT: Record<string, string> = {
   vendorId: "VND-0001",
   customerId: "CUST-0001",
   businessCode: "BIZ-01",
+  businessName: "Sample Business",
 };
 
 /* helper: build the format preview string from config fields */
@@ -44,6 +45,7 @@ function buildPreview(
           fy: financialYear,
           month: "MM",
           year: String(new Date().getFullYear()),
+          day: "DD",
           seq: "0".repeat(sequenceLength),
           suffix,
         };
