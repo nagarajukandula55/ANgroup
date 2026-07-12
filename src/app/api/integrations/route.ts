@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Integration, { IntegrationConfig, TelegramConfig, WhatsAppConfig, EmailConfig } from '@/models/Integration';
 import { logAction } from '@/lib/audit/logAction';
+import { learnIntegrationStatus } from '@/services/anuAutoLearn.service';
 
 function maskConfig(provider: string, config: IntegrationConfig): IntegrationConfig {
   if (!config) return config;
@@ -115,6 +116,8 @@ export async function POST(req: NextRequest) {
     after: integration,
     req,
   });
+
+  learnIntegrationStatus({ businessId, provider, isActive: !!integration?.isActive });
 
   return NextResponse.json({ success: true, integration });
 }

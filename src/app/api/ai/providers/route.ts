@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import AIConfig from '@/models/AIConfig'
 import { logAction } from '@/lib/audit/logAction'
+import { learnAiProviderStatus } from '@/services/anuAutoLearn.service'
 
 function maskApiKey(key: string | undefined): string | null {
   if (!key) return null
@@ -141,6 +142,11 @@ export async function POST(req: NextRequest) {
     req,
     actor: { businessId },
   });
+
+  if (provider) {
+    const enabledNow = (updatedConfig as any)?.providers?.[provider]?.isEnabled ?? false;
+    learnAiProviderStatus({ businessId, provider, isEnabled: enabledNow });
+  }
 
   return NextResponse.json({ success: true })
 }
