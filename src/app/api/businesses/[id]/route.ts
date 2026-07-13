@@ -71,6 +71,10 @@ const EDITABLE_FIELDS = [
   // field. Added here so it's actually editable through the Settings UI,
   // not just present on the schema with no way to set it.
   "gstStateCode",
+  // Whether workorder part selection should check real Inventory stock
+  // (serialized) or just pull from the Service Center BOM (not
+  // serialized) -- see models/Business.ts's inventorySerialized comment.
+  "inventorySerialized",
   // Business Type / Industry enums + address fields — the edit form used
   // to only show city/state/pincode read-only (they were never actually
   // saveable), and type/industry weren't editable post-creation at all.

@@ -86,6 +86,8 @@ export async function PUT(req: NextRequest) {
     if (body.gstNumber !== undefined) allowedUpdate.gstNumber = body.gstNumber
     if (body.panNumber !== undefined) allowedUpdate.panNumber = body.panNumber
     if (body.category !== undefined) allowedUpdate.category = body.category
+    if (body.termsAndConditions !== undefined)
+      allowedUpdate.termsAndConditions = String(body.termsAndConditions).slice(0, 5000)
     if (Array.isArray(body.servicePincodes))
       allowedUpdate.servicePincodes = body.servicePincodes
         .map((p: unknown) => String(p).trim())

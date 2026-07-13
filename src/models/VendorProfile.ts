@@ -129,6 +129,7 @@ export interface IVendorProfile extends Document {
   category?: string;
   businessType?: string;
   notes?:    string;
+  termsAndConditions?: string;
   rating:    number;
   status:    VendorStatus;
   isApproved: boolean;
@@ -230,6 +231,11 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     category:     { type: String },
     businessType: { type: String },
     notes:        { type: String },
+    // Vendor-editable service terms & conditions, shown on the
+    // customer-facing workorder document -- each Service Center sets its
+    // own, per explicit direction ("Allow vendors to update terms and
+    // conditionals of their own").
+    termsAndConditions: { type: String, default: '' },
     rating:       { type: Number, min: 0, max: 5, default: 0 },
     status: {
       type:    String,

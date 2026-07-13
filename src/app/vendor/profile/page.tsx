@@ -22,6 +22,7 @@ interface VendorProfileData {
   gstNumber: string
   panNumber: string
   category: string
+  termsAndConditions?: string
   address: {
     street: string
     city: string
@@ -106,6 +107,7 @@ export default function VendorProfilePage() {
     gstNumber: '',
     panNumber: '',
     category: '',
+    termsAndConditions: '',
     address: { street: '', city: '', state: '', pincode: '' },
     bankDetails: {
       accountName: '',
@@ -133,6 +135,7 @@ export default function VendorProfilePage() {
             gstNumber: p.gstNumber || '',
             panNumber: p.panNumber || '',
             category: p.category || '',
+            termsAndConditions: p.termsAndConditions || '',
             address: {
               street: p.address?.street || '',
               city: p.address?.city || '',
@@ -389,6 +392,20 @@ export default function VendorProfilePage() {
                 Other
               </option>
             </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-xs text-gray-500 mb-1.5">
+              Service Terms &amp; Conditions
+            </label>
+            <textarea
+              rows={5}
+              value={form.termsAndConditions}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, termsAndConditions: e.target.value }))
+              }
+              placeholder="Your own service terms and conditions -- shown on your workorder documents"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-violet-500/50 transition-colors resize-none"
+            />
           </div>
         </div>
       </div>

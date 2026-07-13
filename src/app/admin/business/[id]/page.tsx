@@ -42,6 +42,7 @@ interface Business {
   brandName?: string;
   businessCode?: string;
   brandShortcut?: string;
+  inventorySerialized?: boolean;
   industry?: string;
   type?: string;
   email?: string;
@@ -89,6 +90,7 @@ type EditableForm = {
   brandName: string;
   businessCode: string;
   brandShortcut: string;
+  inventorySerialized: boolean;
   industry: string;
   type: string;
   address: string;
@@ -150,6 +152,7 @@ function toForm(biz: Business): EditableForm {
     brandName: biz.brandName || "",
     businessCode: biz.businessCode || "",
     brandShortcut: biz.brandShortcut || "",
+    inventorySerialized: biz.inventorySerialized || false,
     industry: biz.industry || "",
     type: biz.type || "",
     address: biz.address || "",
@@ -501,6 +504,21 @@ export default function BusinessDetailPage() {
                 </button>
               </div>
             )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Inventory</label>
+            <label className="flex items-center gap-2 mt-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.inventorySerialized}
+                onChange={(e) => setForm({ ...form, inventorySerialized: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700">
+                Serialized (check real stock and deduct on workorder close — otherwise part selection just pulls from the Service Center BOM)
+              </span>
+            </label>
           </div>
 
           <div>

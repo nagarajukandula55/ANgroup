@@ -587,6 +587,19 @@ const BusinessSchema = new mongoose.Schema(
       default: "India",
     },
 
+    // Whether this business tracks individual serial numbers in
+    // inventory. When false (default), workorder part selection only
+    // pulls from the Service Center BOM (no live stock check). When true,
+    // part selection must check real Inventory stock before allowing a
+    // part to be added, and deduct on job close -- see the workorder
+    // repair flow. Configurable at Settings > (business settings), per
+    // explicit direction ("give a button in settings that Whether
+    // Inventory is serialized or not").
+    inventorySerialized: {
+      type: Boolean,
+      default: false,
+    },
+
     pincode: {
       type: String,
       default: "",
