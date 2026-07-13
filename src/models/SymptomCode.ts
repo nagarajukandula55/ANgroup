@@ -16,6 +16,7 @@ export interface ISymptomCode extends Document {
   code: string;
   description: string;
   category?: string;
+  parentId?: Types.ObjectId | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +30,7 @@ const SymptomCodeSchema = new Schema<ISymptomCode>(
     code: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     category: { type: String, trim: true },
+    parentId: { type: Schema.Types.ObjectId, ref: "SymptomCode", default: null },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

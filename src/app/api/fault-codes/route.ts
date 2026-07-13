@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { code, description, category, businessId, businessScope, businessIds } = body;
+    const { code, description, category, businessId, businessScope, businessIds, parentId } = body;
 
     if (!code?.trim() || !description?.trim()) {
       return NextResponse.json(
@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
       businessId: businessId && Types.ObjectId.isValid(businessId) ? new Types.ObjectId(businessId) : null,
       businessScope: businessScope || "SINGLE",
       businessIds: Array.isArray(businessIds) ? businessIds : [],
+      parentId: parentId && Types.ObjectId.isValid(parentId) ? new Types.ObjectId(parentId) : null,
     });
 
     logAction({

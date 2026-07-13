@@ -17,6 +17,10 @@ export interface IFaultCode extends Document {
   code: string;
   description: string;
   category?: string;
+  // Optional parent fault code -- same self-referencing tree pattern as
+  // Brand/ProductCategory/MaterialCategory, so fault codes can be grouped
+  // (e.g. "Display" > "Cracked screen") and browsed/edited as a tree.
+  parentId?: Types.ObjectId | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +34,7 @@ const FaultCodeSchema = new Schema<IFaultCode>(
     code: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     category: { type: String, trim: true },
+    parentId: { type: Schema.Types.ObjectId, ref: "FaultCode", default: null },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

@@ -9,12 +9,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 import BusinessScopeControl, { type BusinessScopeValue } from "@/components/catalog/BusinessScopeControl";
+import { CategoryTree } from "@/components/shared/CategoryTree";
 
 interface FaultCode {
   _id: string
   code: string
   description: string
   category?: string
+  parentId?: string | null
   isActive: boolean
 }
 
@@ -22,9 +24,11 @@ export default function FaultCodesPage() {
   const { businessId } = useActiveBusinessId();
   const [items, setItems] = useState<FaultCode[]>([])
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'table' | 'tree'>('tree')
   const [code, setCode] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
+  const [parentId, setParentId] = useState('')
   const [scope, setScope] = useState<BusinessScopeValue>({ businessScope: 'SINGLE', businessIds: [] })
   const [error, setError] = useState<string | null>(null)
 
@@ -49,11 +53,11 @@ export default function FaultCodesPage() {
       const res = await fetch('/api/fault-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, description, category, businessId, ...scope }),
+        body: JSON.stringify({ code, description, category, businessId, parentId: parentId || null, ...scope }),
       })
       const d = await res.json()
       if (!res.ok || !d.success) throw new Error(d.error || 'Failed to add')
-      setCode(''); setDescription(''); setCategory(''); setScope({ businessScope: 'SINGLE', businessIds: [] })
+      setCode(''); setDescription(''); setCategory(''); setParentId(''); setScope({ businessScope: 'SINGLE', businessIds: [] })
       load()
     } catch (err: any) {
       setError(err.message)
@@ -62,6 +66,17 @@ export default function FaultCodesPage() {
 
   async function deactivate(id: string) {
     await fetch(`/api/fault-codes/${id}`, { method: 'DELETE' })
+    load()
+  }
+
+  async function editItem(item: FaultCode) {
+    const newDescription = prompt('Edit description', item.description)
+    if (newDescription === null || !newDescription.trim()) return
+    await fetch(`/api/fault-codes/${item._id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: newDescription.trim() }),
+    })
     load()
   }
 
@@ -89,6 +104,15 @@ export default function FaultCodesPage() {
           <label className="block text-xs text-gray-500 mb-1">Category</label>
           <input value={category} onChange={(e) => setCategory(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
         </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Parent (optional)</label>
+          <select value={parentId} onChange={(e) => setParentId(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">— Top level —</option>
+            {items.map((f) => (
+              <option key={f._id} value={f._id}>{f.parentId ? `↳ ${f.code}` : f.code} — {f.description}</option>
+            ))}
+          </select>
+        </div>
         <button className="bg-gray-900 text-white text-sm px-4 py-2 rounded-lg">Add</button>
       </form>
 
@@ -98,6 +122,20 @@ export default function FaultCodesPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+        <button onClick={() => setView('table')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${view === 'table' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Table</button>
+        <button onClick={() => setView('tree')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${view === 'tree' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>Tree</button>
+      </div>
+
+      {!loading && items.length > 0 && view === 'tree' && (
+        <CategoryTree
+          items={items.map((f) => ({ ...f, name: `${f.code} — ${f.description}` }))}
+          onEdit={(item) => editItem(items.find((f) => f._id === item._id)!)}
+          onDelete={(item) => deactivate(item._id)}
+        />
+      )}
+
+      {view === 'table' && (
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -132,6 +170,7 @@ export default function FaultCodesPage() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
