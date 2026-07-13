@@ -29,6 +29,13 @@ export interface IServiceCenterBOM extends Document {
   gstRate: number; // % -- explicit on the part, not just derived from HSN lookup at billing time
   rate: number; // without tax
   warrantyDays?: number;
+  // Optional link to a real Inventory-tracked Material -- only consulted
+  // when the business has Business.inventorySerialized = true; lets the
+  // workorder repair flow check real stock before allowing this part to be
+  // added, and deduct on close. When unset (the default), this part
+  // behaves exactly as before -- a plain price-list entry with no stock
+  // tracking.
+  materialId?: Types.ObjectId;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +55,7 @@ const ServiceCenterBOMSchema = new Schema<IServiceCenterBOM>(
     gstRate: { type: Number, required: true, min: 0, max: 100, default: 18 },
     rate: { type: Number, required: true, min: 0 },
     warrantyDays: { type: Number, min: 0 },
+    materialId: { type: Schema.Types.ObjectId, ref: "Material", default: null },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

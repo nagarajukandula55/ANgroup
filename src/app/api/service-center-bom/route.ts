@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       partName, hsnCode, rate, vendorId: explicitVendorId,
-      brandId, description, partType, unit, gstRate, warrantyDays,
+      brandId, description, partType, unit, gstRate, warrantyDays, materialId,
     } = body;
 
     if (!partName?.trim() || !hsnCode?.trim() || rate === undefined || rate === null) {
@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
       gstRate: gstRate !== undefined ? Number(gstRate) : 18,
       rate: Number(rate),
       warrantyDays: warrantyDays !== undefined ? Number(warrantyDays) : undefined,
+      materialId: materialId && mongoose.Types.ObjectId.isValid(materialId) ? materialId : undefined,
     });
 
     logAction({

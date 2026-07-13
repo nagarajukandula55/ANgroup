@@ -28,6 +28,7 @@ interface BOMPart {
   gstRate: number
   rate: number
   brandId?: { _id: string; name: string } | string
+  materialId?: string
 }
 
 interface Solution {
@@ -72,6 +73,7 @@ interface JobSheet {
   callId?: { callNumber?: string; status?: string } | string
   assignedTo?: { _id?: string; name?: string } | string
   cancelReason?: string
+  warehouseId?: string
 }
 
 interface StaffMember {
@@ -212,6 +214,25 @@ export default function JobSheetDetailPage() {
   // Fixed Service Charge editing is restricted to Owner/Manager, per
   // explicit direction -- everyone else sees it read-only.
   const [canEditServiceCharge, setCanEditServiceCharge] = useState(false)
+
+  // Serialized-inventory stock check on part add -- only meaningful when
+  // the active business has Business.inventorySerialized = true (see
+  // models/Business.ts). Fetched once the job sheet's businessId is known.
+  const [inventorySerialized, setInventorySerialized] = useState(false)
+  useEffect(() => {
+    if (!job?.businessId) return
+    fetch(`/api/businesses/${job.businessId}`).then(r => r.json()).then(d => {
+      setInventorySerialized(Boolean(d?.business?.inventorySerialized))
+    }).catch(() => {})
+  }, [job?.businessId])
+
+  // Brand Job No. popup -- fires the first time a BOM part is added to
+  // this job sheet while brandJobNo is still empty, per explicit direction
+  // ("if any call moving to part pending then a popup should come to fill
+  // brand job number if required else you can leave"). Optional -- can be
+  // dismissed without filling it in.
+  const [showBrandJobPopup, setShowBrandJobPopup] = useState(false)
+  const [stockWarning, setStockWarning] = useState<string | null>(null)
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       const user = d.user ?? d
@@ -266,7 +287,19 @@ export default function JobSheetDetailPage() {
     }])
   }
 
-  function pickBomPart(i: number, part: BOMPart) {
+  async function pickBomPart(i: number, part: BOMPart) {
+    setStockWarning(null)
+    if (inventorySerialized && part.materialId) {
+      try {
+        const qs = job?.warehouseId ? `?warehouseId=${job.warehouseId}` : ''
+        const res = await fetch(`/api/service-center-bom/${part._id}/stock${qs}`)
+        const d = await res.json()
+        if (d.success && d.tracked && (d.availableQuantity ?? 0) <= 0) {
+          setStockWarning(`"${part.partName}" is out of stock (0 available) -- add it anyway only if you're sure, otherwise maintain sufficient stock first.`)
+        }
+      } catch { /* best-effort check -- don't block on a network hiccup */ }
+    }
+
     updateLine(i, {
       description: part.partName,
       unitPrice: part.rate,
@@ -277,6 +310,8 @@ export default function JobSheetDetailPage() {
     })
     setPickerOpenIndex(null)
     setBomSearch('')
+
+    if (!brandJobNo.trim()) setShowBrandJobPopup(true)
   }
 
   const filteredBomParts = useMemo(() => {
@@ -551,6 +586,21 @@ export default function JobSheetDetailPage() {
           </div>
         )}
 
+        {stockWarning && (
+          <div className="mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start justify-between gap-3">
+            <span>{stockWarning}</span>
+            <button onClick={() => setStockWarning(null)} className="text-amber-600 hover:text-amber-800 shrink-0">✕</button>
+          </div>
+        )}
+
+        {job.status === 'CREATED' ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-6 text-center py-12">
+            <Wrench className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+            <p className="text-sm text-gray-500">Assign an engineer above to begin repair work.</p>
+            <p className="text-xs text-gray-400 mt-1">Parts, symptoms, solutions and service charge become available once someone is assigned.</p>
+          </div>
+        ) : (
+        <>
         <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Line Items</h3>
@@ -767,6 +817,8 @@ export default function JobSheetDetailPage() {
             </button>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {showHandover && (
@@ -818,6 +870,28 @@ export default function JobSheetDetailPage() {
               <button onClick={submitCancel} disabled={cancelling || !cancelReason.trim()} className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition disabled:opacity-50">
                 {cancelling ? 'Cancelling…' : 'Confirm Cancel'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBrandJobPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="font-semibold text-gray-900 mb-2">Brand Job Number</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              If this brand requires their own job reference number for the part order, enter it now. Leave blank if not required.
+            </p>
+            <input
+              value={brandJobNo}
+              onChange={(e) => setBrandJobNo(e.target.value)}
+              placeholder="Brand's job number (optional)"
+              autoFocus
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-4"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowBrandJobPopup(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500">Skip</button>
+              <button onClick={() => setShowBrandJobPopup(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition">OK (saved with line items)</button>
             </div>
           </div>
         </div>

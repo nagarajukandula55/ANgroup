@@ -29,7 +29,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const body = await req.json();
     const updates: Record<string, unknown> = {};
-    for (const field of ["partName", "hsnCode", "rate", "isActive", "brandId", "description", "partType", "unit", "gstRate", "warrantyDays"]) {
+    for (const field of ["partName", "hsnCode", "rate", "isActive", "brandId", "description", "partType", "unit", "gstRate", "warrantyDays", "materialId"]) {
       if (body[field] !== undefined) updates[field] = body[field];
     }
 

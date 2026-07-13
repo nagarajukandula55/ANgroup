@@ -15,6 +15,10 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import CrmJobSheet from "@/models/CrmJobSheet";
 import SalesInvoice from "@/models/SalesInvoice";
+import Business from "@/models/Business";
+import ServiceCenterBOM from "@/models/ServiceCenterBOM";
+import Inventory from "@/models/Inventory";
+import { updateInventoryStock } from "@/services/inventory.service";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { notify } from "@/lib/notify";
@@ -80,6 +84,50 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { success: false, message: "Cannot close a job sheet with no line items — add at least one before closing." },
         { status: 400 }
       );
+    }
+
+    // Serialized-inventory stock check + deduction -- only when the
+    // business has Business.inventorySerialized = true (see
+    // models/Business.ts). Every line item whose BOM part is linked to a
+    // real Material (ServiceCenterBOM.materialId) must have enough stock
+    // in the job sheet's warehouse; deducted only after every check
+    // passes, so a mid-batch insufficient-stock failure never leaves a
+    // partial deduction behind.
+    const business = await Business.findById(jobSheet.businessId).select("inventorySerialized").lean();
+    const deductions: { materialId: string; quantity: number; partName: string }[] = [];
+    if ((business as any)?.inventorySerialized) {
+      if (!jobSheet.warehouseId) {
+        return NextResponse.json(
+          { success: false, message: "This business tracks serialized inventory -- assign a Service Center/Warehouse to this job sheet before closing." },
+          { status: 400 }
+        );
+      }
+      const bomIds = jobSheet.lineItems.map((item: any) => item.serviceCenterBOMId).filter(Boolean);
+      if (bomIds.length > 0) {
+        const bomParts = await ServiceCenterBOM.find({ _id: { $in: bomIds }, materialId: { $ne: null } })
+          .select("materialId partName")
+          .lean();
+        const bomById = new Map(bomParts.map((p: any) => [String(p._id), p]));
+
+        for (const item of jobSheet.lineItems as any[]) {
+          const bom = item.serviceCenterBOMId ? bomById.get(String(item.serviceCenterBOMId)) : null;
+          if (!bom) continue;
+          const inventory = await Inventory.findOne({
+            warehouseId: jobSheet.warehouseId,
+            materialId: bom.materialId,
+            active: true,
+          }).select("availableQuantity").lean();
+          const available = (inventory as any)?.availableQuantity ?? 0;
+          const needed = item.quantity || 1;
+          if (available < needed) {
+            return NextResponse.json(
+              { success: false, message: `Insufficient stock for "${bom.partName}" -- ${available} available, ${needed} needed. Maintain sufficient stock before closing this job.` },
+              { status: 409 }
+            );
+          }
+          deductions.push({ materialId: String(bom.materialId), quantity: needed, partName: bom.partName });
+        }
+      }
     }
 
     /* ── Build invoice items with the same GST-split logic as
@@ -201,6 +249,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (workPerformed !== undefined) jobSheet.workPerformed = workPerformed;
     if (materialsUsed !== undefined) jobSheet.materialsUsed = materialsUsed;
     await jobSheet.save();
+
+    // Deduct stock now that the invoice is confirmed created -- every
+    // check above already passed, so this only fails on a genuine
+    // concurrent-request race (rare, and the invoice already exists at
+    // that point same as any other stock system).
+    for (const d of deductions) {
+      await updateInventoryStock({
+        businessId: jobSheet.businessId,
+        warehouseId: jobSheet.warehouseId,
+        itemType: "MATERIAL",
+        materialId: d.materialId,
+        transactionType: "SALE",
+        quantity: d.quantity,
+        referenceType: "CRM_JOBSHEET",
+        referenceId: String(jobSheet._id),
+        referenceNumber: jobSheet.jobSheetNumber,
+        remarks: `Workorder ${jobSheet.jobSheetNumber} closed -- ${d.partName}`,
+        createdBy: userId,
+      }).catch(() => {
+        // Best-effort past this point -- the invoice is already the source
+        // of truth for what was billed; a stock-ledger hiccup here
+        // shouldn't roll back a completed, invoiced job.
+      });
+    }
 
     // No document is generated or stored here on purpose -- per explicit
     // direction, an invoice/estimate document should never be persisted as
