@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
             vendorId: { $ne: null },
             status: 'ACTIVE',
           }).lean();
-          if (membership?.vendorId) {
-            vendorProfile = await VendorProfile.findById(membership.vendorId).lean();
+          if ((membership as any)?.vendorId) {
+            vendorProfile = await VendorProfile.findById((membership as any).vendorId).lean();
           }
         }
 
