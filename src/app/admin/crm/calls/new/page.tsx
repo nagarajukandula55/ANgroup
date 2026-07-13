@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
+import { ModelInput } from '@/components/shared/ModelInput'
 
 interface Brand { _id: string; name: string; parentId?: string | null }
 
@@ -157,7 +158,13 @@ export default function NewAppointmentPage() {
               </div>
               <div>
                 <label className={labelCls}>Model *</label>
-                <input type="text" required value={form.deviceModel} onChange={(e) => setForm((p) => ({ ...p, deviceModel: e.target.value }))} className={inputCls} />
+                <ModelInput
+                  value={form.deviceModel}
+                  onChange={(v) => setForm((p) => ({ ...p, deviceModel: v }))}
+                  businessId={businessId}
+                  brandId={form.brandId}
+                  className={inputCls}
+                />
               </div>
             </div>
             <div>

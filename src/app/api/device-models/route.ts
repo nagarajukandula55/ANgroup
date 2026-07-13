@@ -1,0 +1,88 @@
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { connectDB } from "@/lib/mongodb";
+import { Types } from "mongoose";
+import DeviceModel from "@/models/DeviceModel";
+import { logAction } from "@/lib/audit/logAction";
+import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
+
+// GET /api/device-models?businessId=...&brandId=...&search=...
+export async function GET(req: NextRequest) {
+  try {
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const businessId = searchParams.get("businessId");
+    const brandId = searchParams.get("brandId");
+    const search = searchParams.get("search");
+
+    if (!businessId) {
+      return NextResponse.json({ error: "businessId is required" }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const scopeQuery = buildBusinessScopeQuery(businessId);
+    const query: Record<string, unknown> = { ...scopeQuery, isActive: true };
+    if (brandId && Types.ObjectId.isValid(brandId)) {
+      query.brandId = brandId;
+    }
+    if (search) {
+      query.$and = [{ $or: scopeQuery.$or }, { name: { $regex: search, $options: "i" } }];
+      delete query.$or;
+    }
+
+    const models = await DeviceModel.find(query).sort({ name: 1 }).lean();
+    return NextResponse.json({ success: true, models });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
+// POST /api/device-models
+export async function POST(req: NextRequest) {
+  try {
+    const h = await headers();
+    const userId = h.get("x-user-id");
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await req.json();
+    const { name, brandId, businessId, businessScope, businessIds } = body;
+
+    if (!name?.trim() || !brandId || !businessId) {
+      return NextResponse.json({ error: "name, brandId and businessId are required" }, { status: 400 });
+    }
+    if (!Types.ObjectId.isValid(brandId)) {
+      return NextResponse.json({ error: "Invalid brandId" }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const model = await DeviceModel.create({
+      name: name.trim(),
+      brandId: new Types.ObjectId(brandId),
+      businessId: new Types.ObjectId(businessId),
+      businessScope: businessScope || "SINGLE",
+      businessIds: Array.isArray(businessIds) ? businessIds : [],
+    });
+
+    logAction({
+      action: "CREATE",
+      entity: "DeviceModel",
+      entityId: model?._id?.toString(),
+      after: body,
+      req,
+    });
+
+    return NextResponse.json({ success: true, model }, { status: 201 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    if (message.includes("duplicate key") || message.includes("E11000")) {
+      return NextResponse.json({ success: false, error: "This model already exists for this brand" }, { status: 409 });
+    }
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}

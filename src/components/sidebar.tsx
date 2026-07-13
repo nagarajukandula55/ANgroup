@@ -10,7 +10,7 @@ import {
   Key, UserPlus, ChevronDown, Check, LogOut, ShoppingBag,
   Box, Hash, Truck, Activity, FileText, PhoneCall, ClipboardList,
   BarChart3, Ruler, Tags, Layers, Bot, MapPin, FolderOpen, Settings,
-  ArrowLeftRight, SlidersHorizontal, ShieldCheck,
+  ArrowLeftRight, SlidersHorizontal, ShieldCheck, Smartphone,
 } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 
@@ -29,7 +29,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   Key, UserPlus, ShoppingBag, Box, Hash, Truck, Activity, FileText,
   PhoneCall, ClipboardList, BarChart3, Ruler, Tags, Layers, Bot,
   MapPin, FolderOpen, Settings, ArrowLeftRight, SlidersHorizontal,
-  ShieldCheck,
+  ShieldCheck, Smartphone,
 };
 
 interface NavItem {
@@ -64,6 +64,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // Invoice Branding / GST entries documented further below.
       { key: "masters-units",    label: "Units",              route: "/admin/masters/units",              icon: "Ruler" },
       { key: "masters-brands",   label: "Brands",             route: "/admin/masters/brands",              icon: "Tags" },
+      { key: "masters-models",  label: "Device Models",      route: "/admin/masters/models",              icon: "Smartphone" },
       { key: "masters-prod-cat", label: "Product Categories", route: "/admin/masters/product-categories",  icon: "Layers" },
       { key: "masters-mat-cat",  label: "Material Categories",route: "/admin/masters/material-categories", icon: "Layers" },
       // Same bug again — these 2 also had complete, working pages with no
