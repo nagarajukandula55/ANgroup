@@ -5,7 +5,30 @@ import VendorStaffSlot from "@/models/VendorStaffSlot";
 import VendorProfile from "@/models/VendorProfile";
 import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
 import User from "@/models/User";
+import Role from "@/models/Role";
+import UserRole from "@/models/UserRole";
+import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
 import { logAction } from "@/lib/audit/logAction";
+
+// Designation -> the vendor-scoped Role code createDefaultVendorRoles()
+// provisions for this vendor (see core/access/vendorDefaultRoles.service.ts's
+// VENDOR_ROLE_DEFS). Without this mapping, tagging a user to a slot only
+// ever created a BusinessMember row -- getEnrichedSession() resolves
+// permissions from UserRole, not BusinessMember.vendorRole, so a
+// slot-tagged user's session.permissions stayed permanently empty. That
+// produced two contradictory-looking symptoms at once: the sidebar's
+// client-side STATIC_MODULES fallback kicked in (api/ui/sidebar returning
+// zero visible modules for an empty-permission session made the client
+// keep its "show everything" default instead of the real filtered list),
+// while every actual page-level requirePermission() check correctly 403'd
+// since the user genuinely had no permissions.
+const DESIGNATION_TO_ROLE_CODE: Record<string, string> = {
+  MANAGER: "VENDOR_MANAGER",
+  CCO: "VENDOR_FRONT_OFFICE",
+  ENGINEER: "VENDOR_ENGINEER",
+  WAREHOUSE_MANAGER: "VENDOR_WAREHOUSE_MANAGER",
+  TELECALLER: "VENDOR_FRONT_OFFICE",
+};
 
 /**
  * POST /api/admin/vendor-staff-slots/[id]/activate — Super Admin only,
@@ -80,6 +103,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     slot.userId = targetUser._id as any;
     slot.activatedAt = new Date();
     await slot.save();
+
+    // Grant the matching vendor-scoped Role so this user's session
+    // actually resolves real permissions -- idempotent, safe to call even
+    // if this vendor's default role set was already provisioned at
+    // finalize time.
+    await createDefaultVendorRoles(String(vendor._id), String(vendor.businessId)).catch(() => {});
+    const roleCode = DESIGNATION_TO_ROLE_CODE[slot.designation];
+    if (roleCode) {
+      const role = await Role.findOne({
+        code: roleCode,
+        businessId: vendor.businessId,
+        vendorId: vendor._id,
+      }).lean();
+      if (role) {
+        await UserRole.updateOne(
+          { userId: targetUser._id, roleId: (role as any)._id },
+          { $setOnInsert: { userId: targetUser._id, roleId: (role as any)._id, businessId: vendor.businessId } },
+          { upsert: true }
+        );
+      }
+    }
 
     logAction({
       action: "UPDATE",
