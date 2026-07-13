@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     }
 
     await connectDB();
-    const { User, Role, UserRole, EmployeeProfile, VendorProfile } = await getModels();
+    const { User, Role, UserRole, BusinessMember, EmployeeProfile, VendorProfile } = await getModels();
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
