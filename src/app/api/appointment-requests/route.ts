@@ -27,6 +27,7 @@ import { connectDB } from "@/lib/mongodb";
 import Business from "@/models/Business";
 import CrmCall from "@/models/CrmCall";
 import VendorProfile from "@/models/VendorProfile";
+import PublicEmailVerification from "@/models/PublicEmailVerification";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { notify } from "@/lib/notify";
@@ -48,7 +49,35 @@ export async function POST(req: NextRequest) {
       pincode,
       subject,
       description,
+      verificationToken,
     } = body || {};
+
+    // verificationToken is OPTIONAL at this route level -- existing callers
+    // (e.g. the Native storefront's own appointment widget) keep working
+    // unchanged. The new public /appointment-request page (with its email
+    // OTP step, see send-otp/verify-otp routes) always sends one; WHEN a
+    // token is provided, it's validated for real -- a request claiming to
+    // be verified with a bad/expired/mismatched-email token is rejected
+    // rather than silently accepted.
+    if (verificationToken) {
+      const verification = await PublicEmailVerification.findOne({
+        purpose: "APPOINTMENT_REQUEST",
+        token: verificationToken,
+      });
+      const tokenEmail = String(email || "").toLowerCase().trim();
+      if (
+        !verification ||
+        !verification.verified ||
+        !verification.tokenExpiresAt ||
+        verification.tokenExpiresAt < new Date() ||
+        verification.email !== tokenEmail
+      ) {
+        return NextResponse.json(
+          { success: false, message: "Email verification expired or invalid — please verify your email again." },
+          { status: 400 }
+        );
+      }
+    }
 
     if (!businessId || !mongoose.Types.ObjectId.isValid(businessId)) {
       return NextResponse.json(

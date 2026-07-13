@@ -75,6 +75,49 @@ export async function sendPasswordResetEmail({
   }
 }
 
+/**
+ * Generic email-verification OTP -- used by any public/unauthenticated flow
+ * that needs to confirm a real email address before accepting a submission
+ * (currently: the public appointment-request page). Deliberately separate
+ * from sendAgreementOtpEmail, which is purpose-built for signing an
+ * agreement and carries agreement-specific copy/context.
+ */
+export async function sendVerificationOtpEmail({
+  to,
+  otp,
+  purpose,
+  businessId,
+}: {
+  to: string;
+  otp: string;
+  purpose: string;
+  businessId?: string;
+}) {
+  try {
+    const { apiKey, from } = await resolveResendCreds(businessId);
+    if (!apiKey) {
+      throw new Error("No Resend API key configured (neither business-specific nor global RESEND_API_KEY)");
+    }
+    const resend = new Resend(apiKey);
+
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject: `Your verification code: ${otp}`,
+      html: `
+        <p>Your verification code for ${purpose} is:</p>
+        <p style="font-size:28px;font-weight:700;letter-spacing:4px;">${otp}</p>
+        <p>This code is valid for 10 minutes. If you didn't request this, you can ignore this email.</p>
+      `,
+    });
+
+    return { success: true, result };
+  } catch (err: any) {
+    console.error("RESEND VERIFICATION OTP EMAIL ERROR", err);
+    return { success: false, error: err?.message || "Unknown email error" };
+  }
+}
+
 /** Newsletter subscription welcome email -- best-effort, non-fatal (see caller). */
 export async function sendNewsletterWelcomeEmail({
   to,
