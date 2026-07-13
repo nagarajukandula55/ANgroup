@@ -53,9 +53,18 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, description, logoUrl, isActive, businessScope, businessIds } = body;
+    const { name, description, logoUrl, isActive, businessScope, businessIds, parentId } = body;
 
     await connectDB();
+
+    // A brand can't be its own parent, and can't be moved under one of its
+    // own descendants (would create a cycle) -- one level of check here
+    // (self), same guard product-categories already relies on for the
+    // common case; deep-cycle prevention beyond that isn't attempted, same
+    // as the existing category pages.
+    if (parentId && parentId === id) {
+      return NextResponse.json({ error: "A brand cannot be its own parent" }, { status: 400 });
+    }
 
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
@@ -64,6 +73,7 @@ export async function PUT(
     if (isActive !== undefined) updates.isActive = isActive;
     if (businessScope !== undefined) updates.businessScope = businessScope;
     if (businessIds !== undefined) updates.businessIds = businessIds;
+    if (parentId !== undefined) updates.parentId = parentId || null;
 
     const brand = await Brand.findByIdAndUpdate(
       id,

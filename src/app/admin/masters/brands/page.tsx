@@ -23,6 +23,7 @@ interface Brand {
   description?: string;
   logoUrl?: string;
   isActive: boolean;
+  parentId?: string | null;
   businessScope?: "SINGLE" | "MULTIPLE" | "ALL";
   businessIds?: string[];
   createdAt: string;
@@ -45,6 +46,7 @@ export default function BrandsPage() {
     name: "",
     description: "",
     logoUrl: "",
+    parentId: "",
     businessScope: "SINGLE" as "SINGLE" | "MULTIPLE" | "ALL",
     businessIds: [] as string[],
   });
@@ -80,7 +82,7 @@ export default function BrandsPage() {
   }, [fetchBrands]);
 
   const openAdd = () => {
-    setFormData({ name: "", description: "", logoUrl: "", businessScope: "SINGLE", businessIds: [] });
+    setFormData({ name: "", description: "", logoUrl: "", parentId: "", businessScope: "SINGLE", businessIds: [] });
     setFormError("");
     setModal({ type: "add" });
   };
@@ -90,6 +92,7 @@ export default function BrandsPage() {
       name: brand.name,
       description: brand.description || "",
       logoUrl: brand.logoUrl || "",
+      parentId: brand.parentId || "",
       businessScope: brand.businessScope || "SINGLE",
       businessIds: brand.businessIds || [],
     });
@@ -122,6 +125,7 @@ export default function BrandsPage() {
           name: formData.name.trim(),
           description: formData.description.trim(),
           logoUrl: formData.logoUrl.trim(),
+          parentId: formData.parentId || undefined,
           businessId,
           businessScope: formData.businessScope,
           businessIds: formData.businessIds,
@@ -158,6 +162,7 @@ export default function BrandsPage() {
           name: formData.name.trim(),
           description: formData.description.trim(),
           logoUrl: formData.logoUrl.trim(),
+          parentId: formData.parentId || null,
           businessScope: formData.businessScope,
           businessIds: formData.businessIds,
         }),
@@ -240,8 +245,12 @@ export default function BrandsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Brands</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Manage product brands and their details
+          <p className="text-sm text-gray-500 mt-0.5 max-w-2xl">
+            The brand list used everywhere a product needs a brand — the Add Product form's
+            Brand dropdown, storefront brand filters, and the mobile app all read from here.
+            Give a brand a parent to group it under a broader line (e.g. a "Mobile" brand
+            group with its own sub-brands and logos underneath, separate from a "Laptops"
+            group) — same branching pattern as Product/Material Categories.
           </p>
         </div>
         <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
@@ -313,6 +322,7 @@ export default function BrandsPage() {
             <BrandCard
               key={brand._id}
               brand={brand}
+              parentName={brands.find((b) => b._id === brand.parentId)?.name}
               onEdit={openEdit}
               onDelete={openDelete}
               onToggleActive={toggleActive}
@@ -332,6 +342,7 @@ export default function BrandsPage() {
           onClose={closeModal}
           onSubmit={handleSubmitAdd}
           existingLogos={Array.from(new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)))}
+          parentOptions={brands}
         />
       )}
 
@@ -346,6 +357,7 @@ export default function BrandsPage() {
           onClose={closeModal}
           onSubmit={handleSubmitEdit}
           existingLogos={Array.from(new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)))}
+          parentOptions={brands.filter((b) => b._id !== modal.brand!._id)}
         />
       )}
 
@@ -393,11 +405,13 @@ export default function BrandsPage() {
 
 function BrandCard({
   brand,
+  parentName,
   onEdit,
   onDelete,
   onToggleActive,
 }: {
   brand: Brand;
+  parentName?: string;
   onEdit: (b: Brand) => void;
   onDelete: (b: Brand) => void;
   onToggleActive: (b: Brand) => void;
@@ -441,8 +455,12 @@ function BrandCard({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-sm font-medium text-gray-900 truncate">{brand.name}</h3>
+          <h3 className="text-sm font-medium text-gray-900 truncate">
+            {parentName && <span className="text-gray-400 font-normal">↳ </span>}
+            {brand.name}
+          </h3>
         </div>
+        {parentName && <p className="text-[11px] text-gray-400 -mt-1 mb-1">under {parentName}</p>}
         {brand.description ? (
           <p className="text-xs text-gray-500 line-clamp-2">{brand.description}</p>
         ) : (
@@ -484,15 +502,17 @@ function BrandModal({
   onClose,
   onSubmit,
   existingLogos,
+  parentOptions,
 }: {
   title: string;
-  formData: { name: string; description: string; logoUrl: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] };
-  setFormData: (d: { name: string; description: string; logoUrl: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] }) => void;
+  formData: { name: string; description: string; logoUrl: string; parentId: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] };
+  setFormData: (d: { name: string; description: string; logoUrl: string; parentId: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] }) => void;
   formError: string;
   submitting: boolean;
   onClose: () => void;
   onSubmit: () => void;
   existingLogos: string[];
+  parentOptions: Brand[];
 }) {
   const [logoPreviewError, setLogoPreviewError] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -575,6 +595,28 @@ function BrandModal({
               rows={3}
               className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 resize-none"
             />
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Parent Brand</label>
+            <select
+              value={formData.parentId}
+              onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
+            >
+              <option value="">None (top-level brand)</option>
+              {parentOptions.map((b) => (
+                <option key={b._id} value={b._id}>
+                  {b.parentId ? `↳ ${b.name}` : b.name}
+                </option>
+              ))}
+            </select>
+            {parentOptions.length === 0 && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                No other brands exist yet — save this one first, then create another and pick
+                this as its parent.
+              </p>
+            )}
           </div>
 
           <div>

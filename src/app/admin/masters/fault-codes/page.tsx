@@ -69,7 +69,11 @@ export default function FaultCodesPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">Fault Codes</h1>
-        <p className="text-sm text-gray-500">Master list of device fault / VOC descriptions used on Workorders.</p>
+        <p className="text-sm text-gray-500">
+          Master list of device fault / VOC (voice-of-customer) descriptions — populates the
+          Fault Code dropdown when logging a CRM appointment or Workorder, so every technician
+          picks from the same standardized list instead of free-typing it each time.
+        </p>
       </div>
 
       <form onSubmit={addCode} className="flex flex-wrap gap-2 items-end bg-white border border-gray-200 rounded-xl p-4">

@@ -236,8 +236,11 @@ export default function MaterialCategoriesPage() {
           <h1 className="text-xl font-semibold text-gray-900">
             Material Categories
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Manage categories used to classify materials and inventory items.
+          <p className="text-sm text-gray-500 mt-0.5 max-w-2xl">
+            Used to classify raw materials/inventory items and to group Bill of Materials
+            entries when building a product — the Add Material and BOM forms both read their
+            category dropdown from here. Give a category a parent to branch it (e.g. "Fabric"
+            with "Cotton" and "Polyester" underneath).
           </p>
         </div>
         <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">

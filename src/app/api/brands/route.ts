@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, description, businessId, logoUrl, businessScope, businessIds } = body;
+    const { name, description, businessId, logoUrl, businessScope, businessIds, parentId } = body;
 
     if (!name || !businessId) {
       return NextResponse.json(
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     const brand = await Brand.create({
       name: name.trim(),
       description: description?.trim(),
+      parentId: parentId ? new Types.ObjectId(parentId) : null,
       businessId: new Types.ObjectId(businessId),
       logoUrl: logoUrl?.trim(),
       businessScope: businessScope || "SINGLE",

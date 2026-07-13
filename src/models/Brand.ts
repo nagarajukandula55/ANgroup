@@ -4,6 +4,12 @@ import { BUSINESS_SCOPES, type BusinessScope } from "@/core/catalog/businessScop
 export interface IBrand extends Document {
   name: string;
   description?: string;
+  // Optional parent brand -- lets a business branch brands the same way
+  // ProductCategory/MaterialCategory already do (e.g. a "Mobile" group
+  // with its own set of logo entries under it, a separate "Laptops"
+  // group with its own). Self-referencing, same pattern as
+  // ProductCategory.parentId.
+  parentId?: mongoose.Types.ObjectId | null;
   businessId: mongoose.Types.ObjectId;
   // Business tagging: SINGLE (default) = businessId only, MULTIPLE = also
   // visible to every business in businessIds, ALL = visible everywhere.
@@ -20,6 +26,7 @@ const BrandSchema = new Schema<IBrand>(
   {
     name: { type: String, required: true },
     description: { type: String },
+    parentId: { type: Schema.Types.ObjectId, ref: "Brand", default: null },
     businessId: { type: Schema.Types.ObjectId, required: true },
     businessScope: { type: String, enum: BUSINESS_SCOPES, default: "SINGLE" },
     businessIds: [{ type: Schema.Types.ObjectId, ref: "Business" }],
