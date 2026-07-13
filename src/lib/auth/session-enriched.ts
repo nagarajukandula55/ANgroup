@@ -5,6 +5,7 @@ import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
 import RolePermission from "@/models/RolePermission";
 import Permission from "@/models/Permission";
+import Business from "@/models/Business";
 
 /**
  * =========================================================
@@ -90,7 +91,23 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
       const roleIds = userRoles.map((r: any) => r.roleId);
 
       if (roleIds.length > 0) {
-        const rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
+        let rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
+
+        // Self-heal: the base MANAGER role used to be seeded with
+        // permissions: [] (see permissionSync.service.ts's syncManagerRole
+        // -- "give me full access to manager roles"). An install created
+        // before that fix has a MANAGER role stuck with zero permissions
+        // until someone happens to re-run the module sync. Since this is
+        // the actual per-request path every Manager's access flows
+        // through, refresh it here the first time it's found empty rather
+        // than requiring a separate manual trigger.
+        const staleManager = rolesDocs.find((r: any) => r.code === "MANAGER" && (!r.permissions || r.permissions.length === 0));
+        if (staleManager) {
+          const { syncManagerRole } = await import("@/core/access/permissionSync.service");
+          await syncManagerRole().catch(() => {});
+          rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
+        }
+
         roles = rolesDocs.map((r: any) => r.code);
 
         // Two independent, non-overlapping permission storage conventions
@@ -127,6 +144,38 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   } catch {
     // DB models may not be available; fall back to header-based role
     roles = userRole ? [userRole] : [];
+  }
+
+  // Cross-check against the active business's enabled modules
+  // (Business.modules[]) -- this was previously enforced ONLY at the
+  // sidebar (api/ui/sidebar/route.ts intersects a role's permitted modules
+  // with the business's enabled ones before deciding what to show), never
+  // at actual API enforcement. A role granting e.g. "FINANCE.VIEW" could
+  // still call the real finance API successfully even after a super admin
+  // disabled the Finance module for that specific business -- the module
+  // toggle was cosmetic (hid the nav link) rather than a real access
+  // boundary. Super admins are exempt (requirePermission already bypasses
+  // them unconditionally; filtering here would just be wasted work). An
+  // empty/unconfigured modules[] means "no restriction yet", same
+  // convention the sidebar route already uses, so a business that's never
+  // touched this setting isn't suddenly locked out of everything.
+  if (!isSuperAdmin && businessContext?.businessId && permissions.length > 0) {
+    try {
+      const business = await Business.findById(businessContext.businessId).select("modules").lean();
+      const businessModules = Array.isArray((business as any)?.modules) ? (business as any).modules : [];
+      if (businessModules.length > 0) {
+        const enabledKeys = new Set(
+          businessModules.filter((m: any) => m?.enabled !== false).map((m: any) => String(m?.key).toUpperCase())
+        );
+        permissions = permissions.filter((code) => {
+          const moduleKey = code.split(".")[0];
+          return enabledKeys.has(moduleKey);
+        });
+      }
+    } catch {
+      // If this lookup fails, fall through with the unfiltered permission
+      // list rather than breaking every permission check platform-wide.
+    }
   }
 
   return {

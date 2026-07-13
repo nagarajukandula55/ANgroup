@@ -79,6 +79,12 @@ export default function ProductsPage() {
   // whichever one happens to be their currently-active business — per
   // explicit direction that the platform team needs full-catalog control.
   const [viewAllBusinesses, setViewAllBusinesses] = useState(true)
+  // Real ProductCategory tree (parentId chains), fetched separately from
+  // the flat category strings stored on Product itself -- lets the filter
+  // list reflect actual parent/child branching (e.g. "Mobiles" with
+  // "Smartphones"/"Feature Phones" nested under it) instead of just an
+  // alphabetical list of whatever strings happen to appear on products.
+  const [categoryTree, setCategoryTree] = useState<{ id: string; name: string; depth: number }[]>([])
 
   const fetchProducts = useCallback(async (bId: string | null, allBusinesses: boolean) => {
     setLoading(true)
@@ -128,6 +134,8 @@ export default function ProductsPage() {
           setLoading(false)
           setError('No active business selected')
         }
+        const catBusinessId = bId || d.businesses?.[0]?._id
+        if (catBusinessId) fetchCategoryTree(catBusinessId)
       })
       .catch(() => {
         setLoading(false)
@@ -135,13 +143,48 @@ export default function ProductsPage() {
       })
   }, [fetchProducts])
 
+  async function fetchCategoryTree(bId: string) {
+    try {
+      const res = await fetch(`/api/product-categories?businessId=${bId}`)
+      const data = await res.json()
+      const raw: any[] = data.categories || data.data || []
+      const byParent = new Map<string, any[]>()
+      for (const c of raw) {
+        const pid = c.parentId?._id || c.parentId || 'root'
+        if (!byParent.has(pid)) byParent.set(pid, [])
+        byParent.get(pid)!.push(c)
+      }
+      const flat: { id: string; name: string; depth: number }[] = []
+      const walk = (parentKey: string, depth: number) => {
+        for (const c of byParent.get(parentKey) || []) {
+          flat.push({ id: c._id, name: c.name, depth })
+          walk(c._id, depth + 1)
+        }
+      }
+      walk('root', 0)
+      setCategoryTree(flat)
+    } catch {
+      /* filter falls back to the flat product-derived list below */
+    }
+  }
+
   function toggleAllBusinesses() {
     const next = !viewAllBusinesses
     setViewAllBusinesses(next)
     fetchProducts(businessId, next)
   }
 
-  const categories = ['ALL', ...Array.from(new Set(products.map((p) => p.category ?? '').filter(Boolean)))]
+  // Tree-ordered when the real category hierarchy loaded successfully
+  // (parent immediately followed by its children, indented); falls back to
+  // the flat alphabetical list derived from products if it didn't, or for
+  // any legacy free-text category value that isn't in the tree at all.
+  const productCategoryNames = Array.from(new Set(products.map((p) => p.category ?? '').filter(Boolean)))
+  const treeNames = new Set(categoryTree.map((c) => c.name))
+  const orphanCategories = productCategoryNames.filter((c) => !treeNames.has(c))
+  const categoryOptions: { label: string; depth: number }[] =
+    categoryTree.length > 0
+      ? [...categoryTree.map((c) => ({ label: c.name, depth: c.depth })), ...orphanCategories.map((c) => ({ label: c, depth: 0 }))]
+      : productCategoryNames.map((c) => ({ label: c, depth: 0 }))
 
   const filtered = products.filter((p) => {
     const matchSearch =
@@ -260,20 +303,19 @@ export default function ProductsPage() {
               className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400"
             />
           </div>
-          <div className="flex gap-1 flex-wrap">
-            {categories.slice(0, 6).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                  categoryFilter === cat
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="min-w-[220px]">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-400"
+            >
+              <option value="ALL">All Categories</option>
+              {categoryOptions.map((c) => (
+                <option key={c.label} value={c.label}>
+                  {'  '.repeat(c.depth)}{c.depth > 0 ? '↳ ' : ''}{c.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

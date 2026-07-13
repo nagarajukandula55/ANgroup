@@ -125,6 +125,42 @@ export async function syncSuperAdminRole(): Promise<void> {
 }
 
 /**
+ * The base MANAGER role was seeded with permissions: [] ("configured per
+ * business" -- an admin was expected to hand-check every box on the Access
+ * Matrix for every business's Manager). Per explicit direction ("give me
+ * full access to manager roles"), MANAGER now gets every active permission
+ * up front, same mechanism as syncSuperAdminRole() above -- $set so it
+ * stays current if new modules/permissions are added later. This is safe
+ * with the module-enabled cross-check now in session-enriched.ts: a
+ * Manager's actual usable permissions at request time are still cut down
+ * to whatever modules are enabled for their active business, this just
+ * means Manager is never missing a grant for something that IS enabled.
+ * Call alongside syncSuperAdminRole() wherever that's invoked.
+ */
+export async function syncManagerRole(): Promise<void> {
+  const allCodes = await Permission.find({ isActive: true }).distinct("code");
+
+  await Role.updateOne(
+    { code: "MANAGER" },
+    {
+      $setOnInsert: {
+        code: "MANAGER",
+        name: "Manager",
+        type: RoleType.SYSTEM,
+        status: RoleStatus.ACTIVE,
+        isSystem: true,
+        isProtected: true,
+      },
+      $set: {
+        description: "Full access to every module enabled for the business.",
+        permissions: allCodes,
+      },
+    },
+    { upsert: true }
+  );
+}
+
+/**
  * Convenience: the full permission code list for a module, without writing
  * anything — used by the access-matrix UI to know what checkboxes to render
  * for a module even before/without touching the database.
