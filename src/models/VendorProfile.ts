@@ -162,6 +162,19 @@ export interface IVendorProfile extends Document {
    * only consulted among vendors already filtered to one business.
    */
   servicePincodes?: string[];
+  /**
+   * Tree-level coverage: each entry is a state, a state+city, or a single
+   * pincode, assigned separately for onsite visits vs walk-in service
+   * center drop-offs (the same SC can cover a whole state for walk-in but
+   * only a few pincodes for onsite, or vice versa). "level" says which
+   * granularity the entry represents; city/pincode are only set when
+   * level narrows that far. Superset of the older servicePincodes (kept
+   * for backward compatibility with existing exact-match matching).
+   */
+  serviceCoverage?: {
+    onsite: { level: "STATE" | "CITY" | "PINCODE"; state: string; city?: string; pincode?: string }[];
+    walkin: { level: "STATE" | "CITY" | "PINCODE"; state: string; city?: string; pincode?: string }[];
+  };
   createdAt:  Date;
   updatedAt:  Date;
 }
@@ -234,6 +247,26 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     serviceCenterId:     { type: String, default: null },
     warehouseFacilityId: { type: String, default: null },
     servicePincodes:     { type: [String], default: [] },
+    serviceCoverage: {
+      onsite: {
+        type: [{
+          level:   { type: String, enum: ["STATE", "CITY", "PINCODE"], required: true },
+          state:   { type: String, required: true },
+          city:    { type: String },
+          pincode: { type: String },
+        }],
+        default: [],
+      },
+      walkin: {
+        type: [{
+          level:   { type: String, enum: ["STATE", "CITY", "PINCODE"], required: true },
+          state:   { type: String, required: true },
+          city:    { type: String },
+          pincode: { type: String },
+        }],
+        default: [],
+      },
+    },
   },
   { timestamps: true }
 );

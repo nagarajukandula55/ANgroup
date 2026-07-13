@@ -28,6 +28,7 @@ import Business from "@/models/Business";
 import CrmCall from "@/models/CrmCall";
 import VendorProfile from "@/models/VendorProfile";
 import PublicEmailVerification from "@/models/PublicEmailVerification";
+import PincodeEntry from "@/models/PincodeEntry";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { notify } from "@/lib/notify";
@@ -146,25 +147,59 @@ export async function POST(req: NextRequest) {
       createdBy: null,
     });
 
-    // Vendor routing — best-effort, never blocks the response.
+    // Vendor routing — best-effort, never blocks the response. Matches on
+    // the legacy exact-pincode list (servicePincodes) OR the newer
+    // state/city/pincode coverage tree (serviceCoverage.onsite), since a
+    // request submitted with just a pincode is always an onsite-style
+    // request (no walk-in option on this public form).
     let routedVendorId: string | null = null;
     if (trimmedPincode) {
       try {
+        const pincodeEntry = await PincodeEntry.findOne({ pincode: trimmedPincode })
+          .select("state city")
+          .lean();
+
+        const coverageOr: any[] = [
+          { servicePincodes: trimmedPincode },
+          { "serviceCoverage.onsite.level": "PINCODE", "serviceCoverage.onsite.pincode": trimmedPincode },
+        ];
+        if (pincodeEntry) {
+          coverageOr.push({
+            "serviceCoverage.onsite.level": "CITY",
+            "serviceCoverage.onsite.state": (pincodeEntry as any).state,
+            "serviceCoverage.onsite.city": (pincodeEntry as any).city,
+          });
+          coverageOr.push({
+            "serviceCoverage.onsite.level": "STATE",
+            "serviceCoverage.onsite.state": (pincodeEntry as any).state,
+          });
+        }
+
         const matches = await VendorProfile.find({
           businessId: new mongoose.Types.ObjectId(businessId),
-          servicePincodes: trimmedPincode,
           isDeleted: { $ne: true },
+          $or: coverageOr,
         })
           .select("_id companyName")
           .lean();
 
-        if (matches.length === 1) {
-          routedVendorId = String((matches[0] as any)._id);
-          notify({
-            event: "NEW_CRM_CALL",
-            businessId: String(businessId),
-            message: `📅 New appointment request ${call.callNumber} matched to your service area\nCustomer: ${call.customerName}\nPhone: ${call.phone}\nPincode: ${trimmedPincode}\nSubject: ${call.subject}`,
-          }).catch(() => {});
+        if (matches.length >= 1) {
+          // Tag the call with every matched vendor so each SC's own CRM
+          // view can filter to "requests near me" — CrmCall itself has no
+          // vendor-linkage field, so we piggyback on the tags array (same
+          // approach already used for the pincode tag above).
+          const vendorTags = matches.map((m) => `matchedVendor:${(m as any)._id}`);
+          await CrmCall.updateOne({ _id: call._id }, { $push: { tags: { $each: vendorTags } } });
+
+          if (matches.length === 1) routedVendorId = String((matches[0] as any)._id);
+
+          for (const m of matches) {
+            notify({
+              event: "NEW_CRM_CALL",
+              businessId: String(businessId),
+              message: `📅 New appointment request ${call.callNumber} matched to your service area\nCustomer: ${call.customerName}\nPhone: ${call.phone}\nPincode: ${trimmedPincode}\nSubject: ${call.subject}`,
+            }).catch(() => {});
+          }
         }
       } catch {
         // Routing is best-effort — request already succeeded above.

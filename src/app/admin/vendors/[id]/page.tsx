@@ -237,6 +237,12 @@ export default function VendorDetailPage() {
               {vendor.vendorId || 'No vendor ID assigned yet'} · {businessLabel(vendor.businessId)}
             </p>
           </div>
+          <button
+            onClick={() => router.push(`/admin/vendors/${id}/coverage`)}
+            className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 transition shrink-0"
+          >
+            Service Area Coverage
+          </button>
         </div>
 
         {/* Facility IDs — the headline ask: show where StoreFront/Warehouse
