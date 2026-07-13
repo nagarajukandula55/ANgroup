@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 import BusinessScopeControl, { type BusinessScopeValue } from "@/components/catalog/BusinessScopeControl";
+import { CategoryTree } from "@/components/shared/CategoryTree";
 
 interface Brand {
   _id: string;
@@ -41,6 +42,7 @@ export default function BrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"grid" | "tree">("tree");
   const [modal, setModal] = useState<ModalState>({ type: null });
   const [formData, setFormData] = useState({
     name: "",
@@ -284,19 +286,40 @@ export default function BrandsPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search brands…"
-          className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
-        />
+      {/* Search + view toggle */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative max-w-sm flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search brands…"
+            className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+          />
+        </div>
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 shrink-0">
+          <button
+            onClick={() => setView("grid")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${view === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+          >
+            Grid
+          </button>
+          <button
+            onClick={() => setView("tree")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${view === "tree" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+          >
+            Tree
+          </button>
+        </div>
       </div>
 
+      {/* Tree view -- collapsible/expandable, multi-root */}
+      {!loading && brands.length > 0 && view === "tree" && (
+        <CategoryTree items={brands} onEdit={openEdit} onDelete={openDelete} />
+      )}
+
       {/* Grid */}
-      {loading ? (
+      {view === "tree" ? null : loading ? (
         <div className="p-12 text-center text-gray-500">Loading…</div>
       ) : brands.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
