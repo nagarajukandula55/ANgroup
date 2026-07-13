@@ -30,20 +30,20 @@ const inputCls =
 function AppointmentRequestForm() {
   const searchParams = useSearchParams();
   const rawBusinessId = searchParams.get("businessId") || "";
-  const shortCode = searchParams.get("code") || "";
+  const brandShortcut = searchParams.get("code") || "";
 
-  // Short links use ?code=AB (a business's 2-char shortCode) instead of the
+  // Short links use ?code=AB (a business's 2-char brandShortcut) instead of the
   // full ObjectId in ?businessId= -- resolved client-side on mount so this
   // still works as a plain static link with no server rendering needed.
   const [resolvedBusinessId, setResolvedBusinessId] = useState(rawBusinessId);
-  const [resolvingCode, setResolvingCode] = useState(Boolean(shortCode && !rawBusinessId));
+  const [resolvingCode, setResolvingCode] = useState(Boolean(brandShortcut && !rawBusinessId));
   const [codeError, setCodeError] = useState("");
 
   useEffect(() => {
-    if (!shortCode || rawBusinessId) return;
+    if (!brandShortcut || rawBusinessId) return;
     (async () => {
       try {
-        const res = await fetch(`/api/businesses/resolve-code?code=${encodeURIComponent(shortCode)}`);
+        const res = await fetch(`/api/businesses/resolve-code?code=${encodeURIComponent(brandShortcut)}`);
         const json = await res.json();
         if (json.success) {
           setResolvedBusinessId(json.businessId);
@@ -56,7 +56,7 @@ function AppointmentRequestForm() {
         setResolvingCode(false);
       }
     })();
-  }, [shortCode, rawBusinessId]);
+  }, [brandShortcut, rawBusinessId]);
 
   const businessId = resolvedBusinessId;
 

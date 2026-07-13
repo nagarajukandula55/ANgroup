@@ -11,7 +11,7 @@ interface Business {
   legalName?: string;
   brandName?: string;
   businessCode?: string;
-  shortCode?: string;
+  brandShortcut?: string;
   industry?: string;
   type?: string;
   email?: string;
@@ -163,9 +163,9 @@ export default function BusinessListPage() {
                     {biz.businessCode && (
                       <div>
                         Code: <span className="text-gray-700">{biz.businessCode}</span>
-                        {biz.shortCode && (
+                        {biz.brandShortcut && (
                           <span className="ml-2 text-gray-400">
-                            Short: <span className="text-gray-700 font-mono">{biz.shortCode}</span>
+                            Brand Shortcut: <span className="text-gray-700 font-mono">{biz.brandShortcut}</span>
                           </span>
                         )}
                       </div>

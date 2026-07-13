@@ -62,9 +62,9 @@ const EDITABLE_FIELDS = [
   "brandName",
   "businessCode",
   // 2-character short code for quick business mapping and shortened public
-  // links (e.g. the customer appointment-request page). See the shortCode
+  // links (e.g. the customer appointment-request page). See the brandShortcut
   // field comment on models/Business.ts.
-  "shortCode",
+  "brandShortcut",
   "financial",
   "compliance",
   // e-Invoice (INV-01) readiness — see models/Business.ts's comment on this

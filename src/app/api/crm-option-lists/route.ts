@@ -80,9 +80,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { listType, code, label, businessId, sortOrder } = body;
+    const { listType, code, label, businessId, sortOrder } = body as {
+      listType?: string;
+      code?: string;
+      label?: string;
+      businessId?: string;
+      sortOrder?: number;
+    };
 
-    if (!listType || !DEFAULTS[listType] || !code?.trim() || !label?.trim()) {
+    if (!listType || !(listType in DEFAULTS) || !code?.trim() || !label?.trim()) {
       return NextResponse.json(
         { success: false, error: "listType, code and label are required" },
         { status: 400 }

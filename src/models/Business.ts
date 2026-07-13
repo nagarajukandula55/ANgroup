@@ -484,7 +484,7 @@ const BusinessSchema = new mongoose.Schema(
      * appointment-request page (?code=AB instead of a full ObjectId).
      * Sparse+unique so it's optional but never duplicated once set.
      */
-    shortCode: {
+    brandShortcut: {
       type: String,
       uppercase: true,
       trim: true,

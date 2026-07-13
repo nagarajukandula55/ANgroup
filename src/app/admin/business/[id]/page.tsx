@@ -41,7 +41,7 @@ interface Business {
   legalName?: string;
   brandName?: string;
   businessCode?: string;
-  shortCode?: string;
+  brandShortcut?: string;
   industry?: string;
   type?: string;
   email?: string;
@@ -88,7 +88,7 @@ type EditableForm = {
   legalName: string;
   brandName: string;
   businessCode: string;
-  shortCode: string;
+  brandShortcut: string;
   industry: string;
   type: string;
   address: string;
@@ -149,7 +149,7 @@ function toForm(biz: Business): EditableForm {
     legalName: biz.legalName || "",
     brandName: biz.brandName || "",
     businessCode: biz.businessCode || "",
-    shortCode: biz.shortCode || "",
+    brandShortcut: biz.brandShortcut || "",
     industry: biz.industry || "",
     type: biz.type || "",
     address: biz.address || "",
@@ -475,25 +475,25 @@ export default function BusinessDetailPage() {
             />
           </div>
           <div>
-            <label className={labelCls}>Short Code (2-char)</label>
+            <label className={labelCls}>Brand Shortcut (2-char)</label>
             <input
               className={inputCls}
-              value={form.shortCode}
+              value={form.brandShortcut}
               maxLength={2}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setForm({ ...form, shortCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 2) })
+                setForm({ ...form, brandShortcut: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 2) })
               }
               placeholder="e.g. AB"
             />
-            {form.shortCode.length === 2 && typeof window !== "undefined" && (
+            {form.brandShortcut.length === 2 && typeof window !== "undefined" && (
               <div className="mt-1.5 flex items-center gap-2">
                 <p className="text-[11px] text-gray-400 truncate">
-                  {`${window.location.origin}/appointment-request?code=${form.shortCode}`}
+                  {`${window.location.origin}/appointment-request?code=${form.brandShortcut}`}
                 </p>
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/appointment-request?code=${form.shortCode}`);
+                    navigator.clipboard.writeText(`${window.location.origin}/appointment-request?code=${form.brandShortcut}`);
                   }}
                   className="text-[11px] text-cyan-700 hover:underline shrink-0"
                 >

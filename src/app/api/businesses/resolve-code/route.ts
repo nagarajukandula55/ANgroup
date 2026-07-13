@@ -1,6 +1,6 @@
 /**
  * GET /api/businesses/resolve-code?code=AB — PUBLIC. Resolves a business's
- * 2-character shortCode to its real businessId, so public links (e.g. the
+ * 2-character brandShortcut to its real businessId, so public links (e.g. the
  * customer appointment-request page) can use `?code=AB` instead of a full
  * ObjectId. Same "never trust blindly" shape as businesses/public — only
  * returns the id for an active business.
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Invalid code" }, { status: 400 });
     }
 
-    const business = await Business.findOne({ shortCode: code, isActive: true })
+    const business = await Business.findOne({ brandShortcut: code, isActive: true })
       .select("_id name brandName")
       .lean();
     if (!business) {
