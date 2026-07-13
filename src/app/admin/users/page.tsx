@@ -73,8 +73,7 @@ export default function UsersPage() {
   // so the admin can tag the selected user into an open (INACTIVE) one.
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState('');
-  const [staffSlots, setStaffSlots] = useState<StaffSlot[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [tagSuccess, setTagSuccess] = useState('');
   const [tagging, setTagging] = useState<string | null>(null);
   const [tagError, setTagError] = useState('');
 
@@ -132,7 +131,7 @@ export default function UsersPage() {
     setAssignSearch('');
     setAssignResults([]);
     setFormData({ name: '', email: '', role: 'EMPLOYEE', department: '', designation: '', employmentType: 'FULL_TIME', joiningDate: '', companyName: '', gstNumber: '', contactPerson: '', phone: '', businessId: '' });
-    setVendors([]); setSelectedVendorId(''); setStaffSlots([]); setTagError('');
+    setVendors([]); setSelectedVendorId(''); setTagError('');
     setShowPanel(true);
   }
 
@@ -153,13 +152,13 @@ export default function UsersPage() {
       companyName: user.vendorProfile?.companyName || '', gstNumber: user.vendorProfile?.gstNumber || '',
       contactPerson: '', phone: '', businessId: '',
     });
-    setVendors([]); setSelectedVendorId(''); setStaffSlots([]); setTagError('');
+    setVendors([]); setSelectedVendorId(''); setTagError('');
     setShowPanel(true);
   }
 
   // Business picked -> load that business's vendors so one can be tagged.
   useEffect(() => {
-    setSelectedVendorId(''); setStaffSlots([]); setTagError('');
+    setSelectedVendorId(''); setTagError('');
     if (!formData.businessId) { setVendors([]); return; }
     fetch(`/api/vendors?businessId=${formData.businessId}&limit=200`)
       .then(r => r.json())
@@ -167,44 +166,29 @@ export default function UsersPage() {
       .catch(() => setVendors([]));
   }, [formData.businessId]);
 
-  // Vendor picked -> load its 5 designation slots (auto-provisioned at
-  // vendor finalization: MANAGER active by default, the other 4 open).
-  useEffect(() => {
-    setStaffSlots([]); setTagError('');
-    if (!selectedVendorId) return;
-    setLoadingSlots(true);
-    fetch(`/api/admin/vendor-staff-slots?vendorId=${selectedVendorId}`)
-      .then(r => r.json())
-      .then(d => setStaffSlots(d.slots || []))
-      .catch(() => {})
-      .finally(() => setLoadingSlots(false));
-  }, [selectedVendorId]);
+  useEffect(() => { setTagError(''); setTagSuccess(''); }, [selectedVendorId]);
 
-  async function tagToSlot(slotId: string) {
-    if (!editingUser?.username) {
-      setTagError('This user has no User ID (username) set — they must set one before being tagged to a vendor.');
-      return;
-    }
-    setTagging(slotId);
+  // Super Admin's part is deliberately minimal: attach the user to the
+  // vendor's team (POST .../promote, track: VENDOR_TEAM) so they show up
+  // on the vendor's own team-management screen. No role is granted here —
+  // the vendor's Owner grants real access from Vendor Portal > Staff
+  // (/vendor/staff, already scoped to that vendor's own fixed role set).
+  async function attachToVendorTeam() {
+    if (!editingUser || !selectedVendorId || !formData.businessId) return;
+    setTagging(selectedVendorId);
     setTagError('');
+    setTagSuccess('');
     try {
-      const res = await fetch(`/api/admin/vendor-staff-slots/${slotId}/activate`, {
+      const res = await fetch(`/api/admin/users/${editingUser._id}/promote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: editingUser.username }),
+        body: JSON.stringify({ track: 'VENDOR_TEAM', businessId: formData.businessId, vendorId: selectedVendorId }),
       });
       const d = await res.json();
       if (!res.ok || d.success === false) {
-        setTagError(d.message || d.error || 'Failed to tag user to this slot');
+        setTagError(d.error || d.message || 'Failed to attach user to this vendor');
       } else {
-        // The activate response's slot.userId is an unpopulated ObjectId
-        // string, not {name,...} -- refetch so the list shows the real name
-        // instead of falling back to a generic "assigned".
-        const slotsRes = await fetch(`/api/admin/vendor-staff-slots?vendorId=${selectedVendorId}`);
-        const slotsData = await slotsRes.json();
-        setStaffSlots(slotsData.slots || []);
-        // Refresh the main list too so this user's Vendor ID badge shows
-        // up immediately, without needing a manual page reload.
+        setTagSuccess('Attached — ask the vendor Owner to grant a role from Vendor Portal > Staff.');
         fetchUsers();
       }
     } catch (e) { console.error(e); setTagError('Network error'); }
@@ -527,7 +511,11 @@ export default function UsersPage() {
 
                   {formData.businessId && (
                     <div className="space-y-3">
-                      <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Tag to a Vendor</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Attach to a Vendor</p>
+                      <p className="text-xs text-gray-400">
+                        Super Admin only attaches the user to the vendor's team here — access itself is granted
+                        by the vendor's own Owner from Vendor Portal &gt; Staff, not from here.
+                      </p>
                       {vendors.length === 0 ? (
                         <p className="text-xs text-gray-400">No vendors under this business.</p>
                       ) : (
@@ -539,35 +527,22 @@ export default function UsersPage() {
                             ))}
                           </select>
 
-                          {loadingSlots && <Loader2 className="w-4 h-4 text-gray-400 animate-spin mx-auto" />}
-
                           {tagError && (
                             <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">{tagError}</div>
                           )}
+                          {tagSuccess && (
+                            <div className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">{tagSuccess}</div>
+                          )}
 
-                          {staffSlots.length > 0 && (
-                            <div className="space-y-1.5">
-                              {staffSlots.map(slot => (
-                                <div key={slot._id} className="flex items-center justify-between p-2.5 rounded-xl border border-gray-100">
-                                  <div>
-                                    <p className="text-sm text-gray-900">{DESIGNATION_LABELS[slot.designation] || slot.designation}</p>
-                                    <p className="text-xs text-gray-400">
-                                      {slot.status === 'ACTIVE'
-                                        ? `Active — ${slot.userId?.name || 'assigned'}`
-                                        : 'Open'}
-                                    </p>
-                                  </div>
-                                  {slot.status === 'INACTIVE' ? (
-                                    <button type="button" onClick={() => tagToSlot(slot._id)} disabled={tagging === slot._id}
-                                      className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition">
-                                      {tagging === slot._id ? 'Tagging…' : 'Tag Here'}
-                                    </button>
-                                  ) : (
-                                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">Active</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                          {selectedVendorId && (
+                            <button
+                              type="button"
+                              onClick={attachToVendorTeam}
+                              disabled={tagging === selectedVendorId}
+                              className="w-full text-sm font-medium px-3 py-2.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition"
+                            >
+                              {tagging === selectedVendorId ? 'Attaching…' : 'Attach to Vendor Team'}
+                            </button>
                           )}
                         </>
                       )}
