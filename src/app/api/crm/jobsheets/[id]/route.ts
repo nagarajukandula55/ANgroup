@@ -94,6 +94,7 @@ const ALLOWED_FIELDS = [
   "brandJobNoForPartOrder",
   "solutionId",
   "symptomCodeId",
+  "serviceCharge",
   "warehouseId",
   "appointmentType",
   "requestType",
@@ -140,6 +141,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         { success: false, message: "Line items cannot be changed after the job has been invoiced." },
         { status: 409 }
       );
+    }
+
+    // Fixed Service Charge is Owner/Manager-only, per explicit direction --
+    // enforced here too, not just by disabling the input client-side.
+    if (updates.serviceCharge !== undefined && !session.isSuperAdmin) {
+      const roles = (session.roles || []).map((r: string) => r.toUpperCase());
+      const allowed = roles.some((r) => r.includes("OWNER") || r.includes("MANAGER"));
+      if (!allowed) {
+        return NextResponse.json(
+          { success: false, message: "Only an Owner or Manager can edit the service charge." },
+          { status: 403 }
+        );
+      }
     }
 
     const jobSheet = await CrmJobSheet.findOneAndUpdate(

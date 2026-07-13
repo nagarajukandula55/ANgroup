@@ -117,6 +117,11 @@ export const DOCUMENT_TYPES = [
   // exempt bills). Reuses "INVOICE" for the GST case; this type is only
   // for the non-GST case.
   "NON_GST_INVOICE",
+  // Same job-sheet-closure invoice as above, but for the case where the
+  // customer entered a company name (a B2B customer) -- gets its own
+  // running series, separate from the walk-in/individual (B2C) series,
+  // per explicit requirement.
+  "B2B_INVOICE",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -160,6 +165,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   STORE_FRONT: "SF",
   MATERIAL: "MAT",
   NON_GST_INVOICE: "BILL",
+  B2B_INVOICE: "BINV",
 };
 
 export interface GeneratedNumber {

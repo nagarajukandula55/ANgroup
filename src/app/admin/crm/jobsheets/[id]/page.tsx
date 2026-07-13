@@ -47,13 +47,18 @@ interface JobSheet {
   jobSheetNumber: string
   businessId?: string
   customerName: string
+  company?: string
   phone: string
   email?: string
   address?: string
+  city?: string
+  state?: string
+  pincode?: string
   title: string
   description?: string
   product?: string
   deviceModel?: string
+  imeiOrSerialNumber?: string
   brandId?: { _id?: string; name?: string } | string
   status: string
   createdAt: string
@@ -142,6 +147,7 @@ export default function JobSheetDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [serviceCharge, setServiceCharge] = useState(0)
   const [workPerformed, setWorkPerformed] = useState('')
   const [materialsUsed, setMaterialsUsed] = useState('')
   // Brand Job No. -- moved here from the New Job Sheet creation form per
@@ -182,6 +188,7 @@ export default function JobSheetDetailPage() {
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to load workorder')
       setJob(d.jobSheet)
       setLineItems(d.jobSheet.lineItems?.length ? d.jobSheet.lineItems : [emptyLine()])
+      setServiceCharge(d.jobSheet.serviceCharge || 0)
       setWorkPerformed(d.jobSheet.workPerformed || '')
       setMaterialsUsed(d.jobSheet.materialsUsed || '')
       setBrandJobNo(d.jobSheet.brandJobNoForPartOrder || '')
@@ -201,6 +208,17 @@ export default function JobSheetDetailPage() {
   }, [id])
 
   useEffect(() => { fetchJob() }, [fetchJob])
+
+  // Fixed Service Charge editing is restricted to Owner/Manager, per
+  // explicit direction -- everyone else sees it read-only.
+  const [canEditServiceCharge, setCanEditServiceCharge] = useState(false)
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      const user = d.user ?? d
+      const role = String(user?.role || '').toUpperCase()
+      setCanEditServiceCharge(Boolean(user?.isSuperAdmin) || role.includes('OWNER') || role.includes('MANAGER'))
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch('/api/vendor/staff')
@@ -276,7 +294,7 @@ export default function JobSheetDetailPage() {
       const res = await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, brandJobNoForPartOrder: brandJobNo || null, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, ...extra }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, brandJobNoForPartOrder: brandJobNo || null, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, serviceCharge, ...extra }),
       })
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to save')
@@ -331,7 +349,7 @@ export default function JobSheetDetailPage() {
       await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, serviceCharge }),
       })
       const res = await fetch(`/api/crm/jobsheets/${id}/close`, {
         method: 'POST',
@@ -403,7 +421,7 @@ export default function JobSheetDetailPage() {
 
   const subtotal = lineItems.reduce((s, l) => s + (l.quantity || 0) * (l.unitPrice || 0), 0)
   const taxTotal = lineItems.reduce((s, l) => s + ((l.quantity || 0) * (l.unitPrice || 0)) * ((l.taxRate || 0) / 100), 0)
-  const grandTotal = subtotal + taxTotal
+  const grandTotal = subtotal + taxTotal + (serviceCharge || 0)
   const days = ageingDays(job.createdAt)
   const isOpen = job.status !== 'CLOSED' && job.status !== 'CANCELLED'
   const overdue = isOpen && days >= 7
@@ -417,9 +435,9 @@ export default function JobSheetDetailPage() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold">{job.title}</h1>
-            <p className="text-sm text-gray-400 font-mono">
-              {job.jobSheetNumber} · {job.customerName}
+            <h1 className="text-2xl font-semibold font-mono">{job.jobSheetNumber}</h1>
+            <p className="text-sm text-gray-400">
+              {job.customerName} · {job.title}
               {deviceLine && <> · {deviceLine}</>}
             </p>
           </div>
@@ -449,6 +467,30 @@ export default function JobSheetDetailPage() {
                 <FileText className="w-4 h-4" /> View Invoice ({job.invoiceNumber})
               </button>
             )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Customer</h3>
+            <div className="space-y-1.5 text-sm text-gray-700">
+              <p className="font-medium text-gray-900">{job.customerName}</p>
+              {job.company && <p className="text-gray-500">{job.company}</p>}
+              <p>{job.phone}{job.email ? ` · ${job.email}` : ''}</p>
+              {(job.address || job.city || job.state || job.pincode) && (
+                <p className="text-gray-500">
+                  {[job.address, job.city, job.state, job.pincode].filter(Boolean).join(', ')}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Device & Reported Issue</h3>
+            <div className="space-y-1.5 text-sm text-gray-700">
+              <p className="font-medium text-gray-900">{deviceLine || '—'}</p>
+              {job.imeiOrSerialNumber && <p className="text-gray-500 font-mono text-xs">IMEI/SN: {job.imeiOrSerialNumber}</p>}
+              <p className="text-gray-500">{job.title}</p>
+            </div>
           </div>
         </div>
 
@@ -544,13 +586,12 @@ export default function JobSheetDetailPage() {
                     className="col-span-4 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                   />
                   <input
-                    disabled={isLocked}
+                    disabled
                     type="number"
                     placeholder="Qty"
-                    value={item.quantity}
-                    onChange={(e) => updateLine(i, { quantity: parseFloat(e.target.value) || 0 })}
-                    onFocus={(e) => e.target.select()}
-                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
+                    value={1}
+                    title="Quantity is fixed at 1 per line -- add another line for more"
+                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
                   />
                   <input
                     disabled={isLocked}
@@ -633,9 +674,24 @@ export default function JobSheetDetailPage() {
             ))}
           </div>
 
-          <div className="flex justify-end mt-4 text-sm text-gray-600 gap-6">
+          <div className="flex items-center justify-end mt-4 gap-2 text-sm">
+            <label className="text-gray-500">Service Charge:</label>
+            <span className="text-gray-400">₹</span>
+            <input
+              type="number"
+              disabled={isLocked || !canEditServiceCharge}
+              value={serviceCharge}
+              onChange={(e) => setServiceCharge(parseFloat(e.target.value) || 0)}
+              onFocus={(e) => e.target.select()}
+              title={canEditServiceCharge ? undefined : 'Only an Owner or Manager can edit the service charge'}
+              className="w-28 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right disabled:bg-gray-50 disabled:text-gray-400"
+            />
+          </div>
+
+          <div className="flex justify-end mt-2 text-sm text-gray-600 gap-6">
             <span>Subtotal: ₹{subtotal.toLocaleString('en-IN')}</span>
             <span>Tax: ₹{taxTotal.toLocaleString('en-IN')}</span>
+            <span>Service Charge: ₹{(serviceCharge || 0).toLocaleString('en-IN')}</span>
             <span className="font-semibold text-gray-900">Total: ₹{grandTotal.toLocaleString('en-IN')}</span>
           </div>
         </div>

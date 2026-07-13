@@ -123,6 +123,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       };
     });
 
+    // Service Charge -- a flat amount separate from parts/labour line
+    // items, Owner/Manager-set on the job sheet (see the detail page and
+    // PATCH's serviceCharge guard). Added as its own zero-tax invoice line
+    // rather than folded into subtotal silently, so it's visible on the
+    // printed invoice.
+    const serviceCharge = (jobSheet as any).serviceCharge || 0;
+    if (serviceCharge > 0) {
+      invoiceItems.push({
+        description: "Service Charge",
+        quantity: 1,
+        unit: "pcs",
+        unitPrice: serviceCharge,
+        taxRate: 0,
+        taxAmount: 0,
+        cgstRate: 0, cgstAmount: 0,
+        sgstRate: 0, sgstAmount: 0,
+        igstRate: 0, igstAmount: 0,
+        total: serviceCharge,
+      });
+      subtotal += serviceCharge;
+    }
+
     const taxTotal = cgstTotal + sgstTotal + igstTotal;
     const grandTotal = subtotal + taxTotal - (discountAmount || 0);
 
@@ -133,20 +155,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // whether ANY line item actually carries GST, not the job sheet's
     // overall total (a single taxed line is enough to make this a GST
     // invoice even if others are zero-rated).
+    // A job sheet whose customer entered a company name is a B2B customer
+    // -- gets its own invoice number series (B2B_INVOICE) and invoiceType,
+    // separate from the walk-in/individual B2C series, per explicit
+    // requirement. GST-vs-non-GST series selection (below) still applies
+    // independently within either B2B or B2C.
+    const isB2B = Boolean((jobSheet as any).company?.trim());
     const isGstInvoice = jobSheet.lineItems.some((item: any) => (item.taxRate || 0) > 0);
     const { value: invoiceNumber } = await generateDocumentNumber(
       jobSheet.businessId.toString(),
-      isGstInvoice ? "INVOICE" : "NON_GST_INVOICE"
+      isB2B ? "B2B_INVOICE" : isGstInvoice ? "INVOICE" : "NON_GST_INVOICE"
     );
 
     const invoice = await SalesInvoice.create({
       invoiceNumber,
       businessId: jobSheet.businessId,
       createdBy: new mongoose.Types.ObjectId(userId),
-      invoiceType: "B2C",
+      invoiceType: isB2B ? "B2B" : "B2C",
       sourceOrderId: `CRM_JOBSHEET:${jobSheet._id}`,
       customer: {
         name: jobSheet.customerName,
+        company: (jobSheet as any).company,
         email: jobSheet.email,
         phone: jobSheet.phone,
         address: jobSheet.address,

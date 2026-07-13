@@ -92,6 +92,7 @@ export interface ISalesInvoice extends Document {
   sourceOrderId?: string;
   customer: {
     name: string;
+    company?: string;
     email?: string;
     phone?: string;
     address?: string;
@@ -181,6 +182,7 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
 
     customer: {
       name: { type: String, required: true },
+      company: { type: String },
       email: { type: String },
       phone: { type: String },
       address: { type: String },

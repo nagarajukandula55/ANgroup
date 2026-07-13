@@ -41,7 +41,8 @@ type DocumentType =
   | "CALL"
   | "JOB_SHEET"
   | "MATERIAL"
-  | "NON_GST_INVOICE";
+  | "NON_GST_INVOICE"
+  | "B2B_INVOICE";
 
 interface DocumentConfig {
   documentType: DocumentType;
@@ -416,6 +417,16 @@ const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
     suffix: "",
     startFrom: 1,
   },
+  B2B_INVOICE: {
+    documentType: "B2B_INVOICE",
+    prefix: "BINV",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
 };
 
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -449,6 +460,7 @@ const DOCUMENT_TYPES: DocumentType[] = [
   "JOB_SHEET",
   "MATERIAL",
   "NON_GST_INVOICE",
+  "B2B_INVOICE",
 ];
 
 // ─── Preview Builder ──────────────────────────────────────────────────────────

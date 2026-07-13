@@ -101,6 +101,10 @@ export interface ICrmJobSheet extends Document {
   // diagnosed on the originating CrmCall/job title; recorded during the
   // repair flow.
   symptomCodeId?: Types.ObjectId;
+  // Flat service charge, separate from parts/labour line items --
+  // editable only by Owner/Manager (enforced client-side; see the job
+  // sheet detail page), included in the invoice total at closure.
+  serviceCharge?: number;
   customerSignatureUrl?: string;
   internalNotes?: string;
 
@@ -189,6 +193,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
 
     lineItems: { type: [CrmJobSheetLineItemSchema], default: [] },
     materialsUsed: { type: String, default: "" },
+    serviceCharge: { type: Number, default: 0 },
     workPerformed: { type: String, default: "" },
     solutionId: { type: Schema.Types.ObjectId, ref: "Solution", default: null },
     symptomCodeId: { type: Schema.Types.ObjectId, ref: "SymptomCode", default: null },
