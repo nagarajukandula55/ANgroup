@@ -25,6 +25,13 @@ interface Call {
   phone: string
   email?: string
   address?: string
+  city?: string
+  state?: string
+  pincode?: string
+  product?: string
+  brandId?: { _id?: string; name?: string } | string
+  deviceModel?: string
+  faultCodeId?: { _id?: string } | string
   subject: string
   description?: string
   status: string
@@ -230,7 +237,22 @@ export default function CallDetailPage() {
           )}
           {canConvert && (
             <button
-              onClick={() => setShowConvert(true)}
+              onClick={() => {
+                // Carry over what was already captured at appointment time
+                // instead of asking for it again -- per explicit direction
+                // ("these should migrate into this"). All fields stay
+                // editable in the modal below (e.g. fault code can be
+                // corrected if the diagnosed fault differs from what was
+                // reported).
+                setJobTitle(call.subject || '')
+                setCity(call.city || '')
+                setState(call.state || '')
+                setPincode(call.pincode || '')
+                setBrandId(typeof call.brandId === 'object' ? call.brandId?._id || '' : call.brandId || '')
+                setFaultCodeId(typeof call.faultCodeId === 'object' ? call.faultCodeId?._id || '' : call.faultCodeId || '')
+                setIssueDescription(call.description || '')
+                setShowConvert(true)
+              }}
               className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
             >
               Convert to Workorder <ArrowRightCircle className="w-4 h-4" />
