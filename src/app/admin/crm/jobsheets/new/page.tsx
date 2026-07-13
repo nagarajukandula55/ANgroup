@@ -28,7 +28,7 @@ export default function NewJobSheetPage() {
     customerName: '', company: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
     product: '', brandId: '', deviceModel: '', imeiOrSerialNumber: '',
-    issueDescription: '', faultCodeId: '', remark: '',
+    faultCodeId: '', remark: '',
     appointmentType: '', requestType: '',
     warehouseId: '', title: '',
   })
@@ -235,10 +235,6 @@ export default function NewJobSheetPage() {
             <div>
               <label className={labelCls}>Fault in Device *</label>
               <textarea required rows={3} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className={`${inputCls} resize-none`} />
-            </div>
-            <div>
-              <label className={labelCls}>Voice of Customer</label>
-              <textarea rows={2} value={form.issueDescription} onChange={e => setForm(p => ({ ...p, issueDescription: e.target.value }))} className={`${inputCls} resize-none`} />
             </div>
             <div>
               <label className={labelCls}>Remark</label>
