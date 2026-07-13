@@ -21,19 +21,31 @@ export interface ComplianceDocRequirement {
   numberLabel?: string;
 }
 
+/** A doc catalog entry plus whether it's mandatory by default. */
+export interface CatalogDocEntry extends ComplianceDocRequirement {
+  mandatoryByDefault: boolean;
+}
+
 /**
- * Documents every vendor must upload regardless of industry — baseline
- * Indian business-registration/tax documents, not domain-specific
- * compliance. Shown before the industry-specific list on every onboarding
- * and vendor-signup form.
+ * The fixed catalog of general (non-industry-specific) vendor documents
+ * every business can choose from. Which of these are actually MANDATORY
+ * is now configurable per business (Business.vendorDocumentRequirements,
+ * edited from that business's admin page) instead of hardcoded here --
+ * mandatoryByDefault is only the fallback used when a business hasn't set
+ * its own override for a given key.
+ *
+ * FSSAI is deliberately NOT mandatory by default (it doesn't apply to
+ * every business) -- a business that needs it can mark it mandatory for
+ * itself from its own settings.
  */
-export const UNIVERSAL_VENDOR_DOCS: ComplianceDocRequirement[] = [
+export const VENDOR_DOC_CATALOG: CatalogDocEntry[] = [
   {
     key: "gst_certificate",
     label: "GST Certificate",
     helpText: "GST registration certificate for this vendor's business.",
     collectNumber: true,
     numberLabel: "GSTIN",
+    mandatoryByDefault: true,
   },
   {
     key: "pan_card",
@@ -41,6 +53,7 @@ export const UNIVERSAL_VENDOR_DOCS: ComplianceDocRequirement[] = [
     helpText: "PAN of the vendor business or proprietor.",
     collectNumber: true,
     numberLabel: "PAN Number",
+    mandatoryByDefault: true,
   },
   {
     key: "msme_certificate",
@@ -48,35 +61,44 @@ export const UNIVERSAL_VENDOR_DOCS: ComplianceDocRequirement[] = [
     helpText: "MSME/Udyam registration certificate, if the vendor is registered as an MSME.",
     collectNumber: true,
     numberLabel: "Udyam Registration Number",
+    mandatoryByDefault: true,
   },
   {
     key: "fssai_license",
     label: "FSSAI License",
-    helpText: "Required under the Food Safety and Standards Act for any vendor's business.",
+    helpText: "Required under the Food Safety and Standards Act -- only applies to food/beverage businesses. Not mandatory by default; a business can require it from its own settings.",
     collectNumber: true,
     numberLabel: "FSSAI License Number",
+    mandatoryByDefault: false,
   },
-];
-
-/**
- * Documents a vendor may upload but isn't required to -- not validated on
- * submit, no red asterisk. Trade License was previously in the universal
- * required list; downgraded to optional per explicit request (not every
- * vendor's business/locality issues one).
- */
-export const OPTIONAL_VENDOR_DOCS: ComplianceDocRequirement[] = [
   {
     key: "trade_license",
     label: "Trade License",
     helpText: "Local municipal trade license, if this vendor's business has one.",
     collectNumber: true,
     numberLabel: "Trade License Number",
+    mandatoryByDefault: false,
   },
 ];
 
-// FSSAI moved into UNIVERSAL_VENDOR_DOCS above (required for every vendor,
-// not just food/FMCG) -- no longer listed per-industry here to avoid
-// asking for it twice.
+/**
+ * Business-configurable: given a business's saved overrides (or none, for
+ * the catalog defaults), returns the full catalog split into required vs
+ * optional for that business.
+ */
+export function getVendorDocRequirements(
+  businessOverrides?: { key: string; mandatory: boolean }[] | null
+): { required: ComplianceDocRequirement[]; optional: ComplianceDocRequirement[] } {
+  const overrideMap = new Map((businessOverrides || []).map((o) => [o.key, o.mandatory]));
+  const required: ComplianceDocRequirement[] = [];
+  const optional: ComplianceDocRequirement[] = [];
+  for (const doc of VENDOR_DOC_CATALOG) {
+    const isMandatory = overrideMap.has(doc.key) ? overrideMap.get(doc.key)! : doc.mandatoryByDefault;
+    (isMandatory ? required : optional).push(doc);
+  }
+  return { required, optional };
+}
+
 export const INDUSTRY_COMPLIANCE_DOCS: Partial<Record<Industry, ComplianceDocRequirement[]>> = {
   HEALTHCARE_PHARMA: [
     {
@@ -112,7 +134,16 @@ export function getComplianceDocsForIndustry(industry?: string | null): Complian
   return INDUSTRY_COMPLIANCE_DOCS[industry as Industry] || [];
 }
 
-/** Returns the universal docs every vendor must upload, plus any industry-specific ones on top. */
-export function getRequiredVendorDocs(industry?: string | null): ComplianceDocRequirement[] {
-  return [...UNIVERSAL_VENDOR_DOCS, ...getComplianceDocsForIndustry(industry)];
+/**
+ * Full picture for one business: catalog docs split by this business's own
+ * mandatory/optional overrides, plus industry-specific docs (always
+ * mandatory -- these are legal requirements tied to the industry, not a
+ * business preference) appended to the required list.
+ */
+export function getRequiredVendorDocs(
+  industry?: string | null,
+  businessOverrides?: { key: string; mandatory: boolean }[] | null
+): { required: ComplianceDocRequirement[]; optional: ComplianceDocRequirement[] } {
+  const { required, optional } = getVendorDocRequirements(businessOverrides);
+  return { required: [...required, ...getComplianceDocsForIndustry(industry)], optional };
 }

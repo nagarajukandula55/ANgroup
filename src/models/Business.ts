@@ -89,6 +89,25 @@ const ModuleSchema = new mongoose.Schema(
 );
 
 /* =========================================================
+   VENDOR DOCUMENT REQUIREMENTS
+========================================================= */
+
+// Per-business override of which vendor compliance documents (from the
+// fixed catalog in core/vendorCompliance.ts) are mandatory at onboarding
+// vs optional. Empty array (the default for every existing business) means
+// "use the catalog's built-in defaults" -- see
+// vendorCompliance.ts's getVendorDocRequirements(). A business only needs
+// an entry here for a doc type it wants to override (e.g. mark FSSAI
+// mandatory for itself, or make PAN optional), not the whole catalog.
+const VendorDocRequirementSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true, trim: true },
+    mandatory: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+/* =========================================================
    NUMBERING
 ========================================================= */
 
@@ -568,6 +587,11 @@ const BusinessSchema = new mongoose.Schema(
 
     modules: {
       type: [ModuleSchema],
+      default: [],
+    },
+
+    vendorDocumentRequirements: {
+      type: [VendorDocRequirementSchema],
       default: [],
     },
 

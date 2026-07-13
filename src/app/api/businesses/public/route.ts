@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const business = await (Business as any)
       .findOne({ _id: businessId, isActive: true })
-      .select("name brandName logo favicon industry")
+      .select("name brandName logo favicon industry vendorDocumentRequirements")
       .lean();
 
     if (!business) {
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
         // applicant for — see core/vendorCompliance.ts. Still nothing
         // sensitive: just the industry category.
         industry: business.industry || null,
+        vendorDocumentRequirements: business.vendorDocumentRequirements || [],
       },
     });
   } catch {

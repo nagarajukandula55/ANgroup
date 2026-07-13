@@ -9,7 +9,7 @@ import {
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { validateGSTINAgainstState } from '@/lib/validation/gst'
 import { VendorDetailModal, VendorDetailData } from '@/components/shared/VendorDetailModal'
-import { getComplianceDocsForIndustry, getRequiredVendorDocs, UNIVERSAL_VENDOR_DOCS, OPTIONAL_VENDOR_DOCS, type ComplianceDocRequirement } from '@/core/vendorCompliance'
+import { getComplianceDocsForIndustry, getVendorDocRequirements, type ComplianceDocRequirement } from '@/core/vendorCompliance'
 
 type Vendor = VendorDetailData
 
@@ -108,7 +108,14 @@ export default function VendorsPage() {
         // onboarding this vendor?" had no answer in the UI).
         const bId = d.user?.activeBusinessId ?? d.businesses?.[0]?._id ?? null
         setBusinessId(bId)
-        if (bId) fetchVendors(bId)
+        // Super admins see every vendor across every business by default
+        // (businessId=ALL, see api/vendors/route.ts) -- previously this
+        // always scoped to just the ONE active business, so a vendor
+        // created under a different business never showed up here even
+        // though it existed in the DB, only after switching the active
+        // business to match it.
+        if (d.user?.isSuperAdmin) fetchVendors('ALL')
+        else if (bId) fetchVendors(bId)
         else setLoading(false)
         if (d.user?.isSuperAdmin) fetchUnassignedRequests()
       })
@@ -127,7 +134,22 @@ export default function VendorsPage() {
 
   const selectedOnboardingBusiness = allBusinesses.find(b => b._id === form.onboardingBusinessId)
   const industryComplianceDocs = getComplianceDocsForIndustry(selectedOnboardingBusiness?.industry)
-  const requiredComplianceDocs = getRequiredVendorDocs(selectedOnboardingBusiness?.industry)
+  // vendorDocumentRequirements (this business's own mandatory/optional
+  // overrides, set from its admin page) isn't on the lightweight
+  // BusinessOption list from /api/auth/me -- fetched separately whenever
+  // the onboarding business selection changes.
+  const [businessDocOverrides, setBusinessDocOverrides] = useState<{ key: string; mandatory: boolean }[]>([])
+  useEffect(() => {
+    if (!form.onboardingBusinessId) { setBusinessDocOverrides([]); return }
+    let cancelled = false
+    fetch(`/api/businesses/${form.onboardingBusinessId}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setBusinessDocOverrides(d?.business?.vendorDocumentRequirements || []) })
+      .catch(() => { if (!cancelled) setBusinessDocOverrides([]) })
+    return () => { cancelled = true }
+  }, [form.onboardingBusinessId])
+  const { required: requiredCatalogDocs, optional: optionalCatalogDocs } = getVendorDocRequirements(businessDocOverrides)
+  const requiredComplianceDocs = [...requiredCatalogDocs, ...industryComplianceDocs]
 
   async function handleComplianceUpload(doc: ComplianceDocRequirement, file: File) {
     setComplianceUploads(prev => ({ ...prev, [doc.key]: { ...prev[doc.key], uploading: true } }))
@@ -411,6 +433,7 @@ export default function VendorsPage() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">Company</th>
+                  {isSuperAdmin && <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">Business</th>}
                   <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">Contact</th>
                   <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">Category</th>
                   <th className="text-left px-6 py-3 text-xs text-gray-400 font-medium">GST</th>
@@ -423,7 +446,7 @@ export default function VendorsPage() {
               <tbody className="divide-y divide-gray-100">
                 {vendors.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center">
+                    <td colSpan={isSuperAdmin ? 9 : 8} className="px-6 py-12 text-center">
                       <Truck className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                       <p className="text-sm text-gray-400">No vendors yet. Onboard your first vendor.</p>
                     </td>
@@ -443,6 +466,13 @@ export default function VendorsPage() {
                         <p className="font-medium text-gray-900">{v.companyName}</p>
                         {v.address?.city && <p className="text-xs text-gray-400">{v.address.city}{v.address.state ? `, ${v.address.state}` : ''}</p>}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-6 py-3 text-sm text-gray-600">
+                          {typeof v.businessId === 'object' && v.businessId
+                            ? (v.businessId as any).brandName || (v.businessId as any).name || '—'
+                            : '—'}
+                        </td>
+                      )}
                       <td className="px-6 py-3">
                         <p className="text-gray-700">{v.contactPerson ?? '—'}</p>
                         {v.phone && <p className="text-xs text-gray-400">{v.phone}</p>}
@@ -678,9 +708,9 @@ export default function VendorsPage() {
                   {selectedOnboardingBusiness && (
                     <div className="space-y-3 pt-2">
                       <p className="text-xs font-medium text-gray-700">
-                        Required documents — every vendor
+                        Required documents — this business's settings
                       </p>
-                      {UNIVERSAL_VENDOR_DOCS.map(doc => {
+                      {requiredCatalogDocs.map(doc => {
                         const uploaded = complianceUploads[doc.key]
                         return (
                           <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
@@ -773,10 +803,10 @@ export default function VendorsPage() {
                     </p>
                   )}
 
-                  {selectedOnboardingBusiness && (
+                  {selectedOnboardingBusiness && optionalCatalogDocs.length > 0 && (
                     <div className="space-y-3 pt-2">
                       <p className="text-xs font-medium text-gray-700">Optional documents</p>
-                      {OPTIONAL_VENDOR_DOCS.map(doc => {
+                      {optionalCatalogDocs.map(doc => {
                         const uploaded = complianceUploads[doc.key]
                         return (
                           <div key={doc.key} className="rounded-xl border border-gray-200 p-4">

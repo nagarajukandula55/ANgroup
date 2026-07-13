@@ -16,6 +16,7 @@ import Link from "next/link";
 import { BUSINESS_TYPE_OPTIONS, INDUSTRY_OPTIONS } from "@/data/businessConstants";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
+import { VENDOR_DOC_CATALOG } from "@/core/vendorCompliance";
 // Canonical list of every real app module/section, sourced from the same
 // NAV_GROUPS the sidebar renders from — this is the checklist an admin
 // toggles per business (see Business.ts's ModuleSchema + the "Modules"
@@ -70,6 +71,7 @@ interface Business {
   modules?: ModuleToggle[];
   logo?: string;
   favicon?: string;
+  vendorDocumentRequirements?: { key: string; mandatory: boolean }[];
 }
 
 interface ModuleToggle {
@@ -111,6 +113,7 @@ type EditableForm = {
   modules: ModuleToggle[];
   logo: string;
   favicon: string;
+  vendorDocumentRequirements: { key: string; mandatory: boolean }[];
 };
 
 // Build the full module-toggle list for this business: every canonical
@@ -173,6 +176,7 @@ function toForm(biz: Business): EditableForm {
     modules: buildModulesForm(biz),
     logo: biz.logo || "",
     favicon: biz.favicon || "",
+    vendorDocumentRequirements: Array.isArray(biz.vendorDocumentRequirements) ? biz.vendorDocumentRequirements : [],
   };
 }
 
@@ -852,6 +856,54 @@ export default function BusinessDetailPage() {
             >
               Manage Banners
             </Link>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-bold text-lg">Vendor Onboarding Documents</h2>
+          <p className="text-xs text-gray-400">
+            Which documents a vendor onboarding under this business must upload vs. can
+            optionally attach. Unchanged docs use their catalog default (e.g. GST/PAN/MSME
+            required, FSSAI/Trade License optional) — check/uncheck one here only to override
+            that default for this business specifically.
+          </p>
+          <div className="space-y-2">
+            {VENDOR_DOC_CATALOG.map((doc) => {
+              const override = form.vendorDocumentRequirements.find((o) => o.key === doc.key);
+              const isMandatory = override ? override.mandatory : doc.mandatoryByDefault;
+              return (
+                <label
+                  key={doc.key}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                >
+                  <span>
+                    {doc.label}
+                    {!override && (
+                      <span className="text-[10px] text-gray-400 ml-1.5">
+                        (catalog default: {doc.mandatoryByDefault ? "required" : "optional"})
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isMandatory}
+                      onChange={(e) => {
+                        const mandatory = e.target.checked;
+                        setForm({
+                          ...form,
+                          vendorDocumentRequirements: [
+                            ...form.vendorDocumentRequirements.filter((o) => o.key !== doc.key),
+                            { key: doc.key, mandatory },
+                          ],
+                        });
+                      }}
+                    />
+                    <span className="text-xs">Required</span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </section>
 

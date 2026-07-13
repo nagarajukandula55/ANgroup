@@ -29,18 +29,27 @@ export async function GET(req: NextRequest) {
       searchParams.get("businessId") || h.get("x-active-business-id");
     const search = searchParams.get("search");
     const status = searchParams.get("status");
+    const isSuperAdmin = h.get("x-is-super-admin") === "true";
 
-    if (!businessId || !Types.ObjectId.isValid(businessId)) {
+    // Super admins can request every vendor across every business at once
+    // (businessId=ALL) -- without this, the admin Vendors page could only
+    // ever show whichever ONE business happened to be active in the
+    // session, so a vendor created under a different business silently
+    // never appeared in the list even though it existed in the DB (it
+    // only showed up after switching the active business to match).
+    const wantsAll = isSuperAdmin && businessId === "ALL";
+
+    if (!wantsAll && (!businessId || !Types.ObjectId.isValid(businessId))) {
       return NextResponse.json(
         { success: false, error: "A valid businessId is required" },
         { status: 400 }
       );
     }
 
-    const query: Record<string, unknown> = {
-      businessId: new Types.ObjectId(businessId),
-      isDeleted: false,
-    };
+    const query: Record<string, unknown> = { isDeleted: false };
+    if (!wantsAll) {
+      query.businessId = new Types.ObjectId(businessId!);
+    }
 
     if (status) query.status = status;
 

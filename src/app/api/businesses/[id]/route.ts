@@ -88,6 +88,10 @@ const EDITABLE_FIELDS = [
   // api/businesses/public for Native's storefront branding.
   "logo",
   "favicon",
+  // Per-business mandatory/optional overrides for vendor onboarding
+  // documents — see core/vendorCompliance.ts's VENDOR_DOC_CATALOG and the
+  // "Vendor Documents" section on this business's edit page.
+  "vendorDocumentRequirements",
 ] as const;
 
 export async function PATCH(req: Request, context: any) {

@@ -5,14 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
-import { getComplianceDocsForIndustry, UNIVERSAL_VENDOR_DOCS, OPTIONAL_VENDOR_DOCS, type ComplianceDocRequirement } from "@/core/vendorCompliance";
+import { getComplianceDocsForIndustry, getVendorDocRequirements, type ComplianceDocRequirement } from "@/core/vendorCompliance";
 
 // GST + PAN already have dedicated cards below (tied to the gstRegistered
-// toggle); MSME + Trade License are the remaining universal docs, rendered
-// the same way as industry-specific compliance docs (number + upload).
-const OTHER_UNIVERSAL_DOCS = UNIVERSAL_VENDOR_DOCS.filter(
-  (d) => d.key !== "gst_certificate" && d.key !== "pan_card"
-);
+// toggle) -- excluded from the dynamic catalog rendering so they're never
+// shown twice.
+const EXCLUDE_FROM_CATALOG_RENDER = new Set(["gst_certificate", "pan_card"]);
 
 function Field({
   label,
@@ -108,6 +106,7 @@ function VendorApplyForm() {
 
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [businessIndustry, setBusinessIndustry] = useState<string | null>(null);
+  const [businessDocOverrides, setBusinessDocOverrides] = useState<{ key: string; mandatory: boolean }[]>([]);
   const [invalidLink, setInvalidLink] = useState(false);
 
   const [form, setForm] = useState({
@@ -151,7 +150,11 @@ function VendorApplyForm() {
   // specific business (and therefore its industry) is already known via
   // the businessId link.
   const [complianceUploads, setComplianceUploads] = useState<Record<string, { url?: string; number?: string; uploading?: boolean }>>({});
-  const requiredComplianceDocs = getComplianceDocsForIndustry(businessIndustry);
+  const industryComplianceDocs = getComplianceDocsForIndustry(businessIndustry);
+  const { required: requiredCatalogDocs, optional: optionalCatalogDocs } = getVendorDocRequirements(businessDocOverrides);
+  const catalogRequiredDocs = requiredCatalogDocs.filter((d) => !EXCLUDE_FROM_CATALOG_RENDER.has(d.key));
+  const catalogOptionalDocs = optionalCatalogDocs.filter((d) => !EXCLUDE_FROM_CATALOG_RENDER.has(d.key));
+  const requiredComplianceDocs = [...catalogRequiredDocs, ...industryComplianceDocs];
 
   useEffect(() => {
     if (!businessId) return; // general request — no link to validate
@@ -161,6 +164,7 @@ function VendorApplyForm() {
         if (d.success) {
           setBusinessName(d.business.name);
           setBusinessIndustry(d.business.industry || null);
+          setBusinessDocOverrides(d.business.vendorDocumentRequirements || []);
         } else {
           setInvalidLink(true);
         }
@@ -559,8 +563,8 @@ function VendorApplyForm() {
           </div>
 
           <div className="mt-4 space-y-3">
-            <p className="text-xs font-medium text-gray-700">Required documents — every vendor</p>
-            {OTHER_UNIVERSAL_DOCS.map((doc) => {
+            <p className="text-xs font-medium text-gray-700">Required documents — this business's settings</p>
+            {catalogRequiredDocs.map((doc) => {
               const uploaded = complianceUploads[doc.key];
               return (
                 <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
@@ -590,12 +594,12 @@ function VendorApplyForm() {
             })}
           </div>
 
-          {requiredComplianceDocs.length > 0 && (
+          {industryComplianceDocs.length > 0 && (
             <div className="mt-4 space-y-3">
               <p className="text-xs font-medium text-gray-700">
                 Required documents for {businessName}&apos;s industry
               </p>
-              {requiredComplianceDocs.map((doc) => {
+              {industryComplianceDocs.map((doc) => {
                 const uploaded = complianceUploads[doc.key];
                 return (
                   <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
@@ -628,7 +632,7 @@ function VendorApplyForm() {
 
           <div className="mt-4 space-y-3">
             <p className="text-xs font-medium text-gray-700">Optional documents</p>
-            {OPTIONAL_VENDOR_DOCS.map((doc) => {
+            {catalogOptionalDocs.map((doc) => {
               const uploaded = complianceUploads[doc.key];
               return (
                 <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
