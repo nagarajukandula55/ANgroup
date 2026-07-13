@@ -80,12 +80,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const businessId = searchParams.get("businessId");
-    if (!businessId)
+    const rawBusinessId = searchParams.get("businessId");
+    if (!rawBusinessId)
       return NextResponse.json(
         { error: "businessId is required" },
         { status: 400 }
       );
+
+    // "AN_GROUP" is the frontend's sentinel for the platform-wide config
+    // (businessId: null on the model — see DocumentNumberConfig.ts's top
+    // comment). This translation was documented but never actually
+    // implemented: both this route and POST below were saving/reading the
+    // literal string "AN_GROUP" as businessId instead of null, so a super
+    // admin's platform-wide edits were stored under a value nothing else
+    // (including numberingService.ts's fallback lookup) ever queried for.
+    const businessId: string | null = rawBusinessId === "AN_GROUP" ? null : rawBusinessId;
 
     const saved = await DocumentNumberConfig.find({ businessId }).lean();
     const savedMap = new Map(saved.map((c: any) => [c.documentType, c]));
@@ -142,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
-      businessId,
+      businessId: rawBusinessId,
       documentType,
       prefix = "",
       separator = "-",
@@ -156,7 +165,7 @@ export async function POST(req: NextRequest) {
       isActive = true,
     } = body;
 
-    if (!businessId || !documentType)
+    if (!rawBusinessId || !documentType)
       return NextResponse.json(
         { error: "businessId and documentType are required" },
         { status: 400 }
@@ -168,6 +177,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Same "AN_GROUP" -> null translation as GET above.
+    const businessId: string | null = rawBusinessId === "AN_GROUP" ? null : rawBusinessId;
 
     const formatPreview = buildPreview(
       prefix,

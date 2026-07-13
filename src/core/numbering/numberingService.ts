@@ -92,9 +92,22 @@ async function generateNumberInScope(
   configBusinessId: string | null,
   context: Record<string, string> = {}
 ): Promise<GeneratedNumber> {
-  const config = configBusinessId
+  // Falls back to the platform-wide config (businessId: null, edited from
+  // the "AN Group (Platform)" option in Settings > Document Numbers) when
+  // this specific business has never saved its own override for this
+  // type. Without this, a super admin customizing a type there -- VENDOR
+  // especially, since VendorProfile.vendorId is globally unique across
+  // every business anyway (see the GLOBAL_SCOPE_ID comment above) -- saw
+  // it silently ignored the moment generation ran for any real business,
+  // since every call site here passes a real businessId, never null, as
+  // configBusinessId. The platform-wide row was being saved successfully
+  // but never actually read by anything.
+  let config = configBusinessId
     ? (await DocumentNumberConfig.findOne({ businessId: configBusinessId, documentType }).lean() as any)
     : null;
+  if (!config && configBusinessId) {
+    config = await DocumentNumberConfig.findOne({ businessId: null, documentType }).lean() as any;
+  }
 
   const prefix = config?.prefix || DEFAULT_PREFIXES[documentType] || documentType.slice(0, 3);
   const separator = config?.separator ?? "-";

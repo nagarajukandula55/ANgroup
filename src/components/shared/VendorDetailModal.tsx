@@ -26,7 +26,7 @@
  * receive login access after signing.
  */
 import { useState, useEffect } from "react";
-import { X, Loader2, FileText, Upload, CheckCircle, XCircle, Building2 } from "lucide-react";
+import { X, Loader2, FileText, CheckCircle, XCircle, Building2 } from "lucide-react";
 
 export interface VendorDetailData {
   _id: string;
@@ -91,24 +91,15 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
   const [error, setError] = useState<string | null>(null);
   const [showRejectBox, setShowRejectBox] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [uploadingField, setUploadingField] = useState<string | null>(null);
-  const [documents, setDocuments] = useState(vendor.documents || {});
-  // Admin can attach documents beyond the two fixed slots (GST cert, bank
-  // passbook) — MSME certificate is common enough to always show; anything
-  // else goes through "Add another document" with a free-text label, both
-  // landing in the same open `documents.compliance` map the public
-  // vendor-apply form already writes industry-specific docs into (see
-  // core/vendorCompliance.ts). Previously this modal had NO way to touch
-  // that map at all — admins reviewing a submitted application had no
-  // upload button beyond the two hardcoded fields, even though vendors
-  // are commonly asked for MSME registration and other ad-hoc paperwork
-  // during review.
-  const [extraDocs, setExtraDocs] = useState<{ key: string; label: string }[]>(() =>
-    Object.entries(vendor.documents?.compliance || {})
-      .filter(([k]) => k !== "msme_certificate")
-      .map(([k, v]) => ({ key: k, label: v?.label || k.replace(/_/g, " ") }))
-  );
-  const [newDocLabel, setNewDocLabel] = useState("");
+  // Documents are only ever uploaded at application/creation time (vendor
+  // onboarding form or the public vendor-apply signup, both wired to
+  // core/vendorCompliance.ts's required/optional doc lists) -- this modal
+  // is a review step, so it only reads what's already in vendor.documents,
+  // never writes to it.
+  const documents = vendor.documents || {};
+  const extraDocs = Object.entries(vendor.documents?.compliance || {})
+    .filter(([k]) => k !== "msme_certificate")
+    .map(([k, v]) => ({ key: k, label: v?.label || k.replace(/_/g, " ") }));
   // A general (business-agnostic) signup request arrives with no
   // businessId — the admin must pick one here before it can be approved.
   const [assignBusinessId, setAssignBusinessId] = useState("");
@@ -204,107 +195,6 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
     } finally {
       setAddingStaff(false);
     }
-  }
-
-  async function uploadDocument(field: "passbookUrl" | "gstCertificateUrl", file: File) {
-    setUploadingField(field);
-    setError(null);
-    try {
-      const uploadForm = new FormData();
-      uploadForm.append("file", file);
-      uploadForm.append("name", `${vendor.companyName} - ${field}`);
-      uploadForm.append("category", "vendor-document");
-
-      const uploadRes = await fetch("/api/assets/upload", {
-        method: "POST",
-        body: uploadForm,
-      });
-      const uploadData = await uploadRes.json().catch(() => ({}));
-      if (!uploadRes.ok || !uploadData?.asset?.fileUrl) {
-        throw new Error(uploadData?.error || "Upload failed");
-      }
-
-      const uploadedAtField = field === "passbookUrl" ? "passbookUploadedAt" : "gstCertificateUploadedAt";
-      const newDocuments = {
-        ...documents,
-        [field]: uploadData.asset.fileUrl,
-        [uploadedAtField]: new Date().toISOString(),
-      };
-
-      const patchRes = await fetch(`/api/vendors/${vendor._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documents: newDocuments }),
-      });
-      if (!patchRes.ok) throw new Error("Failed to save document to vendor record");
-
-      setDocuments(newDocuments);
-      onUpdated({ documents: newDocuments });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload document");
-    } finally {
-      setUploadingField(null);
-    }
-  }
-
-  /** Upload into documents.compliance[key] — the open map used for MSME
-   * certificate and any other ad-hoc document an admin needs to attach
-   * during review, beyond the two fixed slots above. `label` is persisted
-   * alongside the file so custom (admin-added) doc rows survive a reload
-   * with their human-readable name intact. */
-  async function uploadComplianceDocument(key: string, label: string, file: File) {
-    setUploadingField(`compliance:${key}`);
-    setError(null);
-    try {
-      const uploadForm = new FormData();
-      uploadForm.append("file", file);
-      uploadForm.append("name", `${vendor.companyName} - ${label}`);
-      uploadForm.append("category", "vendor-document");
-
-      const uploadRes = await fetch("/api/assets/upload", {
-        method: "POST",
-        body: uploadForm,
-      });
-      const uploadData = await uploadRes.json().catch(() => ({}));
-      if (!uploadRes.ok || !uploadData?.asset?.fileUrl) {
-        throw new Error(uploadData?.error || "Upload failed");
-      }
-
-      const newDocuments = {
-        ...documents,
-        compliance: {
-          ...(documents.compliance || {}),
-          [key]: {
-            ...((documents.compliance || {})[key] || {}),
-            url: uploadData.asset.fileUrl,
-            uploadedAt: new Date().toISOString(),
-            label,
-          },
-        },
-      };
-
-      const patchRes = await fetch(`/api/vendors/${vendor._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documents: newDocuments }),
-      });
-      if (!patchRes.ok) throw new Error("Failed to save document to vendor record");
-
-      setDocuments(newDocuments);
-      onUpdated({ documents: newDocuments });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload document");
-    } finally {
-      setUploadingField(null);
-    }
-  }
-
-  function addExtraDocSlot() {
-    const label = newDocLabel.trim();
-    if (!label) return;
-    const key = `custom_${label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")}_${Date.now().toString(36)}`;
-    setExtraDocs((prev) => [...prev, { key, label }]);
-    setNewDocLabel("");
   }
 
   async function handleReview(action: "APPROVE" | "REJECT") {
@@ -550,55 +440,25 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
                 label="Bank Passbook / Cancelled Cheque"
                 hint="For account number & IFSC confirmation"
                 fileUrl={documents.passbookUrl}
-                uploading={uploadingField === "passbookUrl"}
-                onFileSelected={(file) => uploadDocument("passbookUrl", file)}
               />
               <DocumentUploadRow
                 label="GST Certificate"
                 hint="Proof of GST registration"
                 fileUrl={documents.gstCertificateUrl}
-                uploading={uploadingField === "gstCertificateUrl"}
-                onFileSelected={(file) => uploadDocument("gstCertificateUrl", file)}
               />
               <DocumentUploadRow
                 label="MSME Certificate"
                 hint="Udyam/MSME registration certificate"
                 fileUrl={documents.compliance?.msme_certificate?.url}
-                uploading={uploadingField === "compliance:msme_certificate"}
-                onFileSelected={(file) => uploadComplianceDocument("msme_certificate", "MSME Certificate", file)}
               />
               {extraDocs.map((doc) => (
                 <DocumentUploadRow
                   key={doc.key}
                   label={doc.label}
-                  hint="Additional document attached during review"
+                  hint="Submitted with the application"
                   fileUrl={documents.compliance?.[doc.key]?.url}
-                  uploading={uploadingField === `compliance:${doc.key}`}
-                  onFileSelected={(file) => uploadComplianceDocument(doc.key, doc.label, file)}
                 />
               ))}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  value={newDocLabel}
-                  onChange={(e) => setNewDocLabel(e.target.value)}
-                  placeholder="Add another document (e.g. Trade License)…"
-                  className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addExtraDocSlot();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={addExtraDocSlot}
-                  disabled={!newDocLabel.trim()}
-                  className="px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
             </div>
           </section>
 
@@ -743,18 +603,19 @@ export function VendorDetailModal({ vendor, onClose, onUpdated }: VendorDetailMo
   );
 }
 
+// View-only: documents are only ever uploaded at application/creation time
+// (vendor onboarding form or the public vendor-apply signup) — approval is
+// a review step, not another chance to attach files, so this no longer
+// offers an upload/replace control, only a link to what was already
+// submitted (or a plain "Not uploaded" note if a slot is empty).
 function DocumentUploadRow({
   label,
   hint,
   fileUrl,
-  uploading,
-  onFileSelected,
 }: {
   label: string;
   hint: string;
   fileUrl?: string;
-  uploading: boolean;
-  onFileSelected: (file: File) => void | Promise<void>;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
@@ -765,7 +626,7 @@ function DocumentUploadRow({
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-900">{label}</p>
           <p className="text-xs text-gray-400">{hint}</p>
-          {fileUrl && (
+          {fileUrl ? (
             <a
               href={fileUrl}
               target="_blank"
@@ -774,24 +635,11 @@ function DocumentUploadRow({
             >
               View uploaded file
             </a>
+          ) : (
+            <p className="text-xs text-gray-400 italic">Not uploaded</p>
           )}
         </div>
       </div>
-      <label className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 transition cursor-pointer">
-        {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-        {fileUrl ? "Replace" : "Upload"}
-        <input
-          type="file"
-          accept="image/*,application/pdf"
-          className="hidden"
-          disabled={uploading}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onFileSelected(file);
-            e.target.value = "";
-          }}
-        />
-      </label>
     </div>
   );
 }

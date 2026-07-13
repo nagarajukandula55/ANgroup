@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { StateSelect, CitySelect, PincodeInput } from "@/components/shared/LocationSelect";
 import { validateGSTINAgainstState } from "@/lib/validation/gst";
-import { getComplianceDocsForIndustry, UNIVERSAL_VENDOR_DOCS, type ComplianceDocRequirement } from "@/core/vendorCompliance";
+import { getComplianceDocsForIndustry, UNIVERSAL_VENDOR_DOCS, OPTIONAL_VENDOR_DOCS, type ComplianceDocRequirement } from "@/core/vendorCompliance";
 
 // GST + PAN already have dedicated cards below (tied to the gstRegistered
 // toggle); MSME + Trade License are the remaining universal docs, rendered
@@ -625,6 +625,35 @@ function VendorApplyForm() {
               })}
             </div>
           )}
+
+          <div className="mt-4 space-y-3">
+            <p className="text-xs font-medium text-gray-700">Optional documents</p>
+            {OPTIONAL_VENDOR_DOCS.map((doc) => {
+              const uploaded = complianceUploads[doc.key];
+              return (
+                <div key={doc.key} className="rounded-xl border border-gray-200 p-4">
+                  <p className="text-sm font-medium text-gray-900">{doc.label}</p>
+                  {doc.helpText && <p className="text-[11px] text-gray-400 mt-0.5 mb-2">{doc.helpText}</p>}
+                  {doc.collectNumber && (
+                    <input
+                      type="text"
+                      placeholder={doc.numberLabel || "License number"}
+                      value={uploaded?.number || ""}
+                      onChange={(e) =>
+                        setComplianceUploads((prev) => ({ ...prev, [doc.key]: { ...prev[doc.key], number: e.target.value } }))
+                      }
+                      className={`${inputCls} mb-2`}
+                    />
+                  )}
+                  <UploadDropzone
+                    uploading={!!uploaded?.uploading}
+                    uploadedUrl={uploaded?.url}
+                    onFile={(file) => uploadComplianceDoc(doc, file)}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <Field label="Anything else we should know?">

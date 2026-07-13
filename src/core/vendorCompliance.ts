@@ -50,33 +50,34 @@ export const UNIVERSAL_VENDOR_DOCS: ComplianceDocRequirement[] = [
     numberLabel: "Udyam Registration Number",
   },
   {
+    key: "fssai_license",
+    label: "FSSAI License",
+    helpText: "Required under the Food Safety and Standards Act for any vendor's business.",
+    collectNumber: true,
+    numberLabel: "FSSAI License Number",
+  },
+];
+
+/**
+ * Documents a vendor may upload but isn't required to -- not validated on
+ * submit, no red asterisk. Trade License was previously in the universal
+ * required list; downgraded to optional per explicit request (not every
+ * vendor's business/locality issues one).
+ */
+export const OPTIONAL_VENDOR_DOCS: ComplianceDocRequirement[] = [
+  {
     key: "trade_license",
     label: "Trade License",
-    helpText: "Local municipal trade license for operating this business.",
+    helpText: "Local municipal trade license, if this vendor's business has one.",
     collectNumber: true,
     numberLabel: "Trade License Number",
   },
 ];
 
+// FSSAI moved into UNIVERSAL_VENDOR_DOCS above (required for every vendor,
+// not just food/FMCG) -- no longer listed per-industry here to avoid
+// asking for it twice.
 export const INDUSTRY_COMPLIANCE_DOCS: Partial<Record<Industry, ComplianceDocRequirement[]>> = {
-  FOOD_BEVERAGE: [
-    {
-      key: "fssai_license",
-      label: "FSSAI License",
-      helpText: "Required under the Food Safety and Standards Act for any vendor supplying food/beverage products.",
-      collectNumber: true,
-      numberLabel: "FSSAI License Number",
-    },
-  ],
-  FMCG: [
-    {
-      key: "fssai_license",
-      label: "FSSAI License",
-      helpText: "Required if this vendor supplies any food/beverage FMCG products.",
-      collectNumber: true,
-      numberLabel: "FSSAI License Number",
-    },
-  ],
   HEALTHCARE_PHARMA: [
     {
       key: "drug_license",
