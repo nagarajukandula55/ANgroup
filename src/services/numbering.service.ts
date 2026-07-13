@@ -48,7 +48,7 @@ export async function generateVendorProductCode(business: any): Promise<string> 
 }
 
 export async function generateStockAdjustmentNumber(business: any): Promise<string> {
-  const { value } = await generateDocumentNumber(String(business?._id ?? business), "STOCK_ADJUSTMENT");
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "STOCK_ADJUSTMENT", { vendorId: "" });
   return value;
 }
 
@@ -83,7 +83,7 @@ export async function generateDebitNoteNumber(business: any): Promise<string> {
 }
 
 export async function generateInvoiceNumber(business: any): Promise<string> {
-  const { value } = await generateDocumentNumber(String(business?._id ?? business), "INVOICE");
+  const { value } = await generateDocumentNumber(String(business?._id ?? business), "INVOICE", { vendorId: "" });
   return value;
 }
 

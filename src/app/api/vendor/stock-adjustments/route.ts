@@ -91,7 +91,8 @@ export async function POST(req: NextRequest) {
 
     const { value: adjustmentNumber } = await generateDocumentNumber(
       String(vendor.businessId),
-      "STOCK_ADJUSTMENT"
+      "STOCK_ADJUSTMENT",
+      { vendorId: vendor.vendorId || "" }
     );
 
     const adjustment = await VendorStockAdjustment.create({

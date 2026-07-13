@@ -143,7 +143,7 @@ export async function generateDualInvoicesForOrder(orderId: string) {
     const { invoiceItems, subtotal, cgstTotal, sgstTotal, igstTotal } = buildInvoiceItems(vendorItems, costTotal);
     const taxTotal = cgstTotal + sgstTotal + igstTotal;
 
-    const { value: invoiceNumber } = await generateDocumentNumber(String(order.businessId || ""), "INVOICE");
+    const { value: invoiceNumber } = await generateDocumentNumber(String(order.businessId || ""), "INVOICE", { vendorId: String(vendorId) });
 
     const b2bInvoice = await SalesInvoice.create({
       businessId: order.businessId,
@@ -178,7 +178,7 @@ export async function generateDualInvoicesForOrder(orderId: string) {
   const discountValue = Number(order.discount || 0);
   const grandTotal = Number(order.amount || subtotal + taxTotal - discountValue);
 
-  const { value: b2cInvoiceNumber } = await generateDocumentNumber(String(order.businessId || ""), "INVOICE");
+  const { value: b2cInvoiceNumber } = await generateDocumentNumber(String(order.businessId || ""), "INVOICE", { vendorId: "" });
 
   const b2c = await SalesInvoice.create({
     businessId: order.businessId,

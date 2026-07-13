@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     // consolidation ("ensure whatever documents in the entire system that
     // numbering should be controlled") — now every adjustment gets one,
     // admin-configurable in Settings > Document Numbers like every other type.
-    const { value: adjustmentNumber } = await generateDocumentNumber(businessId, "STOCK_ADJUSTMENT");
+    const { value: adjustmentNumber } = await generateDocumentNumber(businessId, "STOCK_ADJUSTMENT", { vendorId: "" });
 
     // Persist the adjustment record first
     const adjustment = await StockAdjustment.create({

@@ -432,6 +432,12 @@ const UNIVERSAL_TOKENS: { token: string; label: string }[] = [
 // template that fails at generation time for a type that never wires it in.
 const TYPE_SPECIFIC_TOKENS: Partial<Record<DocumentType, { token: string; label: string }[]>> = {
   VENDOR_PRODUCT: [{ token: "{vendorId}", label: "This product's vendor code" }],
+  // Vendor-triggered document types (see api/vendor/offline-sales and
+  // api/vendor/stock-adjustments) now also pass vendorId in context, so
+  // {vendorId} is safe to use here too -- e.g. "{vendorId}-INV-{seq}".
+  INVOICE: [{ token: "{vendorId}", label: "The selling vendor's code" }],
+  NON_GST_INVOICE: [{ token: "{vendorId}", label: "The selling vendor's code" }],
+  STOCK_ADJUSTMENT: [{ token: "{vendorId}", label: "The adjusting vendor's code" }],
 };
 
 function tokensForDocType(docType: DocumentType): { token: string; label: string }[] {
@@ -831,8 +837,17 @@ export default function DocumentNumbersPage() {
       );
       if (res.ok) {
         const data = await res.json();
+        // GET /api/admin/document-numbers responds { success, data: [...] }
+        // -- this used to check data.configs (which doesn't exist on that
+        // shape), so it silently always fell through to [], meaning every
+        // reload re-rendered pure defaults regardless of what was actually
+        // saved. The save itself worked fine; only the read-back was wrong,
+        // which is exactly why it looked like settings were "resetting"
+        // after navigating away and back.
         const configs: DocumentConfig[] = Array.isArray(data)
           ? data
+          : Array.isArray(data?.data)
+          ? data.data
           : Array.isArray(data?.configs)
           ? data.configs
           : [];

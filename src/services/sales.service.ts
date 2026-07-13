@@ -41,7 +41,7 @@ export async function createSalesInvoice(payload: any) {
   }
 
   /* ================= GENERATE INVOICE NUMBER ================= */
-  const { value: invoiceNumber } = await generateDocumentNumber(businessId, "INVOICE");
+  const { value: invoiceNumber } = await generateDocumentNumber(businessId, "INVOICE", { vendorId: "" });
 
   /* ================= CREATE INVOICE ================= */
   const invoice = await SalesInvoice.create({

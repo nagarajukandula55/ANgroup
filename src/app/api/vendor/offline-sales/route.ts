@@ -152,7 +152,8 @@ export async function POST(req: NextRequest) {
 
     const { value: invoiceNumber } = await generateDocumentNumber(
       String(vendor.businessId),
-      isGstInvoice ? "INVOICE" : "NON_GST_INVOICE"
+      isGstInvoice ? "INVOICE" : "NON_GST_INVOICE",
+      { vendorId: vendor.vendorId || "" }
     );
 
     const invoice = await SalesInvoice.create({

@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     const taxTotal = cgstTotal + sgstTotal;
     const grandTotal = subtotal + taxTotal;
 
-    const { value: invoiceNumber } = await generateDocumentNumber(businessId, "INVOICE");
+    const { value: invoiceNumber } = await generateDocumentNumber(businessId, "INVOICE", { vendorId: "" });
 
     /**
      * STEP 3: Create Invoice

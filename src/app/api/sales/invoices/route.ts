@@ -42,7 +42,7 @@ import { logAction } from "@/lib/audit/logAction";
  */
 async function nextInvoiceNumber(key: string, businessId?: string): Promise<string> {
   if (businessId) {
-    const { value } = await generateDocumentNumber(businessId, "INVOICE");
+    const { value } = await generateDocumentNumber(businessId, "INVOICE", { vendorId: "" });
     return value;
   }
 
