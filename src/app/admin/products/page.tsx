@@ -204,7 +204,7 @@ export default function ProductsPage() {
     return qty > 0 && qty <= reorder
   }).length
 
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />

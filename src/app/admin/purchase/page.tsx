@@ -122,7 +122,7 @@ export default function PurchasePage() {
   const approved = pos.filter((p) => p.status === 'APPROVED').length
   const pending = pos.filter((p) => ['DRAFT', 'SUBMITTED'].includes(p.status)).length
 
-  if (loading) {
+  if (loading && pos.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />

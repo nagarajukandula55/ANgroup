@@ -207,7 +207,7 @@ export default function SocialPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
         <div className="flex items-center gap-4 mb-6">
           <button onClick={() => router.push('/admin')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 shadow-sm">
             <ArrowLeft size={15} className="text-gray-600" />

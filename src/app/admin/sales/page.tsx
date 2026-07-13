@@ -282,7 +282,7 @@ export default function SalesPage() {
   const pendingTotal = invoices.filter(i => ['SENT','OVERDUE'].includes(i.status)).reduce((s, i) => s + getAmount(i), 0)
   const draftCount   = invoices.filter(i => i.status === 'DRAFT').length
 
-  if (loading) return (
+  if (loading && invoices.length === 0 && orders.length === 0) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
     </div>

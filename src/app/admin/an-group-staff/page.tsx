@@ -80,7 +80,7 @@ export default function AnGroupStaffPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-[1800px] mx-auto px-6 py-10">
         <div className="flex items-center gap-3 mb-2">
           <Shield className="w-6 h-6 text-gray-700" />
           <h1 className="text-2xl font-semibold">AN Group Staff Roles</h1>

@@ -117,7 +117,7 @@ export default function CustomersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="max-w-[1800px] mx-auto px-6 py-10">
         {toast && (
           <div className="fixed top-6 right-6 z-50 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm text-gray-900 shadow-2xl">
             {toast}

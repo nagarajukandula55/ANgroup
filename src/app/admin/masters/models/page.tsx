@@ -98,7 +98,7 @@ export default function ModelsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-[1800px] mx-auto px-6 py-10">
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
             <Smartphone className="w-6 h-6" /> Device Models

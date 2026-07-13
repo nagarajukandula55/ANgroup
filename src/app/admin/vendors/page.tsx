@@ -333,7 +333,7 @@ export default function VendorsPage() {
     { icon: Star,        label: 'Active',           value: vendors.filter(v => v.status === 'ACTIVE').length },
   ]
 
-  if (loading) return (
+  if (loading && vendors.length === 0) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
     </div>

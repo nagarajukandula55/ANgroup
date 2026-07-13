@@ -158,7 +158,7 @@ export default function OrdersPage() {
     SHIPPED: 'DELIVERED',
   }
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />

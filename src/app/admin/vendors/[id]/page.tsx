@@ -217,7 +217,7 @@ export default function VendorDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="max-w-[1800px] mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-start gap-4 mb-8">
           <button

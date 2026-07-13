@@ -140,7 +140,7 @@ export default function NativeOrdersPage() {
   const paidCount = orders.filter((o) => o.status === 'PAID' || o.status === 'COMPLETED' || o.status === 'DELIVERED').length
   const pendingCount = orders.filter((o) => o.status === 'CREATED' || o.status === 'PENDING_PAYMENT').length
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />

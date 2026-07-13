@@ -56,7 +56,7 @@ function PrintPageInner() {
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
-      <div className="max-w-3xl mx-auto mb-4 flex justify-end print:hidden">
+      <div className="max-w-[1800px] mx-auto mb-4 flex justify-end print:hidden">
         <button onClick={() => window.print()} className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800">
           <Printer className="w-4 h-4" /> Print / Save as PDF
         </button>
