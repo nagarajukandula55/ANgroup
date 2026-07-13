@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { ModelInput } from '@/components/shared/ModelInput'
+import { TreeSelect } from '@/components/shared/TreeSelect'
 import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
 
 interface Brand { _id: string; name: string; parentId?: string | null }
@@ -164,12 +165,13 @@ export default function NewJobSheetPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Device Brand *</label>
-                <select required value={form.brandId} onChange={e => setForm(p => ({ ...p, brandId: e.target.value }))} className={inputCls}>
-                  <option value="">Select brand…</option>
-                  {brands.map(b => (
-                    <option key={b._id} value={b._id}>{b.parentId ? `↳ ${b.name}` : b.name}</option>
-                  ))}
-                </select>
+                <TreeSelect
+                  items={brands}
+                  value={form.brandId}
+                  onChange={(id) => setForm(p => ({ ...p, brandId: id }))}
+                  placeholder="Select brand…"
+                  className={inputCls}
+                />
               </div>
               <div>
                 <label className={labelCls}>Model *</label>
