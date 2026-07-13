@@ -203,6 +203,9 @@ export default function UsersPage() {
         const slotsRes = await fetch(`/api/admin/vendor-staff-slots?vendorId=${selectedVendorId}`);
         const slotsData = await slotsRes.json();
         setStaffSlots(slotsData.slots || []);
+        // Refresh the main list too so this user's Vendor ID badge shows
+        // up immediately, without needing a manual page reload.
+        fetchUsers();
       }
     } catch (e) { console.error(e); setTagError('Network error'); }
     finally { setTagging(null); }

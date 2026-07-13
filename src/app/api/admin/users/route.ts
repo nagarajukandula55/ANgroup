@@ -97,10 +97,31 @@ export async function GET(request: NextRequest) {
           isDeleted: { $ne: true },
         }).lean();
 
-        const vendorProfile = await VendorProfile.findOne({
+        let vendorProfile = await VendorProfile.findOne({
           userId,
           isDeleted: { $ne: true },
         }).lean();
+
+        // A user tagged into one of a vendor's 5 staff slots (see
+        // /api/admin/vendor-staff-slots/[id]/activate) never gets
+        // VendorProfile.userId set -- that field is 1:1 and reserved for
+        // whoever can log in AS the vendor account itself, while multiple
+        // staff can be tagged to the same vendor's different slots. The
+        // list page's "Vendor ID" badge (admin/users/page.tsx) reads
+        // vendorProfile?.vendorId though, so without this fallback a
+        // successfully-tagged staff member always showed no vendor ID at
+        // all -- the save "succeeded" (BusinessMember was created) but
+        // nothing ever appeared to prove it.
+        if (!vendorProfile) {
+          const membership = await BusinessMember.findOne({
+            userId,
+            vendorId: { $ne: null },
+            status: 'ACTIVE',
+          }).lean();
+          if (membership?.vendorId) {
+            vendorProfile = await VendorProfile.findById(membership.vendorId).lean();
+          }
+        }
 
         return { ...user, roles, employeeProfile, vendorProfile };
       })

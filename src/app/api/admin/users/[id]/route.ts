@@ -66,7 +66,7 @@ export async function GET(
 
     await connectDB();
     const { id } = await params;
-    const { User, UserRole, EmployeeProfile, VendorProfile } = await getModels();
+    const { User, UserRole, EmployeeProfile, VendorProfile, BusinessMember } = await getModels();
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
@@ -90,10 +90,26 @@ export async function GET(
       .populate('reportingTo', 'name email')
       .lean();
 
-    const vendorProfile = await VendorProfile.findOne({
+    let vendorProfile = await VendorProfile.findOne({
       userId: id,
       isDeleted: { $ne: true },
     }).lean();
+
+    // Same fallback as GET /api/admin/users -- a user tagged into a
+    // vendor's staff slot only gets a BusinessMember row, not
+    // VendorProfile.userId (that field is 1:1, reserved for the vendor's
+    // own login). Without this, re-opening the edit panel for an
+    // already-tagged staff member showed no vendor ID at all.
+    if (!vendorProfile) {
+      const membership = await BusinessMember.findOne({
+        userId: id,
+        vendorId: { $ne: null },
+        status: 'ACTIVE',
+      }).lean();
+      if (membership?.vendorId) {
+        vendorProfile = await VendorProfile.findById(membership.vendorId).lean();
+      }
+    }
 
     return NextResponse.json({ user: { ...user, roles, employeeProfile, vendorProfile } });
   } catch (error) {
