@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PincodeInput } from "@/components/shared/LocationSelect";
 
@@ -29,7 +29,36 @@ const inputCls =
 
 function AppointmentRequestForm() {
   const searchParams = useSearchParams();
-  const businessId = searchParams.get("businessId") || "";
+  const rawBusinessId = searchParams.get("businessId") || "";
+  const shortCode = searchParams.get("code") || "";
+
+  // Short links use ?code=AB (a business's 2-char shortCode) instead of the
+  // full ObjectId in ?businessId= -- resolved client-side on mount so this
+  // still works as a plain static link with no server rendering needed.
+  const [resolvedBusinessId, setResolvedBusinessId] = useState(rawBusinessId);
+  const [resolvingCode, setResolvingCode] = useState(Boolean(shortCode && !rawBusinessId));
+  const [codeError, setCodeError] = useState("");
+
+  useEffect(() => {
+    if (!shortCode || rawBusinessId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/businesses/resolve-code?code=${encodeURIComponent(shortCode)}`);
+        const json = await res.json();
+        if (json.success) {
+          setResolvedBusinessId(json.businessId);
+        } else {
+          setCodeError(json.message || "Invalid business code");
+        }
+      } catch {
+        setCodeError("Failed to resolve business code");
+      } finally {
+        setResolvingCode(false);
+      }
+    })();
+  }, [shortCode, rawBusinessId]);
+
+  const businessId = resolvedBusinessId;
 
   const [form, setForm] = useState({
     customerName: "",
@@ -146,6 +175,24 @@ function AppointmentRequestForm() {
       setSubmitting(false);
     }
   };
+
+  if (resolvingCode) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-400">
+        Loading...
+      </div>
+    );
+  }
+
+  if (codeError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center">
+          <p className="text-sm text-red-600">{codeError}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (reference) {
     return (

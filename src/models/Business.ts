@@ -476,6 +476,24 @@ const BusinessSchema = new mongoose.Schema(
       index: true,
     },
 
+    /**
+     * A short, easy-to-say 2-character code (e.g. "AB") for quickly mapping
+     * anything to this business — distinct from businessCode (used in
+     * document numbering, often longer). Super-admin editable from the
+     * business edit page; used to shorten public links like the customer
+     * appointment-request page (?code=AB instead of a full ObjectId).
+     * Sparse+unique so it's optional but never duplicated once set.
+     */
+    shortCode: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 2,
+      unique: true,
+      sparse: true,
+    },
+
     tenantKey: {
       type: String,
       required: true,
