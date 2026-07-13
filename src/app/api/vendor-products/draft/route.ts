@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 import VendorProfile from "@/models/VendorProfile";
@@ -6,9 +7,36 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
 
 export async function POST(req: NextRequest) {
   try {
+    await connectDB();
+
+    // Self-healing resync before the permission check: a vendor-team
+    // member's default roles (Owner/Manager/etc.) can go stale relative
+    // to the current role-definition/module-intersection logic (e.g. a
+    // bug fix, or the parent business enabling a new module) -- this is
+    // the exact action (adding a product) that was hitting a stale-403
+    // wall, so refresh right here rather than only when the vendor
+    // happens to visit their Staff page.
+    const h = await headers();
+    const requestingUserId = h.get("x-user-id");
+    if (requestingUserId) {
+      const requestingVendor = await VendorProfile.findOne({
+        userId: requestingUserId,
+        isDeleted: { $ne: true },
+      })
+        .select("_id businessId")
+        .lean();
+      if (requestingVendor && (requestingVendor as any).businessId) {
+        await createDefaultVendorRoles(
+          String((requestingVendor as any)._id),
+          String((requestingVendor as any).businessId)
+        ).catch(() => {});
+      }
+    }
+
     const session = await getEnrichedSession();
     if (!session?.user) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
@@ -21,8 +49,6 @@ export async function POST(req: NextRequest) {
         { status: err.code === "FORBIDDEN" ? 403 : 401 }
       );
     }
-
-    await connectDB();
 
     const body = await req.json().catch(() => ({}));
 

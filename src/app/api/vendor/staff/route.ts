@@ -7,6 +7,7 @@ import User from "@/models/User";
 import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
 import { logAction } from "@/lib/audit/logAction";
+import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
 
 /**
  * Vendor-side staff management. Completes the hierarchy requested:
@@ -41,6 +42,20 @@ export async function GET() {
     const vendor = await requireVendorOwner(userId);
     if (!vendor) {
       return NextResponse.json({ success: false, error: "Only a vendor account can view its own staff" }, { status: 403 });
+    }
+
+    // Self-healing resync: createDefaultVendorRoles is a cheap, idempotent
+    // upsert (see that file), so re-running it here on every load keeps
+    // this vendor's 11 roles' permission sets current with whatever the
+    // role definitions/module-intersection logic currently say -- in
+    // particular this is what actually fixes an already-onboarded
+    // vendor's Owner/Manager roles after a bug in that intersection logic
+    // is fixed (previously "*" resolved to zero modules whenever the
+    // parent business hadn't configured Business.modules[] yet, so an
+    // existing vendor's Owner could be stuck with no real permissions
+    // until something re-ran this).
+    if (vendor.businessId) {
+      await createDefaultVendorRoles(String(vendor._id), String(vendor.businessId)).catch(() => {});
     }
 
     const members = await BusinessMember.find({ vendorId: vendor._id, isDeleted: { $ne: true } })

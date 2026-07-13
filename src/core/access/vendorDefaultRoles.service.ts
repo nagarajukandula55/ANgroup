@@ -53,7 +53,7 @@ const VENDOR_ROLE_DEFS: VendorRoleDef[] = [
   { code: "VENDOR_MANAGER", name: "Manager", description: "Full access except editing existing records (reserved for Owner).", modules: "*", actions: ALL_EXCEPT_EDIT },
   { code: "VENDOR_FINANCE_MANAGER", name: "Finance Manager", description: "Full access to finance modules/reports.", modules: ["finance"], actions: ALL_ACTIONS },
   { code: "VENDOR_FINANCE_ASSISTANT", name: "Finance Assistant", description: "View and create access to finance records.", modules: ["finance"], actions: VIEW_CREATE },
-  { code: "VENDOR_WAREHOUSE_MANAGER", name: "Warehouse Manager", description: "Full access to orders, inventory, products and stock adjustments.", modules: ["orders", "inventory", "products", "stock_adjustments"], actions: ALL_ACTIONS },
+  { code: "VENDOR_WAREHOUSE_MANAGER", name: "Warehouse Manager", description: "Full access to orders, inventory, products and stock adjustments.", modules: ["orders", "inventory", "products", "vendor_products", "stock_adjustments"], actions: ALL_ACTIONS },
   { code: "VENDOR_ASSISTANT_MANAGER", name: "Assistant Manager", description: "View and create access, same module scope as Manager.", modules: "*", actions: VIEW_CREATE },
   { code: "VENDOR_WAREHOUSE_SCM", name: "Warehouse SCM", description: "Full access to logistics and orders.", modules: ["logistics", "orders"], actions: ALL_ACTIONS },
   { code: "VENDOR_WAREHOUSE_HELPER", name: "Warehouse Helper", description: "View and create access to orders only.", modules: ["orders"], actions: VIEW_CREATE },
@@ -69,6 +69,19 @@ const FRONT_OFFICE_EXTRA_MODULES: { modules: string[]; actions: ActionKey[] } = 
   modules: ["inventory"],
   actions: VIEW_ONLY,
 };
+
+// Every module key "*" could plausibly expand to -- the safe superset used
+// when a business hasn't configured Business.modules[] yet (see intersect()
+// below). Built from every module referenced anywhere in VENDOR_ROLE_DEFS/
+// FRONT_OFFICE_EXTRA_MODULES, so it can never fall out of sync with the
+// roles actually defined above.
+const ALL_REFERENCED_MODULES: string[] = Array.from(
+  new Set(
+    VENDOR_ROLE_DEFS.flatMap((def) => (def.modules === "*" ? [] : def.modules)).concat(
+      FRONT_OFFICE_EXTRA_MODULES.modules
+    )
+  )
+);
 
 function permissionCodesFor(modules: string[], actions: ActionKey[]): string[] {
   const codes: string[] = [];
@@ -102,11 +115,19 @@ export async function createDefaultVendorRoles(
 
   const intersect = (moduleKeys: string[] | "*"): string[] => {
     if (moduleKeys === "*") {
-      // "all enabled modules" -- if the business hasn't configured a
-      // restriction yet, we can't enumerate "all", so fall back to every
-      // seeded module key referenced anywhere in this role set as a safe
-      // superset; in practice a live business always has modules[] set.
-      return enabledKeys ? Array.from(enabledKeys as Set<string>) : [];
+      // "all enabled modules" -- if the business HAS configured a
+      // restriction, use exactly that set; if it hasn't (the common case
+      // for a business that's never touched that setting), fall back to
+      // every seeded module key referenced anywhere in this role set as a
+      // safe superset, so Owner/Manager/Assistant Manager still actually
+      // get real permissions instead of silently ending up with none.
+      // (This was previously backwards: it returned [] -- zero modules,
+      // zero permissions -- for exactly the unconfigured case the comment
+      // said it should handle, which is why a freshly-onboarded vendor's
+      // Owner could be granted the role yet be forbidden from every
+      // action, e.g. 403'ing on vendor_products.create when adding a
+      // product for the first time.)
+      return enabledKeys ? Array.from(enabledKeys as Set<string>) : ALL_REFERENCED_MODULES;
     }
     return enabledKeys
       ? moduleKeys.filter((k) => (enabledKeys as Set<string>).has(k))

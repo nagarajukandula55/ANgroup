@@ -463,6 +463,12 @@ export default function MaterialCategoriesPage() {
                     </option>
                   ))}
                 </select>
+                {parentOptions.length === 0 && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    No other categories exist yet for this business — save this one first
+                    (as a root category), then create another and pick this as its parent.
+                  </p>
+                )}
               </div>
 
               {/* Unit */}

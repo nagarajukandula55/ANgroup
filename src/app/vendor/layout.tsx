@@ -4,6 +4,8 @@ import Link from 'next/link'
 import VendorLogoutButton from '@/components/vendor/VendorLogoutButton'
 import AnuWidget from '@/components/AnuWidget'
 import NotificationBell from '@/components/NotificationBell'
+import { connectDB } from '@/lib/mongodb'
+import BusinessMember from '@/models/BusinessMember'
 import {
   LayoutDashboard,
   Package,
@@ -44,9 +46,38 @@ export default async function VendorLayout({
 }) {
   const headersList = await headers()
   const role = headersList.get('x-user-role')
+  const userId = headersList.get('x-user-id')
   const userName = headersList.get('x-user-name') || 'Vendor'
 
-  if (role !== 'VENDOR') {
+  // role !== 'VENDOR' used to be the ONLY check here -- but that's
+  // User.role, the old flat single-role field set at signup/login. It has
+  // nothing to do with the newer vendor-team system (BusinessMember +
+  // vendorId-scoped Role/UserRole, see api/vendor/staff/route.ts): a
+  // super admin adding someone as a vendor's Owner/Manager/etc. through
+  // that flow never touches User.role at all, so anyone whose account
+  // originally registered as a plain customer (the default) got bounced
+  // straight back to /login on every single /vendor/* page, no matter
+  // what access they'd actually been granted -- this was the "repeatedly
+  // redirecting to login" report. Now also allows in anyone with an
+  // ACTIVE BusinessMember row tied to a real vendor (vendorId set), which
+  // is what actually grants vendor-portal access today.
+  let hasVendorTeamAccess = false
+  if (role !== 'VENDOR' && userId) {
+    try {
+      await connectDB()
+      const membership = await BusinessMember.findOne({
+        userId,
+        vendorId: { $ne: null },
+        status: 'ACTIVE',
+        isDeleted: { $ne: true },
+      }).lean()
+      hasVendorTeamAccess = !!membership
+    } catch {
+      hasVendorTeamAccess = false
+    }
+  }
+
+  if (role !== 'VENDOR' && !hasVendorTeamAccess) {
     redirect('/login')
   }
 

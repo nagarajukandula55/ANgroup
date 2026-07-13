@@ -153,6 +153,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "admin-users",  label: "User Management",      route: "/admin/users",  icon: "UserCog" },
       { key: "admin-access", label: "Access Control",       route: "/admin/access", icon: "Key" },
       { key: "admin-roles",  label: "Roles & Permissions",  route: "/admin/roles",  icon: "Shield" },
+      { key: "admin-an-group-staff", label: "AN Group Staff", route: "/admin/an-group-staff", icon: "Shield" },
     ]},
     { key: "adm-config", label: "Configuration", items: [
       { key: "admin-intg", label: "Integrations", route: "/admin/integrations", icon: "Plug" },
@@ -353,7 +354,8 @@ export default function Sidebar() {
     // codes like every other module.
     (key === "admin-document-templates" && user?.isSuperAdmin) ||
     (key === "admin-invoice-templates" && user?.isSuperAdmin) ||
-    (key === "admin-gst" && user?.isSuperAdmin);
+    (key === "admin-gst" && user?.isSuperAdmin) ||
+    (key === "admin-an-group-staff" && user?.isSuperAdmin);
 
   return (
     <>
