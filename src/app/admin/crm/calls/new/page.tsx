@@ -7,11 +7,15 @@ import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/Locat
 import { ModelInput } from '@/components/shared/ModelInput'
 
 interface Brand { _id: string; name: string; parentId?: string | null }
+interface FaultCode { _id: string; code: string; description: string }
+interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
 
 export default function NewAppointmentPage() {
   const router = useRouter()
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
+  const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -19,7 +23,7 @@ export default function NewAppointmentPage() {
     customerName: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
     source: 'User Contact', product: '', brandId: '', deviceModel: '',
-    subject: '',
+    faultCodeId: '', subject: '',
   })
 
   useEffect(() => {
@@ -32,6 +36,8 @@ export default function NewAppointmentPage() {
   useEffect(() => {
     if (!businessId) return
     fetch(`/api/brands?businessId=${businessId}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
+    fetch(`/api/product-categories?businessId=${businessId}`).then(r => r.json()).then(d => setProductCategories(d.categories || d.productCategories || d.data || [])).catch(() => {})
+    fetch(`/api/fault-codes?businessId=${businessId}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
   }, [businessId])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -144,7 +150,12 @@ export default function NewAppointmentPage() {
             <h2 className="text-sm font-semibold text-gray-900">Device & Issue</h2>
             <div>
               <label className={labelCls}>Product *</label>
-              <input type="text" required value={form.product} placeholder="e.g. AC, Washing Machine" onChange={(e) => setForm((p) => ({ ...p, product: e.target.value }))} className={inputCls} />
+              <select required value={form.product} onChange={(e) => setForm((p) => ({ ...p, product: e.target.value }))} className={inputCls}>
+                <option value="">Select product category…</option>
+                {productCategories.map((c) => (
+                  <option key={c._id} value={c.name}>{c.parentId ? `↳ ${c.name}` : c.name}</option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -168,7 +179,16 @@ export default function NewAppointmentPage() {
               </div>
             </div>
             <div>
-              <label className={labelCls}>Issue with Device *</label>
+              <label className={labelCls}>Fault Code</label>
+              <select value={form.faultCodeId} onChange={(e) => setForm((p) => ({ ...p, faultCodeId: e.target.value }))} className={inputCls}>
+                <option value="">Select fault code…</option>
+                {faultCodes.map((f) => (
+                  <option key={f._id} value={f._id}>{f.code} — {f.description}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Fault in Device *</label>
               <textarea required value={form.subject} rows={3} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))} className={`${inputCls} resize-none`} />
             </div>
           </section>

@@ -412,7 +412,7 @@ export default function CallDetailPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Issue in Device / VOC (Fault Code)</label>
+                <label className="block text-xs text-gray-500 mb-1.5">Fault in Device (Fault Code)</label>
                 <select
                   value={faultCodeId}
                   onChange={(e) => {

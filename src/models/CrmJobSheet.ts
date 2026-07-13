@@ -97,6 +97,10 @@ export interface ICrmJobSheet extends Document {
   // Structured solution reference alongside the free-text workPerformed
   // above -- optional, doesn't replace it.
   solutionId?: Types.ObjectId;
+  // Observed symptom (SymptomCode catalog) -- distinct from the fault
+  // diagnosed on the originating CrmCall/job title; recorded during the
+  // repair flow.
+  symptomCodeId?: Types.ObjectId;
   customerSignatureUrl?: string;
   internalNotes?: string;
 
@@ -187,6 +191,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     materialsUsed: { type: String, default: "" },
     workPerformed: { type: String, default: "" },
     solutionId: { type: Schema.Types.ObjectId, ref: "Solution", default: null },
+    symptomCodeId: { type: Schema.Types.ObjectId, ref: "SymptomCode", default: null },
     customerSignatureUrl: { type: String, default: "" },
     internalNotes: { type: String, default: "" },
 

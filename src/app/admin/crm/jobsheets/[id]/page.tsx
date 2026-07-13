@@ -36,6 +36,12 @@ interface Solution {
   description: string
 }
 
+interface SymptomCode {
+  _id: string
+  code: string
+  description: string
+}
+
 interface JobSheet {
   _id: string
   jobSheetNumber: string
@@ -147,6 +153,8 @@ export default function JobSheetDetailPage() {
   const [brandJobNo, setBrandJobNo] = useState('')
   const [solutionId, setSolutionId] = useState('')
   const [solutions, setSolutions] = useState<Solution[]>([])
+  const [symptomCodes, setSymptomCodes] = useState<SymptomCode[]>([])
+  const [symptomCodeId, setSymptomCodeId] = useState('')
 
   const [bomParts, setBomParts] = useState<BOMPart[]>([])
   const [pickerOpenIndex, setPickerOpenIndex] = useState<number | null>(null)
@@ -179,8 +187,11 @@ export default function JobSheetDetailPage() {
       setBrandJobNo(d.jobSheet.brandJobNoForPartOrder || '')
       const sid = d.jobSheet.solutionId
       setSolutionId(typeof sid === 'object' ? sid?._id || '' : sid || '')
+      const symId = d.jobSheet.symptomCodeId
+      setSymptomCodeId(typeof symId === 'object' ? symId?._id || '' : symId || '')
       if (d.jobSheet.businessId) {
         fetch(`/api/solutions?businessId=${d.jobSheet.businessId}`).then(r => r.json()).then(sd => setSolutions(sd.solutions || [])).catch(() => {})
+        fetch(`/api/symptom-codes?businessId=${d.jobSheet.businessId}`).then(r => r.json()).then(sd => setSymptomCodes(sd.symptomCodes || [])).catch(() => {})
       }
     } catch (err: any) {
       setError(err.message || 'Could not load workorder.')
@@ -265,7 +276,7 @@ export default function JobSheetDetailPage() {
       const res = await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, brandJobNoForPartOrder: brandJobNo || null, solutionId: solutionId || null, ...extra }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, brandJobNoForPartOrder: brandJobNo || null, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, ...extra }),
       })
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to save')
@@ -320,7 +331,7 @@ export default function JobSheetDetailPage() {
       await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null }),
       })
       const res = await fetch(`/api/crm/jobsheets/${id}/close`, {
         method: 'POST',
@@ -641,6 +652,22 @@ export default function JobSheetDetailPage() {
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
           </div>
+          {symptomCodes.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Symptom</label>
+              <select
+                disabled={isLocked}
+                value={symptomCodeId}
+                onChange={(e) => setSymptomCodeId(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
+              >
+                <option value="">— None —</option>
+                {symptomCodes.map((s) => (
+                  <option key={s._id} value={s._id}>{s.code} — {s.description}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {solutions.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 mb-1.5">Solution</label>

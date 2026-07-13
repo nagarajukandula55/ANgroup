@@ -70,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // Same bug again — these 2 also had complete, working pages with no
       // sidebar entry at all.
       { key: "masters-fault-codes", label: "Fault Codes", route: "/admin/masters/fault-codes", icon: "AlertTriangle" },
+      { key: "masters-symptom-codes", label: "Symptom Codes", route: "/admin/masters/symptom-codes", icon: "AlertTriangle" },
       { key: "masters-solutions",   label: "Solutions",   route: "/admin/masters/solutions",   icon: "CheckCircle" },
       { key: "masters-crm-options", label: "CRM Job Sheet Options", route: "/admin/masters/crm-options", icon: "Settings" },
       // Stock movement screens — also fully built, never wired to nav.

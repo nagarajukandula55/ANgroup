@@ -80,9 +80,15 @@ export interface ICrmCall extends Document {
   product?: string; // device/category, e.g. "AC", "Washing Machine"
   brandId?: Types.ObjectId; // ref Brand
   deviceModel?: string;
-  subject: string; // the "Issue with device" text -- kept as the schema's
+  // Structured fault selection -- optional; the free-text subject field
+  // below still carries the actual "Fault in Device" description shown
+  // required in the UI, faultCodeId just links it to the Fault Code
+  // catalog (same catalog used on JobSheet) so it round-trips into the
+  // job sheet at conversion time instead of only living as text.
+  faultCodeId?: Types.ObjectId; // ref FaultCode
+  subject: string; // the "Fault in Device" text -- kept as the schema's
   // required field name so nothing downstream (job sheet conversion,
-  // search, etc.) needs to change; the UI just labels it "Issue".
+  // search, etc.) needs to change; the UI just labels it "Fault in Device".
   description?: string;
   priority: CrmCallPriority;
 
@@ -165,6 +171,7 @@ const CrmCallSchema = new Schema<ICrmCall>(
     product: { type: String, trim: true },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
+    faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
     subject: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     priority: {

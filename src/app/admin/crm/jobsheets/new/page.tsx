@@ -10,11 +10,13 @@ interface Brand { _id: string; name: string; parentId?: string | null }
 interface FaultCode { _id: string; code: string; description: string }
 interface CrmOption { _id: string; code: string; label: string }
 interface Warehouse { _id: string; warehouseName: string }
+interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
 
 export default function NewJobSheetPage() {
   const router = useRouter()
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [appointmentTypes, setAppointmentTypes] = useState<CrmOption[]>([])
@@ -41,6 +43,7 @@ export default function NewJobSheetPage() {
   useEffect(() => {
     if (!businessId) return
     fetch(`/api/brands?businessId=${businessId}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
+    fetch(`/api/product-categories?businessId=${businessId}`).then(r => r.json()).then(d => setProductCategories(d.categories || d.productCategories || d.data || [])).catch(() => {})
     fetch(`/api/fault-codes?businessId=${businessId}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
     fetch(`/api/warehouses?businessId=${businessId}`).then(r => r.json()).then(d => setWarehouses(d.warehouses || d.data || [])).catch(() => {})
     fetch(`/api/crm-option-lists?listType=APPOINTMENT_TYPE&businessId=${businessId}`).then(r => r.json()).then(d => setAppointmentTypes(d.options || [])).catch(() => {})
@@ -157,7 +160,12 @@ export default function NewJobSheetPage() {
             <h2 className="text-sm font-semibold text-gray-900">Device</h2>
             <div>
               <label className={labelCls}>Product *</label>
-              <input required value={form.product} placeholder="e.g. AC, Washing Machine" onChange={e => setForm(p => ({ ...p, product: e.target.value }))} className={inputCls} />
+              <select required value={form.product} onChange={e => setForm(p => ({ ...p, product: e.target.value }))} className={inputCls}>
+                <option value="">Select product category…</option>
+                {productCategories.map(c => (
+                  <option key={c._id} value={c.name}>{c.parentId ? `↳ ${c.name}` : c.name}</option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -217,17 +225,15 @@ export default function NewJobSheetPage() {
 
           <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
             <h2 className="text-sm font-semibold text-gray-900">Issue</h2>
-            {faultCodes.length > 0 && (
-              <div>
-                <label className={labelCls}>Fault Code</label>
-                <select value={form.faultCodeId} onChange={e => setForm(p => ({ ...p, faultCodeId: e.target.value }))} className={inputCls}>
-                  <option value="">—</option>
-                  {faultCodes.map(f => <option key={f._id} value={f._id}>{f.code} — {f.description}</option>)}
-                </select>
-              </div>
-            )}
             <div>
-              <label className={labelCls}>Issue with Device *</label>
+              <label className={labelCls}>Fault Code</label>
+              <select value={form.faultCodeId} onChange={e => setForm(p => ({ ...p, faultCodeId: e.target.value }))} className={inputCls}>
+                <option value="">Select fault code…</option>
+                {faultCodes.map(f => <option key={f._id} value={f._id}>{f.code} — {f.description}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Fault in Device *</label>
               <textarea required rows={3} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className={`${inputCls} resize-none`} />
             </div>
             <div>

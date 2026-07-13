@@ -93,6 +93,7 @@ const ALLOWED_FIELDS = [
   "remark",
   "brandJobNoForPartOrder",
   "solutionId",
+  "symptomCodeId",
   "warehouseId",
   "appointmentType",
   "requestType",
