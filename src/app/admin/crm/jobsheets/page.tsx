@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Loader2, ClipboardList, Plus, X } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Loader2, ClipboardList, Plus } from 'lucide-react'
 
 interface JobSheet {
   _id: string
@@ -18,8 +18,6 @@ interface JobSheet {
   createdAt: string
   assignedTo?: { name?: string }
 }
-
-interface Brand { _id: string; name: string }
 
 const STATUS_COLORS: Record<string, string> = {
   CREATED: 'bg-blue-500/10 text-blue-600',
@@ -53,47 +51,12 @@ function AgeingBadge({ js }: { js: JobSheet }) {
   )
 }
 
-function JobSheetsPageInner() {
+export default function JobSheetsPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [jobSheets, setJobSheets] = useState<JobSheet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('ALL')
-
-  const [showForm, setShowForm] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [brands, setBrands] = useState<Brand[]>([])
-  const [faultCodes, setFaultCodes] = useState<{ _id: string; name: string }[]>([])
-  const [warehouses, setWarehouses] = useState<{ _id: string; warehouseName: string }[]>([])
-  const [businessId, setBusinessId] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    customerName: '', company: '', phone: '', email: '',
-    address: '', city: '', state: '', pincode: '',
-    product: '', brandId: '', deviceModel: '', imeiOrSerialNumber: '',
-    issueDescription: '', faultCodeId: '', remark: '',
-    appointmentType: '', requestType: '', brandJobNoForPartOrder: '',
-    warehouseId: '', title: '', description: '',
-  })
-
-  useEffect(() => {
-    if (searchParams?.get('new') === '1') setShowForm(true)
-  }, [searchParams])
-
-  useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => {
-      const user = d.user ?? d
-      setBusinessId(user.activeBusinessId ?? user.businessId ?? null)
-    }).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (!businessId) return
-    fetch(`/api/brands?businessId=${businessId}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
-    fetch(`/api/fault-codes?businessId=${businessId}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
-    fetch(`/api/warehouses?businessId=${businessId}`).then(r => r.json()).then(d => setWarehouses(d.warehouses || d.data || [])).catch(() => {})
-  }, [businessId])
 
   const fetchJobSheets = useCallback(async () => {
     setLoading(true)
@@ -113,30 +76,6 @@ function JobSheetsPageInner() {
   }, [statusFilter])
 
   useEffect(() => { fetchJobSheets() }, [fetchJobSheets])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!businessId) {
-      setFormError('Select a business first (top-right business switcher).')
-      return
-    }
-    setSubmitting(true)
-    setFormError(null)
-    try {
-      const res = await fetch('/api/crm/jobsheets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, businessId }),
-      })
-      const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create job sheet')
-      router.push(`/admin/crm/jobsheets/${d.jobSheet._id}`)
-    } catch (err: any) {
-      setFormError(err.message || 'Something went wrong')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   if (loading && jobSheets.length === 0) {
     return (
@@ -158,7 +97,7 @@ function JobSheetsPageInner() {
             <p className="text-sm text-gray-400">Work scheduled, in progress, and invoiced</p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => router.push('/admin/crm/jobsheets/new')}
             className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
           >
             <Plus className="w-4 h-4" /> New Job Sheet
@@ -227,164 +166,6 @@ function JobSheetsPageInner() {
           </table>
         </div>
       </div>
-
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-3xl max-h-[90vh] bg-gray-50 border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">New Job Sheet</h2>
-              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="px-6 pt-4 text-xs text-gray-400">For a direct walk-in — no appointment needed first.</p>
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-              {formError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{formError}</div>
-              )}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Customer Name *</label>
-                <input required value={form.customerName} onChange={e => setForm(p => ({ ...p, customerName: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Company</label>
-                <input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Contact No *</label>
-                <input required type="tel" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Email</label>
-                <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Address</label>
-                <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <input placeholder="City" value={form.city} onChange={e => setForm(p => ({ ...p, city: e.target.value }))}
-                  className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-                <input placeholder="State" value={form.state} onChange={e => setForm(p => ({ ...p, state: e.target.value }))}
-                  className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-                <input placeholder="Pincode" value={form.pincode} onChange={e => setForm(p => ({ ...p, pincode: e.target.value }))}
-                  className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Product *</label>
-                <input required value={form.product} placeholder="e.g. AC, Washing Machine" onChange={e => setForm(p => ({ ...p, product: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Device Brand *</label>
-                <select required value={form.brandId} onChange={e => setForm(p => ({ ...p, brandId: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400">
-                  <option value="">Select brand…</option>
-                  {brands.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Model *</label>
-                <input required value={form.deviceModel} onChange={e => setForm(p => ({ ...p, deviceModel: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">IMEI / Serial Number</label>
-                <input value={form.imeiOrSerialNumber} onChange={e => setForm(p => ({ ...p, imeiOrSerialNumber: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Appointment Type</label>
-                  <select value={form.appointmentType} onChange={e => setForm(p => ({ ...p, appointmentType: e.target.value }))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400">
-                    <option value="">—</option>
-                    <option value="ONSITE">Onsite</option>
-                    <option value="WALKIN">Walk-in</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Request Type</label>
-                  <select value={form.requestType} onChange={e => setForm(p => ({ ...p, requestType: e.target.value }))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400">
-                    <option value="">—</option>
-                    <option value="REPAIR">Repair</option>
-                    <option value="INSTALLATION">Installation</option>
-                  </select>
-                </div>
-              </div>
-              {warehouses.length > 0 && (
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Service Center / Warehouse</label>
-                  <select value={form.warehouseId} onChange={e => setForm(p => ({ ...p, warehouseId: e.target.value }))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400">
-                    <option value="">—</option>
-                    {warehouses.map(w => <option key={w._id} value={w._id}>{w.warehouseName}</option>)}
-                  </select>
-                </div>
-              )}
-              {faultCodes.length > 0 && (
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Fault Code</label>
-                  <select value={form.faultCodeId} onChange={e => setForm(p => ({ ...p, faultCodeId: e.target.value }))}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400">
-                    <option value="">—</option>
-                    {faultCodes.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Issue with Device *</label>
-                <textarea required rows={3} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Voice of Customer (issue description)</label>
-                <textarea rows={2} value={form.issueDescription} onChange={e => setForm(p => ({ ...p, issueDescription: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Additional Description</label>
-                <textarea rows={2} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Remark</label>
-                <input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Brand Job No. (for part order)</label>
-                <input value={form.brandJobNoForPartOrder} onChange={e => setForm(p => ({ ...p, brandJobNoForPartOrder: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400" />
-              </div>
-            </form>
-            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
-              <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition">
-                Cancel
-              </button>
-              <button onClick={handleSubmit} disabled={submitting} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                Create Job Sheet
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  )
-}
-
-export default function JobSheetsPage() {
-  return (
-    <Suspense fallback={null}>
-      <JobSheetsPageInner />
-    </Suspense>
   )
 }

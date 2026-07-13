@@ -70,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // sidebar entry at all.
       { key: "masters-fault-codes", label: "Fault Codes", route: "/admin/masters/fault-codes", icon: "AlertTriangle" },
       { key: "masters-solutions",   label: "Solutions",   route: "/admin/masters/solutions",   icon: "CheckCircle" },
+      { key: "masters-crm-options", label: "CRM Job Sheet Options", route: "/admin/masters/crm-options", icon: "Settings" },
       // Stock movement screens — also fully built, never wired to nav.
       { key: "stock-transfers",   label: "Stock Transfers",   route: "/admin/stock-transfers",   icon: "ArrowLeftRight" },
       { key: "stock-adjustments", label: "Stock Adjustments", route: "/admin/stock-adjustments", icon: "SlidersHorizontal" },
@@ -363,7 +364,8 @@ export default function Sidebar() {
     (key === "admin-invoice-templates" && user?.isSuperAdmin) ||
     (key === "admin-gst" && user?.isSuperAdmin) ||
     (key === "admin-an-group-staff" && user?.isSuperAdmin) ||
-    (key === "admin-feedback" && user?.isSuperAdmin);
+    (key === "admin-feedback" && user?.isSuperAdmin) ||
+    (key === "masters-crm-options" && user?.isSuperAdmin);
 
   return (
     <>

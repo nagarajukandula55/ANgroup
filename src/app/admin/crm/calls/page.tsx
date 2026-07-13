@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Loader2, Plus, X, Phone, Clock, AlertCircle,
+  ArrowLeft, Loader2, Plus, Phone, Clock, AlertCircle,
 } from 'lucide-react'
 
 interface Call {
@@ -23,8 +23,6 @@ interface Call {
   createdAt: string
   assignedTo?: { name?: string; email?: string }
 }
-
-interface Brand { _id: string; name: string }
 
 const STATUS_COLORS: Record<string, string> = {
   NEW: 'bg-blue-500/10 text-blue-600',
@@ -77,10 +75,6 @@ export default function CrmCallsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('ALL')
-  const [showForm, setShowForm] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [brands, setBrands] = useState<Brand[]>([])
 
   // A super admin browsing with no active business selected (the "all
   // businesses" view) has no x-active-business-id header, so POST /api/crm/calls
@@ -103,21 +97,6 @@ export default function CrmCallsPage() {
     loadBusinessId()
   }, [])
 
-  useEffect(() => {
-    if (!businessId) return
-    fetch(`/api/brands?businessId=${businessId}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
-  }, [businessId])
-
-  // Required set per spec: customer name, phone, email, source, product,
-  // device brand, model, and the issue itself -- nothing else. "source" is
-  // deliberately just Website (auto/public form) vs User Contact (staff
-  // took it directly) rather than the old open-ended text field.
-  const [form, setForm] = useState({
-    customerName: '', phone: '', email: '',
-    source: 'User Contact', product: '', brandId: '', deviceModel: '',
-    subject: '',
-  })
-
   const fetchCalls = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -137,32 +116,6 @@ export default function CrmCallsPage() {
   }, [statusFilter])
 
   useEffect(() => { fetchCalls() }, [fetchCalls])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!businessId) {
-      setFormError('Select a business first (top-right business switcher) before creating an appointment.')
-      return
-    }
-    setSubmitting(true)
-    setFormError(null)
-    try {
-      const res = await fetch('/api/crm/calls', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, businessId }),
-      })
-      const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create appointment')
-      setShowForm(false)
-      setForm({ customerName: '', phone: '', email: '', source: 'User Contact', product: '', brandId: '', deviceModel: '', subject: '' })
-      fetchCalls()
-    } catch (err: any) {
-      setFormError(err.message || 'Something went wrong')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   const totalOpen = Object.entries(statusCounts)
     .filter(([k]) => !['CLOSED_WON', 'CLOSED_LOST', 'NOT_INTERESTED', 'NO_RESPONSE'].includes(k))
@@ -194,13 +147,13 @@ export default function CrmCallsPage() {
             <p className="text-sm text-gray-400">Appointment entry, disposition, and follow-up pipeline</p>
           </div>
           <button
-            onClick={() => router.push('/admin/crm/jobsheets?new=1')}
+            onClick={() => router.push('/admin/crm/jobsheets/new')}
             className="ml-auto flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-100 transition"
           >
             <Plus className="w-4 h-4" /> New Job Sheet (no appointment)
           </button>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => router.push('/admin/crm/calls/new')}
             disabled={!businessId}
             title={businessId ? undefined : 'Select a business first to create a call'}
             className="flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-600"
@@ -332,116 +285,6 @@ export default function CrmCallsPage() {
         </div>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-3xl max-h-[90vh] bg-gray-50 border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">New Appointment</h2>
-              <button
-                onClick={() => setShowForm(false)}
-                className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-              {formError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                  {formError}
-                </div>
-              )}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Customer Name *</label>
-                <input
-                  type="text" required value={form.customerName}
-                  onChange={(e) => setForm((p) => ({ ...p, customerName: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Contact No *</label>
-                <input
-                  type="tel" required value={form.phone}
-                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Email *</label>
-                <input
-                  type="email" required value={form.email}
-                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Source *</label>
-                <select
-                  value={form.source}
-                  onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                >
-                  <option value="Website">Website</option>
-                  <option value="User Contact">User Contact</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Product *</label>
-                <input
-                  type="text" required value={form.product} placeholder="e.g. AC, Washing Machine"
-                  onChange={(e) => setForm((p) => ({ ...p, product: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Device Brand *</label>
-                <select
-                  required value={form.brandId}
-                  onChange={(e) => setForm((p) => ({ ...p, brandId: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                >
-                  <option value="">Select brand…</option>
-                  {brands.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Model *</label>
-                <input
-                  type="text" required value={form.deviceModel}
-                  onChange={(e) => setForm((p) => ({ ...p, deviceModel: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Issue with Device *</label>
-                <textarea
-                  required value={form.subject} rows={3}
-                  onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 resize-none"
-                />
-              </div>
-            </form>
-            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                Create Appointment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

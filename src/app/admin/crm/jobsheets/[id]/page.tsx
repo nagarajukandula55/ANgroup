@@ -138,6 +138,13 @@ export default function JobSheetDetailPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [workPerformed, setWorkPerformed] = useState('')
   const [materialsUsed, setMaterialsUsed] = useState('')
+  // Brand Job No. -- moved here from the New Job Sheet creation form per
+  // explicit direction ("Brand Job No should come at the time of Part
+  // opening only, not while creating a new job sheet"): this is the
+  // brand's own reference number needed when actually placing a parts
+  // order, which only happens once repair work has started, not at
+  // intake.
+  const [brandJobNo, setBrandJobNo] = useState('')
   const [solutionId, setSolutionId] = useState('')
   const [solutions, setSolutions] = useState<Solution[]>([])
 
@@ -169,6 +176,7 @@ export default function JobSheetDetailPage() {
       setLineItems(d.jobSheet.lineItems?.length ? d.jobSheet.lineItems : [emptyLine()])
       setWorkPerformed(d.jobSheet.workPerformed || '')
       setMaterialsUsed(d.jobSheet.materialsUsed || '')
+      setBrandJobNo(d.jobSheet.brandJobNoForPartOrder || '')
       const sid = d.jobSheet.solutionId
       setSolutionId(typeof sid === 'object' ? sid?._id || '' : sid || '')
       if (d.jobSheet.businessId) {
@@ -257,7 +265,7 @@ export default function JobSheetDetailPage() {
       const res = await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null, ...extra }),
+        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, brandJobNoForPartOrder: brandJobNo || null, solutionId: solutionId || null, ...extra }),
       })
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to save')
@@ -657,6 +665,16 @@ export default function JobSheetDetailPage() {
               onChange={(e) => setMaterialsUsed(e.target.value)}
               placeholder="List materials used"
               rows={2}
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1.5">Brand Job No. (for part order)</label>
+            <input
+              disabled={isLocked}
+              value={brandJobNo}
+              onChange={(e) => setBrandJobNo(e.target.value)}
+              placeholder="Enter once a part order is actually being placed"
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
           </div>
