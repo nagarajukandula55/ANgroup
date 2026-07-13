@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Phone, Mail, MapPin, Briefcase, Clock, Send, ArrowRightCircle, Plus } from 'lucide-react'
+import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
 
 interface Brand { _id: string; name: string }
 interface FaultCode { _id: string; code: string; description: string; category?: string }
@@ -78,21 +79,7 @@ export default function CallDetailPage() {
   const [faultCodeId, setFaultCodeId] = useState('')
   const [issueDescription, setIssueDescription] = useState('')
   const [remark, setRemark] = useState('')
-  const [businessId, setBusinessId] = useState<string | null>(null)
-
-  useEffect(() => {
-    async function loadBusinessId() {
-      try {
-        const res = await fetch('/api/auth/me')
-        if (res.ok) {
-          const d = await res.json()
-          const user = d.user ?? d
-          setBusinessId(user.activeBusinessId ?? user.businessId ?? null)
-        }
-      } catch {}
-    }
-    loadBusinessId()
-  }, [])
+  const { businessId } = useActiveBusinessId()
 
   const loadBrands = useCallback(async () => {
     if (!businessId) return

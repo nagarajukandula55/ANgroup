@@ -167,7 +167,7 @@ export default function EmployeesPage() {
         if (res.ok) {
           const d = await res.json()
           const user = d.user ?? d
-          const bId = user.activeBusinessId ?? user.businessId ?? null
+          const bId = user.activeBusinessId ?? d.businesses?.[0]?._id ?? null
           setBusinessId(bId)
           if (bId) {
             fetchEmployees(bId)

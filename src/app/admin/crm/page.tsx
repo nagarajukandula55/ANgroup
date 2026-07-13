@@ -101,7 +101,7 @@ export default function CRMPage() {
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       const user = d.user ?? d
-      setBusinessId(user.activeBusinessId ?? user.businessId ?? null)
+      setBusinessId(user.activeBusinessId ?? d.businesses?.[0]?._id ?? null)
     }).catch(() => setGateChecked(true))
   }, [])
 

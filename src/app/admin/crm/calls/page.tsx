@@ -90,7 +90,7 @@ export default function CrmCallsPage() {
         if (res.ok) {
           const d = await res.json()
           const user = d.user ?? d
-          setBusinessId(user.activeBusinessId ?? user.businessId ?? null)
+          setBusinessId(user.activeBusinessId ?? d.businesses?.[0]?._id ?? null)
         }
       } catch {}
     }

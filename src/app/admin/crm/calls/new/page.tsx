@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { ModelInput } from '@/components/shared/ModelInput'
+import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
 
 interface Brand { _id: string; name: string; parentId?: string | null }
 interface FaultCode { _id: string; code: string; description: string }
@@ -12,7 +13,7 @@ interface ProductCategory { _id: string; name: string; parentId?: { _id: string;
 
 export default function NewAppointmentPage() {
   const router = useRouter()
-  const [businessId, setBusinessId] = useState<string | null>(null)
+  const { businessId } = useActiveBusinessId()
   const [brands, setBrands] = useState<Brand[]>([])
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
@@ -25,13 +26,6 @@ export default function NewAppointmentPage() {
     source: 'User Contact', product: '', brandId: '', deviceModel: '',
     faultCodeId: '', subject: '',
   })
-
-  useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => {
-      const user = d.user ?? d
-      setBusinessId(user.activeBusinessId ?? user.businessId ?? null)
-    }).catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (!businessId) return
