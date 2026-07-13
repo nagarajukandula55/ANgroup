@@ -345,7 +345,7 @@ export default function CallDetailPage() {
 
       {showConvert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white rounded-2xl border border-gray-200 p-6 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-3xl bg-white rounded-2xl border border-gray-200 p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="font-semibold text-gray-900 mb-4">Convert to Workorder</h2>
             {convertError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">{convertError}</div>}
             <form onSubmit={submitConvert} className="space-y-4">

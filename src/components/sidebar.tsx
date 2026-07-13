@@ -66,6 +66,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "masters-brands",   label: "Brands",             route: "/admin/masters/brands",              icon: "Tags" },
       { key: "masters-prod-cat", label: "Product Categories", route: "/admin/masters/product-categories",  icon: "Layers" },
       { key: "masters-mat-cat",  label: "Material Categories",route: "/admin/masters/material-categories", icon: "Layers" },
+      // Same bug again — these 2 also had complete, working pages with no
+      // sidebar entry at all.
+      { key: "masters-fault-codes", label: "Fault Codes", route: "/admin/masters/fault-codes", icon: "AlertTriangle" },
+      { key: "masters-solutions",   label: "Solutions",   route: "/admin/masters/solutions",   icon: "CheckCircle" },
       // Stock movement screens — also fully built, never wired to nav.
       { key: "stock-transfers",   label: "Stock Transfers",   route: "/admin/stock-transfers",   icon: "ArrowLeftRight" },
       { key: "stock-adjustments", label: "Stock Adjustments", route: "/admin/stock-adjustments", icon: "SlidersHorizontal" },
@@ -176,6 +180,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // page (admin/gst/page.tsx) has existed with a complete UI + API this
       // whole time but never had a sidebar entry, so it was unreachable from nav.
       { key: "admin-gst", label: "GST", route: "/admin/gst", icon: "FileText" },
+      // Same class of bug again — a complete, working feedback inbox with
+      // no sidebar entry at all, unreachable except by typing the URL.
+      { key: "admin-feedback", label: "Feedback", route: "/admin/feedback", icon: "MessageSquare" },
     ]},
   ]},
 ];
@@ -355,7 +362,8 @@ export default function Sidebar() {
     (key === "admin-document-templates" && user?.isSuperAdmin) ||
     (key === "admin-invoice-templates" && user?.isSuperAdmin) ||
     (key === "admin-gst" && user?.isSuperAdmin) ||
-    (key === "admin-an-group-staff" && user?.isSuperAdmin);
+    (key === "admin-an-group-staff" && user?.isSuperAdmin) ||
+    (key === "admin-feedback" && user?.isSuperAdmin);
 
   return (
     <>

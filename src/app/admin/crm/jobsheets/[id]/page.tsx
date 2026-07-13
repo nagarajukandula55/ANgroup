@@ -670,7 +670,7 @@ export default function JobSheetDetailPage() {
 
       {showHandover && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="w-full max-w-xl bg-white rounded-2xl border border-gray-200 p-6">
             <h2 className="font-semibold text-gray-900 mb-2">Handover to Customer</h2>
             <p className="text-xs text-gray-500 mb-4">Record what was collected before closing this workorder.</p>
             <input
@@ -703,7 +703,7 @@ export default function JobSheetDetailPage() {
 
       {showCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="w-full max-w-xl bg-white rounded-2xl border border-gray-200 p-6">
             <h2 className="font-semibold text-gray-900 mb-2">Cancel Workorder</h2>
             <p className="text-xs text-gray-500 mb-4">This will be routed to the manager. Provide a reason.</p>
             <input
