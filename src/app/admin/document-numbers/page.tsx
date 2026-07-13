@@ -110,6 +110,7 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   JOB_SHEET: "CRM Job Sheet Number",
   MATERIAL: "Material Code",
   NON_GST_INVOICE: "Non-GST Invoice (Bill)",
+  B2B_INVOICE: "B2B Invoice",
 };
 
 const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
