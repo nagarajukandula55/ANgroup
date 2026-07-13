@@ -202,6 +202,12 @@ export default function Sidebar() {
   const [modules, setModules]           = useState<any[]>(STATIC_MODULES);
   const [open, setOpen]                 = useState(false);
   const [collapsed, setCollapsed]       = useState(false);
+  // When the sidebar is collapsed to icon-only, hovering over it expands it
+  // back temporarily (without flipping the persisted preference) so labels
+  // are reachable without a click -- "menu bar also make it collapsable and
+  // expand on hover".
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const isCollapsed = collapsed && !hoverExpanded;
   const [user, setUser]                 = useState<UserInfo | null>(null);
   const [businesses, setBusinesses]     = useState<Business[]>([]);
   const [activeBiz, setActiveBiz]       = useState<Business | null>(null);
@@ -384,10 +390,13 @@ export default function Sidebar() {
       )}
 
       <aside
+        onMouseEnter={() => collapsed && setHoverExpanded(true)}
+        onMouseLeave={() => setHoverExpanded(false)}
         className={`fixed lg:sticky lg:top-0 z-50 h-screen w-60 shrink-0 flex flex-col relative
           border-r border-gray-200 bg-white transform transition-all duration-300
           ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-          ${collapsed ? "lg:w-16" : "lg:w-60"}`}
+          ${isCollapsed ? "lg:w-16" : "lg:w-60"}
+          ${hoverExpanded ? "lg:shadow-xl" : ""}`}
       >
         {/* Desktop collapse/expand toggle */}
         <button
@@ -400,7 +409,7 @@ export default function Sidebar() {
 
         {/* Brand */}
         <div className="px-5 pt-5 pb-4 border-b border-gray-100">
-          {collapsed ? (
+          {isCollapsed ? (
             <div className="flex justify-center">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="AN Group" />
             </div>
@@ -426,25 +435,25 @@ export default function Sidebar() {
               disabled={switching}
               title={activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
               className={`flex w-full items-center rounded-lg border border-gray-200 bg-gray-50 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60 ${
-                collapsed ? "justify-center px-0" : "justify-between px-3"
+                isCollapsed ? "justify-center px-0" : "justify-between px-3"
               }`}
             >
-              <div className={`flex items-center gap-2 min-w-0 ${collapsed ? "" : ""}`}>
+              <div className={`flex items-center gap-2 min-w-0 ${isCollapsed ? "" : ""}`}>
                 <Building2 size={12} className="shrink-0 text-gray-400" />
-                {!collapsed && (
+                {!isCollapsed && (
                   <span className="truncate text-xs font-medium text-gray-700">
                     {activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
                   </span>
                 )}
               </div>
-              {!collapsed && (
+              {!isCollapsed && (
                 <ChevronDown size={12} className={`shrink-0 text-gray-400 transition-transform ${bizDropdown ? "rotate-180" : ""}`} />
               )}
             </button>
 
             {bizDropdown && (
               <div className={`absolute top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden ${
-                collapsed ? "left-3 w-56" : "left-3 right-3"
+                isCollapsed ? "left-3 w-56" : "left-3 right-3"
               }`}>
                 {/* "All Businesses" is a first-class option for Super Admins,
                     not just a way to exit a business you got stuck in — it
@@ -490,7 +499,7 @@ export default function Sidebar() {
             dropdown is closed, so a super admin never loses track of the
             fact they're scoped into a single business and forgets there's
             a way out. */}
-        {!collapsed && user?.isSuperAdmin && user?.activeBusinessId && activeBiz && (
+        {!isCollapsed && user?.isSuperAdmin && user?.activeBusinessId && activeBiz && (
           <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
             <span className="truncate text-[10px] text-amber-700">
               Viewing as: <strong>{activeBiz.brandName || activeBiz.name}</strong>
@@ -531,9 +540,9 @@ export default function Sidebar() {
                   key={m.key}
                   href={m.route}
                   onClick={() => setOpen(false)}
-                  title={collapsed ? m.label : undefined}
+                  title={isCollapsed ? m.label : undefined}
                   className={`group flex items-center gap-2.5 rounded-lg py-2 transition-all duration-150 ${
-                    collapsed ? "justify-center px-0" : indent ? "pl-5 pr-3" : "px-3"
+                    isCollapsed ? "justify-center px-0" : indent ? "pl-5 pr-3" : "px-3"
                   } ${
                     active
                       ? "bg-indigo-600 text-white"
@@ -544,8 +553,8 @@ export default function Sidebar() {
                     size={14}
                     className={active ? "text-white" : "text-gray-400 group-hover:text-gray-600"}
                   />
-                  {!collapsed && <span className="text-[13px] font-medium">{m.label}</span>}
-                  {!collapsed && active && <ChevronRight size={12} className="ml-auto text-gray-400" />}
+                  {!isCollapsed && <span className="text-[13px] font-medium">{m.label}</span>}
+                  {!isCollapsed && active && <ChevronRight size={12} className="ml-auto text-gray-400" />}
                 </Link>
               );
             };
@@ -553,7 +562,7 @@ export default function Sidebar() {
             return (
               <div key={group.label} className="mb-4">
                 {/* Section header */}
-                {!collapsed && (
+                {!isCollapsed && (
                   <p className="px-3 mb-1 text-[9px] uppercase tracking-[0.45em] text-gray-400 font-semibold">
                     {group.label}
                   </p>
@@ -577,7 +586,7 @@ export default function Sidebar() {
                   // Collapsed mode gets real spacing instead; expanded mode
                   // keeps the tight spacing since the headers already do the
                   // separating there.
-                  <div className={collapsed ? "space-y-2.5" : "space-y-0.5"}>
+                  <div className={isCollapsed ? "space-y-2.5" : "space-y-0.5"}>
                     {group.subgroups.map((sg, sgIndex) => {
                       const visibleSgItems = sg.items.filter((i) => isVisible(i.key));
                       if (visibleSgItems.length === 0) return null;
@@ -586,7 +595,7 @@ export default function Sidebar() {
                       return (
                         <div key={sg.key}>
                           {/* Sub-group toggle header */}
-                          {!collapsed && (
+                          {!isCollapsed && (
                             <button
                               onClick={() =>
                                 setOpenSubgroups((p) => ({ ...p, [sg.key]: !sgOpen }))
@@ -604,14 +613,14 @@ export default function Sidebar() {
                           {/* Collapsed mode: a thin divider stands in for the
                               hidden text header, so each subgroup still reads
                               as its own visually distinct block of icons. */}
-                          {collapsed && sgIndex > 0 && (
+                          {isCollapsed && sgIndex > 0 && (
                             <div className="mx-3 mb-2.5 border-t border-gray-100" />
                           )}
 
                           {/* Sub-group items */}
-                          {(sgOpen || collapsed) && (
+                          {(sgOpen || isCollapsed) && (
                             <div className="space-y-0.5 mt-0.5">
-                              {visibleSgItems.map((item) => renderItem(item, !collapsed))}
+                              {visibleSgItems.map((item) => renderItem(item, !isCollapsed))}
                             </div>
                           )}
                         </div>
@@ -627,9 +636,9 @@ export default function Sidebar() {
         {/* User footer */}
         <div className="px-3 py-3 border-t border-gray-100">
           {user ? (
-            <div className={`rounded-lg border border-gray-200 bg-gray-50 ${collapsed ? "p-2" : "p-3"}`}>
-              <div className={`flex items-center ${collapsed ? "flex-col gap-2" : "justify-between"}`}>
-                {!collapsed && (
+            <div className={`rounded-lg border border-gray-200 bg-gray-50 ${isCollapsed ? "p-2" : "p-3"}`}>
+              <div className={`flex items-center ${isCollapsed ? "flex-col gap-2" : "justify-between"}`}>
+                {!isCollapsed && (
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-gray-800">{user.name}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">

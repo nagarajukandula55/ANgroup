@@ -120,7 +120,7 @@ export default function JobSheetsPage() {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden overflow-x-auto">
+        <div className={`rounded-2xl border border-gray-200 bg-white overflow-hidden overflow-x-auto transition-opacity ${loading ? 'opacity-60' : 'opacity-100'}`}>
           <table className="w-full text-sm min-w-[880px]">
             <thead>
               <tr className="border-b border-gray-200">
