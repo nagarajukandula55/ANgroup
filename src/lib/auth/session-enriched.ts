@@ -6,6 +6,7 @@ import UserRole from "@/models/UserRole";
 import RolePermission from "@/models/RolePermission";
 import Permission from "@/models/Permission";
 import Business from "@/models/Business";
+import { expandWithAliases } from "@/core/access/moduleKeyAliases";
 
 /**
  * =========================================================
@@ -164,8 +165,16 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
       const business = await Business.findById(businessContext.businessId).select("modules").lean();
       const businessModules = Array.isArray((business as any)?.modules) ? (business as any).modules : [];
       if (businessModules.length > 0) {
+        const rawEnabledKeys = businessModules
+          .filter((m: any) => m?.enabled !== false)
+          .map((m: any) => String(m?.key).toLowerCase());
+        // Expand through the sidebar-key <-> real-permission-key alias map
+        // (see moduleKeyAliases.ts) before uppercasing to match
+        // buildPermissionCode's module-key casing -- otherwise a handful
+        // of masters pages toggled "on" never actually matched their real
+        // permission code's module key.
         const enabledKeys = new Set(
-          businessModules.filter((m: any) => m?.enabled !== false).map((m: any) => String(m?.key).toUpperCase())
+          Array.from(expandWithAliases(rawEnabledKeys)).map((k) => k.toUpperCase())
         );
         permissions = permissions.filter((code) => {
           const moduleKey = code.split(".")[0];

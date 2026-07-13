@@ -1,6 +1,7 @@
 import Business from "@/models/Business";
 import Role, { RoleType, RoleStatus } from "@/models/Role";
 import { buildPermissionCode } from "./actions";
+import { expandWithAliases } from "./moduleKeyAliases";
 
 /**
  * Fixed default role set every vendor gets the moment it's approved
@@ -75,11 +76,36 @@ const FRONT_OFFICE_EXTRA_MODULES: { modules: string[]; actions: ActionKey[] } = 
 // below). Built from every module referenced anywhere in VENDOR_ROLE_DEFS/
 // FRONT_OFFICE_EXTRA_MODULES, so it can never fall out of sync with the
 // roles actually defined above.
+// Real operational module keys not referenced by any single vendor role
+// def's explicit module list, but that Owner/Manager/Assistant Manager's
+// "*" wildcard should still cover when a business hasn't configured
+// Business.modules[] at all yet (the safe-superset fallback below) --
+// masters pages (fault codes, solutions, product/material categories,
+// device models) plus vendor products, GST, and storefront-adjacent
+// modules (banners/blog/reviews) a vendor Owner legitimately needs.
+const EXTRA_OWNER_MODULES = [
+  "fault_codes",
+  "symptom_codes",
+  "solutions",
+  "product_categories",
+  "material_categories",
+  "device_models",
+  "units",
+  "crm_options",
+  "vendor_products",
+  "gst",
+  "grn",
+  "staff",
+  "banners",
+  "blog",
+  "reviews",
+];
+
 const ALL_REFERENCED_MODULES: string[] = Array.from(
   new Set(
-    VENDOR_ROLE_DEFS.flatMap((def) => (def.modules === "*" ? [] : def.modules)).concat(
-      FRONT_OFFICE_EXTRA_MODULES.modules
-    )
+    VENDOR_ROLE_DEFS.flatMap((def) => (def.modules === "*" ? [] : def.modules))
+      .concat(FRONT_OFFICE_EXTRA_MODULES.modules)
+      .concat(EXTRA_OWNER_MODULES)
   )
 );
 
@@ -106,10 +132,10 @@ export async function createDefaultVendorRoles(
   const business = await Business.findById(businessId).lean<any>();
   const businessModules = Array.isArray(business?.modules) ? business.modules : [];
   const enabledKeys = businessModules.length
-    ? new Set(
+    ? expandWithAliases(
         businessModules
           .filter((m: any) => m?.enabled !== false)
-          .map((m: any) => m?.key)
+          .map((m: any) => String(m?.key))
       )
     : null; // null = no restriction configured yet, matches sidebar route's convention
 
@@ -127,7 +153,19 @@ export async function createDefaultVendorRoles(
       // Owner could be granted the role yet be forbidden from every
       // action, e.g. 403'ing on vendor_products.create when adding a
       // product for the first time.)
-      return enabledKeys ? Array.from(enabledKeys as Set<string>) : ALL_REFERENCED_MODULES;
+      //
+      // EXTRA_OWNER_MODULES (masters lists, GST, vendor products, staff,
+      // storefront content) are always unioned in even when the business
+      // HAS configured Business.modules[] -- these were never presented
+      // as toggleable business-feature checkboxes in the first place (no
+      // sidebar entry existed to toggle them), so a business owner had no
+      // way to "enable" them even though Owner/Manager fundamentally need
+      // them to run their own portal. This was the actual cause of "big
+      // laundry list but still a few are missing" for an Owner on a
+      // business with some modules explicitly customized.
+      return enabledKeys
+        ? Array.from(new Set([...(enabledKeys as Set<string>), ...EXTRA_OWNER_MODULES]))
+        : ALL_REFERENCED_MODULES;
     }
     return enabledKeys
       ? moduleKeys.filter((k) => (enabledKeys as Set<string>).has(k))

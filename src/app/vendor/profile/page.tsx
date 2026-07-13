@@ -100,6 +100,49 @@ export default function VendorProfilePage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // Business-level settings only an Owner or Manager can see/change --
+  // GET 403s for any other staff role, so canManageSettings just stays
+  // false and the section below never renders for them.
+  const [canManageSettings, setCanManageSettings] = useState(false)
+  const [inventorySerialized, setInventorySerialized] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsMessage, setSettingsMessage] = useState('')
+
+  useEffect(() => {
+    fetch('/api/vendor/settings')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setCanManageSettings(true)
+          setInventorySerialized(Boolean(d.inventorySerialized))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  async function saveInventorySetting(value: boolean) {
+    setSavingSettings(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventorySerialized: value }),
+      })
+      const d = await res.json()
+      if (d.success) {
+        setInventorySerialized(value)
+        setSettingsMessage('Saved.')
+      } else {
+        setSettingsMessage(d.error || 'Failed to save.')
+      }
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   const [form, setForm] = useState({
     companyName: '',
     contactPerson: '',
@@ -532,6 +575,31 @@ export default function VendorProfilePage() {
           />
         </div>
       </div>
+
+      {/* Business Settings -- Owner/Manager only */}
+      {canManageSettings && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Business Settings</h2>
+          <p className="text-xs text-gray-500 mb-5">
+            Owner/Manager only -- affects the whole business, not just your account.
+          </p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={inventorySerialized}
+              disabled={savingSettings}
+              onChange={(e) => saveInventorySetting(e.target.checked)}
+              className="w-4 h-4 mt-0.5"
+            />
+            <span className="text-sm text-gray-700">
+              <span className="font-medium text-gray-900">Serialized Inventory</span> — check real stock and
+              deduct on workorder close. When off, part selection just pulls from the Service Center BOM price
+              list with no live stock check.
+            </span>
+          </label>
+          {settingsMessage && <p className="text-xs text-gray-500 mt-2">{settingsMessage}</p>}
+        </div>
+      )}
 
       {/* Save */}
       <div className="flex justify-end pb-4">
