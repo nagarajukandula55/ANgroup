@@ -104,6 +104,13 @@ function MilestoneStepper({ status }: { status: string }) {
       </div>
     )
   }
+  if (status === 'PART_PENDING') {
+    return (
+      <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium">
+        <PauseCircle className="w-4 h-4" /> Part Pending — repair paused, waiting on a part order
+      </div>
+    )
+  }
   const currentIdx = MILESTONES.findIndex((m) => m.key === status)
   return (
     <div className="flex items-center w-full">
@@ -232,6 +239,10 @@ export default function JobSheetDetailPage() {
   // brand job number if required else you can leave"). Optional -- can be
   // dismissed without filling it in.
   const [showBrandJobPopup, setShowBrandJobPopup] = useState(false)
+  // When opened via "Mark Part Pending" (vs. the auto-prompt on first BOM
+  // part add), confirming actually transitions the job status too.
+  const [brandJobPopupIsPartPending, setBrandJobPopupIsPartPending] = useState(false)
+  const [markingPartPending, setMarkingPartPending] = useState(false)
   const [stockWarning, setStockWarning] = useState<string | null>(null)
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
@@ -373,6 +384,42 @@ export default function JobSheetDetailPage() {
       setActionError(err.message || 'Something went wrong')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function resumeRepair() {
+    setSaving(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/crm/jobsheets/${id}/resume-repair`, { method: 'POST' })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to resume repair')
+      fetchJob()
+    } catch (err: any) {
+      setActionError(err.message || 'Something went wrong')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function confirmPartPending() {
+    setMarkingPartPending(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/crm/jobsheets/${id}/part-pending`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brandJobNoForPartOrder: brandJobNo || null }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to mark part pending')
+      setShowBrandJobPopup(false)
+      setBrandJobPopupIsPartPending(false)
+      fetchJob()
+    } catch (err: any) {
+      setActionError(err.message || 'Something went wrong')
+    } finally {
+      setMarkingPartPending(false)
     }
   }
 
@@ -557,13 +604,27 @@ export default function JobSheetDetailPage() {
             </button>
           )}
           {job.status === 'REPAIR_IN_PROGRESS' && (
-            <button
-              onClick={completeRepair}
-              disabled={closing || lineItems.every((l) => !l.description.trim())}
-              className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
-            >
-              {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              Complete Repair & Generate Invoice
+            <>
+              <button
+                onClick={completeRepair}
+                disabled={closing || lineItems.every((l) => !l.description.trim())}
+                className="flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
+              >
+                {closing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Complete Repair & Generate Invoice
+              </button>
+              <button
+                onClick={() => { setBrandJobPopupIsPartPending(true); setShowBrandJobPopup(true) }}
+                disabled={markingPartPending}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800 hover:bg-amber-100 transition disabled:opacity-50"
+              >
+                <PauseCircle className="w-4 h-4" /> Mark Part Pending
+              </button>
+            </>
+          )}
+          {job.status === 'PART_PENDING' && (
+            <button onClick={resumeRepair} disabled={saving} className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition disabled:opacity-50">
+              <Wrench className="w-4 h-4" /> Part Arrived — Resume Repair
             </button>
           )}
           {job.status === 'REPAIR_COMPLETED' && (
@@ -880,7 +941,9 @@ export default function JobSheetDetailPage() {
           <div className="w-full max-w-md bg-white rounded-2xl border border-gray-200 p-6">
             <h2 className="font-semibold text-gray-900 mb-2">Brand Job Number</h2>
             <p className="text-xs text-gray-500 mb-4">
-              If this brand requires their own job reference number for the part order, enter it now. Leave blank if not required.
+              {brandJobPopupIsPartPending
+                ? 'If this brand requires their own job reference number for the part order, enter it now. Leave blank if not required, then confirm to mark this workorder Part Pending.'
+                : "If this brand requires their own job reference number for the part order, enter it now. Leave blank if not required."}
             </p>
             <input
               value={brandJobNo}
@@ -890,8 +953,28 @@ export default function JobSheetDetailPage() {
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400 mb-4"
             />
             <div className="flex gap-3">
-              <button onClick={() => setShowBrandJobPopup(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500">Skip</button>
-              <button onClick={() => setShowBrandJobPopup(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition">OK (saved with line items)</button>
+              <button
+                onClick={() => { setShowBrandJobPopup(false); setBrandJobPopupIsPartPending(false) }}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500"
+              >
+                {brandJobPopupIsPartPending ? 'Cancel' : 'Skip'}
+              </button>
+              {brandJobPopupIsPartPending ? (
+                <button
+                  onClick={confirmPartPending}
+                  disabled={markingPartPending}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition disabled:opacity-50"
+                >
+                  {markingPartPending ? 'Marking…' : 'Confirm Part Pending'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowBrandJobPopup(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition"
+                >
+                  OK (saved with line items)
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -32,6 +32,12 @@ export type CrmJobSheetStatus =
   | "CREATED"
   | "REPAIR_STARTED"
   | "REPAIR_IN_PROGRESS"
+  // Repair paused waiting on a part order -- entered from
+  // REPAIR_IN_PROGRESS via api/crm/jobsheets/[id]/part-pending, exited
+  // back to REPAIR_IN_PROGRESS via .../resume-repair once the part
+  // arrives. Not on the main milestone track (same branch treatment as
+  // CANCELLED) since it's a pause, not forward progress.
+  | "PART_PENDING"
   | "REPAIR_COMPLETED"
   | "CLOSED"
   | "CANCELLED";
@@ -186,7 +192,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     engineerAssignedAt: { type: Date },
     status: {
       type: String,
-      enum: ["CREATED", "REPAIR_STARTED", "REPAIR_IN_PROGRESS", "REPAIR_COMPLETED", "CLOSED", "CANCELLED"],
+      enum: ["CREATED", "REPAIR_STARTED", "REPAIR_IN_PROGRESS", "PART_PENDING", "REPAIR_COMPLETED", "CLOSED", "CANCELLED"],
       default: "CREATED",
       index: true,
     },

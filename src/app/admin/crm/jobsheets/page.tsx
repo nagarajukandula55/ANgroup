@@ -23,12 +23,13 @@ const STATUS_COLORS: Record<string, string> = {
   CREATED: 'bg-blue-500/10 text-blue-600',
   REPAIR_STARTED: 'bg-indigo-500/10 text-indigo-700',
   REPAIR_IN_PROGRESS: 'bg-amber-500/10 text-amber-700',
+  PART_PENDING: 'bg-orange-500/10 text-orange-700',
   REPAIR_COMPLETED: 'bg-cyan-500/10 text-cyan-700',
   CLOSED: 'bg-emerald-500/10 text-emerald-700',
   CANCELLED: 'bg-red-500/10 text-red-700',
 }
 
-const STATUSES = ['ALL', 'CREATED', 'REPAIR_STARTED', 'REPAIR_IN_PROGRESS', 'REPAIR_COMPLETED', 'CLOSED', 'CANCELLED']
+const STATUSES = ['ALL', 'CREATED', 'REPAIR_STARTED', 'REPAIR_IN_PROGRESS', 'PART_PENDING', 'REPAIR_COMPLETED', 'CLOSED', 'CANCELLED']
 const OPEN_STATUSES = new Set(['CREATED', 'REPAIR_STARTED', 'REPAIR_IN_PROGRESS', 'REPAIR_COMPLETED'])
 
 const fmtDate = (d?: string) =>
