@@ -37,7 +37,11 @@ type DocumentType =
   | "VENDOR_REQUEST"
   | "STORE_FRONT"
   | "SERVICE_CENTER"
-  | "WAREHOUSE";
+  | "WAREHOUSE"
+  | "CALL"
+  | "JOB_SHEET"
+  | "MATERIAL"
+  | "NON_GST_INVOICE";
 
 interface DocumentConfig {
   documentType: DocumentType;
@@ -101,6 +105,10 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   STORE_FRONT: "Store Front ID",
   SERVICE_CENTER: "Service Center ID",
   WAREHOUSE: "Warehouse ID",
+  CALL: "CRM Call Number",
+  JOB_SHEET: "CRM Job Sheet Number",
+  MATERIAL: "Material Code",
+  NON_GST_INVOICE: "Non-GST Invoice (Bill)",
 };
 
 const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
@@ -368,6 +376,46 @@ const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
     suffix: "",
     startFrom: 1,
   },
+  CALL: {
+    documentType: "CALL",
+    prefix: "CALL",
+    separator: "-",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  JOB_SHEET: {
+    documentType: "JOB_SHEET",
+    prefix: "JOB",
+    separator: "-",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
+  MATERIAL: {
+    documentType: "MATERIAL",
+    prefix: "MAT",
+    separator: "-",
+    includeFinancialYear: false,
+    includeMonth: false,
+    sequenceLength: 5,
+    suffix: "",
+    startFrom: 1,
+  },
+  NON_GST_INVOICE: {
+    documentType: "NON_GST_INVOICE",
+    prefix: "BILL",
+    separator: "/",
+    includeFinancialYear: true,
+    includeMonth: false,
+    sequenceLength: 4,
+    suffix: "",
+    startFrom: 1,
+  },
 };
 
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -397,6 +445,10 @@ const DOCUMENT_TYPES: DocumentType[] = [
   "STORE_FRONT",
   "SERVICE_CENTER",
   "WAREHOUSE",
+  "CALL",
+  "JOB_SHEET",
+  "MATERIAL",
+  "NON_GST_INVOICE",
 ];
 
 // ─── Preview Builder ──────────────────────────────────────────────────────────
@@ -432,12 +484,16 @@ const UNIVERSAL_TOKENS: { token: string; label: string }[] = [
 // template that fails at generation time for a type that never wires it in.
 const TYPE_SPECIFIC_TOKENS: Partial<Record<DocumentType, { token: string; label: string }[]>> = {
   VENDOR_PRODUCT: [{ token: "{vendorId}", label: "This product's vendor code" }],
-  // Vendor-triggered document types (see api/vendor/offline-sales and
-  // api/vendor/stock-adjustments) now also pass vendorId in context, so
-  // {vendorId} is safe to use here too -- e.g. "{vendorId}-INV-{seq}".
-  INVOICE: [{ token: "{vendorId}", label: "The selling vendor's code" }],
-  NON_GST_INVOICE: [{ token: "{vendorId}", label: "The selling vendor's code" }],
-  STOCK_ADJUSTMENT: [{ token: "{vendorId}", label: "The adjusting vendor's code" }],
+  // Every one of these now has vendorId wired into its actual generating
+  // call site (see api/vendor/offline-sales, api/vendor/stock-adjustments,
+  // api/vendor/materials, api/vendors/[id]'s facility-id branch), so
+  // {vendorId} resolves safely for all of them -- not just one or two.
+  INVOICE: [{ token: "{vendorId}", label: "The selling vendor's code (blank for non-vendor sales)" }],
+  NON_GST_INVOICE: [{ token: "{vendorId}", label: "The selling vendor's code (blank for non-vendor sales)" }],
+  STOCK_ADJUSTMENT: [{ token: "{vendorId}", label: "The adjusting vendor's code (blank for non-vendor adjustments)" }],
+  MATERIAL: [{ token: "{vendorId}", label: "The vendor who added this material" }],
+  STORE_FRONT: [{ token: "{vendorId}", label: "This vendor's code" }],
+  WAREHOUSE: [{ token: "{vendorId}", label: "This vendor's code" }],
 };
 
 function tokensForDocType(docType: DocumentType): { token: string; label: string }[] {

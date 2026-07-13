@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
     const { sequence } = await generateScopedDocumentNumber(
       String(vendor._id),
       "MATERIAL",
-      String(vendor.businessId)
+      String(vendor.businessId),
+      { vendorId: vendor.vendorId || "" }
     );
     const materialCode = `${vendor.vendorId}-MAT-${String(sequence).padStart(5, "0")}`;
 

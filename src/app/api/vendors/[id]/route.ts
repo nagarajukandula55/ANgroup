@@ -91,7 +91,9 @@ export async function PUT(req: NextRequest, context: RouteContext) {
           );
           body[idField] = `${existing.vendorId}-SC-${String(sequence).padStart(4, "0")}`;
         } else {
-          const { value } = await generateDocumentNumber(String(existing.businessId), documentType);
+          const { value } = await generateDocumentNumber(String(existing.businessId), documentType, {
+            vendorId: existing.vendorId || "",
+          });
           body[idField] = value;
         }
       }
