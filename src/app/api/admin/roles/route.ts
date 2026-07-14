@@ -31,9 +31,15 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get('businessId');
+    const vendorId = searchParams.get('vendorId');
 
     const query: Record<string, unknown> = { isDeleted: { $ne: true } };
     if (businessId) query.businessId = businessId;
+    // Super Admin picking a role to grant while attaching someone to a
+    // vendor's team -- scoped the same way vendor/staff's own grant flow
+    // scopes it, so Super Admin can only hand out that vendor's own
+    // generated role set, never invent one or reach another vendor's.
+    if (vendorId) query.vendorId = vendorId;
 
     const roles = await Role.find(query).lean();
 

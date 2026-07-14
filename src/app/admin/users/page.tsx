@@ -76,6 +76,11 @@ export default function UsersPage() {
   const [tagSuccess, setTagSuccess] = useState('');
   const [tagging, setTagging] = useState<string | null>(null);
   const [tagError, setTagError] = useState('');
+  // Super Admin can now also grant the real role directly (extends the
+  // vendor Owner's own grant flow rather than replacing it) -- scoped to
+  // this vendor's own generated role set only, same as /api/vendor/staff.
+  const [vendorRoles, setVendorRoles] = useState<Role[]>([]);
+  const [selectedRoleCode, setSelectedRoleCode] = useState('');
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -166,13 +171,22 @@ export default function UsersPage() {
       .catch(() => setVendors([]));
   }, [formData.businessId]);
 
-  useEffect(() => { setTagError(''); setTagSuccess(''); }, [selectedVendorId]);
+  useEffect(() => {
+    setTagError(''); setTagSuccess(''); setSelectedRoleCode(''); setVendorRoles([]);
+    if (!selectedVendorId || !formData.businessId) return;
+    fetch(`/api/admin/roles?businessId=${formData.businessId}&vendorId=${selectedVendorId}`)
+      .then(r => r.json())
+      .then(d => setVendorRoles(d.roles || []))
+      .catch(() => setVendorRoles([]));
+  }, [selectedVendorId, formData.businessId]);
 
-  // Super Admin's part is deliberately minimal: attach the user to the
-  // vendor's team (POST .../promote, track: VENDOR_TEAM) so they show up
-  // on the vendor's own team-management screen. No role is granted here —
-  // the vendor's Owner grants real access from Vendor Portal > Staff
-  // (/vendor/staff, already scoped to that vendor's own fixed role set).
+  // Super Admin attaches the user to the vendor's team (POST .../promote,
+  // track: VENDOR_TEAM) and can now also directly grant one of that
+  // vendor's own roles in the same step — the vendor's Owner/Manager can
+  // still grant roles themselves from Vendor Portal > Staff too; this is
+  // additive, not a replacement for that flow. A role is required here so
+  // an attached user is never left with vendor-team membership but zero
+  // real access.
   async function attachToVendorTeam() {
     if (!editingUser || !selectedVendorId || !formData.businessId) return;
     setTagging(selectedVendorId);
@@ -182,13 +196,18 @@ export default function UsersPage() {
       const res = await fetch(`/api/admin/users/${editingUser._id}/promote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track: 'VENDOR_TEAM', businessId: formData.businessId, vendorId: selectedVendorId }),
+        body: JSON.stringify({
+          track: 'VENDOR_TEAM',
+          businessId: formData.businessId,
+          vendorId: selectedVendorId,
+          roleCode: selectedRoleCode || undefined,
+        }),
       });
       const d = await res.json();
       if (!res.ok || d.success === false) {
         setTagError(d.error || d.message || 'Failed to attach user to this vendor');
       } else {
-        setTagSuccess('Attached — ask the vendor Owner to grant a role from Vendor Portal > Staff.');
+        setTagSuccess(d.message || 'Attached to vendor team.');
         fetchUsers();
       }
     } catch (e) { console.error(e); setTagError('Network error'); }
@@ -513,8 +532,8 @@ export default function UsersPage() {
                     <div className="space-y-3">
                       <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Attach to a Vendor</p>
                       <p className="text-xs text-gray-400">
-                        Super Admin only attaches the user to the vendor's team here — access itself is granted
-                        by the vendor's own Owner from Vendor Portal &gt; Staff, not from here.
+                        Attach the user to the vendor's team and grant a role from that vendor's own role set.
+                        The vendor's Owner/Manager can also grant roles themselves from Vendor Portal &gt; Staff.
                       </p>
                       {vendors.length === 0 ? (
                         <p className="text-xs text-gray-400">No vendors under this business.</p>
@@ -527,6 +546,15 @@ export default function UsersPage() {
                             ))}
                           </select>
 
+                          {selectedVendorId && (
+                            <select value={selectedRoleCode} onChange={e => setSelectedRoleCode(e.target.value)} className={selectCls}>
+                              <option value="">Select a role to grant…</option>
+                              {vendorRoles.map(r => (
+                                <option key={r._id} value={r.code}>{r.name}</option>
+                              ))}
+                            </select>
+                          )}
+
                           {tagError && (
                             <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">{tagError}</div>
                           )}
@@ -538,10 +566,11 @@ export default function UsersPage() {
                             <button
                               type="button"
                               onClick={attachToVendorTeam}
-                              disabled={tagging === selectedVendorId}
+                              disabled={tagging === selectedVendorId || !selectedRoleCode}
+                              title={!selectedRoleCode ? 'Select a role to grant — a user cannot be attached with no access' : undefined}
                               className="w-full text-sm font-medium px-3 py-2.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition"
                             >
-                              {tagging === selectedVendorId ? 'Attaching…' : 'Attach to Vendor Team'}
+                              {tagging === selectedVendorId ? 'Attaching…' : 'Attach & Grant Role'}
                             </button>
                           )}
                         </>

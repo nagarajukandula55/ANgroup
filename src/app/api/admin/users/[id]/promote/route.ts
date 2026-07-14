@@ -102,6 +102,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       if (!vendorId || !mongoose.Types.ObjectId.isValid(vendorId)) {
         return NextResponse.json({ success: false, error: 'vendorId is required' }, { status: 400 });
       }
+      // A user must never end up attached to a vendor's team with zero
+      // real access -- roleCode is now required, not optional, so this
+      // route can no longer produce that dangling state itself. (The
+      // vendor's own Owner/Manager can still grant additional/different
+      // roles later from Vendor Portal > Staff.)
+      if (!roleCode || !String(roleCode).trim()) {
+        return NextResponse.json(
+          { success: false, error: 'roleCode is required — a user cannot be attached to a vendor team with no role/access' },
+          { status: 400 }
+        );
+      }
 
       const vendor = await VendorProfile.findOne({
         _id: vendorId,
@@ -122,10 +133,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       }
 
       // Additive: attach the user to this vendor's team so they become
-      // visible on the vendor's own team-management screen. Does NOT grant
-      // any role by itself -- the vendor picks from its own fixed default
-      // set afterwards (see the vendor team-grant route's vendorId-scoped
-      // Role.find restriction).
+      // visible on the vendor's own team-management screen.
       await BusinessMember.updateOne(
         { userId: targetUser._id, businessId, vendorId },
         {
@@ -141,16 +149,56 @@ export async function POST(req: NextRequest, context: RouteContext) {
         { upsert: true }
       );
 
+      // Super Admin can also directly grant a role here now (originally
+      // this track only attached the user, leaving them with zero
+      // permissions until the vendor separately granted one via
+      // /api/vendor/staff -- in practice that left people attached but
+      // stuck with no access for a while, or forgotten entirely). Scoped
+      // the exact same way the vendor's own grant flow scopes it
+      // ({businessId, vendorId}) so Super Admin can only hand out this
+      // vendor's own generated role set, never invent one or reach
+      // another vendor's roles.
+      let grantedRoleCode: string | null = null;
+      if (roleCode) {
+        const grantedRoleDoc = await Role.findOne({
+          code: String(roleCode).toUpperCase(),
+          businessId,
+          vendorId,
+        });
+        if (!grantedRoleDoc) {
+          return NextResponse.json(
+            { success: false, error: 'That role does not belong to this vendor\'s default role set' },
+            { status: 400 }
+          );
+        }
+        await UserRole.updateOne(
+          { userId: targetUser._id, roleId: grantedRoleDoc._id },
+          {
+            $setOnInsert: {
+              userId: targetUser._id,
+              roleId: grantedRoleDoc._id,
+              businessId,
+              assignedBy: session.user.id,
+            },
+          },
+          { upsert: true }
+        );
+        grantedRoleCode = grantedRoleDoc.code;
+      }
+
       logAction({
         action: 'UPDATE',
         entity: 'User',
         entityId: id,
-        after: { promoted: 'VENDOR_TEAM', businessId, vendorId },
+        after: { promoted: 'VENDOR_TEAM', businessId, vendorId, roleCode: grantedRoleCode },
         req,
         actor: { id: session.user.id },
       });
 
-      return NextResponse.json({ success: true, message: 'Attached to vendor team' });
+      return NextResponse.json({
+        success: true,
+        message: grantedRoleCode ? `Attached to vendor team and granted ${grantedRoleCode}` : 'Attached to vendor team',
+      });
     }
 
     return NextResponse.json(
