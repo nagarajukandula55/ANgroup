@@ -33,6 +33,19 @@ export async function GET(request: NextRequest) {
     const businessId = searchParams.get('businessId');
     const vendorId = searchParams.get('vendorId');
 
+    // A vendor's 11 default roles (Owner/Manager/etc.) are only ever
+    // generated on-demand -- previously only from the vendor's OWN
+    // /vendor/staff page load (self-healing resync there), never from
+    // here. That meant Admin > Users > Assign to Vendor showed an empty
+    // role picker for any vendor whose Owner had never opened their staff
+    // page yet, even though the vendor itself was fully active. Run the
+    // same idempotent upsert here so Super Admin's picker is never empty
+    // for an active vendor.
+    if (vendorId && businessId && mongoose.Types.ObjectId.isValid(vendorId)) {
+      const { createDefaultVendorRoles } = await import('@/core/access/vendorDefaultRoles.service');
+      await createDefaultVendorRoles(vendorId, businessId).catch(() => {});
+    }
+
     const query: Record<string, unknown> = { isDeleted: { $ne: true } };
     if (businessId) query.businessId = businessId;
     // Super Admin picking a role to grant while attaching someone to a

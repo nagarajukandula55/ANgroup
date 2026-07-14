@@ -75,8 +75,13 @@ export async function GET(req: Request) {
     // First granted role that has a custom moduleOrder configured (see
     // admin/access page's "Sidebar Order" editor) -- lets the sidebar
     // re-order nav items per role without a separate round trip per page.
+    // Was skipped entirely for isSuperAdmin accounts, on the assumption a
+    // super admin has no meaningful "role" -- but a super admin account
+    // can still hold a real granted UserRole (e.g. testing a custom role,
+    // or a super admin who is ALSO a business Manager), and that's exactly
+    // who was testing this feature and seeing it silently do nothing.
     let moduleOrder: string[] = [];
-    if (!isSuperAdmin) {
+    {
       const userRoleDocs = await UserRole.find({ userId: user._id }).select("roleId").lean().exec() as any[];
       if (userRoleDocs.length) {
         const roleWithOrder = await Role.findOne({
