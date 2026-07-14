@@ -48,11 +48,15 @@ export async function GET(request: NextRequest) {
 
     const query: Record<string, unknown> = { isDeleted: { $ne: true } };
     if (businessId) query.businessId = businessId;
-    // Super Admin picking a role to grant while attaching someone to a
-    // vendor's team -- scoped the same way vendor/staff's own grant flow
-    // scopes it, so Super Admin can only hand out that vendor's own
-    // generated role set, never invent one or reach another vendor's.
-    if (vendorId) query.vendorId = vendorId;
+    // Was an exact vendorId match ONLY -- so Admin > Users > Assign to
+    // Vendor's role picker could show nothing but the 11 auto-generated
+    // vendor-default roles (VENDOR_OWNER/VENDOR_MANAGER/etc.), never any
+    // custom role a Super Admin had built for that BUSINESS from
+    // Admin > Access (those are saved with vendorId unset, since they're
+    // business-wide, not tied to one specific vendor). A vendor's own
+    // real access is the union of both: its own default set AND whatever
+    // that business-wide roles this business has defined.
+    if (vendorId) query.$or = [{ vendorId }, { vendorId: { $in: [null, undefined] } }];
 
     const roles = await Role.find(query).lean();
 

@@ -5,6 +5,7 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { listModulesForBusiness } from "@/core/module-registry/moduleDefinition.service";
 import { filterModulesByPermission } from "@/core/access/filterModulesByPermission";
 import { expandWithAliases } from "@/core/access/moduleKeyAliases";
+import { STATIC_MODULES } from "@/components/sidebar";
 
 /**
  * MIGRATED from UserBusinessAccess/accessKeys to the Permission-based access
@@ -50,7 +51,27 @@ export async function POST(req: Request) {
       );
     }
 
-    const modules = await listModulesForBusiness(businessId);
+    const dbModules = await listModulesForBusiness(businessId);
+    // Every real nav item (STATIC_MODULES, derived from sidebar.tsx's own
+    // NAV_GROUPS) is always a candidate too, not just whatever happens to
+    // have a matching ModuleDefinition row in the DB -- dozens of sidebar
+    // items (User Management, Access Control, Employees, Assets, Designs,
+    // Solutions, and many more) never had a ModuleDefinition seeded for
+    // them at all, across several partial/inconsistent seed scripts, so
+    // they could never appear in the sidebar no matter what permissions a
+    // role held. This unions in every sidebar key not already covered by
+    // a real (possibly business-custom) ModuleDefinition, self-healing the
+    // gap with no separate seeding step required.
+    const dbKeys = new Set(dbModules.map((m) => m.key));
+    const staticCandidates = STATIC_MODULES.filter((m) => !dbKeys.has(m.key)).map((m) => ({
+      key: m.key,
+      label: m.label,
+      route: m.route,
+      icon: m.icon,
+      enabled: true,
+    }));
+    const modules = [...dbModules, ...staticCandidates];
+
     let visibleModules = filterModulesByPermission(
       modules,
       session.permissions,

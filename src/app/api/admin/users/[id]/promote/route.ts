@@ -160,14 +160,19 @@ export async function POST(req: NextRequest, context: RouteContext) {
       // another vendor's roles.
       let grantedRoleCode: string | null = null;
       if (roleCode) {
+        // Accepts either this vendor's own generated role (vendorId set)
+        // OR a business-wide custom role built for this business from
+        // Admin > Access (vendorId unset) -- matches the same broadened
+        // set GET /api/admin/roles?businessId&vendorId now returns, so
+        // whatever role the picker offered here actually validates.
         const grantedRoleDoc = await Role.findOne({
           code: String(roleCode).toUpperCase(),
           businessId,
-          vendorId,
+          $or: [{ vendorId }, { vendorId: { $in: [null, undefined] } }],
         });
         if (!grantedRoleDoc) {
           return NextResponse.json(
-            { success: false, error: 'That role does not belong to this vendor\'s default role set' },
+            { success: false, error: 'That role does not belong to this vendor or business' },
             { status: 400 }
           );
         }

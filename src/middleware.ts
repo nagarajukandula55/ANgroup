@@ -103,6 +103,13 @@ const PUBLIC_PREFIXES = [
   // /api/admin/mobile-app/config path (see that route's own comment for
   // why it's deliberately not this same path).
   "/api/mobile-app/config",
+  // Public PIN-code lookup (read-only) backing the PincodeInput autofill
+  // component -- was missing here, so on the public, unauthenticated
+  // /vendor-apply form every lookup silently 401'd and fell back to
+  // "not found", even for a real, valid pincode. Admin write/refresh of
+  // the underlying dataset lives at the separate /api/admin/pincode-*
+  // paths, which stay protected.
+  "/api/pincode/",
   "/api/products/",
   "/api/newsletter/subscribe",
   "/api/appointment-requests",   // public appointment-request submission
