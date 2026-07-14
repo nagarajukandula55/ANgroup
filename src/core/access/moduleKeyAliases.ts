@@ -32,6 +32,23 @@ export const MODULE_KEY_ALIASES: Record<string, string> = {
   "masters-models": "device_models",
   "masters-units": "units",
   "masters-crm-options": "crm_options",
+  // Second batch, found the same way (comparing every sidebar leaf key
+  // against every real buildPermissionCode(...) call site) after a
+  // reported "Settings and Integrations were enabled for a business but
+  // never showed up when granting a role" -- these "admin-*" nav keys
+  // never matched their pages' real enforced module key either.
+  "admin-intg": "integrations",
+  "admin-settings": "settings",
+  "admin-users": "users",
+  "admin-roles": "roles",
+  // "admin-access" (Access Control) has no permission code of its own --
+  // its actual page/API (admin/access, api/admin/access-layout) is
+  // enforced under "roles" (requirePermission(session, "ROLES.EDIT")),
+  // not a separate "access" key, so it aliases straight to that.
+  "admin-access": "roles",
+  // invoice-templates/route.ts enforces "settings", not its own key.
+  "admin-invoice-templates": "settings",
+  "admin-gst": "gst",
 };
 
 /**

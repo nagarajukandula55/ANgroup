@@ -306,7 +306,40 @@ export default function Sidebar() {
   }
 
   async function switchBusiness(biz: Business) {
-    if (switching || biz._id === user?.activeBusinessId) { setBizDropdown(false); return; }
+    if (switching) return;
+    // AN Group is a real Business record for DISPLAY/selection purposes
+    // (dropdowns, Admin > Access, role scoping), but it must NOT become a
+    // real x-active-business-id in the session -- every existing
+    // business-scoped list route in this app (Brands, Products, Vendors,
+    // etc.) filters strictly by that header, and AN Group's own Business
+    // document legitimately has zero brands/products/vendors of its own.
+    // Setting it as a real active business made every one of those pages
+    // look like all its data had vanished. "AN Group sees everything" is
+    // the SAME thing the old cross-business/no-active-business state
+    // already meant for Super Admin -- so selecting AN Group clears the
+    // active business (exit-business) instead of switching into it as if
+    // it were a normal tenant.
+    if (biz.isPlatform) {
+      if (!user?.activeBusinessId) { setBizDropdown(false); return; }
+      setSwitching(true);
+      try {
+        const res = await fetch("/api/auth/exit-business", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          setActiveBiz(biz);
+          setUser((prev) => prev ? { ...prev, activeBusinessId: null } : prev);
+          setBizDropdown(false);
+          router.refresh();
+        } else {
+          toast.error(data.message || "Failed to switch to AN Group");
+        }
+      } catch {
+        toast.error("Failed to connect to server");
+      } finally { setSwitching(false); }
+      return;
+    }
+
+    if (biz._id === user?.activeBusinessId) { setBizDropdown(false); return; }
     setSwitching(true);
     try {
       const res  = await fetch("/api/auth/switch-business", {
@@ -459,14 +492,18 @@ export default function Sidebar() {
                 isCollapsed ? "left-3 w-56" : "left-3 right-3"
               }`}>
                 {/* AN Group (the platform owner itself) is a real Business
-                    record now (see anGroupBusiness.service.ts), not a
-                    null/"exit business" sentinel -- it's just the first
-                    entry in this same list, switched to exactly like any
-                    other business. Visible to every Super Admin / AN Group
+                    record now (see anGroupBusiness.service.ts) so it's a
+                    real, selectable entry in this same list -- but
+                    selecting it clears the active business rather than
+                    scoping into it as a real tenant (see switchBusiness's
+                    isPlatform branch), since AN Group means "see across
+                    every business", the same thing "no active business"
+                    already meant for Super Admin everywhere else in the
+                    app. Visible to every Super Admin / AN Group
                     platform-staff account since api/auth/me's isPlatformStaff
                     branch always includes it. */}
                 {[...businesses].sort((a, b) => (b.isPlatform ? 1 : 0) - (a.isPlatform ? 1 : 0)).map((biz) => {
-                  const isActive = biz._id === user?.activeBusinessId;
+                  const isActive = biz.isPlatform ? !user?.activeBusinessId : biz._id === user?.activeBusinessId;
                   return (
                     <button
                       key={biz._id}
