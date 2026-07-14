@@ -34,7 +34,6 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
     const h = await headers();
-    const userId = h.get("x-user-id");
     const bizId = h.get("x-active-business-id") || req.nextUrl.searchParams.get("businessId");
 
     const from = req.nextUrl.searchParams.get("from");
@@ -50,7 +49,7 @@ export async function GET(req: NextRequest) {
     if (bizId && mongoose.Types.ObjectId.isValid(bizId)) {
       filter.businessId = new mongoose.Types.ObjectId(bizId);
     } else {
-      filter.createdBy = new mongoose.Types.ObjectId(userId);
+      filter.createdBy = new mongoose.Types.ObjectId(session.user.id);
     }
 
     const invoices = await SalesInvoice.find(filter).sort({ issueDate: 1 }).lean();
@@ -90,7 +89,7 @@ export async function GET(req: NextRequest) {
     logAction({
       action: "READ",
       entity: "InvoiceZipExport",
-      entityId: bizId || userId,
+      entityId: bizId || session.user.id,
       after: { from, to, count: invoices.length },
       req,
     });

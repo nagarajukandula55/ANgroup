@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
       })),
       status,
       notes: notes ?? undefined,
-      requestedBy: new Types.ObjectId(userId),
+      requestedBy: new Types.ObjectId(session.user.id),
       transferredAt: transferredAt ? new Date(transferredAt) : undefined,
       completedAt: status === "COMPLETED" ? new Date() : undefined,
     });
