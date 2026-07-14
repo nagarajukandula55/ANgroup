@@ -65,6 +65,9 @@ function LoginForm() {
       const landingPage = data.user?.mustChangePassword
         ? '/update-password'
         : data.user?.isMinimalOnly ? 'https://shopnative.in'
+        // Per-role configurable home page (Roles & Permissions > Home Page)
+        // wins over the generic role/account-type default below when set.
+        : data.user?.homeRoute ? data.user.homeRoute
         : data.user?.role === 'VENDOR' ? '/vendor' : '/admin'
 
       // Hard redirect so the browser commits the httpOnly cookie before the next request.

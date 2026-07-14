@@ -26,6 +26,15 @@ export interface IRole extends Document {
   isDefault:       boolean;
   isProtected:     boolean;
   permissions:     string[];
+  // Which page a user holding this role lands on right after login (e.g.
+  // "/admin/crm" or "/vendor/dashboard"). Empty/unset falls back to the
+  // existing default-per-account-type redirect logic.
+  homeRoute?:      string;
+  // Optional custom ordering of sidebar module keys for users holding this
+  // role -- lets an admin re-arrange/nest the nav for a role (e.g. put CRM
+  // Overview above Appointments/Workorders) without touching every other
+  // role's layout. Missing/empty falls back to the built-in NAV_GROUPS order.
+  moduleOrder?:    string[];
   createdBy?:      Types.ObjectId;
   createdAt:       Date;
   updatedAt:       Date;
@@ -63,6 +72,8 @@ const RoleSchema = new Schema<IRole>(
     isDefault:   { type: Boolean, default: false },
     isProtected: { type: Boolean, default: false },
     permissions: [{ type: String }],
+    homeRoute:   { type: String, default: '' },
+    moduleOrder: [{ type: String }],
     createdBy:   { type: Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true, versionKey: false }

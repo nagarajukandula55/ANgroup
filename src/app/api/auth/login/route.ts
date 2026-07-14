@@ -91,9 +91,17 @@ export async function POST(req: Request) {
     // redirected to shopnative.in rather than the admin panel -- there's no
     // separate customer UI in this repo yet.
     const userRoleDocs = await UserRole.find({ userId: user._id }).lean().exec() as any[];
-    const roleCodes = userRoleDocs.length
-      ? (await Role.find({ _id: { $in: userRoleDocs.map((r) => r.roleId) } }).distinct("code"))
+    const grantedRoles = userRoleDocs.length
+      ? await Role.find({ _id: { $in: userRoleDocs.map((r) => r.roleId) } }).select("code homeRoute").lean().exec() as any[]
       : [];
+    const roleCodes = grantedRoles.map((r) => r.code);
+    // Per-role configurable login landing page (admin/roles editor's new
+    // "Home Page" field) -- a floor role (CUSTOMER etc.) never has one set,
+    // so the first non-floor role that does wins. Falls back to the
+    // existing role/account-type redirect the login page already does when
+    // nothing is configured, so this is additive, not a behavior change for
+    // roles nobody has configured a home page for yet.
+    const homeRoute = grantedRoles.find((r) => r.homeRoute && !MINIMAL_FLOOR_ROLE_CODES.includes(r.code))?.homeRoute || null;
     const isMinimalOnly =
       roleCodes.length > 0 &&
       roleCodes.every((c: string) => MINIMAL_FLOOR_ROLE_CODES.includes(c)) &&
@@ -125,6 +133,7 @@ export async function POST(req: Request) {
       organizationId:   user.organizationId?.toString(),
       mustChangePassword: !!user.mustChangePassword,
       isMinimalOnly,
+      homeRoute,
     };
 
     /* ── Set httpOnly cookie + return token in JSON ──────────────────── */

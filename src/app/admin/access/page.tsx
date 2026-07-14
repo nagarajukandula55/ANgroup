@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { ACCESS_HIERARCHY } from "@/core/access/moduleHierarchy";
 import { STANDARD_ACTIONS } from "@/core/access/actions";
+import { STATIC_MODULES } from "@/components/sidebar";
 
 interface Role {
   _id: string;
@@ -14,6 +15,8 @@ interface Role {
   isSystem?: boolean;
   isProtected?: boolean;
   permissions: string[];
+  homeRoute?: string;
+  moduleOrder?: string[];
 }
 
 function buildCode(moduleKey: string, actionKey: string): string {
@@ -99,11 +102,15 @@ export default function AccessPage() {
       const res = await fetch(`/api/admin/roles/${selectedRole._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ permissions: selectedRole.permissions }),
+        body: JSON.stringify({
+          permissions: selectedRole.permissions,
+          homeRoute: selectedRole.homeRoute || "",
+          moduleOrder: selectedRole.moduleOrder || [],
+        }),
       });
       if (!res.ok) throw new Error("Failed to save");
       const updated = roles.map((r) =>
-        r._id === selectedRole._id ? { ...r, permissions: selectedRole.permissions } : r
+        r._id === selectedRole._id ? { ...r, ...selectedRole } : r
       );
       setRoles(updated);
     } catch {
@@ -111,6 +118,44 @@ export default function AccessPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function setHomeRoute(route: string) {
+    if (!selectedRole) return;
+    setSelectedRole({ ...selectedRole, homeRoute: route });
+  }
+
+  // Module keys this role currently has view access to, in the order
+  // they'd naturally appear (ACCESS_HIERARCHY order), so "Sidebar Order"
+  // starts from something sensible instead of an empty list.
+  const grantedModuleKeys = useMemo(() => {
+    if (!selectedRole) return [];
+    const all: { key: string; label: string }[] = [];
+    ACCESS_HIERARCHY.forEach((cat) => {
+      (cat.modules ?? []).forEach((m) => all.push(m));
+      (cat.subcategories ?? []).forEach((sc) => sc.modules.forEach((m) => all.push(m)));
+    });
+    const viewGranted = all.filter((m) =>
+      selectedRole.permissions.includes(buildCode(m.key, "view"))
+    );
+    const order = selectedRole.moduleOrder?.length ? selectedRole.moduleOrder : viewGranted.map((m) => m.key);
+    const byKey = new Map(viewGranted.map((m) => [m.key, m.label]));
+    // Keep only keys the role actually still holds view access to, in the
+    // saved/default order, then append any newly-granted ones not yet placed.
+    const ordered = order.filter((k) => byKey.has(k)).map((k) => ({ key: k, label: byKey.get(k)! }));
+    const placed = new Set(ordered.map((m) => m.key));
+    viewGranted.forEach((m) => { if (!placed.has(m.key)) ordered.push(m); });
+    return ordered;
+  }, [selectedRole]);
+
+  function moveModule(key: string, dir: -1 | 1) {
+    if (!selectedRole) return;
+    const current = grantedModuleKeys.map((m) => m.key);
+    const idx = current.indexOf(key);
+    const swapWith = idx + dir;
+    if (idx < 0 || swapWith < 0 || swapWith >= current.length) return;
+    [current[idx], current[swapWith]] = [current[swapWith], current[idx]];
+    setSelectedRole({ ...selectedRole, moduleOrder: current });
   }
 
   async function createRole() {
@@ -341,6 +386,17 @@ export default function AccessPage() {
                 )}
               </div>
               <div className="flex items-center gap-3 shrink-0">
+                <select
+                  value={selectedRole.homeRoute || ""}
+                  onChange={(e) => setHomeRoute(e.target.value)}
+                  title="Page a user with this role lands on right after login"
+                  className="w-48 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-gray-400 transition"
+                >
+                  <option value="">Home Page: Default</option>
+                  {STATIC_MODULES.map((m) => (
+                    <option key={m.route} value={m.route}>Home Page: {m.label}</option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   value={search}
@@ -361,6 +417,44 @@ export default function AccessPage() {
 
             {/* Hierarchical Permission Tree: Category > Subcategory > Module > Privilege */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {grantedModuleKeys.length > 0 && (
+                <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                  <div className="px-5 py-3 bg-gray-50">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                      Sidebar Order
+                    </span>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Re-arrange the order these modules appear in the sidebar for this role (e.g. CRM Dashboard before Appointments).
+                    </p>
+                  </div>
+                  <div>
+                    {grantedModuleKeys.map((m, i) => (
+                      <div key={m.key} className={rowCls}>
+                        <span className="text-sm text-gray-900">{m.label}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => moveModule(m.key, -1)}
+                            disabled={i === 0}
+                            className="p-1 rounded text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400"
+                            aria-label={`Move ${m.label} up`}
+                          >
+                            <ChevronDown className="w-4 h-4 rotate-180" />
+                          </button>
+                          <button
+                            onClick={() => moveModule(m.key, 1)}
+                            disabled={i === grantedModuleKeys.length - 1}
+                            className="p-1 rounded text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400"
+                            aria-label={`Move ${m.label} down`}
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {filteredHierarchy.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-12">No modules match &quot;{search}&quot;</p>
               ) : (

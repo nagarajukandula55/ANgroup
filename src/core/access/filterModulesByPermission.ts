@@ -35,7 +35,20 @@ export function filterModulesByPermission(
     .filter((m) => {
       if (isSuperAdmin) return true; // super admin always sees everything, matches existing x-is-super-admin convention
       const viewCode = buildPermissionCode(m.key, "view");
-      return granted.has(viewCode);
+      if (granted.has(viewCode)) return true;
+      // "crm" (CRM Dashboard) was, until now, never grantable through the
+      // Roles & Permissions UI at all (see moduleHierarchy.ts's comment) --
+      // any role that already holds crm_calls.view or crm_jobsheets.view
+      // was granted "CRM module access" in intent, so self-heal existing
+      // roles by implying CRM.VIEW from either child rather than requiring
+      // every affected role to be re-saved by hand.
+      if (m.key === "crm") {
+        return (
+          granted.has(buildPermissionCode("crm_calls", "view")) ||
+          granted.has(buildPermissionCode("crm_jobsheets", "view"))
+        );
+      }
+      return false;
     })
     .map((m) => ({
       key: m.key,

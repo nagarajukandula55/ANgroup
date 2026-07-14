@@ -20,6 +20,7 @@ interface Business { _id: string; name: string; brandName?: string; businessCode
 interface UserInfo {
   id: string; name: string; email: string; role: string;
   isSuperAdmin: boolean; activeBusinessId: string | null;
+  moduleOrder?: string[];
 }
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -351,6 +352,24 @@ export default function Sidebar() {
 
   const moduleKeys = new Set(modules.map((m: any) => m.key));
 
+  // Per-role custom nav ordering (admin/access page's "Sidebar Order"
+  // editor, via Role.moduleOrder) -- items whose key appears in the list
+  // are moved to the front in that order (e.g. CRM Overview before
+  // Appointments/Workorders); anything not listed keeps its original
+  // relative position after them. Scoped to within each group/subgroup's
+  // own item list, not a full nav restructure.
+  const roleOrder: string[] = user?.moduleOrder || [];
+  function applyModuleOrder<T extends { key: string }>(items: T[]): T[] {
+    if (!roleOrder.length) return items;
+    const ranked: T[] = [];
+    const rest: T[] = [];
+    for (const item of items) {
+      if (roleOrder.includes(item.key)) ranked.push(item); else rest.push(item);
+    }
+    ranked.sort((a, b) => roleOrder.indexOf(a.key) - roleOrder.indexOf(b.key));
+    return [...ranked, ...rest];
+  }
+
   // "Modules" (the module-DEFINITION editor) is a platform-level admin
   // capability, not a per-business seeded module in the ui/sidebar sense —
   // gating it behind moduleKeys would hide it until someone separately
@@ -571,8 +590,7 @@ export default function Sidebar() {
                 {/* Flat items */}
                 {group.items && (
                   <div className="space-y-0.5">
-                    {group.items
-                      .filter((item) => isVisible(item.key))
+                    {applyModuleOrder(group.items.filter((item) => isVisible(item.key)))
                       .map((item) => renderItem(item))}
                   </div>
                 )}
@@ -588,7 +606,7 @@ export default function Sidebar() {
                   // separating there.
                   <div className={isCollapsed ? "space-y-2.5" : "space-y-0.5"}>
                     {group.subgroups.map((sg, sgIndex) => {
-                      const visibleSgItems = sg.items.filter((i) => isVisible(i.key));
+                      const visibleSgItems = applyModuleOrder(sg.items.filter((i) => isVisible(i.key)));
                       if (visibleSgItems.length === 0) return null;
                       const sgOpen = openSubgroups[sg.key] !== false;
 

@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Business from "@/models/Business";
 import BusinessMember from "@/models/BusinessMember";
+import UserRole from "@/models/UserRole";
+import Role from "@/models/Role";
 
 export async function GET(req: Request) {
   try {
@@ -70,6 +72,21 @@ export async function GET(req: Request) {
       }
     }
 
+    // First granted role that has a custom moduleOrder configured (see
+    // admin/access page's "Sidebar Order" editor) -- lets the sidebar
+    // re-order nav items per role without a separate round trip per page.
+    let moduleOrder: string[] = [];
+    if (!isSuperAdmin) {
+      const userRoleDocs = await UserRole.find({ userId: user._id }).select("roleId").lean().exec() as any[];
+      if (userRoleDocs.length) {
+        const roleWithOrder = await Role.findOne({
+          _id: { $in: userRoleDocs.map((r) => r.roleId) },
+          moduleOrder: { $exists: true, $not: { $size: 0 } },
+        }).select("moduleOrder").lean().exec() as any;
+        moduleOrder = roleWithOrder?.moduleOrder || [];
+      }
+    }
+
     return NextResponse.json({
       success: true,
       user: {
@@ -86,6 +103,7 @@ export async function GET(req: Request) {
         defaultOrganizationId: user.defaultOrganizationId?.toString() || null,
         lastLogin:             user.lastLogin || null,
         createdAt:             user.createdAt,
+        moduleOrder,
       },
       businesses,
     });

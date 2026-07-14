@@ -31,15 +31,24 @@ export async function PUT(
     await connectDB();
     const { id } = await params;
     const body = await request.json();
-    const { permissions } = body;
+    const { permissions, homeRoute, moduleOrder } = body;
 
-    if (!Array.isArray(permissions)) {
+    if (permissions !== undefined && !Array.isArray(permissions)) {
       return NextResponse.json({ error: "permissions must be an array" }, { status: 400 });
     }
 
+    const update: Record<string, unknown> = {};
+    if (permissions !== undefined) update.permissions = permissions;
+    // Per-role post-login landing page and custom sidebar module ordering
+    // -- both optional, both just stored as-is (validated by presence in
+    // the picker's own options list on the client, same trust level as
+    // `permissions` above).
+    if (homeRoute !== undefined) update.homeRoute = homeRoute;
+    if (moduleOrder !== undefined && Array.isArray(moduleOrder)) update.moduleOrder = moduleOrder;
+
     const role = await Role.findByIdAndUpdate(
       id,
-      { permissions },
+      update,
       { new: true }
     );
     if (!role) {
@@ -50,7 +59,7 @@ export async function PUT(
       action: "UPDATE",
       entity: "Role",
       entityId: id,
-      after: { permissions },
+      after: update,
       req: request,
     });
 

@@ -107,6 +107,14 @@ export const ACCESS_HIERARCHY: Category[] = [
     key: "crm",
     label: "CRM & Support",
     modules: [
+      // "crm" itself (the CRM Overview/Dashboard landing page) was missing
+      // here even though it's a real seeded ModuleDefinition gated on
+      // CRM.VIEW (see seed-modules/route.ts) -- this list is what the Roles
+      // & Permissions grid renders checkboxes from, so there was never a
+      // way to actually grant CRM.VIEW through the UI. Granting only
+      // crm_calls/crm_jobsheets (Appointments/Workorders) left the CRM
+      // Dashboard page itself invisible in the sidebar no matter what.
+      { key: "crm", label: "CRM Dashboard" },
       { key: "crm_calls", label: "CRM Calls" },
       { key: "crm_jobsheets", label: "CRM Job Sheets" },
       { key: "fault_codes", label: "Fault Codes" },
