@@ -32,7 +32,7 @@ export default function PurchasePage() {
 
   return (
     <Layout>
-      <div className="space-y-5 max-w-7xl mx-auto">
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-widest">ERP</p>

@@ -99,7 +99,7 @@ export default function VendorStatementPage() {
   const transactions = data?.transactions || []
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

@@ -89,7 +89,7 @@ export default function VendorInvoicesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="px-6 py-10">
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Invoices</h1>
           <p className="text-sm text-gray-400 mt-0.5">

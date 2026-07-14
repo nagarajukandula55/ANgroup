@@ -108,7 +108,7 @@ export default function VendorDashboard() {
   const invoices = data?.invoices || []
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

@@ -99,7 +99,7 @@ export default function ServiceCenterBOMPage() {
   const labelCls = 'block text-xs text-gray-500 mb-1'
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">Service Center BOM</h1>
         <p className="text-sm text-gray-500">Your spare-part / labour / consumable price list — used for workorder line items and GST-correct invoicing.</p>
