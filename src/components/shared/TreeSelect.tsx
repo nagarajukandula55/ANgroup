@@ -7,6 +7,9 @@ export interface TreeSelectItem {
   _id: string;
   name: string;
   parentId?: string | null;
+  /** Optional logo/icon (e.g. a brand's logoUrl) shown next to the name,
+   * both in the dropdown list and on the closed button once selected. */
+  logoUrl?: string;
 }
 
 /**
@@ -73,6 +76,16 @@ export function TreeSelect({
             onChange(item._id);
             setOpen(false);
           }}
+          // Hovering a category with children expands its next-level list
+          // automatically, not just clicking the chevron -- "upon hover on
+          // main category in tree next list should come", applied here so
+          // it covers every TreeSelect instance (brands, categories, etc.)
+          // at once rather than one page at a time.
+          onMouseEnter={() => {
+            if (children.length > 0 && !expanded.has(item._id)) {
+              setExpanded((prev) => new Set(prev).add(item._id));
+            }
+          }}
         >
           {children.length > 0 ? (
             <button
@@ -87,6 +100,10 @@ export function TreeSelect({
             </button>
           ) : (
             <span className="w-3.5 h-3.5 shrink-0" />
+          )}
+          {item.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.logoUrl} alt="" className="w-4 h-4 rounded object-contain shrink-0 bg-white border border-gray-100" />
           )}
           <span className="text-sm text-gray-800 flex-1">{item.name}</span>
           {value === item._id && <Check className="w-3.5 h-3.5 text-gray-900 shrink-0" />}
@@ -103,9 +120,19 @@ export function TreeSelect({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={className || "w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-left text-gray-900 outline-none focus:border-gray-400"}
+        className={`${className || "w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-left text-gray-900 outline-none focus:border-gray-400"} flex items-center gap-2`}
       >
-        {selected ? selected.name : <span className="text-gray-400">{placeholder}</span>}
+        {selected ? (
+          <>
+            {selected.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={selected.logoUrl} alt="" className="w-4 h-4 rounded object-contain shrink-0 bg-white border border-gray-100" />
+            )}
+            <span className="truncate">{selected.name}</span>
+          </>
+        ) : (
+          <span className="text-gray-400">{placeholder}</span>
+        )}
       </button>
       {open && (
         <div className="absolute z-10 mt-1 w-full max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 px-1">

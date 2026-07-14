@@ -600,6 +600,14 @@ const BusinessSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Vendor-wide Terms & Conditions text, editable from the vendor
+    // Owner/Manager's own profile/settings page -- shown on workorder,
+    // estimate and invoice pages/prints for this business.
+    termsAndConditions: {
+      type: String,
+      default: "",
+    },
+
     pincode: {
       type: String,
       default: "",

@@ -60,6 +60,7 @@ export const ACCESS_HIERARCHY: Category[] = [
         modules: [
           { key: "sales", label: "Sales", description: "View and manage sales orders and sales records." },
           { key: "reviews", label: "Reviews", description: "See and moderate customer product/service reviews." },
+          { key: "coupons", label: "Coupons", description: "View discount coupons (only Super Admin can create/edit them)." },
         ],
       },
       {
@@ -153,6 +154,9 @@ export const ACCESS_HIERARCHY: Category[] = [
     modules: [
       { key: "staff", label: "Staff", description: "Manage a vendor's own team members and their roles." },
       { key: "employees", label: "Employees", description: "Manage AN Group / business employee records." },
+      { key: "hr_leaves", label: "HR Leave Requests", description: "Review and approve employee leave requests." },
+      { key: "hr_payroll", label: "HR Payroll", description: "View and process employee payroll/salary payments." },
+      { key: "hr_documents", label: "HR Documents", description: "Manage employee document uploads and expiry tracking." },
       { key: "customers", label: "Customer Data", description: "View and manage customer accounts and their data." },
       { key: "users", label: "Users", description: "View and manage every user account on the platform." },
       { key: "roles", label: "Roles", description: "Create roles and grant/revoke their permissions." },

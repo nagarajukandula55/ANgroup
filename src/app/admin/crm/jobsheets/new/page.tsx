@@ -8,7 +8,7 @@ import { ModelInput } from '@/components/shared/ModelInput'
 import { TreeSelect } from '@/components/shared/TreeSelect'
 import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
 
-interface Brand { _id: string; name: string; parentId?: string | null }
+interface Brand { _id: string; name: string; parentId?: string | null; logoUrl?: string }
 interface FaultCode { _id: string; code: string; description: string }
 interface CrmOption { _id: string; code: string; label: string }
 interface Warehouse { _id: string; warehouseName: string }

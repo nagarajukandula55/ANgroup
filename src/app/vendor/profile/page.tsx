@@ -105,6 +105,7 @@ export default function VendorProfilePage() {
   // false and the section below never renders for them.
   const [canManageSettings, setCanManageSettings] = useState(false)
   const [inventorySerialized, setInventorySerialized] = useState(false)
+  const [termsAndConditions, setTermsAndConditions] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
 
@@ -115,6 +116,7 @@ export default function VendorProfilePage() {
         if (d.success) {
           setCanManageSettings(true)
           setInventorySerialized(Boolean(d.inventorySerialized))
+          setTermsAndConditions(d.termsAndConditions || '')
         }
       })
       .catch(() => {})
@@ -136,6 +138,27 @@ export default function VendorProfilePage() {
       } else {
         setSettingsMessage(d.error || 'Failed to save.')
       }
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  // Terms & Conditions -- shown on this business's workorder, estimate and
+  // invoice pages/prints. Saved separately (own button) from the
+  // inventory toggle above since it's a text field, not a flip-and-save.
+  async function saveTerms() {
+    setSavingSettings(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ termsAndConditions }),
+      })
+      const d = await res.json()
+      setSettingsMessage(d.success ? 'Saved.' : d.error || 'Failed to save.')
     } catch {
       setSettingsMessage('Failed to save.')
     } finally {
@@ -597,6 +620,28 @@ export default function VendorProfilePage() {
               list with no live stock check.
             </span>
           </label>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Terms &amp; Conditions</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Shown on this business's workorder, estimate and invoice pages/prints.
+            </p>
+            <textarea
+              value={termsAndConditions}
+              onChange={(e) => setTermsAndConditions(e.target.value)}
+              rows={5}
+              placeholder="e.g. Payment due within 7 days of invoice. Warranty does not cover physical/liquid damage..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+            />
+            <button
+              onClick={saveTerms}
+              disabled={savingSettings}
+              className="mt-2 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+            >
+              {savingSettings ? 'Saving…' : 'Save Terms & Conditions'}
+            </button>
+          </div>
+
           {settingsMessage && <p className="text-xs text-gray-500 mt-2">{settingsMessage}</p>}
         </div>
       )}

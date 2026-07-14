@@ -16,6 +16,7 @@ export function businessToCompany(business: any, warehouse: any) {
     address: [business?.address, business?.city, business?.state].filter(Boolean).join(", "),
     gstin: business?.gstNumber || undefined,
     logoUrl: resolveCompanyLogo(business, warehouse),
+    termsAndConditions: business?.termsAndConditions || undefined,
   };
 }
 

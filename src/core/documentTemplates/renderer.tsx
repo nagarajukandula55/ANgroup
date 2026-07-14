@@ -144,7 +144,7 @@ function renderBlock(
         <div>
           <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Terms &amp; Notes</p>
           <p className="text-xs text-gray-600 whitespace-pre-line">
-            {(block.config?.text as string) || data.notes || "—"}
+            {(block.config?.text as string) || data.notes || data.company?.termsAndConditions || "—"}
           </p>
         </div>
       );

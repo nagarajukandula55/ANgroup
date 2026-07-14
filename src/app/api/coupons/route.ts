@@ -4,6 +4,8 @@ import { Types } from "mongoose";
 import Coupon from "@/models/Coupon";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // GET /api/coupons?businessId=...&status=...&search=...
 export async function GET(req: NextRequest) {
@@ -11,6 +13,11 @@ export async function GET(req: NextRequest) {
     const session = await getEnrichedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("coupons", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
     }
 
     const { searchParams } = new URL(req.url);

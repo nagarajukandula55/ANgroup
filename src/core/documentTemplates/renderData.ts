@@ -24,6 +24,10 @@ export interface DocumentRenderData {
     address?: string;
     gstin?: string;
     logoUrl?: string;
+    /** Vendor-wide Terms & Conditions (Business.termsAndConditions, set
+     * from the vendor Owner/Manager's profile page) -- the "terms" block's
+     * fallback text when the document itself has no notes of its own. */
+    termsAndConditions?: string;
   };
   party: {
     name: string;
