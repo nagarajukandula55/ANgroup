@@ -5,6 +5,9 @@ import { Types } from "mongoose";
 import StockTransfer from "@/models/StockTransfer";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,11 +33,17 @@ import { logAction } from "@/lib/audit/logAction";
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    try {
+      requirePermission(session as any, buildPermissionCode("stock_transfers", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+    const h = await headers();
+    const userId = h.get("x-user-id");
 
     await connectDB();
 
@@ -105,11 +114,17 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    try {
+      requirePermission(session as any, buildPermissionCode("stock_transfers", "create"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+    const h = await headers();
+    const userId = h.get("x-user-id");
 
     await connectDB();
 

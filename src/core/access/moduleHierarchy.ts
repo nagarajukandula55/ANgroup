@@ -72,6 +72,14 @@ export const ACCESS_HIERARCHY: Category[] = [
           { key: "materials", label: "Materials", description: "Manage raw materials used in manufacturing/repairs." },
           { key: "bom", label: "Bill of Materials", description: "Define which materials/parts make up a product." },
           { key: "grn", label: "Goods Receipt (GRN)", description: "Record incoming stock received from purchase orders." },
+          // Real, enforced modules that had NO permission check on their
+          // API at all until now -- any logged-in account, regardless of
+          // role, could reach them. Found alongside the CCO over-access
+          // report.
+          { key: "warehouses", label: "Warehouses", description: "Create and manage warehouse/service-center locations." },
+          { key: "stock_transfers", label: "Stock Transfers", description: "Move stock between warehouses." },
+          { key: "stock_adjustments", label: "Stock Adjustments", description: "Manually correct stock levels with a reason code." },
+          { key: "production", label: "Production", description: "Manage manufacturing/production orders." },
         ],
       },
       {
@@ -105,6 +113,7 @@ export const ACCESS_HIERARCHY: Category[] = [
         modules: [
           { key: "finance", label: "Finance", description: "View/manage invoices, payments and financial records." },
           { key: "gst", label: "GST", description: "Manage GST filings and tax-related settings." },
+          { key: "vendor_settlements", label: "Vendor Settlements", description: "See vendor payout settlements — owed, paid, pending, failed." },
         ],
       },
     ],

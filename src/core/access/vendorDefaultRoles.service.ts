@@ -54,9 +54,9 @@ const VENDOR_ROLE_DEFS: VendorRoleDef[] = [
   { code: "VENDOR_MANAGER", name: "Manager", description: "Full access except editing existing records (reserved for Owner).", modules: "*", actions: ALL_EXCEPT_EDIT },
   { code: "VENDOR_FINANCE_MANAGER", name: "Finance Manager", description: "Full access to finance modules/reports.", modules: ["finance"], actions: ALL_ACTIONS },
   { code: "VENDOR_FINANCE_ASSISTANT", name: "Finance Assistant", description: "View and create access to finance records.", modules: ["finance"], actions: VIEW_CREATE },
-  { code: "VENDOR_WAREHOUSE_MANAGER", name: "Warehouse Manager", description: "Full access to orders, inventory, products and stock adjustments.", modules: ["orders", "inventory", "products", "vendor_products", "stock_adjustments"], actions: ALL_ACTIONS },
+  { code: "VENDOR_WAREHOUSE_MANAGER", name: "Warehouse Manager", description: "Full access to orders, inventory, products, warehouses and stock adjustments/transfers.", modules: ["orders", "inventory", "products", "vendor_products", "stock_adjustments", "stock_transfers", "warehouses"], actions: ALL_ACTIONS },
   { code: "VENDOR_ASSISTANT_MANAGER", name: "Assistant Manager", description: "View and create access, same module scope as Manager.", modules: "*", actions: VIEW_CREATE },
-  { code: "VENDOR_WAREHOUSE_SCM", name: "Warehouse SCM", description: "Full access to logistics and orders.", modules: ["logistics", "orders"], actions: ALL_ACTIONS },
+  { code: "VENDOR_WAREHOUSE_SCM", name: "Warehouse SCM", description: "Full access to logistics, orders, warehouses and stock transfers.", modules: ["logistics", "orders", "warehouses", "stock_transfers"], actions: ALL_ACTIONS },
   { code: "VENDOR_WAREHOUSE_HELPER", name: "Warehouse Helper", description: "View and create access to orders only.", modules: ["orders"], actions: VIEW_CREATE },
   { code: "VENDOR_DELIVERY", name: "Delivery", description: "View orders/logistics and update delivery status.", modules: ["orders", "logistics"], actions: VIEW_EDIT },
   // Was only ["crm"] -- that's the CRM Dashboard landing page ITSELF, not
@@ -109,6 +109,13 @@ const EXTRA_OWNER_MODULES = [
   "banners",
   "blog",
   "reviews",
+  // Newly-enforced modules (were previously accessible with no permission
+  // check at all) -- Owner/Manager need these regardless of business
+  // module config, same reasoning as every other entry in this list.
+  "warehouses",
+  "stock_transfers",
+  "production",
+  "vendor_settlements",
 ];
 
 const ALL_REFERENCED_MODULES: string[] = Array.from(
