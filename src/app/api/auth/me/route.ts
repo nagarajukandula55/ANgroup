@@ -5,6 +5,7 @@ import Business from "@/models/Business";
 import BusinessMember from "@/models/BusinessMember";
 import UserRole from "@/models/UserRole";
 import Role from "@/models/Role";
+import { getOrCreateANGroupBusinessId } from "@/core/access/anGroupBusiness.service";
 
 export async function GET(req: Request) {
   try {
@@ -52,9 +53,12 @@ export async function GET(req: Request) {
     if (isPlatformStaff) {
       // Super admin or AN Group platform staff: see every active business
       // (per-page/module permission checks still gate what data within
-      // each business they can actually view/edit).
+      // each business they can actually view/edit). Ensures AN Group's own
+      // real Business record exists so it's always present in this list,
+      // not just after some other feature happens to create it first.
+      await getOrCreateANGroupBusinessId();
       businesses = await (Business as any).find({ isActive: true })
-        .select("_id name brandName businessCode type")
+        .select("_id name brandName businessCode type isPlatform")
         .lean();
     } else {
       // Regular users: load via BusinessMember

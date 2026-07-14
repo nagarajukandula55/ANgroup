@@ -26,15 +26,18 @@ async function guard() {
   return { session };
 }
 
-export async function GET() {
+/** ?businessId=... -- omit (or pass "AN_GROUP") for AN Group's own layout. */
+export async function GET(req: NextRequest) {
   const { error } = await guard();
   if (error) return error;
   await connectDB();
-  const hierarchy = await getEffectiveAccessHierarchy();
+  const businessIdParam = req.nextUrl.searchParams.get("businessId");
+  const businessId = businessIdParam && businessIdParam !== "AN_GROUP" ? businessIdParam : null;
+  const hierarchy = await getEffectiveAccessHierarchy(businessId);
   return NextResponse.json({ success: true, hierarchy });
 }
 
-/** body: { action: 'addCategory'|'addSubcategory'|'rename'|'delete'|'moveModule', ... } */
+/** body: { action: 'addCategory'|'addSubcategory'|'rename'|'delete'|'moveModule', businessId?, ... } */
 export async function POST(req: NextRequest) {
   const { error } = await guard();
   if (error) return error;
@@ -42,37 +45,38 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const { action } = body;
+  const businessId = body.businessId && body.businessId !== "AN_GROUP" ? body.businessId : null;
 
   try {
     if (action === "addCategory") {
       if (!body.label?.trim()) return NextResponse.json({ error: "label is required" }, { status: 400 });
-      const node = await createCategory(body.label.trim(), null);
+      const node = await createCategory(body.label.trim(), "", businessId);
       return NextResponse.json({ success: true, node });
     }
     if (action === "addSubcategory") {
       if (!body.label?.trim() || !body.parentKey) {
         return NextResponse.json({ error: "label and parentKey are required" }, { status: 400 });
       }
-      const node = await createCategory(body.label.trim(), body.parentKey);
+      const node = await createCategory(body.label.trim(), body.parentKey, businessId);
       return NextResponse.json({ success: true, node });
     }
     if (action === "rename") {
       if (!body.key || !body.label?.trim()) {
         return NextResponse.json({ error: "key and label are required" }, { status: 400 });
       }
-      await renameCategory(body.key, body.label.trim());
+      await renameCategory(body.key, body.label.trim(), businessId);
       return NextResponse.json({ success: true });
     }
     if (action === "delete") {
       if (!body.key) return NextResponse.json({ error: "key is required" }, { status: 400 });
-      await deleteCategory(body.key);
+      await deleteCategory(body.key, businessId);
       return NextResponse.json({ success: true });
     }
     if (action === "moveModule") {
       if (!body.moduleKey || !body.parentKey) {
         return NextResponse.json({ error: "moduleKey and parentKey are required" }, { status: 400 });
       }
-      await moveModule(body.moduleKey, body.parentKey);
+      await moveModule(body.moduleKey, body.parentKey, businessId);
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

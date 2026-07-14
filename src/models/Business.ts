@@ -611,6 +611,20 @@ const BusinessSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Marks the single, real, always-present "AN Group" business record --
+    // the platform owner itself, used wherever code previously meant "no
+    // specific business" via a null/sentinel businessId. Having a real
+    // Business document for this (instead of null) means AN Group behaves
+    // exactly like any other business everywhere a business is expected --
+    // it shows up in business lists/switchers/dropdowns as itself, and
+    // every business-scoped record (like Admin > Access's category layout)
+    // can use a real businessId for it instead of a null special case.
+    isPlatform: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     aiEnabled: {
       type: Boolean,
       default: true,

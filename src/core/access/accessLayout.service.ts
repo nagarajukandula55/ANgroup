@@ -1,5 +1,6 @@
 import AccessLayout, { IAccessCategoryNode } from "@/models/AccessLayout";
 import { ACCESS_HIERARCHY, ModuleEntry } from "./moduleHierarchy";
+import { getOrCreateANGroupBusinessId } from "./anGroupBusiness.service";
 
 export interface EffectiveModule extends ModuleEntry {
   parentKey: string; // the subcategory (or category, if flat) key this module currently sits under
@@ -23,9 +24,17 @@ export interface EffectiveCategory {
 
 const UNASSIGNED_KEY = "unassigned";
 
-async function getOrCreateLayout() {
-  let layout = await AccessLayout.findOne();
-  if (!layout) layout = await AccessLayout.create({ categories: [], moduleParent: {} });
+// No businessId given -> resolve to AN Group's own real Business record
+// (see anGroupBusiness.service.ts) rather than storing/matching against a
+// null sentinel.
+async function resolveBusinessId(businessId?: string | null): Promise<string> {
+  return businessId && businessId.trim() ? businessId : getOrCreateANGroupBusinessId();
+}
+
+async function getOrCreateLayout(businessId?: string | null) {
+  const bid = await resolveBusinessId(businessId);
+  let layout = await AccessLayout.findOne({ businessId: bid });
+  if (!layout) layout = await AccessLayout.create({ businessId: bid, categories: [], moduleParent: {} });
   return layout;
 }
 
@@ -63,8 +72,8 @@ function defaultModulePlacements(): { module: ModuleEntry; categoryKey: string; 
  * a since-deleted custom category falls back to "Unassigned" rather than
  * disappearing.
  */
-export async function getEffectiveAccessHierarchy(): Promise<EffectiveCategory[]> {
-  const layout = await getOrCreateLayout();
+export async function getEffectiveAccessHierarchy(businessId?: string | null): Promise<EffectiveCategory[]> {
+  const layout = await getOrCreateLayout(businessId);
   const customNodes: IAccessCategoryNode[] = (layout.categories || []).map((c: any) =>
     c.toObject ? c.toObject() : c
   );
@@ -93,7 +102,7 @@ export async function getEffectiveAccessHierarchy(): Promise<EffectiveCategory[]
 
   // 2. Layer in admin-created custom categories/subcategories.
   const customCategories = customNodes.filter((n) => !n.parentKey);
-  const customSubs = customNodes.filter((n) => n.parentKey);
+  const customSubs = customNodes.filter((n) => !!n.parentKey);
   customCategories.forEach((c) => {
     if (!categories.has(c.key)) {
       categories.set(c.key, { key: c.key, label: c.label, order: c.order, isCustom: true, subcategories: [] });
@@ -140,8 +149,8 @@ function slugify(label: string): string {
   return "custom_" + label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || `custom_${Date.now()}`;
 }
 
-export async function createCategory(label: string, parentKey: string | null): Promise<IAccessCategoryNode> {
-  const layout = await getOrCreateLayout();
+export async function createCategory(label: string, parentKey: string, businessId?: string | null): Promise<IAccessCategoryNode> {
+  const layout = await getOrCreateLayout(businessId);
   const key = `${slugify(label)}_${Date.now().toString(36)}`;
   const node: IAccessCategoryNode = { key, label, parentKey, order: layout.categories.length };
   layout.categories.push(node as any);
@@ -149,8 +158,8 @@ export async function createCategory(label: string, parentKey: string | null): P
   return node;
 }
 
-export async function renameCategory(key: string, label: string): Promise<void> {
-  const layout = await getOrCreateLayout();
+export async function renameCategory(key: string, label: string, businessId?: string | null): Promise<void> {
+  const layout = await getOrCreateLayout(businessId);
   const node = layout.categories.find((c: any) => c.key === key);
   if (node) {
     node.label = label;
@@ -158,8 +167,8 @@ export async function renameCategory(key: string, label: string): Promise<void> 
   }
 }
 
-export async function deleteCategory(key: string): Promise<void> {
-  const layout = await getOrCreateLayout();
+export async function deleteCategory(key: string, businessId?: string | null): Promise<void> {
+  const layout = await getOrCreateLayout(businessId);
   // Cascade: also drop any subcategories that belonged to this category.
   // Modules pointing at either fall back to their built-in default or
   // Unassigned automatically (see getEffectiveAccessHierarchy) since we
@@ -168,8 +177,8 @@ export async function deleteCategory(key: string): Promise<void> {
   await layout.save();
 }
 
-export async function moveModule(moduleKey: string, parentKey: string): Promise<void> {
-  const layout = await getOrCreateLayout();
+export async function moveModule(moduleKey: string, parentKey: string, businessId?: string | null): Promise<void> {
+  const layout = await getOrCreateLayout(businessId);
   layout.moduleParent.set(moduleKey, parentKey);
   await layout.save();
 }

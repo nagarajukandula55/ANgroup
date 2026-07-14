@@ -21,7 +21,7 @@ interface Role {
   moduleOrder?: string[];
 }
 
-interface Business { _id: string; name: string }
+interface Business { _id: string; name: string; isPlatform?: boolean }
 
 interface EffModule { key: string; label: string; parentKey: string }
 interface EffSubcategory { key: string; label: string; isCustom: boolean; modules: EffModule[] }
@@ -78,16 +78,32 @@ export default function AccessPage() {
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [newNodeLabel, setNewNodeLabel] = useState("");
 
+  // AN Group is a real, always-present Business record (see
+  // anGroupBusiness.service.ts) -- it shows up in `businesses` like any
+  // other business, so activeBusinessId is always a real business's id,
+  // never a null/empty sentinel. Defaults to AN Group once the list loads.
+  const businessParam = activeBusinessId;
+
   useEffect(() => {
     fetchRoles();
-    fetchHierarchy();
-    fetch("/api/businesses/list").then((r) => r.json()).then((d) => setBusinesses(d.businesses || d.data || [])).catch(() => {});
+    fetch("/api/businesses/list").then((r) => r.json()).then((d) => {
+      const list: Business[] = d.businesses || d.data || [];
+      setBusinesses(list);
+      const anGroup = list.find((b) => b.isPlatform);
+      if (anGroup) setActiveBusinessId((prev) => prev || anGroup._id);
+    }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    fetchHierarchy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBusinessId]);
 
   async function fetchHierarchy() {
     setHierarchyLoading(true);
     try {
-      const res = await fetch("/api/admin/access-layout");
+      const res = await fetch(`/api/admin/access-layout?businessId=${businessParam}`);
       const data = await res.json();
       const list: EffCategory[] = data.hierarchy || [];
       setHierarchy(list);
@@ -127,7 +143,7 @@ export default function AccessPage() {
     if (!newNodeLabel.trim()) return;
     await fetch("/api/admin/access-layout", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "addCategory", label: newNodeLabel.trim() }),
+      body: JSON.stringify({ action: "addCategory", label: newNodeLabel.trim(), businessId: businessParam }),
     });
     setNewNodeLabel(""); setAddingCategory(false);
     fetchHierarchy();
@@ -137,7 +153,7 @@ export default function AccessPage() {
     if (!newNodeLabel.trim()) return;
     await fetch("/api/admin/access-layout", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "addSubcategory", label: newNodeLabel.trim(), parentKey }),
+      body: JSON.stringify({ action: "addSubcategory", label: newNodeLabel.trim(), parentKey, businessId: businessParam }),
     });
     setNewNodeLabel(""); setAddingSubFor(null);
     fetchHierarchy();
@@ -147,7 +163,7 @@ export default function AccessPage() {
     if (!label.trim()) return;
     await fetch("/api/admin/access-layout", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "rename", key, label: label.trim() }),
+      body: JSON.stringify({ action: "rename", key, label: label.trim(), businessId: businessParam }),
     });
     fetchHierarchy();
   }
@@ -155,7 +171,7 @@ export default function AccessPage() {
   async function deleteNode(key: string) {
     await fetch("/api/admin/access-layout", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete", key }),
+      body: JSON.stringify({ action: "delete", key, businessId: businessParam }),
     });
     fetchHierarchy();
   }
@@ -163,7 +179,7 @@ export default function AccessPage() {
   async function moveModuleTo(moduleKey: string, parentKey: string) {
     await fetch("/api/admin/access-layout", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "moveModule", moduleKey, parentKey }),
+      body: JSON.stringify({ action: "moveModule", moduleKey, parentKey, businessId: businessParam }),
     });
     fetchHierarchy();
   }
@@ -223,6 +239,8 @@ export default function AccessPage() {
           permissions: selectedRole.permissions,
           homeRoute: selectedRole.homeRoute || "",
           moduleOrder: selectedRole.moduleOrder || [],
+          name: selectedRole.name,
+          description: selectedRole.description || "",
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -444,9 +462,8 @@ export default function AccessPage() {
             onChange={(e) => setActiveBusinessId(e.target.value)}
             className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 bg-white outline-none focus:border-gray-400"
           >
-            <option value="">All Businesses</option>
-            {businesses.map((b) => (
-              <option key={b._id} value={b._id}>{b.name}</option>
+            {[...businesses].sort((a, b) => (b.isPlatform ? 1 : 0) - (a.isPlatform ? 1 : 0)).map((b) => (
+              <option key={b._id} value={b._id}>{b.isPlatform ? "AN Group" : b.name}</option>
             ))}
           </select>
         </div>
@@ -541,6 +558,19 @@ export default function AccessPage() {
                     <p className="text-xs text-gray-500 mt-0.5 truncate">{selectedRole.description}</p>
                   )}
                 </div>
+                <button
+                  onClick={() => {
+                    const name = prompt("Role name", selectedRole.name);
+                    if (!name?.trim()) return;
+                    const description = prompt("Role description (optional)", selectedRole.description || "") ?? selectedRole.description;
+                    setSelectedRole({ ...selectedRole, name: name.trim(), description: description || "" });
+                  }}
+                  title="Edit role name/description"
+                  className="p-1 text-gray-300 hover:text-gray-700 shrink-0"
+                  aria-label="Edit role"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
                 {selectedRole.isSystem && (
                   <span className="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded shrink-0">
                     System

@@ -2,12 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Role from "@/models/Role";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
+
+function permissionErrorResponse(err: any) {
+  return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+}
+
+async function guard(action: "view" | "edit" | "delete") {
+  const session = await getEnrichedSession();
+  if (!session?.user) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  try {
+    requirePermission(session as any, buildPermissionCode("roles", action));
+  } catch (err: any) {
+    return { error: permissionErrorResponse(err) };
+  }
+  return { session };
+}
 
 // GET /api/admin/roles/[id]
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Was completely ungated -- any authenticated user (not just Super
+  // Admin/roles.view holders) could read any role's full permission list.
+  const { error } = await guard("view");
+  if (error) return error;
   try {
     await connectDB();
     const { id } = await params;
@@ -22,16 +44,23 @@ export async function GET(
   }
 }
 
-// PUT /api/admin/roles/[id] - update permissions
+// PUT /api/admin/roles/[id] - update permissions, and now also name/
+// description/color/homeRoute/moduleOrder -- "edit" for a role previously
+// meant only its permission grid; renaming or re-describing a role had no
+// path at all once created.
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Was completely ungated -- any authenticated user could edit any role's
+  // permissions, not just Super Admin/roles.edit holders.
+  const { error } = await guard("edit");
+  if (error) return error;
   try {
     await connectDB();
     const { id } = await params;
     const body = await request.json();
-    const { permissions, homeRoute, moduleOrder } = body;
+    const { permissions, homeRoute, moduleOrder, name, description, color } = body;
 
     if (permissions !== undefined && !Array.isArray(permissions)) {
       return NextResponse.json({ error: "permissions must be an array" }, { status: 400 });
@@ -45,6 +74,9 @@ export async function PUT(
     // `permissions` above).
     if (homeRoute !== undefined) update.homeRoute = homeRoute;
     if (moduleOrder !== undefined && Array.isArray(moduleOrder)) update.moduleOrder = moduleOrder;
+    if (typeof name === "string" && name.trim()) update.name = name.trim();
+    if (typeof description === "string") update.description = description;
+    if (typeof color === "string" && color.trim()) update.color = color.trim();
 
     const role = await Role.findByIdAndUpdate(
       id,
@@ -75,12 +107,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Was only checking "is logged in", not roles.delete -- any authenticated
+  // user could delete any non-system role.
+  const { error } = await guard("delete");
+  if (error) return error;
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     await connectDB();
     const { id } = await params;
     const role = await Role.findById(id);

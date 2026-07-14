@@ -16,7 +16,7 @@ import { useToast } from "@/components/shared/Toast";
 
 const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
 
-interface Business { _id: string; name: string; brandName?: string; businessCode?: string }
+interface Business { _id: string; name: string; brandName?: string; businessCode?: string; isPlatform?: boolean }
 interface UserInfo {
   id: string; name: string; email: string; role: string;
   isSuperAdmin: boolean; activeBusinessId: string | null;
@@ -261,17 +261,18 @@ export default function Sidebar() {
       if (data.success) {
         setUser(data.user);
         setBusinesses(data.businesses || []);
-        // Super admins land in "All Businesses" (no auto-pick) unless the
-        // JWT already has a real activeBusinessId — a business must never
-        // be silently auto-selected out from under them, since that was
-        // hiding platform-wide features (Modules, cross-business reports,
-        // etc.) behind a business context nobody explicitly chose.
+        // Super admins / AN Group platform staff land on the real AN Group
+        // business (no auto-pick into a random tenant business) unless the
+        // JWT already has a real activeBusinessId — a tenant business must
+        // never be silently auto-selected out from under them, since that
+        // was hiding platform-wide features (Modules, cross-business
+        // reports, etc.) behind a business context nobody explicitly chose.
         // Non-super-admin users still default to their first business,
-        // since they don't have an "all businesses" view to fall back to.
+        // since they have no AN Group / platform view to fall back to.
         const found = data.user?.activeBusinessId
           ? data.businesses?.find((b: Business) => b._id === data.user.activeBusinessId) || null
           : (data.user?.isSuperAdmin || data.user?.isPlatformStaff)
-            ? null
+            ? data.businesses?.find((b: Business) => b.isPlatform) || null
             : data.businesses?.[0] || null;
         setActiveBiz(found);
         if (found?._id) loadSidebarModules(found._id);
@@ -327,24 +328,6 @@ export default function Sidebar() {
     } finally { setSwitching(false); }
   }
 
-  async function exitBusiness() {
-    if (switching) return;
-    setSwitching(true);
-    try {
-      const res  = await fetch("/api/auth/exit-business", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setActiveBiz(null);
-        setUser((prev) => prev ? { ...prev, activeBusinessId: null } : prev);
-        setBizDropdown(false);
-        router.refresh();
-      } else {
-        toast.error(data.message || "Failed to exit business");
-      }
-    } catch {
-      toast.error("Failed to connect to server");
-    } finally { setSwitching(false); }
-  }
 
   async function handleLogout() {
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* silent */ }
@@ -453,7 +436,7 @@ export default function Sidebar() {
             <button
               onClick={() => setBizDropdown(!bizDropdown)}
               disabled={switching}
-              title={activeBiz ? (activeBiz.brandName || activeBiz.name) : ((user?.isSuperAdmin || user?.isPlatformStaff) ? "AN Group" : "Select Business")}
+              title={activeBiz ? (activeBiz.isPlatform ? "AN Group" : (activeBiz.brandName || activeBiz.name)) : "Select Business"}
               className={`flex w-full items-center rounded-lg border border-gray-200 bg-gray-50 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60 ${
                 isCollapsed ? "justify-center px-0" : "justify-between px-3"
               }`}
@@ -462,7 +445,7 @@ export default function Sidebar() {
                 <Building2 size={12} className="shrink-0 text-gray-400" />
                 {!isCollapsed && (
                   <span className="truncate text-xs font-medium text-gray-700">
-                    {activeBiz ? (activeBiz.brandName || activeBiz.name) : ((user?.isSuperAdmin || user?.isPlatformStaff) ? "AN Group" : "Select Business")}
+                    {activeBiz ? (activeBiz.isPlatform ? "AN Group" : (activeBiz.brandName || activeBiz.name)) : "Select Business"}
                   </span>
                 )}
               </div>
@@ -475,40 +458,27 @@ export default function Sidebar() {
               <div className={`absolute top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden ${
                 isCollapsed ? "left-3 w-56" : "left-3 right-3"
               }`}>
-                {/* "AN Group" (the platform itself, viewing across every
-                    business) is a first-class option for Super Admins AND
-                    any AN Group staff account holding a platform-wide role
-                    (Role.businessId/vendorId both null -- see
-                    api/auth/me's isPlatformStaff) -- not just a way to exit
-                    a business you got stuck in. Was Super-Admin-only, which
-                    left real AN staff with genuine cross-business access
-                    stuck picking one business at a time with no way to see
-                    the aggregate/platform view their role actually grants. */}
-                {(user?.isSuperAdmin || user?.isPlatformStaff) && (
-                  <button
-                    onClick={exitBusiness}
-                    disabled={switching}
-                    className="flex w-full items-center justify-between px-3 py-2.5 text-left bg-gray-50 hover:bg-gray-100 border-b border-gray-100 disabled:opacity-60"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <LogOut size={12} className="shrink-0 text-gray-500" />
-                      <span className="truncate text-xs font-medium text-gray-700">AN Group</span>
-                    </div>
-                    {!user?.activeBusinessId && <Check size={11} className="shrink-0 text-emerald-500 ml-2" />}
-                  </button>
-                )}
-
-                {businesses.map((biz) => {
+                {/* AN Group (the platform owner itself) is a real Business
+                    record now (see anGroupBusiness.service.ts), not a
+                    null/"exit business" sentinel -- it's just the first
+                    entry in this same list, switched to exactly like any
+                    other business. Visible to every Super Admin / AN Group
+                    platform-staff account since api/auth/me's isPlatformStaff
+                    branch always includes it. */}
+                {[...businesses].sort((a, b) => (b.isPlatform ? 1 : 0) - (a.isPlatform ? 1 : 0)).map((biz) => {
                   const isActive = biz._id === user?.activeBusinessId;
                   return (
                     <button
                       key={biz._id}
                       onClick={() => switchBusiness(biz)}
-                      className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                      className={`flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0 ${biz.isPlatform ? "bg-gray-50" : ""}`}
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-xs text-gray-800 font-medium">{biz.brandName || biz.name}</p>
-                        {biz.businessCode && <p className="text-[10px] text-gray-400">{biz.businessCode}</p>}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {biz.isPlatform && <LogOut size={12} className="shrink-0 text-gray-500" />}
+                        <div className="min-w-0">
+                          <p className="truncate text-xs text-gray-800 font-medium">{biz.isPlatform ? "AN Group" : (biz.brandName || biz.name)}</p>
+                          {!biz.isPlatform && biz.businessCode && <p className="text-[10px] text-gray-400">{biz.businessCode}</p>}
+                        </div>
                       </div>
                       {isActive && <Check size={11} className="shrink-0 text-emerald-500 ml-2" />}
                     </button>
@@ -520,16 +490,21 @@ export default function Sidebar() {
         )}
 
         {/* Persistent "currently viewing" banner — visible even when the
-            dropdown is closed, so a super admin never loses track of the
-            fact they're scoped into a single business and forgets there's
-            a way out. */}
-        {!isCollapsed && (user?.isSuperAdmin || user?.isPlatformStaff) && user?.activeBusinessId && activeBiz && (
+            dropdown is closed, so a super admin/AN Group staff member
+            never loses track of the fact they're scoped into one tenant
+            business and forgets there's a way back to AN Group. Hidden
+            when AN Group itself is the active business, since that IS the
+            "way out" state. */}
+        {!isCollapsed && (user?.isSuperAdmin || user?.isPlatformStaff) && activeBiz && !activeBiz.isPlatform && (
           <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
             <span className="truncate text-[10px] text-amber-700">
               Viewing as: <strong>{activeBiz.brandName || activeBiz.name}</strong>
             </span>
             <button
-              onClick={exitBusiness}
+              onClick={() => {
+                const anGroup = businesses.find((b) => b.isPlatform);
+                if (anGroup) switchBusiness(anGroup);
+              }}
               disabled={switching}
               title="Return to AN Group view"
               className="shrink-0 text-[10px] font-medium text-amber-700 underline hover:text-amber-900 disabled:opacity-60"
