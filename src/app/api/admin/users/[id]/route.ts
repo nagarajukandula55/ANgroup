@@ -196,20 +196,22 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Update role if provided. Was silently minting a blank, zero-permission
-    // Role for any unrecognized string -- same fix as api/admin/users POST,
-    // see that route's comment. Every assignable role is seeded up front now.
+    // Update role if provided. Under the rebuilt access architecture there
+    // are no seeded default roles (ADMIN/MANAGER/EMPLOYEE/... only exist if
+    // the Super Admin created them) -- so a missing Role doc here is now a
+    // SKIP, not a hard 400: the rest of the edit (name/email/status) still
+    // saves, and real access is managed from Admin > Access / the vendor's
+    // Team & Access instead of this legacy flat field.
+    let roleWarning: string | undefined;
     if (role) {
       const roleDoc = await Role.findOne({ code: role.toUpperCase() });
-      if (!roleDoc) {
-        return NextResponse.json(
-          { error: `Role "${role}" does not exist. Configure it in Roles & Permissions first.` },
-          { status: 400 }
-        );
+      if (roleDoc) {
+        // Replace existing user role
+        await UserRole.deleteMany({ userId: id });
+        await UserRole.create({ userId: id, roleId: roleDoc._id });
+      } else {
+        roleWarning = `Role "${role}" does not exist — user saved, but no role was assigned. Create roles in Admin > Access.`;
       }
-      // Replace existing user role
-      await UserRole.deleteMany({ userId: id });
-      await UserRole.create({ userId: id, roleId: roleDoc._id });
     }
 
     // Assign to a business -- this is the "tag an existing user to a

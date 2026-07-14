@@ -94,20 +94,11 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
       if (roleIds.length > 0) {
         let rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
 
-        // Self-heal: the base MANAGER role used to be seeded with
-        // permissions: [] (see permissionSync.service.ts's syncManagerRole
-        // -- "give me full access to manager roles"). An install created
-        // before that fix has a MANAGER role stuck with zero permissions
-        // until someone happens to re-run the module sync. Since this is
-        // the actual per-request path every Manager's access flows
-        // through, refresh it here the first time it's found empty rather
-        // than requiring a separate manual trigger.
-        const staleManager = rolesDocs.find((r: any) => r.code === "MANAGER" && (!r.permissions || r.permissions.length === 0));
-        if (staleManager) {
-          const { syncManagerRole } = await import("@/core/access/permissionSync.service");
-          await syncManagerRole().catch(() => {});
-          rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
-        }
+        // (The old "self-heal the global MANAGER role" block that lived
+        // here is gone: per the final architecture there are NO default
+        // roles -- a global all-permission MANAGER must never be silently
+        // recreated. Every role is created explicitly, per business, by
+        // the Super Admin from Admin > Access.)
 
         // Cross-business role leak: a Role scoped to Business A (via its
         // own businessId) was still granting its permissions to a user

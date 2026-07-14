@@ -11,11 +11,12 @@ import { logAction } from '@/lib/audit/logAction'
 import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 import { sendWelcomeEmail } from '@/services/email/resend.service'
 
-// Safest floor if the registering origin doesn't match any configured
-// mapping (unknown/spoofed Origin) -- view-only, never the more permissive
-// shopnative default.
-const FALLBACK_ROLE_CODE = 'CUSTOMER_ANGROUP'
-const FALLBACK_SOURCE_LABEL = 'unknown'
+// Per explicit direction: EVERY new user starts with exactly one access —
+// the shopnative.in view floor. It's removed automatically the moment any
+// real access is granted (see core/access/floorRoles.service.ts), so the
+// user retains only what was explicitly added and login routing follows.
+const FALLBACK_ROLE_CODE = 'CUSTOMER_SHOPNATIVE'
+const FALLBACK_SOURCE_LABEL = 'shopnative'
 
 /**
  * Best-effort SSO source detection: match the request's Origin/Referer

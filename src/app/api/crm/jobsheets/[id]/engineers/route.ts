@@ -14,7 +14,7 @@
  * list, and (2) even the Owner only ever matched a member whose typed
  * label was the exact string "ENGINEER". Job sheets are business-scoped
  * (CrmJobSheet has no vendorId of its own), so this now checks the real
- * granted VENDOR_ENGINEER role across every vendor under this job sheet's
+ * granted workorder access across every vendor under this job sheet's
  * business, gated by the caller's own crm_jobsheets permission instead of
  * "are you this one vendor's Owner".
  */
@@ -53,7 +53,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     const businessId = (jobSheet as any).businessId;
 
-    const engineerRoles = await Role.find({ code: "VENDOR_ENGINEER", businessId }).select("_id").lean();
+    // REBUILT: there is no fixed "Engineer" role anymore — an engineer is
+    // whoever the vendor's Owner/Manager granted workorder access to from
+    // Team & Access (their personal VSTAFF_* role, or the structural
+    // Owner/Manager roles, carries CRM_JOBSHEETS.EDIT). Resolve by that
+    // real capability instead of a job-title role code.
+    const engineerRoles = await Role.find({
+      businessId,
+      vendorId: { $ne: null },
+      permissions: buildPermissionCode("crm_jobsheets", "edit"),
+    })
+      .select("_id")
+      .lean();
     if (engineerRoles.length === 0) {
       return NextResponse.json({ success: true, engineers: [] });
     }

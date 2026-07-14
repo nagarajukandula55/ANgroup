@@ -5,20 +5,28 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
-import { seedAnGroupStaffRoles, AN_GROUP_ROLE_DEFS } from "@/core/access/anGroupStaffRoles.service";
+import { getOrCreateANGroupBusinessId } from "@/core/access/anGroupBusiness.service";
+import { stripFloorRoles } from "@/core/access/floorRoles.service";
 import { logAction } from "@/lib/audit/logAction";
 
 /**
- * AN Group platform-staff roles (Business Admin, Product Admin, Sales
- * Admin, Material Admin, Finance Admin, SCM Admin) -- see
- * core/access/anGroupStaffRoles.service.ts for the role/permission
- * definitions. Super-admin only.
+ * AN Group platform-staff management — Super Admin only.
  *
- * GET  — seeds/refreshes the 6 roles (idempotent) and returns them, plus
- *        every user currently holding one.
- * POST — either creates a brand-new login for one of these roles, or
- *        attaches the role to an existing user (by username), per `mode`.
+ * REBUILT: this used to seed and offer a fixed menu of 6 department roles
+ * (Business Admin, Product Admin, ...). Per explicit direction ("don't
+ * keep any default roles, i'll add everything by myself"), NOTHING is
+ * seeded here anymore. The role list offered is exactly the platform-
+ * scoped roles that actually exist: AN_STAFF (structural — sees all data
+ * across every business) plus every custom role the Super Admin created
+ * under AN Group from Admin > Access. Floor/customer codes and vendor-
+ * scoped roles never appear.
+ *
+ * GET  — lists those roles and every user currently holding each.
+ * POST — creates a brand-new login for one of those roles, or attaches
+ *        the role to an existing user (by username), per `mode`.
  */
+
+const HIDDEN_CODES = ["SUPER_ADMIN", "CUSTOMER", "CUSTOMER_ANGROUP", "CUSTOMER_SHOPNATIVE"];
 
 async function requireSuperAdmin() {
   const h = await headers();
@@ -27,23 +35,39 @@ async function requireSuperAdmin() {
   return { userId, ok: !!userId && isSuperAdmin };
 }
 
+async function listPlatformRoles() {
+  const anGroupId = await getOrCreateANGroupBusinessId();
+  return Role.find({
+    vendorId: null,
+    $or: [{ businessId: null }, { businessId: anGroupId }],
+    code: { $nin: HIDDEN_CODES },
+    isDeleted: { $ne: true },
+  })
+    .select("code name description permissions")
+    .sort({ name: 1 })
+    .lean();
+}
+
 export async function GET() {
   try {
     await connectDB();
     const { ok } = await requireSuperAdmin();
     if (!ok) return NextResponse.json({ success: false, error: "Super Admin access required" }, { status: 403 });
 
-    const roles = await seedAnGroupStaffRoles();
+    const roles = (await listPlatformRoles()) as any[];
 
-    const grants = await UserRole.find({ roleId: { $in: roles.map((r) => r.roleId) } })
+    const grants = await UserRole.find({ roleId: { $in: roles.map((r) => r._id) } })
       .populate("userId", "name email username")
       .lean();
 
     const holders = roles.map((r) => ({
-      ...r,
-      users: grants
-        .filter((g: any) => String(g.roleId) === r.roleId)
-        .map((g: any) => g.userId)
+      code: r.code,
+      name: r.name,
+      description: r.description,
+      roleId: String(r._id),
+      users: (grants as any[])
+        .filter((g) => String(g.roleId) === String(r._id))
+        .map((g) => g.userId)
         .filter(Boolean),
     }));
 
@@ -63,14 +87,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { mode, roleCode } = body;
 
-    const roleDef = AN_GROUP_ROLE_DEFS.find((r) => r.code === roleCode);
-    if (!roleDef) {
-      return NextResponse.json({ success: false, error: "Unknown AN Group staff role" }, { status: 400 });
-    }
-    await seedAnGroupStaffRoles();
-    const roleDoc = await Role.findOne({ code: roleCode, businessId: null, vendorId: null });
+    const platformRoles = (await listPlatformRoles()) as any[];
+    const roleDoc = platformRoles.find((r) => r.code === String(roleCode || "").toUpperCase());
     if (!roleDoc) {
-      return NextResponse.json({ success: false, error: "Role seed failed unexpectedly" }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: "Unknown platform role — create it first from Admin > Access under AN Group" },
+        { status: 400 }
+      );
     }
 
     if (mode === "assign") {
@@ -90,6 +113,8 @@ export async function POST(req: NextRequest) {
         { $setOnInsert: { userId: targetUser._id, roleId: roleDoc._id, assignedBy: callerId } },
         { upsert: true }
       );
+      // Real access granted -> registration floor removed.
+      await stripFloorRoles(String(targetUser._id));
       logAction({ action: "UPDATE", entity: "UserRole", entityId: String(targetUser._id), after: { roleCode }, req });
       return NextResponse.json({ success: true, user: { _id: targetUser._id, name: targetUser.name, username: targetUser.username } });
     }

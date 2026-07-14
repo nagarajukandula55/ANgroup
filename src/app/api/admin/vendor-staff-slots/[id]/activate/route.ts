@@ -5,29 +5,20 @@ import VendorStaffSlot from "@/models/VendorStaffSlot";
 import VendorProfile from "@/models/VendorProfile";
 import BusinessMember, { BusinessMemberStatus } from "@/models/BusinessMember";
 import User from "@/models/User";
-import Role from "@/models/Role";
-import UserRole from "@/models/UserRole";
-import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
+import { grantVendorStaffAccess } from "@/core/access/vendorAccess.service";
 import { logAction } from "@/lib/audit/logAction";
 
-// Designation -> the vendor-scoped Role code createDefaultVendorRoles()
-// provisions for this vendor (see core/access/vendorDefaultRoles.service.ts's
-// VENDOR_ROLE_DEFS). Without this mapping, tagging a user to a slot only
-// ever created a BusinessMember row -- getEnrichedSession() resolves
-// permissions from UserRole, not BusinessMember.vendorRole, so a
-// slot-tagged user's session.permissions stayed permanently empty. That
-// produced two contradictory-looking symptoms at once: the sidebar's
-// client-side STATIC_MODULES fallback kicked in (api/ui/sidebar returning
-// zero visible modules for an empty-permission session made the client
-// keep its "show everything" default instead of the real filtered list),
-// while every actual page-level requirePermission() check correctly 403'd
-// since the user genuinely had no permissions.
-const DESIGNATION_TO_ROLE_CODE: Record<string, string> = {
-  MANAGER: "VENDOR_MANAGER",
-  CCO: "VENDOR_FRONT_OFFICE",
-  ENGINEER: "VENDOR_ENGINEER",
-  WAREHOUSE_MANAGER: "VENDOR_WAREHOUSE_MANAGER",
-  TELECALLER: "VENDOR_FRONT_OFFICE",
+// REBUILT: designations no longer map to fixed job-title roles (that
+// whole role set was withdrawn) -- they map to a starting per-module
+// access grant through the same grantVendorStaffAccess() mechanism the
+// vendor's own Team & Access UI uses. The vendor's Owner/Manager can
+// widen/narrow it afterwards from their profile page.
+const DESIGNATION_TO_MODULES: Record<string, { modules: string[]; isManager?: boolean }> = {
+  MANAGER: { modules: [], isManager: true },
+  CCO: { modules: ["crm", "crm_calls", "crm_jobsheets", "fault_codes", "solutions", "inventory"] },
+  TELECALLER: { modules: ["crm", "crm_calls", "crm_jobsheets", "fault_codes", "solutions"] },
+  ENGINEER: { modules: ["crm", "crm_calls", "crm_jobsheets", "fault_codes", "solutions", "inventory"] },
+  WAREHOUSE_MANAGER: { modules: ["inventory", "warehouses", "stock_transfers", "stock_adjustments", "grn", "products", "vendor_products"] },
 };
 
 /**
@@ -104,25 +95,20 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     slot.activatedAt = new Date();
     await slot.save();
 
-    // Grant the matching vendor-scoped Role so this user's session
-    // actually resolves real permissions -- idempotent, safe to call even
-    // if this vendor's default role set was already provisioned at
-    // finalize time.
-    await createDefaultVendorRoles(String(vendor._id), String(vendor.businessId)).catch(() => {});
-    const roleCode = DESIGNATION_TO_ROLE_CODE[slot.designation];
-    if (roleCode) {
-      const role = await Role.findOne({
-        code: roleCode,
-        businessId: vendor.businessId,
-        vendorId: vendor._id,
-      }).lean();
-      if (role) {
-        await UserRole.updateOne(
-          { userId: targetUser._id, roleId: (role as any)._id },
-          { $setOnInsert: { userId: targetUser._id, roleId: (role as any)._id, businessId: vendor.businessId } },
-          { upsert: true }
-        );
-      }
+    // Grant the designation's starting module access through the same
+    // mechanism the vendor's own Team & Access UI uses -- so the user's
+    // session resolves real permissions immediately, and the vendor's
+    // Owner/Manager can adjust it afterwards from their profile page.
+    const preset = DESIGNATION_TO_MODULES[slot.designation];
+    if (preset) {
+      await grantVendorStaffAccess({
+        userId: String(targetUser._id),
+        businessId: String(vendor.businessId),
+        vendorId: String(vendor._id),
+        modules: preset.modules,
+        isManager: preset.isManager,
+        grantedBy: callerId || undefined,
+      }).catch(() => {});
     }
 
     logAction({

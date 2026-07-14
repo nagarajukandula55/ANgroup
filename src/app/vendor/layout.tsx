@@ -6,6 +6,7 @@ import AnuWidget from '@/components/AnuWidget'
 import NotificationBell from '@/components/NotificationBell'
 import { connectDB } from '@/lib/mongodb'
 import BusinessMember from '@/models/BusinessMember'
+import { resolveOwnerOrManagerVendor, getVendorStaffAccessMap } from '@/core/access/vendorAccess.service'
 import {
   LayoutDashboard,
   Package,
@@ -25,18 +26,22 @@ import {
 // is per-product (see /vendor/products/[id]/bom, already built and wired
 // from each product's own detail page), not a flat vendor-wide list, so it
 // belongs inside "My Products" rather than getting its own nav entry.
-const navItems = [
-  { href: '/vendor', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/vendor/products', label: 'My Products', icon: Package },
-  { href: '/vendor/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart },
-  { href: '/vendor/offline-sales', label: 'Offline Sales', icon: ShoppingBag },
-  { href: '/vendor/warehouses', label: 'Warehouses', icon: Warehouse },
-  { href: '/vendor/staff', label: 'Staff', icon: Users },
-  { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText },
-  { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet },
-  { href: '/vendor/profile', label: 'My Profile', icon: User },
-  { href: '/vendor/statement', label: 'Financial Statement', icon: BarChart3 },
+//
+// `modules`: which granted module keys make this nav item visible to a
+// STAFF member (Owner/Manager always see everything; managerOnly items are
+// theirs regardless of module grants). null = visible to every team member.
+const navItems: { href: string; label: string; icon: any; modules: string[] | null; managerOnly?: boolean }[] = [
+  { href: '/vendor', label: 'Dashboard', icon: LayoutDashboard, modules: null },
+  { href: '/vendor/products', label: 'My Products', icon: Package, modules: ['vendor_products', 'products'] },
+  { href: '/vendor/inventory', label: 'Inventory', icon: Boxes, modules: ['inventory'] },
+  { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart, modules: ['sales'] },
+  { href: '/vendor/offline-sales', label: 'Offline Sales', icon: ShoppingBag, modules: ['sales'] },
+  { href: '/vendor/warehouses', label: 'Warehouses', icon: Warehouse, modules: ['warehouses'] },
+  { href: '/vendor/staff', label: 'Staff', icon: Users, modules: ['staff'], managerOnly: true },
+  { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText, modules: ['finance'] },
+  { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet, modules: ['finance'], managerOnly: true },
+  { href: '/vendor/profile', label: 'My Profile', icon: User, modules: null },
+  { href: '/vendor/statement', label: 'Financial Statement', icon: BarChart3, modules: ['finance'] },
 ]
 
 export default async function VendorLayout({
@@ -62,10 +67,11 @@ export default async function VendorLayout({
   // ACTIVE BusinessMember row tied to a real vendor (vendorId set), which
   // is what actually grants vendor-portal access today.
   let hasVendorTeamAccess = false
+  let membership: any = null
   if (role !== 'VENDOR' && userId) {
     try {
       await connectDB()
-      const membership = await BusinessMember.findOne({
+      membership = await BusinessMember.findOne({
         userId,
         vendorId: { $ne: null },
         status: 'ACTIVE',
@@ -79,6 +85,35 @@ export default async function VendorLayout({
 
   if (role !== 'VENDOR' && !hasVendorTeamAccess) {
     redirect('/login')
+  }
+
+  // Nav filtering by the member's actual granted access ("based on access
+  // that user should get access privileges and accordingly... UI changes"):
+  //  - the structural Owner (role === 'VENDOR' login, or VendorProfile
+  //    match) and Managers see every item;
+  //  - other staff only see items whose module set intersects what the
+  //    vendor's Owner/Manager granted them from Team & Access.
+  let visibleItems = navItems
+  if (role !== 'VENDOR' && userId && membership?.vendorId) {
+    try {
+      const ownerOrManager = await resolveOwnerOrManagerVendor(userId)
+      if (!ownerOrManager) {
+        const accessMap = await getVendorStaffAccessMap(
+          String(membership.vendorId),
+          String(membership.businessId)
+        )
+        const granted = new Set(accessMap[String(userId).toLowerCase()]?.modules || [])
+        visibleItems = navItems.filter((item) => {
+          if (item.managerOnly) return false
+          if (item.modules === null) return true
+          return item.modules.some((m) => granted.has(m))
+        })
+      }
+    } catch {
+      // On any resolution error, fail CLOSED for staff: only the always-
+      // visible items (Dashboard, Profile) render, never the full menu.
+      visibleItems = navItems.filter((item) => item.modules === null && !item.managerOnly)
+    }
   }
 
   return (
@@ -105,7 +140,7 @@ export default async function VendorLayout({
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => (
+          {visibleItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

@@ -8,6 +8,7 @@ import Role from '@/models/Role';
 import UserRole from '@/models/UserRole';
 import BusinessMember, { BusinessMemberStatus } from '@/models/BusinessMember';
 import VendorProfile from '@/models/VendorProfile';
+import { stripFloorRoles } from '@/core/access/floorRoles.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -17,9 +18,11 @@ type RouteContext = { params: Promise<{ id: string }> };
  * elevated. Super-Admin-only (checked via session.isSuperAdmin directly,
  * not just a permission code, since no other actor may ever call this).
  *
- * Additive: this never removes the user's existing floor role. A later
- * demotion can never leave someone with zero roles, since the floor is
- * always still there.
+ * Floor handling (per explicit direction): granting a REAL role here
+ * REMOVES the registration floor (shopnative view) -- the user retains
+ * exactly the access that was added, and the DB reflects it immediately
+ * so the next login routes them to the right UI instead of the
+ * storefront.
  *
  * body: { track: 'AN_EMPLOYEE' | 'VENDOR_TEAM', roleCode?, businessId?, vendorId? }
  */
@@ -52,9 +55,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     if (track === 'AN_EMPLOYEE') {
       const requested = String(roleCode || '').toUpperCase();
-      if (!['SUPER_ADMIN', 'AN_ADMIN'].includes(requested)) {
+      if (!['SUPER_ADMIN', 'AN_STAFF'].includes(requested)) {
         return NextResponse.json(
-          { success: false, error: 'roleCode must be SUPER_ADMIN or AN_ADMIN for the AN_EMPLOYEE track' },
+          { success: false, error: 'roleCode must be SUPER_ADMIN or AN_STAFF for the AN_EMPLOYEE track' },
           { status: 400 }
         );
       }
@@ -62,7 +65,27 @@ export async function POST(req: NextRequest, context: RouteContext) {
       // already enforced above (this whole route is super-admin-only), but
       // kept explicit since it's the highest-consequence grant here.
 
-      const roleDoc = await Role.findOne({ code: requested, businessId: null, vendorId: null });
+      let roleDoc = await Role.findOne({ code: requested, businessId: null, vendorId: null });
+      if (!roleDoc && requested === 'AN_STAFF') {
+        // Structural role -- self-heals the same way the rebuild endpoint
+        // seeds it (view+export on every module, platform-wide), so this
+        // track never dead-ends on a fresh database.
+        const { ALL_MODULE_KEYS } = await import('@/core/access/moduleHierarchy');
+        const { buildPermissionCode } = await import('@/core/access/actions');
+        roleDoc = await Role.create({
+          code: 'AN_STAFF',
+          businessId: null,
+          vendorId: null,
+          name: 'AN Group Staff',
+          description: "AN Group's own staff — sees all data across every business (view/export everywhere).",
+          permissions: ALL_MODULE_KEYS.flatMap((m: string) => [
+            buildPermissionCode(m, 'view'),
+            buildPermissionCode(m, 'export'),
+          ]),
+          isSystem: true,
+          isProtected: true,
+        });
+      }
       if (!roleDoc) {
         return NextResponse.json(
           { success: false, error: `Role "${requested}" is not configured.` },
@@ -82,6 +105,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         targetUser.role = 'ADMIN' as any;
       }
       await targetUser.save();
+      await stripFloorRoles(String(targetUser._id));
 
       logAction({
         action: 'UPDATE',
@@ -184,6 +208,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
           { upsert: true }
         );
         grantedRoleCode = grantedRoleDoc.code;
+        await stripFloorRoles(String(targetUser._id));
       }
 
       logAction({

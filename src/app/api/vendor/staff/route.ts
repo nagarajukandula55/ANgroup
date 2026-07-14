@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
-import VendorProfile from "@/models/VendorProfile";
 import BusinessMember, { BusinessMemberStatus, BusinessMemberType } from "@/models/BusinessMember";
 import User from "@/models/User";
 import Role from "@/models/Role";
@@ -28,38 +27,9 @@ import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.servi
  * Orders/BOM pages exist to actually gate.
  */
 
-// Broadened from Owner-only: a vendor's Manager legitimately needs to
-// manage the team too ("SC manager or Owner can see their profile and
-// map user"), and this is also the endpoint the admin CRM pages read
-// staff/engineer lists from -- Owner-only was silently 403ing every
-// other real staff member, including Managers, out of their own team
-// screen. Checked via the real granted VENDOR_MANAGER Role/UserRole, not
-// BusinessMember.vendorRole (a free-text display label, unreliable to
-// match -- see api/vendor/settings/route.ts's own note on this).
-async function requireVendorOwnerOrManager(userId: string | null) {
-  if (!userId) return null;
-  const owned = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
-  if (owned) return owned;
-
-  const membership = await BusinessMember.findOne({
-    userId,
-    vendorId: { $ne: null },
-    status: "ACTIVE",
-  }).lean();
-  if (!membership?.vendorId) return null;
-
-  const managerRole = await Role.findOne({
-    code: "VENDOR_MANAGER",
-    businessId: membership.businessId,
-    vendorId: membership.vendorId,
-  }).lean();
-  if (!managerRole) return null;
-
-  const hasManagerRole = await UserRole.exists({ userId, roleId: (managerRole as any)._id });
-  if (!hasManagerRole) return null;
-
-  return VendorProfile.findById(membership.vendorId).lean();
-}
+// ONE shared Owner-or-Manager definition for every vendor management
+// surface -- see core/access/vendorAccess.service.ts.
+import { resolveOwnerOrManagerVendor as requireVendorOwnerOrManager } from "@/core/access/vendorAccess.service";
 
 export async function GET() {
   try {
@@ -248,6 +218,11 @@ export async function POST(req: NextRequest) {
         },
         { upsert: true }
       );
+      // Real access granted -> the registration floor (shopnative view)
+      // is removed; the user retains exactly what was added, and the DB
+      // reflects it for the next login's routing.
+      const { stripFloorRoles } = await import("@/core/access/floorRoles.service");
+      await stripFloorRoles(String((targetUser as any)._id));
     }
 
     logAction({

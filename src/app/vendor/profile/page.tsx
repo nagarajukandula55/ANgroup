@@ -109,6 +109,28 @@ export default function VendorProfilePage() {
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
 
+  // Team & Access -- every user Super Admin (or the vendor) attached to
+  // this vendor, with per-module access checkboxes the Owner/Manager
+  // controls directly ("vendor can give either single access to user or
+  // multiple access"). Backed by /api/vendor/team.
+  interface TeamMember { userId: string; name?: string; email?: string; username?: string; isOwner: boolean; isManager: boolean; modules: string[] }
+  interface AccessModule { key: string; label: string; description?: string }
+  const [team, setTeam] = useState<TeamMember[]>([])
+  const [availableModules, setAvailableModules] = useState<AccessModule[]>([])
+  const [teamSaving, setTeamSaving] = useState<string | null>(null)
+  const [teamMessage, setTeamMessage] = useState('')
+
+  async function loadTeam() {
+    try {
+      const res = await fetch('/api/vendor/team')
+      const d = await res.json()
+      if (d.success) {
+        setTeam(d.team || [])
+        setAvailableModules(d.availableModules || [])
+      }
+    } catch { /* section stays hidden for non-managers */ }
+  }
+
   useEffect(() => {
     fetch('/api/vendor/settings')
       .then((r) => r.json())
@@ -120,7 +142,35 @@ export default function VendorProfilePage() {
         }
       })
       .catch(() => {})
+    loadTeam()
   }, [])
+
+  function toggleMemberModule(userId: string, moduleKey: string) {
+    setTeam((prev) => prev.map((m) => {
+      if (m.userId !== userId) return m
+      const has = m.modules.includes(moduleKey)
+      return { ...m, modules: has ? m.modules.filter((k) => k !== moduleKey) : [...m.modules, moduleKey] }
+    }))
+  }
+
+  async function saveMemberAccess(member: TeamMember) {
+    setTeamSaving(member.userId)
+    setTeamMessage('')
+    try {
+      const res = await fetch('/api/vendor/team', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: member.userId, modules: member.modules, isManager: member.isManager }),
+      })
+      const d = await res.json()
+      setTeamMessage(d.success ? `Saved access for ${member.name || member.email}.` : d.error || 'Failed to save.')
+      if (d.success) loadTeam()
+    } catch {
+      setTeamMessage('Failed to save.')
+    } finally {
+      setTeamSaving(null)
+    }
+  }
 
   async function saveInventorySetting(value: boolean) {
     setSavingSettings(true)
@@ -643,6 +693,78 @@ export default function VendorProfilePage() {
           </div>
 
           {settingsMessage && <p className="text-xs text-gray-500 mt-2">{settingsMessage}</p>}
+        </div>
+      )}
+
+      {/* Team & Access -- Owner/Manager only. Every user attached to this
+          vendor (by Super Admin or the vendor), each with per-module
+          access checkboxes. Access takes effect on the member's next
+          page load / login. */}
+      {team.length > 0 && availableModules.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Team &amp; Access</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Users attached to your vendor. Tick the modules each person may use — one or many — then save.
+            &quot;Manager&quot; grants full access plus the ability to manage this team.
+          </p>
+          {teamMessage && (
+            <div className="mb-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{teamMessage}</div>
+          )}
+          <div className="space-y-4">
+            {team.map((member) => (
+              <div key={member.userId} className="rounded-xl border border-gray-100 p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {member.name || member.email}
+                      {member.isOwner && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600">Owner</span>}
+                      {member.isManager && !member.isOwner && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">Manager</span>}
+                    </p>
+                    <p className="text-xs text-gray-400">{member.username || member.email}</p>
+                  </div>
+                  {!member.isOwner && (
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={member.isManager}
+                          onChange={(e) => setTeam((prev) => prev.map((m) => m.userId === member.userId ? { ...m, isManager: e.target.checked } : m))}
+                          className="w-3.5 h-3.5"
+                        />
+                        Manager
+                      </label>
+                      <button
+                        onClick={() => saveMemberAccess(member)}
+                        disabled={teamSaving === member.userId}
+                        className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
+                      >
+                        {teamSaving === member.userId ? 'Saving…' : 'Save Access'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {member.isOwner ? (
+                  <p className="text-xs text-gray-400">The Owner always has full access to every available module.</p>
+                ) : member.isManager ? (
+                  <p className="text-xs text-gray-400">Managers have full access to every available module. Untick Manager to grant specific modules instead.</p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                    {availableModules.map((mod) => (
+                      <label key={mod.key} title={mod.description} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer rounded-lg border border-gray-100 px-2 py-1.5 hover:border-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={member.modules.includes(mod.key)}
+                          onChange={() => toggleMemberModule(member.userId, mod.key)}
+                          className="w-3.5 h-3.5"
+                        />
+                        {mod.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

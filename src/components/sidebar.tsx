@@ -274,6 +274,23 @@ export default function Sidebar() {
       if (data.success) {
         setUser(data.user);
         setBusinesses(data.businesses || []);
+
+        // Unconditional Super Admin bypass -- matches how isSuperAdmin
+        // already behaves as an absolute bypass everywhere else in this
+        // app (requirePermission, filterModulesByPermission, etc.). The
+        // real permission-filtered fetch below still runs and will keep
+        // this in sync, but it must never be the ONLY path a Super Admin
+        // depends on to see any menu at all -- if that fetch is ever
+        // slow, fails, or can't resolve which business to ask about
+        // (e.g. AN Group not found in `businesses` yet on a fresh
+        // session), a genuine Super Admin must still see the full nav
+        // immediately rather than a blank sidebar. Non-super-admin
+        // accounts are NOT given this bypass -- they only ever see
+        // exactly what the real permission check confirms.
+        if (data.user?.isSuperAdmin) {
+          setModules(STATIC_MODULES);
+        }
+
         // Super admins / AN Group platform staff land on the real AN Group
         // business (no auto-pick into a random tenant business) unless the
         // JWT already has a real activeBusinessId — a tenant business must
