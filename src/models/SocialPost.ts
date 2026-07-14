@@ -14,6 +14,15 @@ export interface ISocialPost extends Document {
   postedAt?: Date;
   externalPostId?: string;
   errorMessage?: string;
+  channelIds: mongoose.Types.ObjectId[];
+  channelResults?: { channelId: mongoose.Types.ObjectId; success: boolean; externalId?: string; error?: string }[];
+  avatarId?: mongoose.Types.ObjectId;
+  topic?: string;
+  aiGenerated: boolean;
+  automationRuleId?: mongoose.Types.ObjectId;
+  engagementScore: number;
+  lastResharedAt?: Date;
+  resharedFromPostId?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -67,6 +76,22 @@ const SocialPostSchema = new Schema<ISocialPost>(
       type: String,
       default: null,
     },
+    channelIds: [{ type: Schema.Types.ObjectId, ref: 'SocialChannel' }],
+    channelResults: [
+      {
+        channelId: { type: Schema.Types.ObjectId, ref: 'SocialChannel' },
+        success: { type: Boolean },
+        externalId: { type: String },
+        error: { type: String },
+      },
+    ],
+    avatarId: { type: Schema.Types.ObjectId, ref: 'AvatarProfile', default: null },
+    topic: { type: String, default: null },
+    aiGenerated: { type: Boolean, default: false },
+    automationRuleId: { type: Schema.Types.ObjectId, ref: 'AutomationRule', default: null },
+    engagementScore: { type: Number, default: 0 },
+    lastResharedAt: { type: Date, default: null },
+    resharedFromPostId: { type: Schema.Types.ObjectId, ref: 'SocialPost', default: null },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',

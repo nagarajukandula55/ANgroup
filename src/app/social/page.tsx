@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useActiveBusinessId } from '@/hooks/useActiveBusinessId';
 
 type Platform = 'ALL' | 'INSTAGRAM' | 'LINKEDIN' | 'TWITTER' | 'FACEBOOK';
 type PostStatus = 'DRAFT' | 'SCHEDULED' | 'POSTED' | 'FAILED';
@@ -83,10 +85,10 @@ const STATUS_CONFIG = {
   FAILED: { label: 'Failed', color: 'bg-red-500/30 text-red-300 border-red-500/40' },
 };
 
-const BUSINESS_ID = 'default';
-
 export default function SocialMediaPage() {
   const router = useRouter();
+  const { businessId } = useActiveBusinessId();
+  const BUSINESS_ID = businessId || '';
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, postedToday: 0, scheduled: 0, failed: 0 });
   const [activeTab, setActiveTab] = useState<Platform>('ALL');
@@ -107,6 +109,7 @@ export default function SocialMediaPage() {
   const hashtagInputRef = useRef<HTMLInputElement>(null);
 
   const fetchPosts = async () => {
+    if (!BUSINESS_ID) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({ businessId: BUSINESS_ID, limit: '50' });
@@ -126,7 +129,7 @@ export default function SocialMediaPage() {
 
   useEffect(() => {
     fetchPosts();
-  }, [activeTab]);
+  }, [activeTab, BUSINESS_ID]);
 
   const resetComposer = () => {
     setCaption('');
@@ -301,6 +304,14 @@ export default function SocialMediaPage() {
           </svg>
           New Post
         </button>
+      </div>
+
+      {/* Sub-nav */}
+      <div className="flex gap-2 mb-8 border-b border-white/10 pb-3">
+        <Link href="/social" className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-white">Composer</Link>
+        <Link href="/social/channels" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white">Channels</Link>
+        <Link href="/social/avatar" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white">Avatar Studio</Link>
+        <Link href="/social/automation" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white">Auto-pilot</Link>
       </div>
 
       {/* Stats */}

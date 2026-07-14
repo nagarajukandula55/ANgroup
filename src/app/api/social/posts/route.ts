@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { businessId, platform, caption, imageUrl, hashtags, scheduledAt } = body;
+    const { businessId, platform, caption, imageUrl, hashtags, scheduledAt, channelIds, avatarId, topic, aiGenerated } = body;
 
     if (!businessId || !platform || !caption) {
       return NextResponse.json(
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validPlatforms = ['INSTAGRAM', 'LINKEDIN', 'TWITTER', 'FACEBOOK', 'ALL'];
+    const validPlatforms = ['INSTAGRAM', 'LINKEDIN', 'TWITTER', 'FACEBOOK', 'YOUTUBE', 'ALL'];
     if (!validPlatforms.includes(platform)) {
       return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
     }
@@ -123,6 +123,10 @@ export async function POST(request: NextRequest) {
       hashtags: hashtags || [],
       status,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      channelIds: Array.isArray(channelIds) ? channelIds.map((c: string) => new mongoose.Types.ObjectId(c)) : [],
+      avatarId: avatarId ? new mongoose.Types.ObjectId(avatarId) : null,
+      topic: topic || null,
+      aiGenerated: Boolean(aiGenerated),
       createdBy: new mongoose.Types.ObjectId(userId),
     });
 
