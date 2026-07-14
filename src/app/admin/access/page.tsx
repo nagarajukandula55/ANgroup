@@ -23,7 +23,7 @@ interface Role {
 
 interface Business { _id: string; name: string; isPlatform?: boolean }
 
-interface EffModule { key: string; label: string; parentKey: string }
+interface EffModule { key: string; label: string; description?: string; parentKey: string }
 interface EffSubcategory { key: string; label: string; isCustom: boolean; modules: EffModule[] }
 interface EffCategory { key: string; label: string; isCustom: boolean; subcategories: EffSubcategory[] }
 
@@ -67,7 +67,21 @@ export default function AccessPage() {
   // business's own roles (plus platform-wide roles with no businessId).
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusinessId, setActiveBusinessId] = useState<string>("");
-  const [businessEnabledKeys, setBusinessEnabledKeys] = useState<Set<string> | null>(null);
+  // Keys EXPLICITLY turned off for this business (Business > Modules,
+  // enabled: false) -- a module absent from the saved array entirely is
+  // NOT the same as disabled; it just means this business's modules[]
+  // predates that module key existing at all (true for most modules
+  // added this session: assets/customers/designs/employees/solutions/
+  // crm/settings/integrations/users/roles/access/gst/...). Treating
+  // "absent" as "disabled" (an earlier, stricter version of this filter)
+  // hid every module a business had never explicitly re-saved since,
+  // which is why Settings/Integrations/User Management/etc. kept
+  // vanishing a couple seconds after the page loaded (the initial
+  // unrestricted render, then this filter kicking in once the fetch
+  // resolved). Every other consumer of Business.modules[] in this
+  // codebase already uses the same "enabled unless explicitly false"
+  // convention -- this page was the one place that didn't.
+  const [businessDisabledKeys, setBusinessDisabledKeys] = useState<Set<string>>(new Set());
   const anGroupBusinessId = useMemo(() => businesses.find((b) => b.isPlatform)?._id || "", [businesses]);
 
   // DB-backed, admin-editable category/subcategory tree (built-in
@@ -126,22 +140,19 @@ export default function AccessPage() {
   }
 
   useEffect(() => {
-    if (!activeBusinessId) { setBusinessEnabledKeys(null); return; }
+    if (!activeBusinessId || activeBusinessId === anGroupBusinessId) { setBusinessDisabledKeys(new Set()); return; }
     fetch(`/api/businesses/${activeBusinessId}`)
       .then((r) => r.json())
       .then((d) => {
         const biz = d.business || d;
         const mods = Array.isArray(biz?.modules) ? biz.modules : [];
-        const enabled = mods.filter((m: any) => m?.enabled !== false).map((m: any) => String(m?.key));
-        // AN Group (the platform) always sees the full module list --
-        // there's no "business" above it to configure a subset. Any real
-        // tenant business gets an exact match against what's configured in
-        // Business > Modules: not "everything" when unconfigured, and
-        // nothing extra beyond what's ticked there either -- "nothing
-        // should show beyond that and less than that".
-        setBusinessEnabledKeys(activeBusinessId === anGroupBusinessId ? null : new Set(enabled));
+        // Only keys EXPLICITLY saved as enabled: false are hidden -- a key
+        // this business's modules[] has never heard of (most modules, for
+        // most businesses -- see the state comment above) stays visible.
+        const disabled = mods.filter((m: any) => m?.enabled === false).map((m: any) => String(m?.key));
+        setBusinessDisabledKeys(new Set(disabled));
       })
-      .catch(() => setBusinessEnabledKeys(activeBusinessId === anGroupBusinessId ? null : new Set()));
+      .catch(() => setBusinessDisabledKeys(new Set()));
   }, [activeBusinessId, anGroupBusinessId]);
 
   async function addCategory() {
@@ -357,15 +368,14 @@ export default function AccessPage() {
   }
 
   // Filter the (dynamic, admin-editable) hierarchy by module label/key
-  // when searching, and by the active business's enabled modules when one
-  // is selected, so the tree only shows what that business actually has
-  // turned on -- "current active business and its active modules should
-  // show there".
+  // when searching, and hide only modules this business has EXPLICITLY
+  // disabled from Business > Modules -- see businessDisabledKeys' own
+  // comment for why "not configured" must never mean "hidden" here.
   const filteredHierarchy = useMemo(() => {
     const q = search.trim().toLowerCase();
     const matchesCat = (m: EffModule) => {
       if (q && !m.label.toLowerCase().includes(q) && !m.key.includes(q)) return false;
-      if (businessEnabledKeys && !businessEnabledKeys.has(toSidebarKey(m.key)) && !businessEnabledKeys.has(m.key)) return false;
+      if (businessDisabledKeys.has(toSidebarKey(m.key)) || businessDisabledKeys.has(m.key)) return false;
       return true;
     };
     return hierarchy
@@ -379,7 +389,7 @@ export default function AccessPage() {
         return subcategories.length || cat.isCustom ? { ...cat, subcategories } : null;
       })
       .filter((c): c is NonNullable<typeof c> => c !== null);
-  }, [search, hierarchy, businessEnabledKeys]);
+  }, [search, hierarchy, businessDisabledKeys]);
 
   // Strict per-business role isolation: a role created under Business A
   // must never show up (or be selectable/appliable) under Business B or
@@ -402,63 +412,69 @@ export default function AccessPage() {
   const rowCls =
     "flex items-center justify-between gap-4 px-4 py-2.5 border-b border-gray-100 last:border-0";
 
-  function renderModuleRow(moduleKey: string, label: string, currentParentKey?: string) {
+  function renderModuleRow(moduleKey: string, label: string, currentParentKey?: string, description?: string) {
     if (!selectedRole) return null;
     const moduleCodes = STANDARD_ACTIONS.map((a) => buildCode(moduleKey, a.key));
     const grantedCount = moduleCodes.filter((c) => selectedRole.permissions.includes(c)).length;
     const allGranted = grantedCount === moduleCodes.length;
 
     return (
-      <div key={moduleKey} className={rowCls}>
-        <div className="flex items-center gap-2 min-w-[220px] shrink-0">
-          <button
-            onClick={() => toggleModule(moduleKey, !allGranted)}
-            title={allGranted ? "Revoke all privileges for this module" : "Grant all privileges for this module"}
-            className={`text-[10px] font-semibold px-2 py-1 rounded ${
-              allGranted
-                ? "bg-emerald-100 text-emerald-700"
-                : grantedCount > 0
-                ? "bg-amber-100 text-amber-700"
-                : "bg-gray-100 text-gray-400"
-            }`}
-          >
-            {grantedCount}/{moduleCodes.length}
-          </button>
-          <span className="text-sm font-medium text-gray-900">{label}</span>
-          {currentParentKey && (
-            <select
-              value={currentParentKey}
-              onChange={(e) => moveModuleTo(moduleKey, e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              title="Move this module to a different category/subcategory"
-              className="text-[10px] border border-gray-200 rounded px-1.5 py-1 text-gray-500 bg-white outline-none"
+      <div key={moduleKey} className="flex flex-col gap-2 px-4 py-2.5 border-b border-gray-100 last:border-0">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => toggleModule(moduleKey, !allGranted)}
+              title={allGranted ? "Revoke all privileges for this module" : "Grant all privileges for this module"}
+              className={`text-[10px] font-semibold px-2 py-1 rounded shrink-0 ${
+                allGranted
+                  ? "bg-emerald-100 text-emerald-700"
+                  : grantedCount > 0
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-gray-100 text-gray-400"
+              }`}
             >
-              {allSubcategories.map((sc) => (
-                <option key={sc.key} value={sc.key}>{sc.label}</option>
-              ))}
-            </select>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1.5 justify-end">
-          {STANDARD_ACTIONS.map((action) => {
-            const code = buildCode(moduleKey, action.key);
-            const active = selectedRole.permissions.includes(code);
-            return (
-              <button
-                key={action.key}
-                onClick={() => togglePermission(code)}
-                title={action.description}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
-                  active
-                    ? "bg-gray-900 text-white"
-                    : "border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600"
-                }`}
+              {grantedCount}/{moduleCodes.length}
+            </button>
+            <span className="text-sm font-medium text-gray-900">{label}</span>
+            {currentParentKey && (
+              <select
+                value={currentParentKey}
+                onChange={(e) => moveModuleTo(moduleKey, e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                title="Move this module to a different category/subcategory"
+                className="text-[10px] border border-gray-200 rounded px-1.5 py-1 text-gray-500 bg-white outline-none"
               >
-                {action.label}
-              </button>
-            );
-          })}
+                {allSubcategories.map((sc) => (
+                  <option key={sc.key} value={sc.key}>{sc.label}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 justify-end">
+            {STANDARD_ACTIONS.map((action) => {
+              const code = buildCode(moduleKey, action.key);
+              const active = selectedRole.permissions.includes(code);
+              return (
+                <button
+                  key={action.key}
+                  onClick={() => togglePermission(code)}
+                  title={action.description}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                    active
+                      ? "bg-gray-900 text-white"
+                      : "border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  {action.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
+        {/* Always-visible plain-language summary of what this module's
+            access grants -- was previously only in each action button's
+            hover title, easy to miss entirely. */}
+        {description && <p className="text-xs text-gray-400 pl-1">{description}</p>}
       </div>
     );
   }
@@ -783,7 +799,7 @@ export default function AccessPage() {
                                   </div>
                                 </div>
                                 {scOpen && (
-                                  <div>{sc.modules.map((m) => renderModuleRow(m.key, m.label, m.parentKey))}</div>
+                                  <div>{sc.modules.map((m) => renderModuleRow(m.key, m.label, m.parentKey, m.description))}</div>
                                 )}
                               </div>
                             );

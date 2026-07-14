@@ -176,30 +176,43 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   // disabled the Finance module for that specific business -- the module
   // toggle was cosmetic (hid the nav link) rather than a real access
   // boundary. Super admins are exempt (requirePermission already bypasses
-  // them unconditionally; filtering here would just be wasted work). An
-  // empty/unconfigured modules[] means "no restriction yet", same
-  // convention the sidebar route already uses, so a business that's never
-  // touched this setting isn't suddenly locked out of everything.
+  // them unconditionally; filtering here would just be wasted work).
+  //
+  // This used to build an ALLOW-list from whatever keys happened to be
+  // present in businessModules[] once that array was non-empty -- but a
+  // module key ABSENT from the array (never explicitly toggled either way)
+  // then got silently treated as disabled, not "not yet configured". Most
+  // businesses' modules[] predates most of the module keys that exist
+  // today (assets/customers/designs/employees/solutions/crm/settings/
+  // integrations/users/roles/access/gst/... were all added well after
+  // this platform's businesses were first configured), so this was
+  // quietly 403ing real users on every module their business's saved
+  // array had never heard of -- exactly the "many pages missing" reports.
+  // Now builds a DENY-list instead: only a module EXPLICITLY saved with
+  // enabled:false gets stripped; everything else (including keys the
+  // array has no opinion on) stays granted.
   if (!isSuperAdmin && businessContext?.businessId && permissions.length > 0) {
     try {
       const business = await Business.findById(businessContext.businessId).select("modules").lean();
       const businessModules = Array.isArray((business as any)?.modules) ? (business as any).modules : [];
       if (businessModules.length > 0) {
-        const rawEnabledKeys = businessModules
-          .filter((m: any) => m?.enabled !== false)
+        const rawDisabledKeys = businessModules
+          .filter((m: any) => m?.enabled === false)
           .map((m: any) => String(m?.key).toLowerCase());
-        // Expand through the sidebar-key <-> real-permission-key alias map
-        // (see moduleKeyAliases.ts) before uppercasing to match
-        // buildPermissionCode's module-key casing -- otherwise a handful
-        // of masters pages toggled "on" never actually matched their real
-        // permission code's module key.
-        const enabledKeys = new Set(
-          Array.from(expandWithAliases(rawEnabledKeys)).map((k) => k.toUpperCase())
-        );
-        permissions = permissions.filter((code) => {
-          const moduleKey = code.split(".")[0];
-          return enabledKeys.has(moduleKey);
-        });
+        if (rawDisabledKeys.length > 0) {
+          // Expand through the sidebar-key <-> real-permission-key alias map
+          // (see moduleKeyAliases.ts) before uppercasing to match
+          // buildPermissionCode's module-key casing -- otherwise disabling
+          // a masters page under its sidebar key wouldn't strip its real
+          // permission code's module key (or vice versa).
+          const disabledKeys = new Set(
+            Array.from(expandWithAliases(rawDisabledKeys)).map((k) => k.toUpperCase())
+          );
+          permissions = permissions.filter((code) => {
+            const moduleKey = code.split(".")[0];
+            return !disabledKeys.has(moduleKey);
+          });
+        }
       }
     } catch {
       // If this lookup fails, fall through with the unfiltered permission

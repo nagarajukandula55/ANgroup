@@ -4,6 +4,7 @@ import Business from "@/models/Business";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { listModulesForBusiness } from "@/core/module-registry/moduleDefinition.service";
 import { filterModulesByPermission } from "@/core/access/filterModulesByPermission";
+import { expandWithAliases } from "@/core/access/moduleKeyAliases";
 
 /**
  * MIGRATED from UserBusinessAccess/accessKeys to the Permission-based access
@@ -60,15 +61,28 @@ export async function POST(req: Request) {
     // editable from admin/business/[id]'s "Modules" section) — a second,
     // independent gate on top of the permission-based ModuleDefinition
     // filter above. Super admins always see everything, matching the rest
-    // of this route's super-admin bypass behavior. An empty/unconfigured
-    // `business.modules` list means "no restriction yet" (safe default) so
-    // businesses that have never touched this setting aren't broken.
+    // of this route's super-admin bypass behavior.
+    //
+    // DENY-list, not allow-list: a module key this business's modules[]
+    // has never heard of (true for most keys, for most businesses -- most
+    // module keys were added to the platform after most businesses' saved
+    // modules[] array) must stay visible, not silently disappear from the
+    // sidebar. Also now expands through the sidebar-key <-> real-
+    // permission-key alias map (moduleKeyAliases.ts) before comparing --
+    // `modules` here is keyed by the real ModuleDefinition key (e.g.
+    // "settings") while `business.modules[]` is saved under the sidebar's
+    // UI key (e.g. "admin-settings"); comparing them directly with no
+    // alias step meant several real modules could never match a saved
+    // toggle at all, in either direction.
     const businessModules = Array.isArray(business?.modules) ? business.modules : [];
     if (!session.isSuperAdmin && businessModules.length > 0) {
-      const enabledKeys = new Set(
-        businessModules.filter((m: any) => m?.enabled !== false).map((m: any) => m?.key)
-      );
-      visibleModules = visibleModules.filter((m: any) => enabledKeys.has(m.key));
+      const rawDisabledKeys = businessModules
+        .filter((m: any) => m?.enabled === false)
+        .map((m: any) => String(m?.key).toLowerCase());
+      if (rawDisabledKeys.length > 0) {
+        const disabledKeys = expandWithAliases(rawDisabledKeys);
+        visibleModules = visibleModules.filter((m: any) => !disabledKeys.has(String(m.key).toLowerCase()));
+      }
     }
 
     if (visibleModules.length === 0 && !session.isSuperAdmin) {

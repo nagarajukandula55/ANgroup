@@ -131,45 +131,41 @@ export async function createDefaultVendorRoles(
 ): Promise<void> {
   const business = await Business.findById(businessId).lean<any>();
   const businessModules = Array.isArray(business?.modules) ? business.modules : [];
-  const enabledKeys = businessModules.length
+  // DENY-list, not allow-list: a module key this business's modules[] has
+  // never heard of (true for most keys, for most businesses -- most were
+  // added to the platform after most businesses' modules[] was last
+  // saved) must stay granted, not silently drop out. Building an
+  // allow-list from "whatever happens to be in the array" was the same
+  // bug fixed in session-enriched.ts's own module-enabled filter: a
+  // freshly-added module (assets/customers/designs/employees/solutions/
+  // crm/settings/integrations/users/roles/access/gst/...) was invisible
+  // to every vendor's Owner/Manager role until that business's admin
+  // happened to re-open and re-save Business > Modules.
+  const disabledKeys = businessModules.length
     ? expandWithAliases(
         businessModules
-          .filter((m: any) => m?.enabled !== false)
+          .filter((m: any) => m?.enabled === false)
           .map((m: any) => String(m?.key))
       )
-    : null; // null = no restriction configured yet, matches sidebar route's convention
+    : new Set<string>();
 
   const intersect = (moduleKeys: string[] | "*"): string[] => {
     if (moduleKeys === "*") {
-      // "all enabled modules" -- if the business HAS configured a
-      // restriction, use exactly that set; if it hasn't (the common case
-      // for a business that's never touched that setting), fall back to
-      // every seeded module key referenced anywhere in this role set as a
-      // safe superset, so Owner/Manager/Assistant Manager still actually
-      // get real permissions instead of silently ending up with none.
-      // (This was previously backwards: it returned [] -- zero modules,
-      // zero permissions -- for exactly the unconfigured case the comment
-      // said it should handle, which is why a freshly-onboarded vendor's
-      // Owner could be granted the role yet be forbidden from every
-      // action, e.g. 403'ing on vendor_products.create when adding a
-      // product for the first time.)
+      // "every module this role should reach" -- the safe superset of
+      // every module key referenced anywhere in this role set, minus
+      // anything this business has explicitly disabled.
       //
       // EXTRA_OWNER_MODULES (masters lists, GST, vendor products, staff,
-      // storefront content) are always unioned in even when the business
-      // HAS configured Business.modules[] -- these were never presented
-      // as toggleable business-feature checkboxes in the first place (no
-      // sidebar entry existed to toggle them), so a business owner had no
-      // way to "enable" them even though Owner/Manager fundamentally need
-      // them to run their own portal. This was the actual cause of "big
-      // laundry list but still a few are missing" for an Owner on a
-      // business with some modules explicitly customized.
-      return enabledKeys
-        ? Array.from(new Set([...(enabledKeys as Set<string>), ...EXTRA_OWNER_MODULES]))
-        : ALL_REFERENCED_MODULES;
+      // storefront content) are always unioned in -- these were never
+      // presented as toggleable business-feature checkboxes in the first
+      // place (no sidebar entry existed to toggle them), so a business
+      // owner had no way to "enable" them even though Owner/Manager
+      // fundamentally need them to run their own portal.
+      return Array.from(new Set([...ALL_REFERENCED_MODULES, ...EXTRA_OWNER_MODULES])).filter(
+        (k) => !disabledKeys.has(k)
+      );
     }
-    return enabledKeys
-      ? moduleKeys.filter((k) => (enabledKeys as Set<string>).has(k))
-      : moduleKeys;
+    return moduleKeys.filter((k) => !disabledKeys.has(k));
   };
 
   for (const def of VENDOR_ROLE_DEFS) {
