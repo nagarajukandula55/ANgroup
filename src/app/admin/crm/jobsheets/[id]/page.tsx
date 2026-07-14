@@ -511,7 +511,7 @@ export default function JobSheetDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="px-6 py-10">
         <div className="flex items-center gap-4 mb-6">
           <button onClick={() => router.push('/admin/crm/jobsheets')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
             <ArrowLeft className="w-4 h-4" />
