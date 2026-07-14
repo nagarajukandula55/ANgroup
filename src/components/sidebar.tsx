@@ -20,6 +20,7 @@ interface Business { _id: string; name: string; brandName?: string; businessCode
 interface UserInfo {
   id: string; name: string; email: string; role: string;
   isSuperAdmin: boolean; activeBusinessId: string | null;
+  isPlatformStaff?: boolean;
   moduleOrder?: string[];
 }
 
@@ -269,7 +270,7 @@ export default function Sidebar() {
         // since they don't have an "all businesses" view to fall back to.
         const found = data.user?.activeBusinessId
           ? data.businesses?.find((b: Business) => b._id === data.user.activeBusinessId) || null
-          : data.user?.isSuperAdmin
+          : (data.user?.isSuperAdmin || data.user?.isPlatformStaff)
             ? null
             : data.businesses?.[0] || null;
         setActiveBiz(found);
@@ -452,7 +453,7 @@ export default function Sidebar() {
             <button
               onClick={() => setBizDropdown(!bizDropdown)}
               disabled={switching}
-              title={activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
+              title={activeBiz ? (activeBiz.brandName || activeBiz.name) : ((user?.isSuperAdmin || user?.isPlatformStaff) ? "AN Group" : "Select Business")}
               className={`flex w-full items-center rounded-lg border border-gray-200 bg-gray-50 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60 ${
                 isCollapsed ? "justify-center px-0" : "justify-between px-3"
               }`}
@@ -461,7 +462,7 @@ export default function Sidebar() {
                 <Building2 size={12} className="shrink-0 text-gray-400" />
                 {!isCollapsed && (
                   <span className="truncate text-xs font-medium text-gray-700">
-                    {activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
+                    {activeBiz ? (activeBiz.brandName || activeBiz.name) : ((user?.isSuperAdmin || user?.isPlatformStaff) ? "AN Group" : "Select Business")}
                   </span>
                 )}
               </div>
@@ -474,12 +475,16 @@ export default function Sidebar() {
               <div className={`absolute top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden ${
                 isCollapsed ? "left-3 w-56" : "left-3 right-3"
               }`}>
-                {/* "All Businesses" is a first-class option for Super Admins,
-                    not just a way to exit a business you got stuck in — it
-                    always appears at the top of the list so choosing "look
-                    at everything" is as deliberate a choice as picking one
-                    specific business. */}
-                {user?.isSuperAdmin && (
+                {/* "AN Group" (the platform itself, viewing across every
+                    business) is a first-class option for Super Admins AND
+                    any AN Group staff account holding a platform-wide role
+                    (Role.businessId/vendorId both null -- see
+                    api/auth/me's isPlatformStaff) -- not just a way to exit
+                    a business you got stuck in. Was Super-Admin-only, which
+                    left real AN staff with genuine cross-business access
+                    stuck picking one business at a time with no way to see
+                    the aggregate/platform view their role actually grants. */}
+                {(user?.isSuperAdmin || user?.isPlatformStaff) && (
                   <button
                     onClick={exitBusiness}
                     disabled={switching}
@@ -487,7 +492,7 @@ export default function Sidebar() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <LogOut size={12} className="shrink-0 text-gray-500" />
-                      <span className="truncate text-xs font-medium text-gray-700">All Businesses</span>
+                      <span className="truncate text-xs font-medium text-gray-700">AN Group</span>
                     </div>
                     {!user?.activeBusinessId && <Check size={11} className="shrink-0 text-emerald-500 ml-2" />}
                   </button>
@@ -518,7 +523,7 @@ export default function Sidebar() {
             dropdown is closed, so a super admin never loses track of the
             fact they're scoped into a single business and forgets there's
             a way out. */}
-        {!isCollapsed && user?.isSuperAdmin && user?.activeBusinessId && activeBiz && (
+        {!isCollapsed && (user?.isSuperAdmin || user?.isPlatformStaff) && user?.activeBusinessId && activeBiz && (
           <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
             <span className="truncate text-[10px] text-amber-700">
               Viewing as: <strong>{activeBiz.brandName || activeBiz.name}</strong>
@@ -526,7 +531,7 @@ export default function Sidebar() {
             <button
               onClick={exitBusiness}
               disabled={switching}
-              title="Return to Super Admin view"
+              title="Return to AN Group view"
               className="shrink-0 text-[10px] font-medium text-amber-700 underline hover:text-amber-900 disabled:opacity-60"
             >
               Exit

@@ -114,10 +114,11 @@ export default function VendorsPage() {
         // created under a different business never showed up here even
         // though it existed in the DB, only after switching the active
         // business to match it.
-        if (d.user?.isSuperAdmin) fetchVendors('ALL')
+        const seesAllBusinesses = d.user?.isSuperAdmin || d.user?.isPlatformStaff
+        if (seesAllBusinesses) fetchVendors('ALL')
         else if (bId) fetchVendors(bId)
         else setLoading(false)
-        if (d.user?.isSuperAdmin) fetchUnassignedRequests()
+        if (seesAllBusinesses) fetchUnassignedRequests()
       })
       .catch(() => setLoading(false))
   }, [])

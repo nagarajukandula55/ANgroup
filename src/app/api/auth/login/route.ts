@@ -92,9 +92,24 @@ export async function POST(req: Request) {
     // separate customer UI in this repo yet.
     const userRoleDocs = await UserRole.find({ userId: user._id }).lean().exec() as any[];
     const grantedRoles = userRoleDocs.length
-      ? await Role.find({ _id: { $in: userRoleDocs.map((r) => r.roleId) } }).select("code homeRoute").lean().exec() as any[]
+      ? await Role.find({ _id: { $in: userRoleDocs.map((r) => r.roleId) } }).select("code homeRoute businessId vendorId permissions").lean().exec() as any[]
       : [];
     const roleCodes = grantedRoles.map((r) => r.code);
+    // AN Group platform staff -- holds a real, non-floor role with no
+    // businessId/vendorId (platform-wide, e.g. AN_ADMIN/ADMIN/EMPLOYEE or
+    // a custom AN staff role) AND at least one actual permission -- NOT
+    // just "no businessId", since the minimal self-registration floor
+    // roles (CUSTOMER/CUSTOMER_ANGROUP/CUSTOMER_SHOPNATIVE) are also
+    // global with no businessId; without excluding those, every ordinary
+    // customer account would have been mistakenly granted cross-business
+    // staff visibility. Treated like super admin for cross-business
+    // VISIBILITY only (see middleware.ts's x-is-platform-staff header) --
+    // still gated by their actual granted permissions per module/page.
+    const isPlatformStaff =
+      isSuperAdmin ||
+      grantedRoles.some(
+        (r) => !r.businessId && !r.vendorId && !MINIMAL_FLOOR_ROLE_CODES.includes(r.code) && (r.permissions?.length || 0) > 0
+      );
     // Per-role configurable login landing page (admin/roles editor's new
     // "Home Page" field) -- a floor role (CUSTOMER etc.) never has one set,
     // so the first non-floor role that does wins. Falls back to the
@@ -115,6 +130,7 @@ export async function POST(req: Request) {
       name:             user.name || user.username || "User",
       role:             user.role || "USER",
       isSuperAdmin,
+      isPlatformStaff,
       businessIds,
       activeBusinessId,
       organizationId:   user.organizationId?.toString(),
@@ -128,6 +144,7 @@ export async function POST(req: Request) {
       username:         user.username,
       role:             user.role,
       isSuperAdmin,
+      isPlatformStaff,
       businessIds,
       activeBusinessId,
       organizationId:   user.organizationId?.toString(),

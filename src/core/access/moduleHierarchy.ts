@@ -79,6 +79,18 @@ export const ACCESS_HIERARCHY: Category[] = [
         ],
       },
       {
+        key: "ops-assets",
+        label: "Assets & Design",
+        modules: [
+          // Real, enforced modules (requirePermission("assets"/"designs", ...)
+          // in api/assets and api/designs) that were never listed here at
+          // all -- an audit found these five gaps ("everything should be
+          // listed there") alongside crm/solutions below.
+          { key: "assets", label: "Assets" },
+          { key: "designs", label: "Designs" },
+        ],
+      },
+      {
         key: "ops-logistics",
         label: "Logistics",
         modules: [{ key: "logistics", label: "Logistics" }],
@@ -118,6 +130,7 @@ export const ACCESS_HIERARCHY: Category[] = [
       { key: "crm_calls", label: "CRM Calls" },
       { key: "crm_jobsheets", label: "CRM Job Sheets" },
       { key: "fault_codes", label: "Fault Codes" },
+      { key: "solutions", label: "Solutions" },
       { key: "blog", label: "Blog" },
     ],
   },
@@ -126,6 +139,8 @@ export const ACCESS_HIERARCHY: Category[] = [
     label: "People & Access",
     modules: [
       { key: "staff", label: "Staff" },
+      { key: "employees", label: "Employees" },
+      { key: "customers", label: "Customer Data" },
       { key: "users", label: "Users" },
       { key: "roles", label: "Roles" },
       { key: "access", label: "Access Control" },

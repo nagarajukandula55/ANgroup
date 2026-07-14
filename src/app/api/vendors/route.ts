@@ -30,14 +30,17 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search");
     const status = searchParams.get("status");
     const isSuperAdmin = h.get("x-is-super-admin") === "true";
+    const isPlatformStaff = h.get("x-is-platform-staff") === "true";
 
-    // Super admins can request every vendor across every business at once
-    // (businessId=ALL) -- without this, the admin Vendors page could only
-    // ever show whichever ONE business happened to be active in the
-    // session, so a vendor created under a different business silently
-    // never appeared in the list even though it existed in the DB (it
-    // only showed up after switching the active business to match).
-    const wantsAll = isSuperAdmin && businessId === "ALL";
+    // Super admins (and AN Group platform staff holding a platform-wide
+    // role -- see middleware.ts's x-is-platform-staff header) can request
+    // every vendor across every business at once (businessId=ALL) --
+    // without this, the admin Vendors page could only ever show whichever
+    // ONE business happened to be active in the session, so a vendor
+    // created under a different business silently never appeared in the
+    // list even though it existed in the DB (it only showed up after
+    // switching the active business to match).
+    const wantsAll = (isSuperAdmin || isPlatformStaff) && businessId === "ALL";
 
     if (!wantsAll && (!businessId || !Types.ObjectId.isValid(businessId))) {
       return NextResponse.json(

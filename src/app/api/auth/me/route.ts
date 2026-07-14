@@ -33,10 +33,26 @@ export async function GET(req: Request) {
       );
     }
 
+    const userRoleDocs = await UserRole.find({ userId: user._id }).select("roleId").lean().exec() as any[];
+
+    // A platform-wide ("AN Group") role -- one granted with no businessId/
+    // vendorId, e.g. AN_ADMIN or a custom AN staff role created from Admin
+    // > Access -- means this account works across every business, not one
+    // tenant. Previously only isSuperAdmin got that: an AN Group staff
+    // member with real platform-wide access still only saw the handful of
+    // businesses they happened to have an explicit BusinessMember row for,
+    // and had no "AN Group" / cross-business option in the switcher at all.
+    const platformRoleCount = userRoleDocs.length
+      ? await Role.countDocuments({ _id: { $in: userRoleDocs.map((r) => r.roleId) }, businessId: null, vendorId: null })
+      : 0;
+    const isPlatformStaff = isSuperAdmin || platformRoleCount > 0;
+
     let businesses: any[] = [];
 
-    if (isSuperAdmin) {
-      // Super admin: return all active businesses
+    if (isPlatformStaff) {
+      // Super admin or AN Group platform staff: see every active business
+      // (per-page/module permission checks still gate what data within
+      // each business they can actually view/edit).
       businesses = await (Business as any).find({ isActive: true })
         .select("_id name brandName businessCode type")
         .lean();
@@ -81,15 +97,12 @@ export async function GET(req: Request) {
     // or a super admin who is ALSO a business Manager), and that's exactly
     // who was testing this feature and seeing it silently do nothing.
     let moduleOrder: string[] = [];
-    {
-      const userRoleDocs = await UserRole.find({ userId: user._id }).select("roleId").lean().exec() as any[];
-      if (userRoleDocs.length) {
-        const roleWithOrder = await Role.findOne({
-          _id: { $in: userRoleDocs.map((r) => r.roleId) },
-          moduleOrder: { $exists: true, $not: { $size: 0 } },
-        }).select("moduleOrder").lean().exec() as any;
-        moduleOrder = roleWithOrder?.moduleOrder || [];
-      }
+    if (userRoleDocs.length) {
+      const roleWithOrder = await Role.findOne({
+        _id: { $in: userRoleDocs.map((r) => r.roleId) },
+        moduleOrder: { $exists: true, $not: { $size: 0 } },
+      }).select("moduleOrder").lean().exec() as any;
+      moduleOrder = roleWithOrder?.moduleOrder || [];
     }
 
     return NextResponse.json({
@@ -103,6 +116,7 @@ export async function GET(req: Request) {
         avatar:                user.avatar || null,
         role:                  user.role,
         isSuperAdmin,
+        isPlatformStaff,
         activeBusinessId:      activeBusinessId || null,
         defaultBusinessId:     user.defaultBusinessId?.toString() || null,
         defaultOrganizationId: user.defaultOrganizationId?.toString() || null,

@@ -37,8 +37,8 @@ export async function POST(req: Request) {
     await connectDB();
 
     /* ── Authorise the switch ──────────────────────────────────────── */
-    if (payload.isSuperAdmin) {
-      // Super admin can switch to any active business
+    if (payload.isSuperAdmin || payload.isPlatformStaff) {
+      // Super admin / AN Group platform staff can switch to any active business
       const biz = await (Business as any).findById(businessId).select("_id name").lean();
       if (!biz) {
         return NextResponse.json({ success: false, message: "Business not found" }, { status: 404 });
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     /* ── Re-issue token with new activeBusinessId ──────────────────── */
     // Build updated businessIds for super admin (they don't have a fixed list)
     let businessIds = payload.businessIds;
-    if (payload.isSuperAdmin && !businessIds.includes(businessId)) {
+    if ((payload.isSuperAdmin || payload.isPlatformStaff) && !businessIds.includes(businessId)) {
       businessIds = [...businessIds, businessId];
     }
 
@@ -72,6 +72,7 @@ export async function POST(req: Request) {
       name:             payload.name,
       role:             payload.role,
       isSuperAdmin:     payload.isSuperAdmin,
+      isPlatformStaff:  payload.isPlatformStaff,
       businessIds,
       activeBusinessId: businessId,
       organizationId:   payload.organizationId,

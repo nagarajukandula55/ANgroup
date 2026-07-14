@@ -36,6 +36,7 @@ export interface JWTPayload {
   name: string;
   role: string;
   isSuperAdmin: boolean;
+  isPlatformStaff?: boolean;
   businessIds: string[];
   activeBusinessId?: string;
   organizationId?: string;

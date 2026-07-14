@@ -22,6 +22,7 @@ interface JWTPayload {
   name: string;
   role: string;
   isSuperAdmin: boolean;
+  isPlatformStaff?: boolean;
   businessIds: string[];
   activeBusinessId?: string;
   organizationId?: string;
@@ -207,6 +208,12 @@ export async function middleware(req: NextRequest) {
   requestHeaders.set("x-user-email",    payload.email);
   requestHeaders.set("x-user-role",     payload.role);
   requestHeaders.set("x-is-super-admin", payload.isSuperAdmin ? "true" : "false");
+  // AN Group platform staff -- an account holding a platform-wide Role
+  // (businessId/vendorId both null), same class of account as super admin
+  // for cross-business VISIBILITY purposes (still gated per-module by
+  // their actual granted permissions -- see api/auth/login's
+  // isPlatformStaff computation and api/auth/me's mirror of it).
+  requestHeaders.set("x-is-platform-staff", payload.isPlatformStaff ? "true" : "false");
 
   if (payload.organizationId)   requestHeaders.set("x-organization-id",   payload.organizationId);
   if (payload.activeBusinessId) requestHeaders.set("x-active-business-id", payload.activeBusinessId);
