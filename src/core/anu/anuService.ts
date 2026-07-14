@@ -106,7 +106,7 @@ export async function askAnu(input: AnuQueryInput): Promise<AnuQueryResult> {
       reply: "",
       provider: "none",
       error:
-        "I don't have anything on that yet. Add an Anthropic or OpenAI API key in Settings > AI for full conversational answers, or teach me about this from the graduation-cap icon.",
+        "I don't have anything on that yet. Add an Anthropic or OpenAI API key from Admin > AI Studio (not Settings — that page only shows status) for full conversational answers, or teach me about this from the graduation-cap icon.",
     };
   } catch (err: any) {
     return {

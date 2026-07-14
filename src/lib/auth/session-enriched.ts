@@ -109,6 +109,26 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
           rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
         }
 
+        // Cross-business role leak: a Role scoped to Business A (via its
+        // own businessId) was still granting its permissions to a user
+        // even while their ACTIVE session business was Business B -- this
+        // block only ever unioned every UserRole the person holds,
+        // regardless of which one's business context they're currently
+        // in. A role is now only "live" in a session when it's either
+        // platform-wide (businessId null, or AN Group's own real business
+        // id -- see anGroupBusiness.service.ts) or matches the session's
+        // actual active business. Skipped entirely when there's no active
+        // business context at all (e.g. still picking one) -- in that
+        // state only platform-wide roles apply.
+        const { getOrCreateANGroupBusinessId } = await import("@/core/access/anGroupBusiness.service");
+        const anGroupId = await getOrCreateANGroupBusinessId().catch(() => null);
+        const activeBizId = businessContext?.businessId ? String(businessContext.businessId) : null;
+        rolesDocs = rolesDocs.filter((r: any) => {
+          const roleBiz = r.businessId ? String(r.businessId) : null;
+          if (!roleBiz || roleBiz === anGroupId) return true; // platform-wide
+          return activeBizId ? roleBiz === activeBizId : false;
+        });
+
         roles = rolesDocs.map((r: any) => r.code);
 
         // Two independent, non-overlapping permission storage conventions
@@ -126,7 +146,7 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
         );
 
         const rolePermissions = await RolePermission.find({
-          roleId: { $in: roleIds },
+          roleId: { $in: rolesDocs.map((r: any) => r._id) },
         }).lean();
 
         const permissionIds = rolePermissions.map((p: any) => p.permissionId);

@@ -574,7 +574,7 @@ export default function AdminSettingsPage() {
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">AI / ANu Configuration</h3>
             <p className="text-xs text-gray-500 mb-5">
-              ANu (the in-house assistant at Admin &gt; AI Workspace) uses whichever provider below is enabled, preferring Anthropic if both are set. Add an API key here to turn ANu on for this business.
+              ANu (the assistant reachable from the graduation-cap/bot icon on every admin page) uses whichever provider below is enabled, preferring Anthropic if both are set. This page is a status summary only — the previous copy here wrongly said "add a key here"; use the button below instead.
             </p>
             {loadingAi ? (
               <p className="text-sm text-gray-500">Loading…</p>
@@ -591,9 +591,12 @@ export default function AdminSettingsPage() {
                     <span className={`h-2.5 w-2.5 rounded-full ${aiConfig.providers[provider]?.isEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`} />
                   </div>
                 ))}
-                <p className="text-xs text-gray-400 pt-2">
-                  Full API-key editing uses the existing /admin/ai-image screen's provider settings (same AIConfig record ANu reads) — this view is a status summary.
-                </p>
+                <a
+                  href="/admin/ai-image"
+                  className="inline-flex items-center gap-1.5 mt-2 px-3 py-2 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition"
+                >
+                  Add / edit API keys in AI Studio
+                </a>
               </div>
             )}
           </div>

@@ -92,9 +92,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and code are required' }, { status: 400 });
     }
 
-    const existing = await Role.findOne({ code, isDeleted: { $ne: true } });
+    // Was checking uniqueness GLOBALLY (just `code`), not scoped to this
+    // business -- the real unique index is {code, businessId, vendorId}
+    // (see Role.ts), so this falsely blocked a second business from ever
+    // creating its own role using a code some other business already used
+    // (e.g. "MANAGER"), even though roles are meant to be independent per
+    // business.
+    const existing = await Role.findOne({
+      code: code.toUpperCase(),
+      businessId: businessId || null,
+      vendorId: null,
+      isDeleted: { $ne: true },
+    });
     if (existing) {
-      return NextResponse.json({ error: 'Role with this code already exists' }, { status: 409 });
+      return NextResponse.json({ error: 'A role with this code already exists for this business' }, { status: 409 });
     }
 
     const role = await Role.create({
@@ -102,7 +113,7 @@ export async function POST(request: NextRequest) {
       code: code.toUpperCase(),
       description,
       permissions: permissions || [],
-      businessId,
+      businessId: businessId || null,
       isDeleted: false,
     });
 

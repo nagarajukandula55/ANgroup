@@ -68,6 +68,7 @@ export default function AccessPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusinessId, setActiveBusinessId] = useState<string>("");
   const [businessEnabledKeys, setBusinessEnabledKeys] = useState<Set<string> | null>(null);
+  const anGroupBusinessId = useMemo(() => businesses.find((b) => b.isPlatform)?._id || "", [businesses]);
 
   // DB-backed, admin-editable category/subcategory tree (built-in
   // ACCESS_HIERARCHY + any custom containers/re-parenting on top of it --
@@ -132,12 +133,16 @@ export default function AccessPage() {
         const biz = d.business || d;
         const mods = Array.isArray(biz?.modules) ? biz.modules : [];
         const enabled = mods.filter((m: any) => m?.enabled !== false).map((m: any) => String(m?.key));
-        // No restriction configured yet for this business -- show everything,
-        // same "unconfigured means unrestricted" convention used elsewhere.
-        setBusinessEnabledKeys(enabled.length ? new Set(enabled) : null);
+        // AN Group (the platform) always sees the full module list --
+        // there's no "business" above it to configure a subset. Any real
+        // tenant business gets an exact match against what's configured in
+        // Business > Modules: not "everything" when unconfigured, and
+        // nothing extra beyond what's ticked there either -- "nothing
+        // should show beyond that and less than that".
+        setBusinessEnabledKeys(activeBusinessId === anGroupBusinessId ? null : new Set(enabled));
       })
-      .catch(() => setBusinessEnabledKeys(null));
-  }, [activeBusinessId]);
+      .catch(() => setBusinessEnabledKeys(activeBusinessId === anGroupBusinessId ? null : new Set()));
+  }, [activeBusinessId, anGroupBusinessId]);
 
   async function addCategory() {
     if (!newNodeLabel.trim()) return;
@@ -305,6 +310,12 @@ export default function AccessPage() {
   async function createRole() {
     if (!newRoleName.trim() || !newRoleCode.trim()) return;
     try {
+      // Was never sending a businessId at all -- every new role landed
+      // with businessId: null, which the (now-fixed) visibleRoles filter
+      // treats as "belongs to AN Group", so it showed up under every
+      // business. A role is now always created under whichever business
+      // is currently active (AN Group's own real id if that's selected),
+      // and stays exclusive to it.
       await fetch("/api/admin/roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -313,6 +324,7 @@ export default function AccessPage() {
           code: newRoleCode,
           color: newRoleColor,
           permissions: [],
+          businessId: activeBusinessId || undefined,
         }),
       });
       await fetchRoles();
@@ -369,12 +381,23 @@ export default function AccessPage() {
       .filter((c): c is NonNullable<typeof c> => c !== null);
   }, [search, hierarchy, businessEnabledKeys]);
 
-  // Roles scoped to the active business (plus platform-wide roles with no
-  // businessId) when one is selected -- otherwise every role, unchanged.
+  // Strict per-business role isolation: a role created under Business A
+  // must never show up (or be selectable/appliable) under Business B or
+  // any other business. AN Group is the one exception, since it's also
+  // where the legacy platform-wide system roles (SUPER_ADMIN, ADMIN,
+  // EMPLOYEE, the CUSTOMER floor roles) still live with businessId: null
+  // in the database -- those are treated as belonging to AN Group, not as
+  // "visible everywhere". Was previously `!r.businessId || r.businessId
+  // === activeBusinessId`, which (combined with createRole never sending a
+  // businessId at all) meant every newly-created role defaulted to
+  // "visible under every business", exactly the leak reported.
   const visibleRoles = useMemo(() => {
     if (!activeBusinessId) return roles;
-    return roles.filter((r) => !r.businessId || r.businessId === activeBusinessId);
-  }, [roles, activeBusinessId]);
+    if (activeBusinessId === anGroupBusinessId) {
+      return roles.filter((r) => !r.businessId || r.businessId === anGroupBusinessId);
+    }
+    return roles.filter((r) => r.businessId === activeBusinessId);
+  }, [roles, activeBusinessId, anGroupBusinessId]);
 
   const rowCls =
     "flex items-center justify-between gap-4 px-4 py-2.5 border-b border-gray-100 last:border-0";
