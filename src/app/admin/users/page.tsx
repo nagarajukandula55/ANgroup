@@ -548,7 +548,7 @@ export default function UsersPage() {
 
                           {selectedVendorId && (
                             <select value={selectedRoleCode} onChange={e => setSelectedRoleCode(e.target.value)} className={selectCls}>
-                              <option value="">Select a role to grant…</option>
+                              <option value="">No role (vendor manages access) — optional</option>
                               {vendorRoles.map(r => (
                                 <option key={r._id} value={r.code}>{r.name}</option>
                               ))}
@@ -566,11 +566,11 @@ export default function UsersPage() {
                             <button
                               type="button"
                               onClick={attachToVendorTeam}
-                              disabled={tagging === selectedVendorId || !selectedRoleCode}
-                              title={!selectedRoleCode ? 'Select a role to grant — a user cannot be attached with no access' : undefined}
+                              disabled={tagging === selectedVendorId}
+                              title={!selectedRoleCode ? 'Attaches this user to the vendor team with no access yet — the vendor manages what they can do from their own Team/Profile page' : undefined}
                               className="w-full text-sm font-medium px-3 py-2.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition"
                             >
-                              {tagging === selectedVendorId ? 'Attaching…' : 'Attach & Grant Role'}
+                              {tagging === selectedVendorId ? 'Attaching…' : selectedRoleCode ? 'Attach & Grant Role' : 'Attach to Vendor Team'}
                             </button>
                           )}
                         </>

@@ -59,8 +59,18 @@ const VENDOR_ROLE_DEFS: VendorRoleDef[] = [
   { code: "VENDOR_WAREHOUSE_SCM", name: "Warehouse SCM", description: "Full access to logistics and orders.", modules: ["logistics", "orders"], actions: ALL_ACTIONS },
   { code: "VENDOR_WAREHOUSE_HELPER", name: "Warehouse Helper", description: "View and create access to orders only.", modules: ["orders"], actions: VIEW_CREATE },
   { code: "VENDOR_DELIVERY", name: "Delivery", description: "View orders/logistics and update delivery status.", modules: ["orders", "logistics"], actions: VIEW_EDIT },
-  { code: "VENDOR_FRONT_OFFICE", name: "Front Office", description: "Full access to CRM (appointments/workorders); view-only stock check in inventory.", modules: ["crm"], actions: ALL_ACTIONS, },
-  { code: "VENDOR_ENGINEER", name: "Engineer", description: "Full access to CRM (appointments/workorders) and inventory.", modules: ["crm", "inventory"], actions: ALL_ACTIONS },
+  // Was only ["crm"] -- that's the CRM Dashboard landing page ITSELF, not
+  // Appointments/Workorders/Fault Codes/Solutions (crm_calls/crm_jobsheets/
+  // fault_codes/solutions are all separate module keys). A CCO or
+  // Telecaller (both map to VENDOR_FRONT_OFFICE -- see
+  // DESIGNATION_TO_ROLE_CODE in vendor-staff-slots/activate/route.ts) or
+  // Engineer never actually had real appointment/workorder/fault-code
+  // access from this role at all -- the fault-code dropdown while
+  // creating an appointment, and the appointment/workorder lists
+  // themselves, were 403ing silently (the frontend swallows fetch errors
+  // into an empty list) for every account holding these roles.
+  { code: "VENDOR_FRONT_OFFICE", name: "Front Office", description: "Full access to CRM (appointments/workorders); view-only stock check in inventory.", modules: ["crm", "crm_calls", "crm_jobsheets", "fault_codes", "solutions"], actions: ALL_ACTIONS, },
+  { code: "VENDOR_ENGINEER", name: "Engineer", description: "Full access to CRM (appointments/workorders) and inventory.", modules: ["crm", "crm_calls", "crm_jobsheets", "fault_codes", "solutions", "inventory"], actions: ALL_ACTIONS },
 ];
 
 // Front Office additionally gets view-only inventory access, on top of full

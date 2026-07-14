@@ -102,18 +102,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
       if (!vendorId || !mongoose.Types.ObjectId.isValid(vendorId)) {
         return NextResponse.json({ success: false, error: 'vendorId is required' }, { status: 400 });
       }
-      // A user must never end up attached to a vendor's team with zero
-      // real access -- roleCode is now required, not optional, so this
-      // route can no longer produce that dangling state itself. (The
-      // vendor's own Owner/Manager can still grant additional/different
-      // roles later from Vendor Portal > Staff.)
-      if (!roleCode || !String(roleCode).trim()) {
-        return NextResponse.json(
-          { success: false, error: 'roleCode is required — a user cannot be attached to a vendor team with no role/access' },
-          { status: 400 }
-        );
-      }
-
+      // roleCode is deliberately OPTIONAL again, per explicit direction:
+      // Super Admin's job here is just attaching a user to a vendor's
+      // team -- deciding what access that person actually gets is the
+      // vendor's own responsibility from their Team/Profile page, not
+      // something Super Admin needs to configure in the same step. A
+      // roleCode can still be passed to grant one in the same call as a
+      // convenience, but it's no longer required.
       const vendor = await VendorProfile.findOne({
         _id: vendorId,
         businessId,

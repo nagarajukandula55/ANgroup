@@ -78,9 +78,9 @@ interface JobSheet {
 
 interface StaffMember {
   _id: string
-  vendorRole?: string
-  status?: string
-  userId?: { _id?: string; name?: string; email?: string }
+  name?: string
+  email?: string
+  username?: string
 }
 
 const emptyLine = (): LineItem => ({ description: '', quantity: 1, unit: 'pcs', unitPrice: 0, taxRate: 0 })
@@ -253,15 +253,13 @@ export default function JobSheetDetailPage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/vendor/staff')
+    fetch(`/api/crm/jobsheets/${id}/engineers`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) {
-          setEngineers((d.staff || []).filter((m: StaffMember) => m.vendorRole === 'ENGINEER' && m.status === 'ACTIVE'))
-        }
+        if (d.success) setEngineers(d.engineers || [])
       })
       .catch(() => {})
-  }, [])
+  }, [id])
 
   // Vendor's Service Center BOM parts — filtered server-side to this
   // workorder's device brand (plus brand-agnostic parts) so the picker
@@ -590,7 +588,7 @@ export default function JobSheetDetailPage() {
               >
                 <option value="">Select engineer…</option>
                 {engineers.map((e) => (
-                  <option key={e._id} value={e.userId?._id}>{e.userId?.name || e.userId?.email}</option>
+                  <option key={e._id} value={e._id}>{e.name || e.email}</option>
                 ))}
               </select>
               <button onClick={assignEngineer} disabled={assigning || !selectedEngineer} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50">

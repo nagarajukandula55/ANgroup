@@ -28,10 +28,37 @@ import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.servi
  * Orders/BOM pages exist to actually gate.
  */
 
-async function requireVendorOwner(userId: string | null) {
+// Broadened from Owner-only: a vendor's Manager legitimately needs to
+// manage the team too ("SC manager or Owner can see their profile and
+// map user"), and this is also the endpoint the admin CRM pages read
+// staff/engineer lists from -- Owner-only was silently 403ing every
+// other real staff member, including Managers, out of their own team
+// screen. Checked via the real granted VENDOR_MANAGER Role/UserRole, not
+// BusinessMember.vendorRole (a free-text display label, unreliable to
+// match -- see api/vendor/settings/route.ts's own note on this).
+async function requireVendorOwnerOrManager(userId: string | null) {
   if (!userId) return null;
-  const vendor = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
-  return vendor;
+  const owned = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
+  if (owned) return owned;
+
+  const membership = await BusinessMember.findOne({
+    userId,
+    vendorId: { $ne: null },
+    status: "ACTIVE",
+  }).lean();
+  if (!membership?.vendorId) return null;
+
+  const managerRole = await Role.findOne({
+    code: "VENDOR_MANAGER",
+    businessId: membership.businessId,
+    vendorId: membership.vendorId,
+  }).lean();
+  if (!managerRole) return null;
+
+  const hasManagerRole = await UserRole.exists({ userId, roleId: (managerRole as any)._id });
+  if (!hasManagerRole) return null;
+
+  return VendorProfile.findById(membership.vendorId).lean();
 }
 
 export async function GET() {
@@ -39,9 +66,9 @@ export async function GET() {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const vendor = await requireVendorOwner(userId);
+    const vendor = await requireVendorOwnerOrManager(userId);
     if (!vendor) {
-      return NextResponse.json({ success: false, error: "Only a vendor account can view its own staff" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Only a vendor's Owner or Manager can view its staff" }, { status: 403 });
     }
 
     // Self-healing resync: createDefaultVendorRoles is a cheap, idempotent
@@ -113,9 +140,9 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const vendor = await requireVendorOwner(userId);
+    const vendor = await requireVendorOwnerOrManager(userId);
     if (!vendor) {
-      return NextResponse.json({ success: false, error: "Only a vendor account can add its own staff" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Only a vendor's Owner or Manager can add its own staff" }, { status: 403 });
     }
     if (!vendor.businessId) {
       return NextResponse.json({ success: false, error: "Vendor is not yet assigned to a business" }, { status: 400 });
