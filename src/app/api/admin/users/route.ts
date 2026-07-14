@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       users.map(async (user: Record<string, unknown>) => {
         const userId = user._id as mongoose.Types.ObjectId;
         const userRoles = await UserRole.find({ userId }).populate('roleId').lean();
-        const roles = userRoles.map((ur: Record<string, unknown>) => ur.roleId);
+        const roles = userRoles.map((ur: Record<string, unknown>) => ur.roleId).filter(Boolean);
 
         const employeeProfile = await EmployeeProfile.findOne({
           userId,

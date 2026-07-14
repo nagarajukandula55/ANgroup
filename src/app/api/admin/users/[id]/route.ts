@@ -81,7 +81,7 @@ export async function GET(
     }
 
     const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
-    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId));
+    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId).filter(Boolean));
 
     const employeeProfile = await EmployeeProfile.findOne({
       userId: id,
@@ -244,7 +244,7 @@ export async function PUT(
 
     // Re-fetch enriched user
     const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
-    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId));
+    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId).filter(Boolean));
 
     logAction({
       action: "UPDATE",
