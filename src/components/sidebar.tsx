@@ -201,7 +201,20 @@ export default function Sidebar() {
   const router   = useRouter();
   const toast    = useToast();
 
-  const [modules, setModules]           = useState<any[]>(STATIC_MODULES);
+  // Was initialized to STATIC_MODULES (the FULL, unfiltered nav list) as a
+  // "safe" default -- but that meant any account whose permission fetch
+  // hadn't resolved yet, failed, or genuinely came back with a short list
+  // fell straight through to seeing EVERY module in the sidebar, since the
+  // old fetch handler only ever called setModules() when the response was
+  // both successful AND non-empty (see loadSidebarModules below). This is
+  // the actual reason every permission fix for a limited-access role
+  // "didn't stick": no matter how correctly scoped the API's response was,
+  // a slow network, a legitimate zero-module business, or any upstream
+  // hiccup silently fell back to showing everything. Starts empty now --
+  // nothing shows until the API actually confirms what this account may
+  // see, and an empty/failed response means an empty sidebar, not a full one.
+  const [modules, setModules]           = useState<any[]>([]);
+  const [modulesLoaded, setModulesLoaded] = useState(false);
   const [open, setOpen]                 = useState(false);
   const [collapsed, setCollapsed]       = useState(false);
   // When the sidebar is collapsed to icon-only, hovering over it expands it
@@ -288,21 +301,21 @@ export default function Sidebar() {
         body: JSON.stringify({ businessId }),
       });
       const data = await res.json();
-      if (data.success && data.modules?.length > 0) {
-        // Was merging back every STATIC_MODULES entry NOT present in the
-        // API's response ("extra") on the assumption those were simply
-        // modules the DB registry hadn't caught up on yet -- but the API
-        // (api/ui/sidebar/route.ts) already does the real filtering,
-        // including explicitly EXCLUDING modules the business admin
-        // disabled via Business.modules. Re-adding "missing" keys via
-        // `extra` silently undid that exclusion, so unticking a module in
-        // Business > Modules never actually hid it from the sidebar.
-        // Trust the API's list as-is -- it already returns everything
-        // permission-allows when the business has no explicit config, and
-        // exactly the enabled subset when it does.
-        setModules(data.modules);
-      }
-    } catch { /* static */ }
+      // Trust the API's list exactly as returned -- including an empty
+      // one. api/ui/sidebar/route.ts already does the real filtering
+      // (permission-based, plus explicitly excluding modules the business
+      // admin disabled via Business.modules); this used to only call
+      // setModules() when the list was non-empty, silently keeping
+      // whatever was there before (the full STATIC_MODULES list on first
+      // load) for any account with a short or zero-length real list. A
+      // limited-access role account is SUPPOSED to see a short list --
+      // that must render as a short sidebar, not fall back to everything.
+      setModules(data.success ? (data.modules || []) : []);
+    } catch {
+      setModules([]);
+    } finally {
+      setModulesLoaded(true);
+    }
   }
 
   async function switchBusiness(biz: Business) {
