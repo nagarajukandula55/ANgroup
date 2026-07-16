@@ -11,11 +11,14 @@
  *     isProtected true) -- creates it if somehow missing, never touches it
  *     if present.
  *  2. Deletes every OTHER Role document, and every UserRole pointing at a
- *     deleted role.
- *  3. Regenerates the structural Owner/Manager role pair for every ACTIVE
- *     vendor (ensureVendorCoreRoles) so vendor logins keep working
- *     immediately instead of waiting on a lazy self-heal.
- *  4. Deactivates any account left holding zero roles after the wipe
+ *     deleted role. This intentionally does NOT regenerate the structural
+ *     Owner/Manager role pair for existing vendors -- per explicit
+ *     direction to stop auto-generating vendor default roles entirely.
+ *     Vendor logins self-heal those two roles the next time the vendor's
+ *     own finalize/staff-page flow runs; until then a vendor with no
+ *     other role is left with none, matching "nothing survives but
+ *     SUPER_ADMIN" literally.
+ *  3. Deactivates any account left holding zero roles after the wipe
  *     (standing direction from the earlier rebuild-access pass: no
  *     account may sit around with no role) -- excludes whoever still
  *     holds SUPER_ADMIN, naturally, since that role survives.
@@ -28,8 +31,6 @@ import { connectDB } from "../src/core/db/mongodb";
 import Role, { RoleStatus, RoleType } from "../src/models/Role";
 import UserRole from "../src/models/UserRole";
 import User from "../src/models/User";
-import VendorProfile from "../src/models/VendorProfile";
-import { ensureVendorCoreRoles } from "../src/core/access/vendorAccess.service";
 
 async function main() {
   await connectDB();
@@ -56,20 +57,6 @@ async function main() {
   const wipeResult = await Role.deleteMany({ _id: { $ne: superAdmin._id } });
   const orphanResult = await UserRole.deleteMany({ roleId: { $ne: superAdmin._id } });
   console.log(`Deleted ${wipeResult.deletedCount} role(s), ${orphanResult.deletedCount} user-role grant(s).`);
-
-  const activeVendors = await VendorProfile.find({
-    status: "ACTIVE",
-    isDeleted: { $ne: true },
-    businessId: { $ne: null },
-  })
-    .select("_id businessId")
-    .lean();
-  for (const v of activeVendors as any[]) {
-    await ensureVendorCoreRoles(String(v._id), String(v.businessId)).catch((err) => {
-      console.warn(`Failed to regenerate core roles for vendor ${v._id}:`, err?.message);
-    });
-  }
-  console.log(`Regenerated Owner/Manager roles for ${activeVendors.length} active vendor(s).`);
 
   const usersWithRoles = await UserRole.distinct("userId");
   const deactivateResult = await User.updateMany(

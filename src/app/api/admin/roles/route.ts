@@ -33,45 +33,29 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get('businessId');
     const vendorId = searchParams.get('vendorId');
-    // When assigning a role to a VENDOR user specifically, the picker must
-    // offer ONLY that vendor's own roles (VENDOR_OWNER/VENDOR_MANAGER or any
-    // custom vendorId-scoped role) -- never the business-wide roles too,
-    // which was the actual bug behind "only vendor available modules
-    // should show but everything is showing": business-wide roles can carry
-    // permissions (users/settings/roles/etc.) far beyond what a vendor
-    // should ever hold. Business-wide roles stay in the union for the
-    // normal (non-vendor-restricted) case below.
-    const vendorOnly = searchParams.get('vendorOnly') === 'true';
+    // `vendorOnly` used to restrict this query to an exact vendorId match,
+    // which meant Admin > Users > Assign to Vendor's role picker could
+    // never offer a custom role a Super Admin created for that business
+    // from Admin > Access (those are saved with vendorId unset, since
+    // they're business-wide, not tied to one specific vendor) -- the
+    // literal bug report: "created a role but it's not listed in the
+    // dropdown" for a vendor user. There is no UI path that creates a
+    // vendor-scoped custom role, so an exact-match-only filter could only
+    // ever surface the structural Owner/Manager roles. A vendor's real
+    // assignable set is the union of both: its own structural roles AND
+    // whatever business-wide roles this business has defined.
 
-    // A vendor's 11 default roles (Owner/Manager/etc.) are only ever
-    // generated on-demand -- previously only from the vendor's OWN
-    // /vendor/staff page load (self-healing resync there), never from
-    // here. That meant Admin > Users > Assign to Vendor showed an empty
-    // role picker for any vendor whose Owner had never opened their staff
-    // page yet, even though the vendor itself was fully active. Run the
-    // same idempotent upsert here so Super Admin's picker is never empty
-    // for an active vendor.
-    if (vendorId && businessId && mongoose.Types.ObjectId.isValid(vendorId)) {
-      const { createDefaultVendorRoles } = await import('@/core/access/vendorDefaultRoles.service');
-      await createDefaultVendorRoles(vendorId, businessId).catch(() => {});
-    }
+    // Roles are no longer auto-generated as a side effect of loading this
+    // picker -- a GET request must not create database records. Vendor
+    // structural roles (Owner/Manager) are created when a vendor is
+    // finalized/approved and self-heal on the vendor's own staff page;
+    // if a role is missing here, that's surfaced honestly as an empty
+    // picker rather than silently minted.
 
     const query: Record<string, unknown> = { isDeleted: { $ne: true } };
     if (businessId) query.businessId = businessId;
-    // Was an exact vendorId match ONLY -- so Admin > Users > Assign to
-    // Vendor's role picker could show nothing but the 11 auto-generated
-    // vendor-default roles (VENDOR_OWNER/VENDOR_MANAGER/etc.), never any
-    // custom role a Super Admin had built for that BUSINESS from
-    // Admin > Access (those are saved with vendorId unset, since they're
-    // business-wide, not tied to one specific vendor). A vendor's own
-    // real access is the union of both: its own default set AND whatever
-    // that business-wide roles this business has defined.
     if (vendorId) {
-      if (vendorOnly) {
-        query.vendorId = vendorId;
-      } else {
-        query.$or = [{ vendorId }, { vendorId: { $in: [null, undefined] } }];
-      }
+      query.$or = [{ vendorId }, { vendorId: { $in: [null, undefined] } }];
     }
 
     const roles = await Role.find(query).lean();
