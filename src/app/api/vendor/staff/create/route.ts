@@ -91,13 +91,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const roles = await Role.find({ businessId: vendor.businessId, vendorId: vendor._id, status: "ACTIVE" }).lean();
+    // Union of this vendor's own structural roles AND the business's own
+    // custom roles (vendorId: null, e.g. CCO/Engineer/Manager created from
+    // Admin > Access) -- was vendorId-exact-match only, so a business's
+    // own serialized custom roles never showed up here or could be granted
+    // to a newly-created employee, only Owner/Manager.
+    const roles = await Role.find({
+      businessId: vendor.businessId,
+      status: "ACTIVE",
+      $or: [{ vendorId: vendor._id }, { vendorId: null }],
+    }).lean();
     let grantedRoleDoc = null;
     if (roleCode) {
       grantedRoleDoc = roles.find((r: any) => r.code === String(roleCode).toUpperCase());
       if (!grantedRoleDoc) {
         return NextResponse.json(
-          { success: false, error: "That role does not belong to your vendor's own role set" },
+          { success: false, error: "That role does not belong to your vendor or this business" },
           { status: 400 }
         );
       }

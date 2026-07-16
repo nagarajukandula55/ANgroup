@@ -227,34 +227,46 @@ export async function grantVendorStaffAccess(opts: {
   }
 }
 
-/** Per-user access map for a vendor's whole team, for the Team & Access UI. */
+/**
+ * Per-user access map for a vendor's whole team, for the Team & Access UI
+ * AND for vendor/layout.tsx's nav-item visibility filtering.
+ *
+ * Was built ONLY from the per-user VSTAFF_<userId> personal roles
+ * (grantVendorStaffAccess's module-checkbox mechanism) plus the vendor's
+ * own VENDOR_MANAGER role -- once a vendor could also assign one of the
+ * business's own custom roles (CCO, Engineer, business-wide "Manager",
+ * etc. -- see the vendorId-union fix in api/vendor/staff/route.ts) directly
+ * to a staff member, that grant carried real permissions (session-
+ * enriched.ts sees it fine) but this map had no idea it existed, so the
+ * matching sidebar item never showed up even though the API calls behind
+ * it would have worked. Now unions modules from EVERY role any team member
+ * actually holds, not just the two known mechanisms.
+ */
 export async function getVendorStaffAccessMap(
   vendorId: string,
   businessId: string
 ): Promise<Record<string, { modules: string[]; isManager: boolean }>> {
-  const [staffRoles, managerRole] = await Promise.all([
-    Role.find({ vendorId, businessId, code: { $regex: `^${STAFF_ROLE_PREFIX}` } }).lean(),
-    Role.findOne({ code: "VENDOR_MANAGER", vendorId, businessId }).select("_id").lean(),
-  ]);
+  const members = await BusinessMember.find({ vendorId, businessId, status: "ACTIVE", isDeleted: { $ne: true } })
+    .select("userId")
+    .lean();
+  const memberIds = members.map((m: any) => m.userId);
+  if (memberIds.length === 0) return {};
+
+  const userRoles = await UserRole.find({ userId: { $in: memberIds } }).select("userId roleId").lean();
+  const roleIds = Array.from(new Set(userRoles.map((r: any) => String(r.roleId))));
+  const roleDocs = await Role.find({ _id: { $in: roleIds } }).select("code permissions").lean();
+  const roleById = new Map(roleDocs.map((r: any) => [String(r._id), r]));
 
   const map: Record<string, { modules: string[]; isManager: boolean }> = {};
-
-  for (const role of staffRoles as any[]) {
-    const userId = String(role.code).slice(STAFF_ROLE_PREFIX.length).toLowerCase();
-    // Recover the module set from the permission codes (MODULE.ACTION).
-    const modules = Array.from(
-      new Set((role.permissions || []).map((p: string) => p.split(".")[0].toLowerCase()))
-    ) as string[];
-    map[userId] = { modules, isManager: false };
-  }
-
-  if (managerRole) {
-    const managerGrants = await UserRole.find({ roleId: (managerRole as any)._id }).select("userId").lean();
-    for (const g of managerGrants as any[]) {
-      const uid = String(g.userId).toLowerCase();
-      if (!map[uid]) map[uid] = { modules: [], isManager: true };
-      else map[uid].isManager = true;
-    }
+  for (const grant of userRoles as any[]) {
+    const role = roleById.get(String(grant.roleId));
+    if (!role) continue;
+    const uid = String(grant.userId).toLowerCase();
+    const modules = (role.permissions || []).map((p: string) => p.split(".")[0].toLowerCase());
+    const isManager = role.code === "VENDOR_MANAGER" || role.code === "MANAGER";
+    if (!map[uid]) map[uid] = { modules: [], isManager: false };
+    map[uid].modules = Array.from(new Set([...map[uid].modules, ...modules]));
+    if (isManager) map[uid].isManager = true;
   }
 
   return map;

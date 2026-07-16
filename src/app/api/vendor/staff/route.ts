@@ -61,18 +61,23 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .lean();
 
-    // The vendor's own fixed default role set (Owner, Manager, Finance
-    // Manager, etc. — see vendorDefaultRoles.service.ts), scoped to
-    // {businessId, vendorId} so this vendor can only ever see/grant its
-    // own 11 roles, never another vendor's or a full business-wide role.
-    // Surfaced here so the staff UI can offer real permission-granting
-    // roles instead of only a free-text label — previously this list was
-    // never exposed to the frontend at all, which is why "Owner" wasn't
-    // pickable here and admins were falling back to the business-wide
-    // Admin > Users flow (which grants access to the ENTIRE business, not
-    // just this vendor) just to hand out a Manager/Owner-equivalent role.
-    const roles = await Role.find({ businessId: vendor.businessId, vendorId: vendor._id, status: "ACTIVE" })
-      .select("code name description")
+    // The vendor's real assignable set is the UNION of its own structural
+    // roles (Owner/Manager -- vendorId: vendor._id) AND whatever
+    // business-wide custom roles this business has defined from
+    // Admin > Access (vendorId: null, e.g. CCO/Engineer, each with their
+    // own serialized roleNumber) -- was exact-match-only on vendorId, so a
+    // vendor could never assign one of the business's own custom roles to
+    // their staff, only the two auto-generated structural ones. Matches
+    // the same union GET /api/admin/roles?businessId&vendorId already
+    // returns for the Super Admin's "Assign to Vendor" role picker --
+    // reported live: a business's serialized custom roles (CCO, Engineer,
+    // Manager) weren't listed here at all, only Owner/Manager.
+    const roles = await Role.find({
+      businessId: vendor.businessId,
+      status: "ACTIVE",
+      $or: [{ vendorId: vendor._id }, { vendorId: null }],
+    })
+      .select("code name description roleNumber")
       .sort({ name: 1 })
       .lean();
 
@@ -155,14 +160,16 @@ export async function POST(req: NextRequest) {
 
     let grantedRoleDoc = null;
     if (roleCode) {
+      // Same union as the GET above -- this vendor's own structural roles
+      // OR one of the business's own custom roles (vendorId: null).
       grantedRoleDoc = await Role.findOne({
         code: String(roleCode).toUpperCase(),
         businessId: vendor.businessId,
-        vendorId: vendor._id,
+        $or: [{ vendorId: vendor._id }, { vendorId: null }],
       });
       if (!grantedRoleDoc) {
         return NextResponse.json(
-          { success: false, error: "That role does not belong to your vendor's default role set" },
+          { success: false, error: "That role does not belong to your vendor or this business" },
           { status: 400 }
         );
       }
