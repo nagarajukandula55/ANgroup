@@ -54,6 +54,12 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "ops-purchase", label: "Purchase", items: [
       { key: "purchase",        label: "Purchase",        route: "/admin/purchase",         icon: "ShoppingCart" },
       { key: "purchase-orders", label: "Purchase Orders", route: "/admin/purchase-orders",  icon: "ShoppingCart" },
+      // Consolidated onto the canonical GoodsReceipt model -- see
+      // services/goodsReceipt.service.ts's top comment for why three
+      // separate, none-of-them-wired-up GRN implementations existed
+      // before this. Reuses the "grn" permission key, already in
+      // moduleHierarchy.ts from an earlier pass.
+      { key: "goods-receipts",  label: "Goods Receipts",  route: "/admin/goods-receipts",   icon: "ShoppingCart" },
       // Was its own sidebar entry ("Vendor Products") pointing at a dead
       // stub page — consolidated into the single "Products" entry above;
       // the pending-approvals queue is now reached via a button inside that

@@ -78,6 +78,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   STOCK_TRANSFER: "Stock Transfer",
   STOCK_ADJUSTMENT: "Stock Adjustment",
   PRODUCTION_ORDER: "Production Order",
+  GRN: "Goods Receipt (GRN)",
 };
 
 // Representative sample data for the live preview -- pure client-side

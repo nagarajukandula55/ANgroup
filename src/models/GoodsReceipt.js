@@ -14,8 +14,11 @@ const GoodsReceiptSchema = new mongoose.Schema(
     },
 
     vendorId: {
+      // Was ref:"Vendor" -- the legacy, superseded vendor model. Every
+      // live vendor system in the app (including PurchaseOrder.vendorId,
+      // which this record is always created from) uses VendorProfile.
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "VendorProfile",
       required: true,
       index: true,
     },

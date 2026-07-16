@@ -41,7 +41,8 @@ export type DocumentTemplateType =
   | "SALES_ORDER"
   | "STOCK_TRANSFER"
   | "STOCK_ADJUSTMENT"
-  | "PRODUCTION_ORDER";
+  | "PRODUCTION_ORDER"
+  | "GRN";
 
 export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "INVOICE",
@@ -57,6 +58,7 @@ export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "STOCK_TRANSFER",
   "STOCK_ADJUSTMENT",
   "PRODUCTION_ORDER",
+  "GRN",
 ];
 
 export type TemplateBlockType =

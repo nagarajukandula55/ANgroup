@@ -337,3 +337,53 @@ export function salesDocumentToRenderData(
     notes: doc.notes,
   };
 }
+
+/** Maps a GoodsReceipt (+ populated vendorId/warehouseId/purchaseOrderId,
+ * + its GoodsReceiptItem[] with materialId populated) into the generic
+ * render shape. Party is the vendor goods were received from. */
+export function goodsReceiptToRenderData(
+  receipt: any,
+  company: DocumentRenderData["company"]
+): DocumentRenderData {
+  const vendor = receipt.vendorId || {};
+  const vendorAddress = vendor.address
+    ? [vendor.address.street, vendor.address.city, vendor.address.state, vendor.address.pincode].filter(Boolean).join(", ")
+    : undefined;
+
+  return {
+    docTypeLabel: "GOODS RECEIPT NOTE",
+    docNumber: receipt.grnNumber,
+    date: fmtDate(receipt.receiptDate || receipt.createdAt),
+    status: receipt.status,
+    company,
+    party: {
+      name: vendor.businessName || vendor.legalName || vendor.name || "",
+      address: vendorAddress,
+      phone: vendor.phone,
+      email: vendor.email,
+      gstin: vendor.gstNumber,
+    },
+    items: (receipt.items || []).map((it: any) => ({
+      description: it.materialId?.name || it.materialName || "",
+      hsnCode: it.materialCode,
+      qty: it.acceptedQuantity || 0,
+      unit: it.unit,
+      unitPrice: it.unitRate || 0,
+      taxRate: 0,
+      amount: it.lineTotal ?? (it.acceptedQuantity || 0) * (it.unitRate || 0),
+    })),
+    totals: {
+      subtotal: receipt.totalValue || 0,
+      tax: 0,
+      grandTotal: receipt.totalValue || 0,
+    },
+    notes: [
+      receipt.remarks,
+      receipt.purchaseOrderId?.poNumber ? `Against PO: ${receipt.purchaseOrderId.poNumber}` : undefined,
+      receipt.totalRejectedQty ? `Rejected quantity: ${receipt.totalRejectedQty}` : undefined,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    footerText: "Goods Receipt Note — confirms quantities received and accepted into inventory.",
+  };
+}
