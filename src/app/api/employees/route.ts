@@ -268,8 +268,14 @@ export async function POST(request: NextRequest) {
         userId: new mongoose.Types.ObjectId(linkedUserId),
       });
       if (existing && !existing.isDeleted) {
+        const who = existing.employeeId || existing.email || existing.name || "an existing record";
         return NextResponse.json(
-          { success: false, error: "This user already has an employee record in this business — edit their existing record instead of creating a new one." },
+          {
+            success: false,
+            error: `This user already has an employee record in this business (${who}) — edit their existing record instead of creating a new one.`,
+            existingEmployeeId: existing.employeeId,
+            existingEmployeeEmail: existing.email,
+          },
           { status: 409 }
         );
       }
