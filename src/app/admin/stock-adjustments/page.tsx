@@ -434,18 +434,19 @@ export default function StockAdjustmentsPage() {
               <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">Warehouse</th>
               <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">Adjusted By</th>
               <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">Status</th>
+              <th className="px-4 py-3 text-left text-xs text-gray-500 font-medium">Print</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   <div className="p-12 text-center text-gray-500">Loading…</div>
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   <div className="p-12 text-center">
                     <AlertCircle size={32} className="mx-auto mb-3 text-red-400" />
                     <p className="text-red-400 text-sm">{error}</p>
@@ -460,7 +461,7 @@ export default function StockAdjustmentsPage() {
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   <div className="p-12 text-center">
                     <Package size={32} className="mx-auto mb-3 text-gray-700" />
                     <p className="text-gray-500 text-sm">No adjustments found</p>
@@ -524,6 +525,16 @@ export default function StockAdjustmentsPage() {
                     {adj.adjustedBy?.slice(-8) || "—"}
                   </td>
                   <td className="px-4 py-3">{statusBadge(adj.status)}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin/stock-adjustments/${adj._id}/print`}
+                      target="_blank"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                      title="Print"
+                    >
+                      <ExternalLink size={14} />
+                    </Link>
+                  </td>
                 </tr>
               ))
             )}

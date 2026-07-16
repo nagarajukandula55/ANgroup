@@ -34,7 +34,18 @@ export type DocumentTemplateType =
   | "CREDIT_NOTE"
   | "PROFORMA_INVOICE"
   | "WORK_ORDER"
-  | "ESTIMATE";
+  | "ESTIMATE"
+  // Added alongside real print pages for each (previously modeled types
+  // above this line had no backing print page/adapter for several of them
+  // either -- QUOTATION/DELIVERY_CHALLAN/CREDIT_NOTE/PROFORMA_INVOICE still
+  // don't, since no data record/CRUD for those exists anywhere in the app
+  // yet; adding a print for them would mean building that whole feature
+  // first, not just a template). These four DO have real, existing records
+  // the system already generates, just no print page until now.
+  | "SALES_ORDER"
+  | "STOCK_TRANSFER"
+  | "STOCK_ADJUSTMENT"
+  | "PRODUCTION_ORDER";
 
 export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "INVOICE",
@@ -45,6 +56,10 @@ export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "PROFORMA_INVOICE",
   "WORK_ORDER",
   "ESTIMATE",
+  "SALES_ORDER",
+  "STOCK_TRANSFER",
+  "STOCK_ADJUSTMENT",
+  "PRODUCTION_ORDER",
 ];
 
 export type TemplateBlockType =

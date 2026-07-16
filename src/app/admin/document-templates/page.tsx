@@ -73,6 +73,10 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   PROFORMA_INVOICE: "Proforma Invoice",
   WORK_ORDER: "Work Order",
   ESTIMATE: "Estimate",
+  SALES_ORDER: "Sales Order",
+  STOCK_TRANSFER: "Stock Transfer",
+  STOCK_ADJUSTMENT: "Stock Adjustment",
+  PRODUCTION_ORDER: "Production Order",
 };
 
 // Representative sample data for the live preview -- pure client-side

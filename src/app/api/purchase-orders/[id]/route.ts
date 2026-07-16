@@ -15,7 +15,7 @@ import { buildPermissionCode } from "@/core/access/actions";
 GET PURCHASE ORDER
 ========================================================= */
 
-export async function GET(_: Request, { params }: any) {
+export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getEnrichedSession();
     if (!session?.user) {
@@ -32,7 +32,8 @@ export async function GET(_: Request, { params }: any) {
 
     await connectDB();
 
-    const data = await getPurchaseOrderById(params.id);
+    const { id } = await context.params;
+    const data = await getPurchaseOrderById(id);
 
     return NextResponse.json({
       success: true,

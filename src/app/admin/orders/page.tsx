@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   ArrowLeft,
   Loader2,
@@ -13,6 +14,7 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
+  Printer,
 } from 'lucide-react'
 
 interface OrderItem {
@@ -268,19 +270,29 @@ export default function OrdersPage() {
                     </td>
                     <td className="px-6 py-3 text-gray-400">{fmtDate(ord.createdAt)}</td>
                     <td className="px-6 py-3 text-right">
-                      {nextStatus[ord.status] && (
-                        <button
-                          onClick={() => updateStatus(ord._id, nextStatus[ord.status])}
-                          disabled={updatingId === ord._id}
-                          className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 text-xs hover:bg-white/[0.15] transition disabled:opacity-50"
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/admin/orders/${ord._id}/print`}
+                          target="_blank"
+                          title="Print"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
                         >
-                          {updatingId === ord._id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            `→ ${nextStatus[ord.status]}`
-                          )}
-                        </button>
-                      )}
+                          <Printer className="w-3.5 h-3.5" />
+                        </Link>
+                        {nextStatus[ord.status] && (
+                          <button
+                            onClick={() => updateStatus(ord._id, nextStatus[ord.status])}
+                            disabled={updatingId === ord._id}
+                            className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 text-xs hover:bg-white/[0.15] transition disabled:opacity-50"
+                          >
+                            {updatingId === ord._id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              `→ ${nextStatus[ord.status]}`
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

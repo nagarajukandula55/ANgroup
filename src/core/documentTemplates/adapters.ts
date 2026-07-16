@@ -69,6 +69,195 @@ export function jobSheetToRenderData(
   };
 }
 
+/** Maps a PurchaseOrder (+ populated vendorId/warehouseId, + its
+ * PurchaseOrderItem[] with materialId populated) into the generic render
+ * shape. Party is the vendor (this business is buying FROM them). */
+export function purchaseOrderToRenderData(
+  po: any,
+  items: any[],
+  company: DocumentRenderData["company"]
+): DocumentRenderData {
+  const vendor = po.vendorId || {};
+  const vendorAddress = vendor.address
+    ? [vendor.address.street, vendor.address.city, vendor.address.state, vendor.address.pincode].filter(Boolean).join(", ")
+    : undefined;
+
+  return {
+    docTypeLabel: "PURCHASE ORDER",
+    docNumber: po.poNumber,
+    date: fmtDate(po.orderDate || po.createdAt),
+    status: po.status,
+    company,
+    party: {
+      name: vendor.businessName || vendor.legalName || vendor.name || "",
+      address: vendorAddress,
+      phone: vendor.phone,
+      email: vendor.email,
+      gstin: vendor.gstNumber,
+    },
+    items: items.map((it: any) => ({
+      description: it.materialId?.name || it.description || "",
+      hsnCode: it.hsnCode,
+      qty: it.quantity || 0,
+      unit: it.unit,
+      unitPrice: it.unitPrice || 0,
+      taxRate: it.taxRate || 0,
+      amount: it.totalAmount ?? (it.quantity || 0) * (it.unitPrice || 0) * (1 + (it.taxRate || 0) / 100),
+    })),
+    totals: {
+      subtotal: po.subtotal || items.reduce((s: number, it: any) => s + (it.quantity || 0) * (it.unitPrice || 0), 0),
+      tax: po.taxTotal || 0,
+      grandTotal: po.grandTotal || po.totalAmount || 0,
+    },
+    notes: po.notes,
+  };
+}
+
+/** Maps a StockTransfer document into the generic render shape. Not a
+ * billing document -- no external party, so "party" is the destination
+ * warehouse and totals are informational (line value at unit cost, no tax). */
+export function stockTransferToRenderData(
+  transfer: any,
+  company: DocumentRenderData["company"]
+): DocumentRenderData {
+  const items = (transfer.items || []).map((it: any) => ({
+    description: it.itemName,
+    hsnCode: it.sku,
+    qty: it.quantity || 0,
+    unit: it.unit,
+    unitPrice: it.unitCost || 0,
+    taxRate: 0,
+    amount: (it.quantity || 0) * (it.unitCost || 0),
+  }));
+  const subtotal = items.reduce((s: number, it: any) => s + it.amount, 0);
+
+  return {
+    docTypeLabel: "STOCK TRANSFER",
+    docNumber: transfer.transferNumber,
+    date: fmtDate(transfer.createdAt),
+    status: transfer.status,
+    company,
+    party: {
+      name: `To: ${transfer.toWarehouse || "—"}`,
+      address: transfer.fromWarehouse ? `From: ${transfer.fromWarehouse}` : undefined,
+    },
+    items,
+    totals: { subtotal, tax: 0, grandTotal: subtotal },
+    notes: transfer.notes,
+    footerText: "Internal stock movement document — not a tax invoice.",
+  };
+}
+
+/** Maps a StockAdjustment document into the generic render shape. Also not
+ * a billing document -- a single-line correction record, no monetary
+ * value inherent to a quantity adjustment. */
+export function stockAdjustmentToRenderData(
+  adjustment: any,
+  itemLabel: string,
+  company: DocumentRenderData["company"]
+): DocumentRenderData {
+  return {
+    docTypeLabel: "STOCK ADJUSTMENT",
+    docNumber: adjustment.adjustmentNumber || adjustment._id?.toString().slice(-8).toUpperCase(),
+    date: fmtDate(adjustment.createdAt),
+    status: adjustment.adjustmentType,
+    company,
+    party: { name: itemLabel || "—" },
+    items: [
+      {
+        description: `${adjustment.adjustmentType} adjustment${adjustment.reason ? ` — ${adjustment.reason}` : ""}`,
+        qty: adjustment.quantityAdjusted || 0,
+        unitPrice: 0,
+        taxRate: 0,
+        amount: 0,
+      },
+    ],
+    totals: { subtotal: 0, tax: 0, grandTotal: 0 },
+    notes: [
+      adjustment.notes,
+      `Previous quantity: ${adjustment.previousQuantity ?? "—"}, new quantity: ${adjustment.newQuantity ?? "—"}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    footerText: "Internal inventory correction record — not a tax invoice.",
+  };
+}
+
+/** Maps a ProductionOrder document into the generic render shape. Internal
+ * manufacturing record -- "party" is the order itself (no external
+ * counterparty), no monetary totals. */
+export function productionOrderToRenderData(
+  order: any,
+  company: DocumentRenderData["company"]
+): DocumentRenderData {
+  return {
+    docTypeLabel: "PRODUCTION ORDER",
+    docNumber: order.orderNumber,
+    date: fmtDate(order.plannedStartDate || order.createdAt),
+    status: order.status,
+    company,
+    party: { name: "Internal Production Order" },
+    items: [
+      {
+        description: order.productName,
+        hsnCode: order.productSku,
+        qty: order.plannedQuantity || 0,
+        unit: order.unit,
+        unitPrice: 0,
+        taxRate: 0,
+        amount: 0,
+      },
+    ],
+    totals: { subtotal: 0, tax: 0, grandTotal: 0 },
+    notes: [order.notes, `Produced: ${order.producedQuantity || 0} / ${order.plannedQuantity || 0} ${order.unit || ""}`]
+      .filter(Boolean)
+      .join("\n"),
+    footerText: "Internal manufacturing document — not a tax invoice.",
+  };
+}
+
+/** Maps the "Orders" admin page's SalesOrder record (the lightweight inline
+ * schema in api/sales/orders/route.ts -- NOT the big ecommerce Order model,
+ * which is a separate storefront-checkout concept with no print need yet)
+ * into the generic render shape. Party is the customer (free-text name on
+ * this schema, no structured address). */
+export function salesOrderToRenderData(
+  order: any,
+  company: DocumentRenderData["company"]
+): DocumentRenderData {
+  const subtotal = (order.items || []).reduce(
+    (s: number, it: any) => s + (it.total ?? (it.quantity || 0) * (it.unitPrice || 0)),
+    0
+  );
+
+  return {
+    docTypeLabel: "SALES ORDER",
+    docNumber: order.orderNumber,
+    date: fmtDate(order.createdAt),
+    status: order.status,
+    company,
+    party: {
+      name: order.customer || "",
+      address: order.shippingAddress,
+      email: order.customerEmail,
+    },
+    items: (order.items || []).map((it: any) => ({
+      description: it.name,
+      hsnCode: it.sku,
+      qty: it.quantity || 0,
+      unitPrice: it.unitPrice || 0,
+      taxRate: 0,
+      amount: it.total ?? (it.quantity || 0) * (it.unitPrice || 0),
+    })),
+    totals: {
+      subtotal,
+      tax: 0,
+      grandTotal: order.totalAmount || subtotal,
+    },
+    notes: order.notes,
+  };
+}
+
 /** Maps a SalesInvoice document into the generic render shape. */
 export function salesInvoiceToRenderData(
   invoice: any,
