@@ -151,6 +151,19 @@ export async function POST(req: NextRequest, context: RouteContext) {
         );
       }
 
+      // A brand-new user has no OTHER membership to have already picked as
+      // default, so leaving isDefaultBusiness false here (as this used to)
+      // left them with NO business context at all -- getBusinessContext()'s
+      // fallback only ever looks for isDefaultBusiness: true, finds
+      // nothing, and every business-scoped role (their granted
+      // VENDOR_MANAGER/MANAGER role included) then silently drops out of
+      // session-enriched.ts's permission resolution, which requires a real
+      // active business to keep a role scoped to one. Reproduced against
+      // production: manager@vendor.com was attached this way and had zero
+      // active business context, 403ing on every business-scoped page
+      // despite holding the right role.
+      const hasAnyMembership = await BusinessMember.exists({ userId: targetUser._id, isDeleted: { $ne: true } });
+
       // Additive: attach the user to this vendor's team so they become
       // visible on the vendor's own team-management screen.
       await BusinessMember.updateOne(
@@ -162,7 +175,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
             businessId,
             vendorId,
             memberType: 'VENDOR',
-            isDefaultBusiness: false,
+            isDefaultBusiness: !hasAnyMembership,
           },
         },
         { upsert: true }
