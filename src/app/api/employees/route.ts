@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import EmployeeProfile from "@/models/EmployeeProfile";
+import User, { AuthProvider } from "@/models/User";
+import Role from "@/models/Role";
+import UserRole from "@/models/UserRole";
 import { generateGlobalDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+
+const SALT_ROUNDS = 12;
+// Same fixed first password used for vendor self-service staff creation
+// (see api/vendor/staff/create/route.ts) -- one consistent default across
+// every "create a brand-new login for someone" flow in the app.
+const DEFAULT_FIRST_PASSWORD = "ANgroup@123";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -133,6 +143,13 @@ export async function POST(request: NextRequest) {
       salary,
       businessId,
       userId: linkedUserId,
+      // createNew: this person has no platform account at all yet -- create
+      // one instead of requiring the caller to pick an existing user from
+      // the (platform-wide) search autocomplete first. roleCode optionally
+      // assigns one of this business's own roles (Admin > Access) in the
+      // same call.
+      createNew,
+      roleCode,
     } = body;
 
     if (!name || !name.trim()) {
@@ -150,6 +167,88 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
+
+    let newlyCreatedUserId: string | undefined;
+    let newlyCreatedLogin: { username: string; temporaryPassword: string } | undefined;
+
+    if (createNew) {
+      if (email) {
+        const existingEmail = await User.findOne({ email: String(email).toLowerCase().trim(), isDeleted: { $ne: true } }).lean();
+        if (existingEmail) {
+          return NextResponse.json(
+            { success: false, error: "A user with this email already exists on the platform — use the existing-user search instead if this is the same person." },
+            { status: 409 }
+          );
+        }
+      }
+
+      // Business-scoped login code (e.g. "EMP-0001") -- generated up front
+      // so it can double as both the EmployeeProfile.employeeId and the
+      // new account's username, same pattern as the vendor self-service
+      // staff-creation flow.
+      const { value: newEmployeeId } = await generateGlobalDocumentNumber("EMPLOYEE", businessId);
+      const loginUsername = newEmployeeId.toLowerCase();
+      const hashedPassword = await bcrypt.hash(DEFAULT_FIRST_PASSWORD, SALT_ROUNDS);
+
+      // Never granted the CUSTOMER floor role -- this account starts
+      // scoped to only whatever role is assigned below, not double-usable
+      // as a storefront login, same invariant as the vendor-created flow.
+      const newUser = await User.create({
+        name: name.trim(),
+        email: email ? String(email).toLowerCase().trim() : `${loginUsername}@staff.local`,
+        username: loginUsername,
+        phone: phone?.trim() || undefined,
+        password: hashedPassword,
+        role: "CUSTOMER",
+        isActive: true,
+        isEmailVerified: false,
+        authProvider: AuthProvider.CREDENTIALS,
+        isDeleted: false,
+        mustChangePassword: true,
+      });
+
+      newlyCreatedUserId = String(newUser._id);
+      newlyCreatedLogin = { username: loginUsername, temporaryPassword: DEFAULT_FIRST_PASSWORD };
+
+      const employee = await EmployeeProfile.create({
+        userId: newUser._id,
+        businessId: new mongoose.Types.ObjectId(businessId),
+        employeeId: newEmployeeId,
+        name: name.trim(),
+        email: email?.trim() || undefined,
+        phone: phone?.trim() || undefined,
+        department: department?.trim() || undefined,
+        designation: designation?.trim() || undefined,
+        employmentType: employmentType || "FULL_TIME",
+        joiningDate: joiningDate ? new Date(joiningDate) : undefined,
+        salary: typeof salary === "number" ? salary : 0,
+      });
+
+      if (roleCode) {
+        const roleDoc = await Role.findOne({
+          code: String(roleCode).toUpperCase(),
+          businessId: new mongoose.Types.ObjectId(businessId),
+          vendorId: null,
+        });
+        if (roleDoc) {
+          await UserRole.create({ userId: newUser._id, roleId: roleDoc._id, businessId, assignedBy: userId });
+        }
+      }
+
+      logAction({
+        action: "CREATE",
+        entity: "EmployeeProfile",
+        entityId: employee._id?.toString(),
+        after: employee,
+        req: request,
+        actor: { id: userId, businessId },
+      });
+
+      return NextResponse.json(
+        { success: true, employee, newUserId: newlyCreatedUserId, login: newlyCreatedLogin },
+        { status: 201 }
+      );
+    }
 
     // Surface which specific thing already exists instead of a vague
     // "duplicate ID or already-linked user" -- a vendor Manager picking

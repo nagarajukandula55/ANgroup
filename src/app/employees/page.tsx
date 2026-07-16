@@ -135,6 +135,12 @@ function empTypeBadge(type: string) {
 
 // ─── Add / Edit Modal ─────────────────────────────────────────────────────────
 
+interface RoleOption {
+  code: string;
+  name: string;
+  description?: string;
+}
+
 function EmployeeModal({
   mode,
   employee,
@@ -146,7 +152,7 @@ function EmployeeModal({
   employee?: Employee;
   businessId: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (createdLogin?: { username: string; temporaryPassword: string }) => void;
 }) {
   const [form, setForm] = useState({
     employeeUserId: "",
@@ -170,6 +176,27 @@ function EmployeeModal({
     mode === "edit" ? (employee?.userId as UserRef) : null
   );
   const [userDropOpen, setUserDropOpen] = useState(false);
+  // "existing" picks an already-registered account (the original flow);
+  // "new" creates a brand-new login for someone who has never signed up
+  // anywhere -- per explicit direction, this page shouldn't be limited to
+  // only attaching pre-existing accounts.
+  const [addMode, setAddMode] = useState<"existing" | "new">("existing");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [roleCode, setRoleCode] = useState("");
+
+  // Fetched regardless of add/edit mode -- "Designation" is now a picker
+  // scoped strictly to this business's own roles (Admin > Access), not a
+  // free-text field, per explicit direction.
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/admin/roles?businessId=${businessId}`)
+      .then((r) => r.json())
+      .then((d) => setRoles(d.roles || []))
+      .catch(() => setRoles([]));
+  }, [businessId]);
 
   const searchUsers = useCallback(
     async (q: string) => {
@@ -194,11 +221,34 @@ function EmployeeModal({
 
   const handleSubmit = async () => {
     setError("");
-    if (mode === "add" && !selectedUser) { setError("Please select a user"); return; }
+    if (mode === "add" && addMode === "existing" && !selectedUser) { setError("Please select a user"); return; }
+    if (mode === "add" && addMode === "new" && !newName.trim()) { setError("Name is required"); return; }
     setSaving(true);
     try {
       let res: Response;
-      if (mode === "add") {
+      if (mode === "add" && addMode === "new") {
+        res = await fetch("/api/employees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessId,
+            createNew: true,
+            name: newName,
+            email: newEmail || undefined,
+            phone: newPhone || undefined,
+            roleCode: roleCode || undefined,
+            department: form.department || undefined,
+            designation: form.designation || undefined,
+            employmentType: form.employmentType,
+            joiningDate: form.joiningDate || undefined,
+            salary: form.salary || undefined,
+            status: form.status,
+            emergencyContact: form.ecName || form.ecPhone
+              ? { name: form.ecName, phone: form.ecPhone, relationship: form.ecRelationship }
+              : undefined,
+          }),
+        });
+      } else if (mode === "add") {
         res = await fetch("/api/employees", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -237,7 +287,7 @@ function EmployeeModal({
       }
       const d = await res.json();
       if (!d.success) { setError(d.error ?? "Failed to save"); return; }
-      onSaved();
+      onSaved(d.login);
     } catch {
       setError("Network error");
     } finally {
@@ -266,8 +316,27 @@ function EmployeeModal({
             </div>
           )}
 
-          {/* User selection (add mode only) */}
           {mode === "add" && (
+            <div className="flex rounded-xl border border-gray-200 p-1 bg-white text-sm">
+              <button
+                type="button"
+                onClick={() => setAddMode("existing")}
+                className={`flex-1 py-1.5 rounded-lg font-medium transition ${addMode === "existing" ? "bg-gray-100 text-gray-900" : "text-gray-500"}`}
+              >
+                Existing user
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddMode("new")}
+                className={`flex-1 py-1.5 rounded-lg font-medium transition ${addMode === "new" ? "bg-gray-100 text-gray-900" : "text-gray-500"}`}
+              >
+                Create new employee
+              </button>
+            </div>
+          )}
+
+          {/* User selection (add mode, existing user) */}
+          {mode === "add" && addMode === "existing" && (
             <div>
               <label className="text-xs text-gray-500 block mb-1">User *</label>
               {selectedUser ? (
@@ -311,8 +380,59 @@ function EmployeeModal({
             </div>
           )}
 
+          {/* New employee's own details (add mode, brand-new account) */}
+          {mode === "add" && addMode === "new" && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Full Name *</label>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Priya Sharma"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Email (optional)</label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="Leave blank if they have none"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Phone (optional)</label>
+                <input
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Role (optional)</label>
+                <select
+                  value={roleCode}
+                  onChange={(e) => setRoleCode(e.target.value)}
+                  title="Select a role"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none"
+                >
+                  <option value="">No role — assign later</option>
+                  {roles.map((r) => (
+                    <option key={r.code} value={r.code}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] text-gray-400">
+                A brand-new login is created for this person — you&apos;ll get their ID and a
+                temporary password to hand them once saved.
+              </p>
+            </div>
+          )}
+
           {/* Employee ID */}
-          {mode === "add" && (
+          {mode === "add" && addMode === "existing" && (
             <div>
               <label className="text-xs text-gray-500 block mb-1">Employee ID (auto-generated if blank)</label>
               <input
@@ -341,15 +461,22 @@ function EmployeeModal({
               </select>
             </div>
 
-            {/* Designation */}
+            {/* Designation -- a picker over this business's own roles
+                (Admin > Access), not free text, so it can never drift from
+                what actually exists for this business. */}
             <div>
               <label className="text-xs text-gray-500 block mb-1">Designation</label>
-              <input
+              <select
                 value={form.designation}
                 onChange={(e) => set("designation", e.target.value)}
-                placeholder="Senior Engineer"
-                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
-              />
+                title="Select designation"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none"
+              >
+                <option value="">Select…</option>
+                {roles.map((r) => (
+                  <option key={r.code} value={r.name}>{r.name}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -459,7 +586,106 @@ function EmployeeModal({
 
 // ─── View Detail Modal ────────────────────────────────────────────────────────
 
-function ViewModal({ employee, onClose, onEdit }: { employee: Employee; onClose: () => void; onEdit: () => void }) {
+interface EmployeeRole { _id: string; name: string; code: string }
+
+function RoleAssignmentSection({ userId, businessId }: { userId: string; businessId: string }) {
+  const [currentRoles, setCurrentRoles] = useState<EmployeeRole[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<EmployeeRole[]>([]);
+  const [selected, setSelected] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const [userRes, rolesRes] = await Promise.all([
+        fetch(`/api/admin/users/${userId}`),
+        fetch(`/api/admin/roles?businessId=${businessId}`),
+      ]);
+      const userData = await userRes.json();
+      const rolesData = await rolesRes.json();
+      setCurrentRoles((userData.user?.roles || []).filter(Boolean));
+      setAvailableRoles(rolesData.roles || []);
+    } catch {
+      /* leave lists empty on failure */
+    }
+  }, [userId, businessId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function assign() {
+    if (!selected) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/users/${userId}/roles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleId: selected, businessId }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(d.error || "Failed to assign role"); return; }
+      setSelected("");
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(roleId: string) {
+    setBusy(true);
+    try {
+      await fetch(`/api/users/${userId}/roles/${roleId}`, { method: "DELETE" });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const assignable = availableRoles.filter((r) => !currentRoles.some((cr) => cr._id === r._id));
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
+      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-3">Role &amp; Access</p>
+      {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+      {currentRoles.length > 0 ? (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {currentRoles.map((r) => (
+            <span key={r._id} className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-700">
+              {r.name || r.code}
+              <button onClick={() => remove(r._id)} disabled={busy} className="opacity-60 hover:opacity-100">
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500 mb-3">No role assigned yet.</p>
+      )}
+      <div className="flex gap-2">
+        <select
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          title="Select a role to assign"
+          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none"
+        >
+          <option value="">Select a role…</option>
+          {assignable.map((r) => (
+            <option key={r._id} value={r._id}>{r.name}</option>
+          ))}
+        </select>
+        <button
+          onClick={assign}
+          disabled={!selected || busy}
+          className="px-4 py-2 bg-gray-900 text-white rounded-lg text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+        >
+          Assign
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ViewModal({ employee, businessId, onClose, onEdit }: { employee: Employee; businessId: string; onClose: () => void; onEdit: () => void }) {
   const user = employee.userId as UserRef;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -512,6 +738,9 @@ function ViewModal({ employee, onClose, onEdit }: { employee: Employee; onClose:
             ))}
           </div>
 
+          {/* Role & Access */}
+          {user?._id && <RoleAssignmentSection userId={user._id} businessId={businessId} />}
+
           {/* Emergency Contact */}
           {(employee.emergencyContact?.name || employee.emergencyContact?.phone) && (
             <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -552,6 +781,7 @@ export default function EmployeesPage() {
   const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
   const [viewEmployee, setViewEmployee] = useState<Employee | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [createdLogin, setCreatedLogin] = useState<{ username: string; temporaryPassword: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -790,13 +1020,27 @@ export default function EmployeesPage() {
         )}
       </div>
 
+      {createdLogin && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-start justify-between gap-4">
+          <div className="text-sm text-emerald-800">
+            <p className="font-semibold">Employee created — share these login details now, they won&apos;t be shown again:</p>
+            <p className="mt-1 font-mono text-xs">
+              ID: {createdLogin.username} &nbsp;•&nbsp; Temp password: {createdLogin.temporaryPassword}
+            </p>
+          </div>
+          <button onClick={() => setCreatedLogin(null)} className="p-1 rounded-lg hover:bg-emerald-100 flex-shrink-0">
+            <X size={16} className="text-emerald-700" />
+          </button>
+        </div>
+      )}
+
       {/* Modals */}
       {showAdd && businessId && (
         <EmployeeModal
           mode="add"
           businessId={businessId}
           onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); load(); }}
+          onSaved={(login) => { setShowAdd(false); if (login) setCreatedLogin(login); load(); }}
         />
       )}
 
@@ -810,9 +1054,10 @@ export default function EmployeesPage() {
         />
       )}
 
-      {viewEmployee && (
+      {viewEmployee && businessId && (
         <ViewModal
           employee={viewEmployee}
+          businessId={businessId}
           onClose={() => setViewEmployee(null)}
           onEdit={() => { setEditEmployee(viewEmployee); setViewEmployee(null); }}
         />

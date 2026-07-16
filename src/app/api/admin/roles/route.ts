@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import { logAction } from '@/lib/audit/logAction';
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
+import { requirePermission, requireAnyPermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
@@ -21,7 +21,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("roles", "view"));
+      // Also accepts employees.edit -- a Manager granted full Employees
+      // access (but not the separate Roles module) still needs to see this
+      // business's role list to assign one to their own employees; the
+      // list itself carries no sensitive cross-business data since it's
+      // already scoped by the businessId query param below.
+      requireAnyPermission(session as any, [
+        buildPermissionCode("roles", "view"),
+        buildPermissionCode("employees", "edit"),
+      ]);
     } catch (err: any) {
       return permissionErrorResponse(err);
     }

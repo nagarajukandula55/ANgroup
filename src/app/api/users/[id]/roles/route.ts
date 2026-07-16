@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import UserService from "@/services/user/user.service";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
+import { requireAnyPermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 
 /* =========================================================
@@ -25,13 +25,18 @@ export async function POST(
 
     // auth() confirms a real session but has no RBAC concept of its own --
     // was missing a permission gate entirely, so any authenticated user
-    // (any role) could assign roles to any other user. "edit" is one of
-    // the fixed STANDARD_ACTIONS (see core/access/actions.ts), already
-    // seeded for the "users" module -- reused rather than inventing a new
-    // action key that would never resolve to a real Permission row.
+    // (any role) could assign roles to any other user. Accepts either
+    // users.edit OR employees.edit -- a business Manager granted full
+    // access to the Employees module (but not the separate, broader Users
+    // module) should still be able to assign a role to their own
+    // employees; requiring users.edit alone locked this out for exactly
+    // that common case.
     const enrichedSession = await getEnrichedSession();
     try {
-      requirePermission(enrichedSession as any, buildPermissionCode("users", "edit"));
+      requireAnyPermission(enrichedSession as any, [
+        buildPermissionCode("users", "edit"),
+        buildPermissionCode("employees", "edit"),
+      ]);
     } catch (err: any) {
       return NextResponse.json(
         { error: err.message },
