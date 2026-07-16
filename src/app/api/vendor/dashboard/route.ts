@@ -10,19 +10,11 @@ export async function GET() {
   try {
     const headersList = await headers()
     const userId = headersList.get('x-user-id')
-    const userRole = headersList.get('x-user-role')
 
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
         { status: 401 }
-      )
-    }
-
-    if (userRole !== 'VENDOR') {
-      return NextResponse.json(
-        { success: false, message: 'Vendor access required' },
-        { status: 403 }
       )
     }
 

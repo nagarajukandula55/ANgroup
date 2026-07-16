@@ -16,19 +16,11 @@ export async function GET() {
   try {
     const headersList = await headers()
     const userId = headersList.get('x-user-id')
-    const userRole = headersList.get('x-user-role')
 
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
         { status: 401 }
-      )
-    }
-
-    if (userRole !== 'VENDOR') {
-      return NextResponse.json(
-        { success: false, message: 'Vendor access required' },
-        { status: 403 }
       )
     }
 
@@ -57,19 +49,11 @@ export async function PUT(req: NextRequest) {
   try {
     const headersList = await headers()
     const userId = headersList.get('x-user-id')
-    const userRole = headersList.get('x-user-role')
 
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
         { status: 401 }
-      )
-    }
-
-    if (userRole !== 'VENDOR') {
-      return NextResponse.json(
-        { success: false, message: 'Vendor access required' },
-        { status: 403 }
       )
     }
 
@@ -119,8 +103,19 @@ export async function PUT(req: NextRequest) {
 
     await connectDB()
 
+    // Staff can update the same vendor profile the owner sees — resolve
+    // which vendor document that is instead of matching on this caller's
+    // own userId (only ever true for the Owner).
+    const ctx = await resolveVendorContext(userId)
+    if (!ctx) {
+      return NextResponse.json(
+        { success: false, message: 'Vendor profile not found' },
+        { status: 404 }
+      )
+    }
+
     const updated = (await VendorProfile.findOneAndUpdate(
-      { userId },
+      { _id: (ctx.vendor as any)._id },
       { $set: allowedUpdate },
       { new: true, runValidators: true }
     ).lean()) as (Record<string, any> & { _id?: mongoose.Types.ObjectId }) | null
