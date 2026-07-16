@@ -6,6 +6,7 @@ import BusinessMember from "@/models/BusinessMember";
 import UserRole from "@/models/UserRole";
 import Role from "@/models/Role";
 import { signToken } from "@/lib/auth/jwt";
+import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
 
 // Anyone holding ONLY these floor roles has no admin-panel business at
 // all -- they should never see the /admin shell, just their own storefront
@@ -128,6 +129,17 @@ export async function POST(req: Request) {
     // nothing is configured, so this is additive, not a behavior change for
     // roles nobody has configured a home page for yet.
     const homeRoute = grantedRoles.find((r) => r.homeRoute && !MINIMAL_FLOOR_ROLE_CODES.includes(r.code))?.homeRoute || null;
+
+    // Someone attached to a vendor's team as its Owner/Manager (see
+    // resolveOwnerOrManagerVendor) belongs on /vendor no matter what a
+    // business-wide role they ALSO happen to hold sets as its own
+    // homeRoute -- e.g. manager@vendor.com holds the business-wide
+    // "MANAGER" role (homeRoute "/admin/crm", configured for a completely
+    // unrelated business-employee use case) purely to get Manager-
+    // equivalent vendor access (see vendorAccess.service.ts's broadened
+    // resolver), and was landing on /admin/crm instead of their own
+    // vendor portal every time they logged in.
+    const hasVendorAccess = !!(await resolveOwnerOrManagerVendor(user._id.toString()).catch(() => null));
     const isMinimalOnly =
       roleCodes.length > 0 &&
       roleCodes.every((c: string) => MINIMAL_FLOOR_ROLE_CODES.includes(c)) &&
@@ -162,6 +174,7 @@ export async function POST(req: Request) {
       mustChangePassword: !!user.mustChangePassword,
       isMinimalOnly,
       homeRoute,
+      hasVendorAccess,
     };
 
     /* ── Set httpOnly cookie + return token in JSON ──────────────────── */

@@ -65,6 +65,12 @@ function LoginForm() {
       const landingPage = data.user?.mustChangePassword
         ? '/update-password'
         : data.user?.isMinimalOnly ? 'https://shopnative.in'
+        // A vendor's own Owner/Manager belongs on /vendor regardless of
+        // homeRoute -- they can ALSO hold an unrelated business-wide role
+        // (e.g. a generic "Manager" role granted just to get vendor-
+        // Manager-equivalent access) whose own homeRoute was configured
+        // for a totally different use case, and was winning here instead.
+        : data.user?.hasVendorAccess ? '/vendor'
         // Per-role configurable home page (Roles & Permissions > Home Page)
         // wins over the generic role/account-type default below when set.
         : data.user?.homeRoute ? data.user.homeRoute
