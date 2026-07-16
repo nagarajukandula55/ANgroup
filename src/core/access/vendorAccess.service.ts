@@ -262,10 +262,23 @@ export async function getVendorStaffAccessMap(
 
 /**
  * Owner-or-Manager resolution for vendor-side management endpoints —
- * structural Owner (VendorProfile.userId) or a real granted
- * VENDOR_MANAGER UserRole. Never the free-text BusinessMember.vendorRole
- * label. Shared here so every vendor management surface uses the same
- * definition.
+ * structural Owner (VendorProfile.userId) or a real granted Manager
+ * UserRole. Never the free-text BusinessMember.vendorRole label. Shared
+ * here so every vendor management surface uses the same definition.
+ *
+ * "Manager" here means either this vendor's own generated VENDOR_MANAGER
+ * role, OR a business-wide role literally coded MANAGER (vendorId unset)
+ * -- Super Admin's Attach-to-vendor flow (api/admin/users/[id]/promote's
+ * VENDOR_TEAM track) explicitly allows granting either kind in the same
+ * step (see that route's own comment), so a vendor-team member holding
+ * the business's plain "Manager" role is just as much this vendor's
+ * Manager as someone holding the auto-generated VENDOR_MANAGER role --
+ * restricting recognition to only the latter left that whole grant path
+ * producing someone attached to the vendor's team but 404'd/redirected
+ * out of every /vendor/* page and management endpoint. Confirmed against
+ * production: manager@vendor.com holds exactly this shape (BusinessMember
+ * with vendorId set, UserRole -> the business-wide MANAGER role) and
+ * failed this resolver before this fix.
  */
 export async function resolveOwnerOrManagerVendor(userId: string | null) {
   if (!userId) return null;
@@ -279,14 +292,17 @@ export async function resolveOwnerOrManagerVendor(userId: string | null) {
   }).lean();
   if (!membership?.vendorId) return null;
 
-  const managerRole = await Role.findOne({
-    code: "VENDOR_MANAGER",
+  const managerRoles = await Role.find({
+    code: { $in: ["VENDOR_MANAGER", "MANAGER"] },
     businessId: membership.businessId,
-    vendorId: membership.vendorId,
-  }).lean();
-  if (!managerRole) return null;
+    $or: [{ vendorId: membership.vendorId }, { vendorId: null }],
+  }).select("_id").lean();
+  if (managerRoles.length === 0) return null;
 
-  const hasManagerRole = await UserRole.exists({ userId, roleId: (managerRole as any)._id });
+  const hasManagerRole = await UserRole.exists({
+    userId,
+    roleId: { $in: managerRoles.map((r: any) => r._id) },
+  });
   if (!hasManagerRole) return null;
 
   return VendorProfile.findById(membership.vendorId).lean();
