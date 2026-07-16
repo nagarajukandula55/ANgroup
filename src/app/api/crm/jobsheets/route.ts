@@ -56,6 +56,14 @@ export async function GET(req: NextRequest) {
       filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
     }
 
+    // Vendor CRM pages (see app/vendor/crm/jobsheets) scope to a whole
+    // vendor TEAM's assignments at once -- same reasoning as calls/route.ts.
+    const assignedToIn = req.nextUrl.searchParams.get("assignedToIn");
+    if (assignedToIn) {
+      const ids = assignedToIn.split(",").filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (ids.length > 0) filter.assignedTo = { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) };
+    }
+
     const search = req.nextUrl.searchParams.get("search");
     if (search) {
       filter.$or = [

@@ -65,6 +65,17 @@ export async function GET(req: NextRequest) {
       filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
     }
 
+    // Vendor CRM pages (see app/vendor/crm/calls) scope to a whole vendor
+    // TEAM's assignments at once (not just one person), since these records
+    // have no vendorId of their own -- only assignedTo. Comma-separated
+    // list of userIds, same permission gate as the single-assignedTo form
+    // above (crm_calls.view).
+    const assignedToIn = req.nextUrl.searchParams.get("assignedToIn");
+    if (assignedToIn) {
+      const ids = assignedToIn.split(",").filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (ids.length > 0) filter.assignedTo = { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) };
+    }
+
     const search = req.nextUrl.searchParams.get("search");
     if (search) {
       filter.$or = [
