@@ -9,7 +9,7 @@
 // makes sense for an e-commerce storefront, which only for a repair/service
 // business, and which belongs solely to AN Group platform administration
 // (never inside a tenant business's own menu). Everything else defaults to
-// enabled under both ECOMMERCE and SERVICE (it's common to any business).
+// enabled for every business category (it's common to any business).
 
 export const ECOMMERCE_ONLY_KEYS = [
   "coupons",
@@ -48,29 +48,76 @@ export const PLATFORM_ONLY_KEYS = [
   "admin-pincode-data",
 ];
 
-export type ModuleTemplateKey = "ECOMMERCE" | "SERVICE" | "PLATFORM" | "ALL";
+export type ModuleTemplateKey =
+  | "ECOMMERCE"
+  | "SERVICE"
+  | "LOGISTICS"
+  | "LAUNDRY"
+  | "RESTAURANT"
+  | "TRAVELS"
+  | "TRANSPORTS"
+  | "WHOLESALE"
+  | "RETAIL"
+  | "PLATFORM"
+  | "ALL";
 
 export const MODULE_TEMPLATE_OPTIONS: { value: ModuleTemplateKey; label: string }[] = [
   { value: "ECOMMERCE", label: "E-Commerce business" },
   { value: "SERVICE", label: "Service business" },
+  { value: "LOGISTICS", label: "Logistics business" },
+  { value: "LAUNDRY", label: "Laundry business" },
+  { value: "RESTAURANT", label: "Restaurant business" },
+  { value: "TRAVELS", label: "Travels business" },
+  { value: "TRANSPORTS", label: "Transports business" },
+  { value: "WHOLESALE", label: "Wholesale business" },
+  { value: "RETAIL", label: "Retail business" },
   { value: "PLATFORM", label: "AN Group (platform only)" },
   { value: "ALL", label: "Everything on (no restriction)" },
 ];
 
+// Every template beyond ECOMMERCE/SERVICE starts from the common-only
+// baseline (every module not in one of the three lists above) plus, where
+// it's genuinely relevant, a couple of otherwise-"only" keys carved back in.
+// No dedicated pages exist yet for Logistics/Laundry/Restaurant/Travels/
+// Transports specifically (unlike e-commerce and service, which have real
+// built features) -- so those templates deliberately stay common-only
+// rather than guessing at modules that don't exist. Extend this table when
+// dedicated features get built for a category.
+const TEMPLATE_EXTRA_KEYS: Partial<Record<ModuleTemplateKey, string[]>> = {
+  // Logistics runs shipping/courier operations -- Logistics & Shipping is
+  // directly relevant even though it's otherwise e-commerce-only.
+  LOGISTICS: ["logistics"],
+  // Wholesale/Retail both sell physical products -- the storefront catalog
+  // (Products + Product Categories) is relevant, but NOT the
+  // marketplace-specific pieces (coupons, vendor settlements, Native App,
+  // shipping/logistics, invoice branding) that only make sense for the
+  // actual online marketplace tenant.
+  WHOLESALE: ["products", "masters-prod-cat"],
+  RETAIL: ["products", "masters-prod-cat"],
+};
+
 /**
  * Given every module's sidebar key, return which of them should start
- * enabled for the given template. Ambiguous/ANY-business keys (not in any
- * of the three lists above) are always enabled except under PLATFORM.
+ * enabled for the given template.
  */
 export function isEnabledUnderTemplate(key: string, template: ModuleTemplateKey): boolean {
   if (template === "ALL") return true;
-  const isEcommerce = ECOMMERCE_ONLY_KEYS.includes(key);
-  const isService = SERVICE_ONLY_KEYS.includes(key);
-  const isPlatform = PLATFORM_ONLY_KEYS.includes(key);
 
+  const isPlatform = PLATFORM_ONLY_KEYS.includes(key);
   if (template === "PLATFORM") return isPlatform;
   if (isPlatform) return false; // platform admin pages never show inside a tenant business
+
+  const extra = TEMPLATE_EXTRA_KEYS[template] ?? [];
+  if (extra.includes(key)) return true;
+
+  const isEcommerce = ECOMMERCE_ONLY_KEYS.includes(key);
+  const isService = SERVICE_ONLY_KEYS.includes(key);
+
   if (template === "ECOMMERCE") return !isService;
   if (template === "SERVICE") return !isEcommerce;
-  return true;
+
+  // Every other category (Logistics/Laundry/Restaurant/Travels/Transports/
+  // Wholesale/Retail): common-only baseline plus whatever this template's
+  // TEMPLATE_EXTRA_KEYS carved back in above.
+  return !isEcommerce && !isService;
 }
