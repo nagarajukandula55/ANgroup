@@ -52,12 +52,23 @@ export default function VendorStaffPage() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  // "existing" attaches an already-registered account by their user ID
+  // (the original flow, requires Super Admin to have attached them
+  // first). "new" creates a brand-new account for someone who has never
+  // signed up anywhere -- per explicit direction, vendors should be able
+  // to onboard their own staff end-to-end instead of routing every new
+  // hire through Super Admin first.
+  const [mode, setMode] = useState<"existing" | "new">("existing");
   const [username, setUsername] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
   const [vendorRole, setVendorRole] = useState("");
   const [roleCode, setRoleCode] = useState("");
   const [memberType, setMemberType] = useState("VENDOR_HELPER");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdCreds, setCreatedCreds] = useState<{ loginUsername: string; temporaryPassword: string } | null>(null);
   const [roles, setRoles] = useState<VendorRoleOption[]>([]);
   const [facilities, setFacilities] = useState({
     enableStoreFront: false,
@@ -96,7 +107,7 @@ export default function VendorStaffPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!roleCode) {
+    if (mode === "existing" && !roleCode) {
       setError("Pick a role — this is what actually grants access, not just a label.");
       return;
     }
@@ -104,20 +115,38 @@ export default function VendorStaffPage() {
     setError(null);
     try {
       const pickedRole = roles.find((r) => r.code === roleCode);
-      const res = await fetch("/api/vendor/staff", {
+      const endpoint = mode === "new" ? "/api/vendor/staff/create" : "/api/vendor/staff";
+      const body =
+        mode === "new"
+          ? {
+              name: newName,
+              email: newEmail || undefined,
+              phone: newPhone || undefined,
+              vendorRole: vendorRole.trim() || pickedRole?.name || memberType,
+              memberType,
+              roleCode: roleCode || undefined,
+            }
+          : {
+              username,
+              vendorRole: vendorRole.trim() || pickedRole?.name || roleCode,
+              memberType,
+              roleCode,
+            };
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          vendorRole: vendorRole.trim() || pickedRole?.name || roleCode,
-          memberType,
-          roleCode,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed to add staff member");
+      if (mode === "new" && data.loginUsername) {
+        setCreatedCreds({ loginUsername: data.loginUsername, temporaryPassword: data.temporaryPassword });
+      }
       setShowForm(false);
       setUsername("");
+      setNewName("");
+      setNewEmail("");
+      setNewPhone("");
       setVendorRole("");
       setRoleCode("");
       await load();
@@ -164,12 +193,26 @@ export default function VendorStaffPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setMode("existing"); setShowForm(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
           >
             <Plus size={16} /> Add Staff
           </button>
         </div>
+
+        {createdCreds && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex items-start justify-between gap-4">
+            <div className="text-sm text-emerald-800">
+              <p className="font-semibold">Employee created — share these login details now, they won&apos;t be shown again:</p>
+              <p className="mt-1 font-mono text-xs">
+                ID: {createdCreds.loginUsername} &nbsp;•&nbsp; Temp password: {createdCreds.temporaryPassword}
+              </p>
+            </div>
+            <button onClick={() => setCreatedCreds(null)} className="p-1 rounded-lg hover:bg-emerald-100 flex-shrink-0">
+              <X size={16} className="text-emerald-700" />
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center text-gray-400 text-sm py-12">Loading…</div>
@@ -236,24 +279,77 @@ export default function VendorStaffPage() {
               {error && (
                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>
               )}
+              <div className="flex rounded-xl border border-gray-200 p-1 bg-gray-50 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setMode("existing")}
+                  className={`flex-1 py-1.5 rounded-lg font-medium transition ${mode === "existing" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
+                >
+                  Existing user
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("new")}
+                  className={`flex-1 py-1.5 rounded-lg font-medium transition ${mode === "new" ? "bg-white shadow-sm text-gray-900" : "text-gray-500"}`}
+                >
+                  Create new employee
+                </button>
+              </div>
               <form onSubmit={handleAdd} className="space-y-3">
+                {mode === "existing" ? (
+                  <div>
+                    <label className={labelCls}>Staff Member&apos;s User ID *</label>
+                    <input
+                      required
+                      className={inputCls}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Their unique user ID from signup"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      They must already have an account (see the general sign-up page) — ask for their user ID.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className={labelCls}>Full Name *</label>
+                      <input
+                        required
+                        className={inputCls}
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder="e.g. Ramesh Kumar"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Email (optional)</label>
+                      <input
+                        type="email"
+                        className={inputCls}
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        placeholder="Leave blank if they have none"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Phone (optional)</label>
+                      <input
+                        className={inputCls}
+                        value={newPhone}
+                        onChange={(e) => setNewPhone(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      A brand-new login is created just for your team — you&apos;ll get their ID and a
+                      temporary password to hand them once saved.
+                    </p>
+                  </>
+                )}
                 <div>
-                  <label className={labelCls}>Staff Member&apos;s User ID *</label>
-                  <input
-                    required
-                    className={inputCls}
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Their unique user ID from signup"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    They must already have an account (see the general sign-up page) — ask for their user ID.
-                  </p>
-                </div>
-                <div>
-                  <label className={labelCls}>Role *</label>
+                  <label className={labelCls}>Role {mode === "existing" ? "*" : "(optional)"}</label>
                   <select
-                    required
+                    required={mode === "existing"}
                     className={inputCls}
                     value={roleCode}
                     onChange={(e) => setRoleCode(e.target.value)}

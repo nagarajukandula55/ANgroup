@@ -204,8 +204,9 @@ function EmployeeModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             businessId,
-            employeeUserId: selectedUser!._id,
-            employeeId: form.employeeId || undefined,
+            name: selectedUser!.name,
+            email: selectedUser!.email,
+            userId: selectedUser!._id,
             department: form.department || undefined,
             designation: form.designation || undefined,
             employmentType: form.employmentType,
