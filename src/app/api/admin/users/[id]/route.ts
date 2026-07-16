@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
+import { requirePermission, requireAnyPermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/Role";
@@ -59,7 +59,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("users", "view"));
+      // Also accepts employees.edit -- a Manager granted full Employees
+      // access needs to see their own employee's current roles to manage
+      // access from the Employees page, without needing the separate
+      // Users module grant too.
+      requireAnyPermission(session as any, [
+        buildPermissionCode("users", "view"),
+        buildPermissionCode("employees", "edit"),
+      ]);
     } catch (err: any) {
       return permissionErrorResponse(err);
     }

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import UserRole from "@/models/UserRole";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
+import { requireAnyPermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { logAction } from "@/lib/audit/logAction";
 
@@ -18,7 +18,13 @@ export async function DELETE(req: NextRequest, context: any) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("users", "edit"));
+      // Same widening as the POST route above -- a Manager with full
+      // Employees access (but not the separate Users module) should still
+      // be able to remove a role from their own employee.
+      requireAnyPermission(session as any, [
+        buildPermissionCode("users", "edit"),
+        buildPermissionCode("employees", "edit"),
+      ]);
     } catch (err: any) {
       return NextResponse.json(
         { success: false, error: err.message },
