@@ -12,14 +12,33 @@ import Role from '@/models/Role'
 import UserRole from '@/models/UserRole'
 import { logAction } from '@/lib/audit/logAction'
 import { sendAccountCredentialsEmail } from '@/services/email/resend.service'
+import { getEnrichedSession } from '@/lib/auth/session-enriched'
+import { requireAnyPermission } from '@/middleware/permission.guard'
+import { buildPermissionCode } from '@/core/access/actions'
 
 const SALT_ROUNDS = 12
 
 export async function GET(req: Request) {
   try {
-    const role = req.headers.get('x-user-role') || ''
-    if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) {
-      return NextResponse.json({ success: false, message: 'Admin access required' }, { status: 403 })
+    // Was gated purely on the legacy x-user-role header (ADMIN/SUPER_ADMIN
+    // only), which never checked the real RBAC permission system at all --
+    // a role explicitly granted "Employees" access from Admin > Access
+    // still 403'd here, because that grant has nothing to do with the flat
+    // User.role enum. This endpoint backs the user-search autocomplete used
+    // by Add Employee/Add Staff, so anyone who can create/edit employees or
+    // view the platform's users should be able to search here too.
+    const legacyRole = req.headers.get('x-user-role') || ''
+    if (!['SUPER_ADMIN', 'ADMIN'].includes(legacyRole)) {
+      const session = await getEnrichedSession()
+      try {
+        requireAnyPermission(session as any, [
+          buildPermissionCode('users', 'view'),
+          buildPermissionCode('employees', 'view'),
+          buildPermissionCode('employees', 'create'),
+        ])
+      } catch {
+        return NextResponse.json({ success: false, message: 'Admin access required' }, { status: 403 })
+      }
     }
 
     await connectDB()
