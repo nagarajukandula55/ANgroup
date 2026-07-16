@@ -4,6 +4,9 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Brand from "@/models/Brand";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // GET /api/brands/[id]
 export async function GET(
@@ -14,6 +17,14 @@ export async function GET(
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { id } = await context.params;
 
@@ -45,6 +56,14 @@ export async function PUT(
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "edit"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { id } = await context.params;
 
@@ -115,6 +134,14 @@ export async function DELETE(
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "delete"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { id } = await context.params;
 

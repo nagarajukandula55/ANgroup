@@ -5,6 +5,9 @@ import { Types } from "mongoose";
 import Brand from "@/models/Brand";
 import { logAction } from "@/lib/audit/logAction";
 import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // GET /api/brands?businessId=...&search=...&isActive=...
 export async function GET(req: NextRequest) {
@@ -12,6 +15,18 @@ export async function GET(req: NextRequest) {
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Was authentication-only -- ANY logged-in account, regardless of role
+    // or granted permissions, could view/edit/delete every business's
+    // brand catalog. Same gap class as warehouses/stock-transfers before
+    // they were fixed (see moduleHierarchy.ts's ops-inventory comment).
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
@@ -54,6 +69,14 @@ export async function POST(req: NextRequest) {
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "create"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const body = await req.json();
     const { name, description, businessId, logoUrl, businessScope, businessIds, parentId } = body;

@@ -4,6 +4,9 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import DeviceModel from "@/models/DeviceModel";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // PUT /api/device-models/[id]
 export async function PUT(
@@ -14,6 +17,14 @@ export async function PUT(
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("device_models", "edit"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { id } = await context.params;
     if (!Types.ObjectId.isValid(id)) {
@@ -63,6 +74,14 @@ export async function DELETE(
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("device_models", "delete"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { id } = await context.params;
     if (!Types.ObjectId.isValid(id)) {

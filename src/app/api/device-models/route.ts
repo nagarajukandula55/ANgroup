@@ -5,6 +5,9 @@ import { Types } from "mongoose";
 import DeviceModel from "@/models/DeviceModel";
 import { logAction } from "@/lib/audit/logAction";
 import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // GET /api/device-models?businessId=...&brandId=...&search=...
 export async function GET(req: NextRequest) {
@@ -12,6 +15,14 @@ export async function GET(req: NextRequest) {
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("device_models", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
@@ -48,6 +59,14 @@ export async function POST(req: NextRequest) {
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("device_models", "create"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const body = await req.json();
     const { name, brandId, businessId, businessScope, businessIds } = body;

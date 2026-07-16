@@ -71,6 +71,16 @@ export const ACCESS_HIERARCHY: Category[] = [
           { key: "products", label: "Products", description: "Create and manage the product catalogue." },
           { key: "product_categories", label: "Product Categories", description: "Organize products into categories." },
           { key: "materials", label: "Materials", description: "Manage raw materials used in manufacturing/repairs." },
+          // Real, enforced modules (their APIs now call requirePermission,
+          // see moduleKeyAliases.ts's masters-brands/masters-models/
+          // masters-mat-cat entries) that had NO permission check at all
+          // until now -- any logged-in account, regardless of role, could
+          // view/edit/delete every business's brand/device-model/material-
+          // category masters. Same gap class as warehouses/stock_transfers
+          // above.
+          { key: "brands", label: "Brands", description: "Manage the brand master used by products and device models." },
+          { key: "device_models", label: "Device Models", description: "Manage the device-model master used by the repair/service flow." },
+          { key: "material_categories", label: "Material Categories", description: "Organize materials into categories." },
           { key: "bom", label: "Bill of Materials", description: "Define which materials/parts make up a product." },
           { key: "grn", label: "Goods Receipt (GRN)", description: "Record incoming stock received from purchase orders." },
           // Real, enforced modules that had NO permission check on their
