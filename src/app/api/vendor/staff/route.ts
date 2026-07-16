@@ -7,6 +7,7 @@ import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
 import { logAction } from "@/lib/audit/logAction";
 import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
+import { grantVendorStaffAccess } from "@/core/access/vendorAccess.service";
 
 /**
  * Vendor-side staff management. Completes the hierarchy requested:
@@ -223,6 +224,41 @@ export async function POST(req: NextRequest) {
       // reflects it for the next login's routing.
       const { stripFloorRoles } = await import("@/core/access/floorRoles.service");
       await stripFloorRoles(String((targetUser as any)._id));
+    }
+
+    // `memberType: "ENGINEER"` was purely a display label -- tagging
+    // someone Engineer here never actually granted them CRM_JOBSHEETS.EDIT,
+    // which is the ONE permission /api/crm/jobsheets/[id]/engineers filters
+    // on. A vendor Owner naturally expects "add staff as Engineer" alone to
+    // be sufficient (it visually implies real access), but the only place
+    // that ever granted that permission was the separate Team & Access
+    // module-checkbox screen -- so an Engineer added only from here never
+    // showed up in the job-sheet assignment dropdown. Auto-grant the
+    // modules an Engineer needs, additively (union with whatever Team &
+    // Access already granted this person) so this call never clobbers a
+    // broader grant made from that other screen.
+    const MEMBER_TYPE_IMPLIED_MODULES: Record<string, string[]> = {
+      ENGINEER: ["crm_calls", "crm_jobsheets"],
+    };
+    const impliedModules = MEMBER_TYPE_IMPLIED_MODULES[String(member.memberType)];
+    if (impliedModules) {
+      const staffRoleCode = `VSTAFF_${(targetUser as any)._id}`.toUpperCase();
+      const existingStaffRole = await Role.findOne({
+        code: staffRoleCode,
+        businessId: vendor.businessId,
+        vendorId: vendor._id,
+      }).lean();
+      const existingModules = new Set<string>(
+        ((existingStaffRole as any)?.permissions || []).map((p: string) => String(p).split(".")[0].toLowerCase())
+      );
+      impliedModules.forEach((m) => existingModules.add(m));
+      await grantVendorStaffAccess({
+        userId: String((targetUser as any)._id),
+        businessId: String(vendor.businessId),
+        vendorId: String(vendor._id),
+        modules: Array.from(existingModules),
+        grantedBy: userId || undefined,
+      });
     }
 
     logAction({
