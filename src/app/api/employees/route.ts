@@ -118,6 +118,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Hoisted above the try block so the catch below can still read them --
+  // both are only ever assigned once the request body is parsed, so the
+  // catch-all duplicate-key handler can use whatever was parsed even when
+  // the failure happens later in the same request.
+  let linkedUserId: string | undefined;
+  let businessId: string | undefined;
   try {
     const session = await getEnrichedSession();
     if (!session?.user) {
@@ -141,8 +147,8 @@ export async function POST(request: NextRequest) {
       employmentType,
       joiningDate,
       salary,
-      businessId,
-      userId: linkedUserId,
+      businessId: parsedBusinessId,
+      userId: parsedLinkedUserId,
       // createNew: this person has no platform account at all yet -- create
       // one instead of requiring the caller to pick an existing user from
       // the (platform-wide) search autocomplete first. roleCode optionally
@@ -151,6 +157,8 @@ export async function POST(request: NextRequest) {
       createNew,
       roleCode,
     } = body;
+    businessId = parsedBusinessId;
+    linkedUserId = parsedLinkedUserId;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -355,8 +363,9 @@ export async function POST(request: NextRequest) {
     // Duplicate employeeId (extremely rare counter race) or duplicate
     // {businessId,userId} (that user already has an employee record in
     // this business, e.g. a double-submit racing past the pre-check
-    // above). keyPattern tells us which one actually collided so the
-    // message matches what really happened instead of guessing.
+    // above, OR this request reached here via the "no linkedUserId"
+    // branch further up, which never ran that pre-check at all).
+    // keyPattern tells us which one actually collided.
     if (
       typeof error === "object" &&
       error !== null &&
@@ -364,10 +373,34 @@ export async function POST(request: NextRequest) {
       (error as { code: number }).code === 11000
     ) {
       const keyPattern = (error as { keyPattern?: Record<string, number> }).keyPattern || {};
-      const message = "userId" in keyPattern
-        ? "This user already has an employee record in this business — edit their existing record instead of creating a new one."
-        : "That employee ID was just taken by another request — please try again.";
-      return NextResponse.json({ success: false, error: message }, { status: 409 });
+      if ("userId" in keyPattern) {
+        // Same identifier lookup as the pre-check above -- this path is
+        // reached without ever running that check (e.g. linkedUserId
+        // failed Types.ObjectId.isValid, or a genuine double-submit race),
+        // so the message was previously generic with no way to tell WHICH
+        // record actually collided. Reuses linkedUserId/businessId already
+        // parsed from the request body earlier in this same function --
+        // the request stream itself was already consumed by that first
+        // request.json() call, so it can't be re-read here.
+        let who = "an existing record";
+        if (linkedUserId && mongoose.Types.ObjectId.isValid(linkedUserId) && businessId) {
+          const conflicting = await EmployeeProfile.findOne({
+            businessId: new mongoose.Types.ObjectId(businessId),
+            userId: new mongoose.Types.ObjectId(linkedUserId),
+          }).select("employeeId email name").lean();
+          if (conflicting) {
+            who = (conflicting as any).employeeId || (conflicting as any).email || (conflicting as any).name || who;
+          }
+        }
+        return NextResponse.json(
+          { success: false, error: `This user already has an employee record in this business (${who}) — edit their existing record instead of creating a new one.` },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json(
+        { success: false, error: "That employee ID was just taken by another request — please try again." },
+        { status: 409 }
+      );
     }
 
     return NextResponse.json(
