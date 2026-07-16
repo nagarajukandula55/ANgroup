@@ -49,6 +49,22 @@ export const MODULE_KEY_ALIASES: Record<string, string> = {
   // invoice-templates/route.ts enforces "settings", not its own key.
   "admin-invoice-templates": "settings",
   "admin-gst": "gst",
+  // Third batch, found by checking each masters/HR page's ACTUAL
+  // requirePermission(buildPermissionCode(...)) call against its sidebar
+  // key and its (separately seeded, often-mismatched) ModuleDefinition row:
+  //
+  // api/hr/leaves/route.ts enforces "hr_leaves" (plural) -- neither the
+  // sidebar's "hr-leave" nor the ModuleDefinition row's own "hr_leave"
+  // (singular) key matched it.
+  "hr-leave": "hr_leaves",
+  // api/hr/payroll/route.ts enforces "hr_payroll" -- matches the
+  // ModuleDefinition row already, just not the sidebar's "hr-payroll".
+  "hr-payroll": "hr_payroll",
+  // api/purchase-orders/route.ts enforces "purchase" (the SAME permission
+  // as the main Purchase page), not a separate "purchase_orders" code --
+  // the ModuleDefinition row seeded under that key has never actually been
+  // checked by anything.
+  "purchase-orders": "purchase",
 };
 
 /**

@@ -81,6 +81,21 @@ export default function Sidebar() {
     NAV_GROUPS.forEach((g) => (g.subgroups ?? []).forEach((sg) => { allOpen[sg.key] = true; }));
     return allOpen;
   });
+  // A subgroup collapsed via its header (openSubgroups[key] === false) still
+  // reveals its items on hover, without requiring a click to re-open it --
+  // "upon hover on main entry sub entries should be visible". Cleared with a
+  // short delay on mouse-leave so moving from the header into the revealed
+  // items themselves doesn't instantly hide them.
+  const [hoveredSubgroup, setHoveredSubgroup] = useState<string | null>(null);
+  const subgroupHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function previewSubgroup(key: string) {
+    if (subgroupHoverTimer.current) clearTimeout(subgroupHoverTimer.current);
+    setHoveredSubgroup(key);
+  }
+  function unpreviewSubgroup() {
+    if (subgroupHoverTimer.current) clearTimeout(subgroupHoverTimer.current);
+    subgroupHoverTimer.current = setTimeout(() => setHoveredSubgroup(null), 150);
+  }
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadUser(); }, []);
@@ -504,8 +519,20 @@ export default function Sidebar() {
                       if (visibleSgItems.length === 0) return null;
                       const sgOpen = openSubgroups[sg.key] !== false;
 
+                      // A closed subgroup previews its items on hover without
+                      // needing a click -- the header's own hover state isn't
+                      // enough since moving the mouse down into the revealed
+                      // items would otherwise count as "left the header."
+                      // Covering the header + revealed items in one
+                      // mouse-tracking region fixes that.
+                      const previewing = hoveredSubgroup === sg.key;
+
                       return (
-                        <div key={sg.key}>
+                        <div
+                          key={sg.key}
+                          onMouseEnter={() => previewSubgroup(sg.key)}
+                          onMouseLeave={unpreviewSubgroup}
+                        >
                           {/* Sub-group toggle header */}
                           {!isCollapsed && (
                             <button
@@ -517,7 +544,7 @@ export default function Sidebar() {
                               <span>{sg.label}</span>
                               <ChevronDown
                                 size={10}
-                                className={`transition-transform ${sgOpen ? "" : "-rotate-90"}`}
+                                className={`transition-transform ${sgOpen || previewing ? "" : "-rotate-90"}`}
                               />
                             </button>
                           )}
@@ -529,8 +556,11 @@ export default function Sidebar() {
                             <div className="mx-3 mb-2.5 border-t border-gray-100" />
                           )}
 
-                          {/* Sub-group items */}
-                          {(sgOpen || isCollapsed) && (
+                          {/* Sub-group items -- open (pinned via click),
+                              hovered (temporary preview of a closed
+                              subgroup), or the whole sidebar is in icon-only
+                              mode (grouping doesn't apply there). */}
+                          {(sgOpen || isCollapsed || previewing) && (
                             <div className="space-y-0.5 mt-0.5">
                               {visibleSgItems.map((item) => renderItem(item, !isCollapsed))}
                             </div>
