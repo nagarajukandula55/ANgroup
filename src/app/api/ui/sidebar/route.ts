@@ -5,7 +5,7 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { listModulesForBusiness } from "@/core/module-registry/moduleDefinition.service";
 import { filterModulesByPermission } from "@/core/access/filterModulesByPermission";
 import { expandWithAliases } from "@/core/access/moduleKeyAliases";
-import { STATIC_MODULES } from "@/components/sidebar";
+import { STATIC_MODULES } from "@/components/sidebar-nav";
 
 /**
  * MIGRATED from UserBusinessAccess/accessKeys to the Permission-based access
