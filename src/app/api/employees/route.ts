@@ -151,11 +151,31 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // employeeId has a GLOBAL unique index (see models/EmployeeProfile.ts),
-    // no businessId in the index -- uses the canonical numbering engine's
-    // global-scope variant so employee IDs share one atomic counter across
-    // every business, same as vendor IDs.
+    // employeeId is unique per business (see models/EmployeeProfile.ts's
+    // {businessId, employeeId} index) -- still generated through the
+    // global-scope numbering variant so the underlying counter is shared
+    // platform-wide (same mechanism vendor IDs use), it just can't collide
+    // across businesses since the schema index is scoped.
     const { value: employeeId } = await generateGlobalDocumentNumber("EMPLOYEE", businessId);
+
+    // Surface which specific thing already exists instead of a vague
+    // "duplicate ID or already-linked user" -- a vendor Manager picking
+    // someone from the (platform-wide, unscoped) user-search autocomplete
+    // has no way to know upfront whether that person already has an
+    // EmployeeProfile in this business.
+    if (linkedUserId && mongoose.Types.ObjectId.isValid(linkedUserId)) {
+      const already = await EmployeeProfile.findOne({
+        businessId: new mongoose.Types.ObjectId(businessId),
+        userId: new mongoose.Types.ObjectId(linkedUserId),
+        isDeleted: { $ne: true },
+      }).lean();
+      if (already) {
+        return NextResponse.json(
+          { success: false, error: "This user already has an employee record in this business — edit their existing record instead of creating a new one." },
+          { status: 409 }
+        );
+      }
+    }
 
     // Links to the actual employee's own account when the caller picked one
     // from the user-search autocomplete -- previously discarded (only used
