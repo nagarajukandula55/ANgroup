@@ -23,7 +23,7 @@ import { VENDOR_DOC_CATALOG } from "@/core/vendorCompliance";
 // section below).
 import { STATIC_MODULES } from "@/components/sidebar";
 import { useToast } from "@/components/shared/Toast";
-import { MODULE_TEMPLATE_OPTIONS, isEnabledUnderTemplate, type ModuleTemplateKey } from "@/core/access/moduleTemplates";
+import { MODULE_TEMPLATE_OPTIONS, isEnabledUnderTemplate, describeBusinessUsage, type ModuleTemplateKey } from "@/core/access/moduleTemplates";
 
 interface AuditLogEntry {
   _id: string;
@@ -987,11 +987,12 @@ export default function BusinessDetailPage() {
             {form.modules.map((mod) => (
               <label
                 key={mod.key}
-                className="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                className="flex items-start gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
               >
                 <input
                   type="checkbox"
                   checked={mod.enabled}
+                  className="mt-0.5"
                   onChange={(e) =>
                     setForm({
                       ...form,
@@ -1001,7 +1002,14 @@ export default function BusinessDetailPage() {
                     })
                   }
                 />
-                {mod.label}
+                <span>
+                  <span className="block">{mod.label}</span>
+                  {/* Which business TYPES this page/data is actually for --
+                      per explicit direction, so an admin has clarity while
+                      configuring modules per business without needing to
+                      remember or re-derive it from moduleTemplates.ts. */}
+                  <span className="block text-[10px] text-gray-400">{describeBusinessUsage(mod.key)}</span>
+                </span>
               </label>
             ))}
           </div>

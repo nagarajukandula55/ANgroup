@@ -123,3 +123,27 @@ export function isEnabledUnderTemplate(key: string, template: ModuleTemplateKey)
   // template's TEMPLATE_EXTRA_KEYS carved back in above.
   return !isEcommerce && !isService;
 }
+
+const BUSINESS_TYPE_TEMPLATES: ModuleTemplateKey[] = MODULE_TEMPLATE_OPTIONS
+  .map((o) => o.value)
+  .filter((v) => v !== "ALL" && v !== "PLATFORM");
+
+/**
+ * Human-readable summary of which business TYPES actually use a given
+ * module -- shown next to each checkbox in the business edit page's
+ * Modules section ("On every page also mention which businesses are going
+ * to use that data so I can have better clarity while configuring the
+ * backend"). Collapses to "All business types" when every non-platform
+ * template enables it, rather than spelling out all 9 names.
+ */
+export function describeBusinessUsage(key: string): string {
+  if (PLATFORM_ONLY_KEYS.includes(key)) return "AN Group platform only";
+
+  const using = BUSINESS_TYPE_TEMPLATES.filter((t) => isEnabledUnderTemplate(key, t));
+  if (using.length === BUSINESS_TYPE_TEMPLATES.length) return "All business types";
+  if (using.length === 0) return "AN Group platform only";
+
+  return using
+    .map((t) => MODULE_TEMPLATE_OPTIONS.find((o) => o.value === t)!.label.replace(" business", ""))
+    .join(", ");
+}
