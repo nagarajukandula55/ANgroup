@@ -34,6 +34,11 @@ interface UserRef {
   phone?: string
 }
 
+interface RoleOption {
+  code: string
+  name: string
+}
+
 interface Employee {
   _id: string
   employeeId?: string
@@ -90,6 +95,7 @@ export default function EmployeesPage() {
   const [deptFilter, setDeptFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [showForm, setShowForm] = useState(false)
+  const [roles, setRoles] = useState<RoleOption[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -171,6 +177,14 @@ export default function EmployeesPage() {
           setBusinessId(bId)
           if (bId) {
             fetchEmployees(bId)
+            // Designation is a picker over this business's own roles
+            // (Admin > Access), not free text, same pattern as the fuller
+            // /employees page -- so it can never drift from what actually
+            // exists for this business.
+            fetch(`/api/admin/roles?businessId=${bId}`)
+              .then((r) => r.json())
+              .then((d) => setRoles(d.roles || []))
+              .catch(() => setRoles([]))
           } else {
             setLoading(false)
           }
@@ -650,14 +664,18 @@ export default function EmployeesPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Designation *</label>
-                <input
-                  type="text"
+                <select
                   required
-                  placeholder="Software Engineer"
                   value={form.designation}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((p: typeof form) => ({ ...p, designation: e.target.value }))}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((p: typeof form) => ({ ...p, designation: e.target.value }))}
+                  title="Select designation"
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-white/20"
-                />
+                >
+                  <option value="">Select…</option>
+                  {roles.map((r) => (
+                    <option key={r.code} value={r.name}>{r.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Joining Date *</label>
@@ -815,12 +833,20 @@ export default function EmployeesPage() {
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Designation</label>
-                  <input
+                  <select
                     value={editForm.designation}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditForm((p: typeof editForm) => ({ ...p, designation: e.target.value }))}
-                    placeholder="Software Engineer"
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setEditForm((p: typeof editForm) => ({ ...p, designation: e.target.value }))}
+                    title="Select designation"
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:border-gray-400"
-                  />
+                  >
+                    <option value="">Select…</option>
+                    {roles.map((r) => (
+                      <option key={r.code} value={r.name}>{r.name}</option>
+                    ))}
+                    {editForm.designation && !roles.some((r) => r.name === editForm.designation) && (
+                      <option value={editForm.designation}>{editForm.designation} (existing)</option>
+                    )}
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
