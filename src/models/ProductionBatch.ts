@@ -24,7 +24,7 @@ export interface IProductionBatch extends Document {
 
 const ProductionBatchSchema = new Schema<IProductionBatch>(
   {
-    batchNumber: { type: String, unique: true },
+    batchNumber: { type: String },
     productionOrderId: {
       type: Schema.Types.ObjectId,
       ref: "ProductionOrder",
@@ -53,6 +53,10 @@ const ProductionBatchSchema = new Schema<IProductionBatch>(
   },
   { timestamps: true }
 );
+
+// batchNumber was GLOBALLY unique -- same cross-business collision risk as
+// PurchaseOrder.poNumber: scoped per-business instead.
+ProductionBatchSchema.index({ businessId: 1, batchNumber: 1 }, { unique: true });
 
 const ProductionBatch: Model<IProductionBatch> =
   (mongoose.models.ProductionBatch as Model<IProductionBatch>) ||

@@ -24,7 +24,7 @@ export interface IProductionOrder extends Document {
 
 const ProductionOrderSchema = new Schema<IProductionOrder>(
   {
-    orderNumber: { type: String, unique: true },
+    orderNumber: { type: String },
     businessId: { type: Schema.Types.ObjectId, required: true, index: true },
     bomId: { type: Schema.Types.ObjectId, ref: "BOM" },
     productName: { type: String, required: true },
@@ -52,6 +52,10 @@ const ProductionOrderSchema = new Schema<IProductionOrder>(
   },
   { timestamps: true }
 );
+
+// orderNumber was GLOBALLY unique -- same cross-business collision risk as
+// PurchaseOrder.poNumber: scoped per-business instead.
+ProductionOrderSchema.index({ businessId: 1, orderNumber: 1 }, { unique: true });
 
 const ProductionOrder: Model<IProductionOrder> =
   (mongoose.models.ProductionOrder as Model<IProductionOrder>) ||

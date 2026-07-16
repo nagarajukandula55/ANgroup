@@ -34,8 +34,6 @@ const GoodsReceiptSchema = new mongoose.Schema(
     grnNumber: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
     },
 
     purchaseOrderId: {
@@ -158,6 +156,10 @@ GoodsReceiptSchema.index({
   businessId: 1,
   status: 1,
 });
+
+// grnNumber was GLOBALLY unique -- same cross-business collision risk as
+// poNumber (see PurchaseOrder.js): scoped per-business instead.
+GoodsReceiptSchema.index({ businessId: 1, grnNumber: 1 }, { unique: true });
 
 export default mongoose.models.GoodsReceipt ||
   mongoose.model("GoodsReceipt", GoodsReceiptSchema);

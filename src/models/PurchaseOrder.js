@@ -42,10 +42,8 @@ const PurchaseOrderSchema = new mongoose.Schema(
     poNumber:{
         type:String,
         required:true,
-        unique:true,
         uppercase:true,
         trim:true,
-        index:true
     },
 
     version:{
@@ -297,6 +295,13 @@ PurchaseOrderSchema.index({
 PurchaseOrderSchema.index({
     expectedDate:1
 });
+
+// poNumber was GLOBALLY unique -- two businesses both using the default
+// (uncustomized) PO prefix generate identical numbers (numberingService.ts
+// resets its counter per business, not the prefix), so the second
+// business's first PO would hard-fail on a duplicate-key error. Scoped
+// per-business instead.
+PurchaseOrderSchema.index({ businessId: 1, poNumber: 1 }, { unique: true });
 
 export default
 mongoose.models.PurchaseOrder ||
