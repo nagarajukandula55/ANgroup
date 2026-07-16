@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import User, { AuthProvider } from "@/models/User";
@@ -14,12 +13,12 @@ import { resolveOwnerOrManagerVendor as requireVendorOwnerOrManager } from "@/co
 
 const SALT_ROUNDS = 12;
 
-function generateTempPassword(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  return Array.from(crypto.randomFillSync(new Uint8Array(10)))
-    .map((b) => alphabet[b % alphabet.length])
-    .join("");
-}
+// Fixed, predictable first password rather than a random one -- per
+// explicit direction, every self-service-created employee starts on this
+// same default so whoever's onboarding them doesn't need to relay a
+// freshly-generated string, and `mustChangePassword: true` below still
+// forces them off it the moment they actually log in.
+const DEFAULT_FIRST_PASSWORD = "ANgroup@123";
 
 // Modules a given memberType implies real (permission-granting) access to,
 // on top of whatever roleCode/isManager grant is passed explicitly — same
@@ -110,8 +109,7 @@ export async function POST(req: NextRequest) {
     const { sequence } = await generateScopedDocumentNumber(String(vendor._id), "EMPLOYEE", String(vendor.businessId));
     const employeeCode = `${vendor.vendorId}-${String(sequence).padStart(4, "0")}`;
 
-    const tempPassword = generateTempPassword();
-    const hashedPassword = await bcrypt.hash(tempPassword, SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(DEFAULT_FIRST_PASSWORD, SALT_ROUNDS);
 
     const newUser = await User.create({
       name: String(name).trim(),
@@ -177,7 +175,7 @@ export async function POST(req: NextRequest) {
       staff: member,
       employeeCode,
       loginUsername: employeeCode.toLowerCase(),
-      temporaryPassword: tempPassword,
+      temporaryPassword: DEFAULT_FIRST_PASSWORD,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Internal Server Error";

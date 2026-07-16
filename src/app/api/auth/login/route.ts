@@ -53,6 +53,17 @@ export async function POST(req: Request) {
       );
     }
 
+    // Was never checked here at all -- a deactivated account (isActive:
+    // false, e.g. the zero-role accounts scripts/wipeToSuperAdminOnly.ts
+    // and /api/admin/maintenance/wipe-roles deliberately deactivate) could
+    // still authenticate successfully and get a valid session.
+    if (user.isActive === false) {
+      return NextResponse.json(
+        { success: false, message: "This account has been deactivated. Contact your administrator." },
+        { status: 403 }
+      );
+    }
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return NextResponse.json(

@@ -15,6 +15,35 @@ import {
 import { useToast } from "@/components/shared/Toast";
 
 const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
+// Every full page refresh re-fetched /api/auth/me + /api/ui/sidebar from a
+// deliberately-empty starting state (see the comment on `modules` below for
+// why it starts empty rather than falling back to STATIC_MODULES) -- which
+// is what actually produced the "sidebar reloads/flashes every refresh"
+// complaint: it wasn't remounting on navigation (Next persists this layout
+// across client-side route changes), it was genuinely re-rendering from
+// blank on every hard reload. Snapshotting the last successful render here
+// lets the very next mount paint immediately from cache while the real
+// fetch below still runs in the background and overwrites it the moment it
+// resolves -- so a stale/wrong cache can never persist beyond one refresh,
+// but a normal refresh no longer visibly collapses to empty first.
+const SIDEBAR_CACHE_KEY = "an_sidebar_cache_v1";
+
+function readSidebarCache(): { user: UserInfo; businesses: Business[]; activeBiz: Business | null; modules: any[] } | null {
+  try {
+    const raw = sessionStorage.getItem(SIDEBAR_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeSidebarCache(snapshot: { user: UserInfo | null; businesses: Business[]; activeBiz: Business | null; modules: any[] }) {
+  try {
+    if (!snapshot.user) return;
+    sessionStorage.setItem(SIDEBAR_CACHE_KEY, JSON.stringify(snapshot));
+  } catch { /* sessionStorage unavailable -- cache is a pure optimization */ }
+}
 
 interface Business { _id: string; name: string; brandName?: string; businessCode?: string; isPlatform?: boolean }
 interface UserInfo {
@@ -60,8 +89,14 @@ export default function Sidebar() {
   // hiccup silently fell back to showing everything. Starts empty now --
   // nothing shows until the API actually confirms what this account may
   // see, and an empty/failed response means an empty sidebar, not a full one.
-  const [modules, setModules]           = useState<any[]>([]);
-  const [modulesLoaded, setModulesLoaded] = useState(false);
+  // Lazily hydrated from the previous mount's cached snapshot (if any) so a
+  // refresh paints the last-known-correct sidebar immediately instead of
+  // empty -- loadUser()/loadSidebarModules() below still run every mount
+  // and overwrite this the moment the real fetch resolves, so a stale or
+  // wrong cache never survives more than the first paint.
+  const cachedSnapshot = typeof window !== "undefined" ? readSidebarCache() : null;
+  const [modules, setModules]           = useState<any[]>(cachedSnapshot?.modules || []);
+  const [modulesLoaded, setModulesLoaded] = useState(!!cachedSnapshot);
   const [open, setOpen]                 = useState(false);
   const [collapsed, setCollapsed]       = useState(false);
   // When the sidebar is collapsed to icon-only, hovering over it expands it
@@ -70,9 +105,9 @@ export default function Sidebar() {
   // expand on hover".
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const isCollapsed = collapsed && !hoverExpanded;
-  const [user, setUser]                 = useState<UserInfo | null>(null);
-  const [businesses, setBusinesses]     = useState<Business[]>([]);
-  const [activeBiz, setActiveBiz]       = useState<Business | null>(null);
+  const [user, setUser]                 = useState<UserInfo | null>(cachedSnapshot?.user || null);
+  const [businesses, setBusinesses]     = useState<Business[]>(cachedSnapshot?.businesses || []);
+  const [activeBiz, setActiveBiz]       = useState<Business | null>(cachedSnapshot?.activeBiz || null);
   const [bizDropdown, setBizDropdown]   = useState(false);
   const [switching, setSwitching]       = useState(false);
   // Tracks which subgroups are open — default all open
@@ -167,12 +202,13 @@ export default function Sidebar() {
             ? data.businesses?.find((b: Business) => b.isPlatform) || null
             : data.businesses?.[0] || null;
         setActiveBiz(found);
-        if (found?._id) loadSidebarModules(found._id);
+        writeSidebarCache({ user: data.user, businesses: data.businesses || [], activeBiz: found, modules });
+        if (found?._id) loadSidebarModules(found._id, data.user, data.businesses || [], found);
       }
     } catch { /* static fallback */ }
   }
 
-  async function loadSidebarModules(businessId: string) {
+  async function loadSidebarModules(businessId: string, userForCache?: UserInfo | null, businessesForCache?: Business[], activeBizForCache?: Business | null) {
     try {
       const res  = await fetch("/api/ui/sidebar", {
         method: "POST",
@@ -189,7 +225,14 @@ export default function Sidebar() {
       // load) for any account with a short or zero-length real list. A
       // limited-access role account is SUPPOSED to see a short list --
       // that must render as a short sidebar, not fall back to everything.
-      setModules(data.success ? (data.modules || []) : []);
+      const resolvedModules = data.success ? (data.modules || []) : [];
+      setModules(resolvedModules);
+      writeSidebarCache({
+        user: userForCache ?? user,
+        businesses: businessesForCache ?? businesses,
+        activeBiz: activeBizForCache ?? activeBiz,
+        modules: resolvedModules,
+      });
     } catch {
       setModules([]);
     } finally {
