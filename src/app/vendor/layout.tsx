@@ -22,6 +22,8 @@ import {
   Boxes,
   Phone,
   ClipboardList,
+  PackageCheck,
+  ArrowLeftRight,
 } from 'lucide-react'
 
 // NOTE: Bill of Materials is intentionally NOT a top-level nav item — BOM
@@ -47,6 +49,12 @@ const navItems: { href: string; label: string; icon: any; modules: string[] | nu
   // endpoints, just scoped to this vendor's own team.
   { href: '/vendor/crm/calls', label: 'Appointments', icon: Phone, modules: ['crm_calls', 'crm'] },
   { href: '/vendor/crm/jobsheets', label: 'Workorders', icon: ClipboardList, modules: ['crm_jobsheets', 'crm'] },
+  // Read-only vendor views of business-initiated procurement documents --
+  // the business places/approves these, a vendor's role is to see and
+  // fulfill them, not author them (see each page's own top comment).
+  { href: '/vendor/purchase', label: 'Purchase Orders', icon: ShoppingCart, modules: ['purchase'] },
+  { href: '/vendor/grn', label: 'Goods Receipts', icon: PackageCheck, modules: ['grn'] },
+  { href: '/vendor/stock-transfers', label: 'Stock Transfers', icon: ArrowLeftRight, modules: ['stock_transfers'] },
   { href: '/vendor/staff', label: 'Staff', icon: Users, modules: ['staff'], managerOnly: true },
   { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText, modules: ['finance'] },
   { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet, modules: ['finance'], managerOnly: true },

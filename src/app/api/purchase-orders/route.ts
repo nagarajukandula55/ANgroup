@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     // Was no auth check at all, and getAllPurchaseOrders() had no
     // businessId filter -- every caller could list every business's
@@ -67,7 +67,10 @@ export async function GET() {
 
     await connectDB();
 
-    const data = await getAllPurchaseOrders(session.business.businessId);
+    // Vendor-scoped callers (see app/vendor/purchase) pass their own
+    // vendorId to see only their own purchase orders.
+    const vendorId = new URL(req.url).searchParams.get("vendorId") || undefined;
+    const data = await getAllPurchaseOrders(session.business.businessId, vendorId);
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {

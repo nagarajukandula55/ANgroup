@@ -80,6 +80,18 @@ export async function GET(req: NextRequest) {
     if (fromWarehouse) filter.fromWarehouse = fromWarehouse;
     if (toWarehouse) filter.toWarehouse = toWarehouse;
 
+    // Vendor-scoped view (see app/vendor/stock-transfers) -- StockTransfer
+    // has no vendorId of its own (it's warehouse-to-warehouse), so scope by
+    // "either side of the transfer is one of MY warehouses" instead, fed by
+    // this vendor's own /api/vendor/warehouses list.
+    const warehouseIn = searchParams.get("warehouseIn");
+    if (warehouseIn) {
+      const ids = warehouseIn.split(",").filter(Boolean);
+      if (ids.length > 0) {
+        filter.$or = [{ fromWarehouse: { $in: ids } }, { toWarehouse: { $in: ids } }];
+      }
+    }
+
     const [transfers, total] = await Promise.all([
       StockTransfer.find(filter)
         .sort({ createdAt: -1 })

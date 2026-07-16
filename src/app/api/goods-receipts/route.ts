@@ -26,9 +26,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: "businessId is required" }, { status: 400 });
     }
 
+    // Vendor-scoped callers (see app/vendor/grn) pass their own vendorId to
+    // see only their own receipts, not the whole business's.
+    const vendorId = searchParams.get("vendorId") || undefined;
+
     const result = await listGoodsReceiptsByBusiness(businessId, {
       page: Number(searchParams.get("page")) || 1,
       limit: Number(searchParams.get("limit")) || 25,
+      vendorId,
     });
 
     return NextResponse.json({ success: true, data: result.items, pagination: result });

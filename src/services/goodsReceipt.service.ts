@@ -193,12 +193,16 @@ export async function getGoodsReceiptById(id: string) {
 
 export async function listGoodsReceiptsByBusiness(
   businessId: string,
-  opts: { page?: number; limit?: number } = {}
+  opts: { page?: number; limit?: number; vendorId?: string } = {}
 ) {
   const page = Math.max(1, opts.page || 1);
   const limit = Math.min(100, Math.max(1, opts.limit || 25));
 
-  const query = { businessId: new Types.ObjectId(businessId) };
+  const query: Record<string, unknown> = { businessId: new Types.ObjectId(businessId) };
+  // Vendor-scoped view (see app/vendor/grn) -- GoodsReceipt already carries
+  // its own vendorId natively, unlike CrmCall/CrmJobSheet, so this is a
+  // direct filter rather than an assignedTo-set workaround.
+  if (opts.vendorId) query.vendorId = new Types.ObjectId(opts.vendorId);
   const [items, total] = await Promise.all([
     GoodsReceipt.find(query)
       .populate("vendorId", "businessName legalName")
