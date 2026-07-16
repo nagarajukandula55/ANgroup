@@ -41,6 +41,12 @@ export interface IRole extends Document {
   // role's layout. Missing/empty falls back to the built-in NAV_GROUPS order.
   moduleOrder?:    string[];
   createdBy?:      Types.ObjectId;
+  // Soft-delete flag -- was checked with `{ $ne: true }` throughout the
+  // roles API without ever being declared on the schema, so Mongoose
+  // silently dropped it on every save (harmless only because "absent"
+  // also satisfies `$ne: true`). Declared for real so a genuine soft
+  // delete persists and is queryable.
+  isDeleted?:      boolean;
   createdAt:       Date;
   updatedAt:       Date;
 }
@@ -90,6 +96,7 @@ const RoleSchema = new Schema<IRole>(
     homeRoute:   { type: String, default: '' },
     moduleOrder: [{ type: String }],
     createdBy:   { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    isDeleted:   { type: Boolean, default: false, index: true },
   },
   { timestamps: true, versionKey: false }
 );
