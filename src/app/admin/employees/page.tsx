@@ -393,7 +393,20 @@ export default function EmployeesPage() {
             <p className="text-sm text-gray-400">Workforce management</p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              // Opening the form never cleared a PREVIOUS attempt's linked
+              // user -- only a successful submit did (see handleSubmit).
+              // Closing via X/backdrop/Cancel without submitting left
+              // selectedUser (and the rest of the form) in state, so the
+              // next, unrelated "Add Employee" silently resubmitted that
+              // stale linked user's _id as `userId` even though the
+              // visible Name/Email fields showed brand-new details --
+              // exactly the reported "already has an employee record"
+              // 409 on details that were never actually used.
+              resetForm()
+              setFormError(null)
+              setShowForm(true)
+            }}
             className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
           >
             <Plus className="w-4 h-4" /> Add Employee
