@@ -21,6 +21,20 @@ async function guard(action: "view" | "edit" | "delete") {
   return { session };
 }
 
+// Roles are managed per business individually -- editing/deleting a role
+// from Business B's context must never touch Business A's role, even
+// though both were previously reachable through the same unscoped [id]
+// endpoint (the actual "role created in another business" confusion this
+// was fixed alongside: nothing stopped a stale _id from another business
+// being edited here). businessId is optional on the request only for the
+// handful of legacy platform-wide system roles (SUPER_ADMIN/AN_STAFF),
+// which have no business owner to check against.
+function assertBusinessOwnership(role: { businessId?: unknown }, requestBusinessId: string | null) {
+  if (!role.businessId) return true; // platform-wide role -- no owner to check
+  if (!requestBusinessId) return false;
+  return String(role.businessId) === String(requestBusinessId);
+}
+
 // GET /api/admin/roles/[id]
 export async function GET(
   request: NextRequest,
@@ -60,10 +74,18 @@ export async function PUT(
     await connectDB();
     const { id } = await params;
     const body = await request.json();
-    const { permissions, homeRoute, moduleOrder, name, description, color } = body;
+    const { permissions, homeRoute, moduleOrder, name, description, color, businessId } = body;
 
     if (permissions !== undefined && !Array.isArray(permissions)) {
       return NextResponse.json({ error: "permissions must be an array" }, { status: 400 });
+    }
+
+    const existing = await Role.findById(id).select("businessId").lean();
+    if (!existing) {
+      return NextResponse.json({ error: "Role not found" }, { status: 404 });
+    }
+    if (!assertBusinessOwnership(existing, businessId ?? null)) {
+      return NextResponse.json({ error: "This role belongs to a different business" }, { status: 403 });
     }
 
     const update: Record<string, unknown> = {};
@@ -114,10 +136,15 @@ export async function DELETE(
   try {
     await connectDB();
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
     const role = await Role.findById(id);
 
     if (!role) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
+    }
+
+    if (!assertBusinessOwnership(role, searchParams.get("businessId"))) {
+      return NextResponse.json({ error: "This role belongs to a different business" }, { status: 403 });
     }
 
     if (role.isSystem === true) {

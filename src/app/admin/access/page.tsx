@@ -6,11 +6,13 @@ import { ACCESS_HIERARCHY } from "@/core/access/moduleHierarchy";
 import { STANDARD_ACTIONS } from "@/core/access/actions";
 import { STATIC_MODULES } from "@/components/sidebar";
 import { MODULE_KEY_ALIASES } from "@/core/access/moduleKeyAliases";
+import { useToast } from "@/components/shared/Toast";
 
 interface Role {
   _id: string;
   name: string;
   code: string;
+  roleNumber?: string | null;
   description?: string;
   color?: string;
   isSystem?: boolean;
@@ -43,6 +45,7 @@ function toSidebarKey(moduleKey: string): string {
 }
 
 export default function AccessPage() {
+  const toast = useToast();
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -100,7 +103,6 @@ export default function AccessPage() {
   const businessParam = activeBusinessId;
 
   useEffect(() => {
-    fetchRoles();
     fetch("/api/businesses/list").then((r) => r.json()).then((d) => {
       const list: Business[] = d.businesses || d.data || [];
       setBusinesses(list);
@@ -108,6 +110,15 @@ export default function AccessPage() {
       if (anGroup) setActiveBusinessId((prev) => prev || anGroup._id);
     }).catch(() => {});
   }, []);
+
+  // Roles are fetched scoped to the active business (server-side now, not
+  // just hidden client-side after an unscoped fetch of EVERY business's
+  // roles -- see fetchRoles below) -- so this must wait for a real
+  // activeBusinessId before firing, and re-fire on switch.
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    fetchRoles();
+  }, [activeBusinessId]);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -208,7 +219,15 @@ export default function AccessPage() {
   async function fetchRoles() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/roles");
+      // Was unscoped ("/api/admin/roles" with no params) -- every
+      // business's roles shipped to the browser and were only ever hidden
+      // by the client-side visibleRoles filter below, so switching
+      // business never actually stopped a stale role _id from another
+      // business from being editable/deletable via this page. Scoped
+      // server-side now; visibleRoles below still applies as a defensive
+      // second filter (e.g. the AN Group platform-wide exception).
+      const qs = activeBusinessId ? `?businessId=${activeBusinessId}` : "";
+      const res = await fetch(`/api/admin/roles${qs}`);
       const data = await res.json();
       const list = data.roles || data || [];
       setRoles(list);
@@ -257,6 +276,10 @@ export default function AccessPage() {
           moduleOrder: selectedRole.moduleOrder || [],
           name: selectedRole.name,
           description: selectedRole.description || "",
+          // Required for the server-side business-ownership check now --
+          // editing a role always happens in the context of the currently
+          // active business.
+          businessId: selectedRole.businessId ?? activeBusinessId,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -327,7 +350,7 @@ export default function AccessPage() {
       // business. A role is now always created under whichever business
       // is currently active (AN Group's own real id if that's selected),
       // and stays exclusive to it.
-      await fetch("/api/admin/roles", {
+      const res = await fetch("/api/admin/roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -338,19 +361,27 @@ export default function AccessPage() {
           businessId: activeBusinessId || undefined,
         }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to create role");
+        return;
+      }
+      // Per explicit direction: "let me see the role id once it is saved."
+      toast.success(`Role created — ID ${data.role?.roleNumber || data.role?._id}`);
       await fetchRoles();
       setCreating(false);
       setNewRoleName("");
       setNewRoleCode("");
       setNewRoleColor("#6366f1");
     } catch {
-      // error is swallowed; could add toast here
+      toast.error("Failed to create role");
     }
   }
 
   async function deleteRole(role: Role) {
     try {
-      await fetch(`/api/admin/roles/${role._id}`, { method: "DELETE" });
+      const qs = new URLSearchParams({ businessId: String(role.businessId ?? activeBusinessId) });
+      await fetch(`/api/admin/roles/${role._id}?${qs.toString()}`, { method: "DELETE" });
       const updated = roles.filter((r) => r._id !== role._id);
       setRoles(updated);
       if (selectedRole?._id === role._id) {
@@ -538,6 +569,11 @@ export default function AccessPage() {
                         <span className="text-sm font-medium text-gray-900 truncate">
                           {role.name}
                         </span>
+                        {role.roleNumber && (
+                          <span className="flex-shrink-0 font-mono text-[10px] text-gray-400">
+                            {role.roleNumber}
+                          </span>
+                        )}
                         {role.isSystem && (
                           <span className="flex-shrink-0 px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded">
                             System

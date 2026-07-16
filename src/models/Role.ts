@@ -16,6 +16,11 @@ export interface IRole extends Document {
   organizationId?: Types.ObjectId;
   businessId?:     Types.ObjectId;
   vendorId?:       Types.ObjectId;
+  // Human-facing serial shown the moment a role is saved, e.g. "ECOM-0001"
+  // -- generated via the canonical numbering engine (documentType "ROLE"),
+  // format "{businessCode}-{seq}" (see scripts/seedRoleNumberConfig.ts).
+  // Platform-wide roles (businessId null, e.g. SUPER_ADMIN) never get one.
+  roleNumber?:     string;
   name:            string;
   code:            string;
   description:     string;
@@ -50,6 +55,16 @@ const RoleSchema = new Schema<IRole>(
     // every vendor can have its own "VENDOR_OWNER"-coded role without
     // colliding with any other vendor's.
     vendorId:       { type: Schema.Types.ObjectId, ref: 'VendorProfile',  default: null },
+    // No `default` -- must stay genuinely ABSENT (not present-with-null)
+    // on any role that doesn't get one (vendor default roles, legacy
+    // platform roles), or the {businessId, roleNumber} sparse unique index
+    // below stops being sparse in practice: Mongo's sparse index only
+    // skips documents missing the field entirely, not documents where it's
+    // explicitly null -- a `default: null` here meant every role got an
+    // explicit null field, so a business's SECOND vendor-default role
+    // collided with its first on {businessId, null}. Confirmed the hard
+    // way against production before this fix.
+    roleNumber:     { type: String },
     name:           { type: String, required: true, trim: true },
     // Not globally unique -- vendor-scoped default roles intentionally reuse
     // the same code (e.g. "VENDOR_OWNER") across every vendor. Uniqueness is
@@ -82,6 +97,16 @@ const RoleSchema = new Schema<IRole>(
 RoleSchema.index({ code: 1, businessId: 1, vendorId: 1 }, { unique: true });
 RoleSchema.index({ organizationId: 1, status: 1 });
 RoleSchema.index({ businessId: 1, vendorId: 1, status: 1 });
+// A compound `sparse` index here would NOT actually skip roleNumber-less
+// roles (vendor default roles, legacy platform roles) -- MongoDB only
+// excludes a document from a compound sparse index when it's missing
+// EVERY field in the key, and `businessId` is always present. A partial
+// index with an explicit filter is the correct way to make this unique
+// constraint apply only to roles that actually have a roleNumber.
+RoleSchema.index(
+  { businessId: 1, roleNumber: 1 },
+  { unique: true, partialFilterExpression: { roleNumber: { $type: "string" } } }
+);
 
 const Role: Model<IRole> =
   mongoose.models.Role || mongoose.model<IRole>('Role', RoleSchema);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Search, UserCog, Loader2, Edit2, Eye } from 'lucide-react';
+import { UserPlus, Search, UserCog, Loader2, Edit2, Eye, Trash2 } from 'lucide-react';
 
 interface Role { _id: string; name: string; code: string }
 interface EmployeeProfile { employeeId: string; department?: string; designation?: string; employmentType?: string; joiningDate?: string }
@@ -262,6 +262,21 @@ export default function UsersPage() {
     fetchUsers();
   }
 
+  // DELETE /api/admin/users/[id] already existed and already worked for
+  // super admin (soft delete) -- this page just never rendered a button
+  // for it. `isSuperAdmin` was fetched and stored but referenced nowhere
+  // else in this file until now.
+  async function deleteUser(user: User) {
+    if (!confirm(`Delete ${user.name || user.email}? This can't be undone from this screen.`)) return;
+    const res = await fetch(`/api/admin/users/${user._id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || data.message || 'Failed to delete user');
+      return;
+    }
+    fetchUsers();
+  }
+
   const inputCls = 'w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 placeholder-gray-400';
   const selectCls = 'w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10';
   const labelCls = 'block text-xs font-medium text-gray-600 mb-1.5';
@@ -383,6 +398,12 @@ export default function UsersPage() {
                           className={`p-1.5 rounded-lg transition text-xs font-medium px-2.5 py-1 rounded-full border ${isActive ? 'text-red-600 hover:bg-red-50 border-transparent' : 'text-green-600 hover:bg-green-50 border-transparent'}`}>
                           {isActive ? 'Deactivate' : 'Activate'}
                         </button>
+                        {isSuperAdmin && (
+                          <button onClick={() => deleteUser(user)} title="Delete"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

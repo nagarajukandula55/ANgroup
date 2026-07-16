@@ -22,6 +22,8 @@ interface EmployeeProfile {
 }
 
 interface VendorProfile {
+  _id?: string;
+  businessId?: string;
   vendorId: string;
   companyName?: string;
   gstNumber?: string;
@@ -98,13 +100,31 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     async function load() {
       setLoading(true);
       try {
-        const [userRes, rolesRes] = await Promise.all([
-          fetch(`/api/admin/users/${id}`),
-          fetch('/api/admin/roles'),
-        ]);
+        const userRes = await fetch(`/api/admin/users/${id}`);
         const userData = await userRes.json();
-        const rolesData = await rolesRes.json();
         if (userData.user) setUser(userData.user);
+
+        // Was fetching "/api/admin/roles" with NO scoping params at all --
+        // every role in the entire system (every business, every vendor)
+        // was offered in the assign-role picker below, regardless of who
+        // this user actually is. This is the literal bug report: "only
+        // vendor available modules should show but everything showing
+        // there." Now scoped to this user's own business, and to ONLY
+        // that vendor's own roles (vendorOnly=true, dropping the
+        // business-wide-role union /api/admin/roles otherwise includes)
+        // when the target is a vendor user -- a vendor must never be
+        // assignable into a business-wide role carrying non-vendor
+        // modules (users/settings/roles/etc.).
+        const vp = userData.user?.vendorProfile;
+        const businessId = vp?.businessId || userData.user?.businessId;
+        const qs = new URLSearchParams();
+        if (businessId) qs.set('businessId', String(businessId));
+        if (vp?._id) {
+          qs.set('vendorId', String(vp._id));
+          qs.set('vendorOnly', 'true');
+        }
+        const rolesRes = await fetch(`/api/admin/roles${qs.toString() ? `?${qs}` : ''}`);
+        const rolesData = await rolesRes.json();
         if (rolesData.roles) setAvailableRoles(rolesData.roles);
       } catch (e) {
         console.error(e);

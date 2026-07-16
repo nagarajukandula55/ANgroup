@@ -126,6 +126,10 @@ export const DOCUMENT_TYPES = [
   // already in this list (QUOTATION/DELIVERY_CHALLAN/CREDIT_NOTE/DEBIT_NOTE
   // all pre-existed here already, just never had a page/print until now).
   "PROFORMA_INVOICE",
+  // Per-role human-facing serial (Role.roleNumber), format "{businessCode}-
+  // {seq}" via a seeded global DocumentNumberConfig template -- see
+  // scripts/seedRoleNumberConfig.ts.
+  "ROLE",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -171,6 +175,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   NON_GST_INVOICE: "BILL",
   B2B_INVOICE: "BINV",
   PROFORMA_INVOICE: "PI",
+  ROLE: "ROLE",
 };
 
 export interface GeneratedNumber {

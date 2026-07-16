@@ -5,6 +5,7 @@ import { logAction } from '@/lib/audit/logAction';
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -32,6 +33,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get('businessId');
     const vendorId = searchParams.get('vendorId');
+    // When assigning a role to a VENDOR user specifically, the picker must
+    // offer ONLY that vendor's own roles (VENDOR_OWNER/VENDOR_MANAGER or any
+    // custom vendorId-scoped role) -- never the business-wide roles too,
+    // which was the actual bug behind "only vendor available modules
+    // should show but everything is showing": business-wide roles can carry
+    // permissions (users/settings/roles/etc.) far beyond what a vendor
+    // should ever hold. Business-wide roles stay in the union for the
+    // normal (non-vendor-restricted) case below.
+    const vendorOnly = searchParams.get('vendorOnly') === 'true';
 
     // A vendor's 11 default roles (Owner/Manager/etc.) are only ever
     // generated on-demand -- previously only from the vendor's OWN
@@ -56,7 +66,13 @@ export async function GET(request: NextRequest) {
     // business-wide, not tied to one specific vendor). A vendor's own
     // real access is the union of both: its own default set AND whatever
     // that business-wide roles this business has defined.
-    if (vendorId) query.$or = [{ vendorId }, { vendorId: { $in: [null, undefined] } }];
+    if (vendorId) {
+      if (vendorOnly) {
+        query.vendorId = vendorId;
+      } else {
+        query.$or = [{ vendorId }, { vendorId: { $in: [null, undefined] } }];
+      }
+    }
 
     const roles = await Role.find(query).lean();
 
@@ -95,6 +111,14 @@ export async function POST(request: NextRequest) {
     if (!name || !code) {
       return NextResponse.json({ error: 'Name and code are required' }, { status: 400 });
     }
+    // Per explicit direction: roles are managed per business individually
+    // from now on -- a businessId-less ("platform-wide") custom role is no
+    // longer created through this endpoint (SUPER_ADMIN/AN_STAFF remain the
+    // only businessId:null roles, both seeded separately, never via this
+    // form).
+    if (!businessId) {
+      return NextResponse.json({ error: 'businessId is required — create this role from within a specific business' }, { status: 400 });
+    }
 
     // Was checking uniqueness GLOBALLY (just `code`), not scoped to this
     // business -- the real unique index is {code, businessId, vendorId}
@@ -112,12 +136,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A role with this code already exists for this business' }, { status: 409 });
     }
 
+    // Atomic per-business serial, e.g. "ECOM-0001" -- see
+    // scripts/seedRoleNumberConfig.ts for the "{businessCode}-{seq}"
+    // template this resolves through.
+    const { value: roleNumber } = await generateDocumentNumber(businessId, "ROLE");
+
     const role = await Role.create({
       name,
       code: code.toUpperCase(),
       description,
       permissions: permissions || [],
-      businessId: businessId || null,
+      businessId,
+      roleNumber,
       isDeleted: false,
     });
 
