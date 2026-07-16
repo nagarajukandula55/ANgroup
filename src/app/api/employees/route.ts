@@ -346,18 +346,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Duplicate employeeId (race condition) or duplicate {businessId,userId}
-    // (that user already has an employee record in this business).
+    // Duplicate employeeId (extremely rare counter race) or duplicate
+    // {businessId,userId} (that user already has an employee record in
+    // this business, e.g. a double-submit racing past the pre-check
+    // above). keyPattern tells us which one actually collided so the
+    // message matches what really happened instead of guessing.
     if (
       typeof error === "object" &&
       error !== null &&
       "code" in error &&
       (error as { code: number }).code === 11000
     ) {
-      return NextResponse.json(
-        { success: false, error: "This employee already exists (duplicate ID or already-linked user)" },
-        { status: 409 }
-      );
+      const keyPattern = (error as { keyPattern?: Record<string, number> }).keyPattern || {};
+      const message = "userId" in keyPattern
+        ? "This user already has an employee record in this business — edit their existing record instead of creating a new one."
+        : "That employee ID was just taken by another request — please try again.";
+      return NextResponse.json({ success: false, error: message }, { status: 409 });
     }
 
     return NextResponse.json(

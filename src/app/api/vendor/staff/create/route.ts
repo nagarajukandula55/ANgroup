@@ -178,6 +178,15 @@ export async function POST(req: NextRequest) {
       temporaryPassword: DEFAULT_FIRST_PASSWORD,
     });
   } catch (error: unknown) {
+    // A double-submit can race two requests past each other and into a raw
+    // Mongo duplicate-key error on the generated username/employeeCode --
+    // give a retry-able message instead of the raw driver error text.
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code: number }).code === 11000) {
+      return NextResponse.json(
+        { success: false, error: "That employee code was just taken by another request — please try again." },
+        { status: 409 }
+      );
+    }
     const msg = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }

@@ -6,6 +6,7 @@ import VendorPayoutAccount from "@/models/VendorPayoutAccount";
 import { createLinkedAccount } from "@/core/payouts/razorpayRoute";
 import { logAction } from "@/lib/audit/logAction";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
+import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
 
 /* =========================================================
  * GET /api/vendor/payout-account
@@ -55,7 +56,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const vendor = await VendorProfile.findOne({ userId, isDeleted: false }).lean();
+    // Owner or Manager may submit KYC/bank details -- per the vendor's
+    // access model, Manager has full Owner-equivalent authority (see
+    // resolveOwnerOrManagerVendor's docstring), so this is no longer
+    // restricted to the literal VendorProfile.userId account.
+    const vendor = await resolveOwnerOrManagerVendor(userId);
     if (!vendor) {
       return NextResponse.json({ success: false, error: "No vendor profile for this user" }, { status: 404 });
     }

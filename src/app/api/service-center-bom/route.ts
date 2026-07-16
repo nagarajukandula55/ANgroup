@@ -26,6 +26,7 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { logAction } from "@/lib/audit/logAction";
+import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -35,7 +36,7 @@ function permissionErrorResponse(err: any) {
 }
 
 async function resolveVendorAndBusiness(userId: string, explicitVendorId?: string | null) {
-  const vendor = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
+  const vendor = await resolveOwnerOrManagerVendor(userId);
   if (vendor) {
     return { vendorId: (vendor as any)._id, businessId: (vendor as any).businessId };
   }
