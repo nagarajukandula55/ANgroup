@@ -31,6 +31,7 @@ const PLACEHOLDERS: { name: string; template: ModuleTemplateKey; tenantPrefix: s
   { name: "Transports (placeholder — rename me)", template: "TRANSPORTS", tenantPrefix: "placeholder-transports" },
   { name: "Wholesale (placeholder — rename me)", template: "WHOLESALE", tenantPrefix: "placeholder-wholesale" },
   { name: "Retail (placeholder — rename me)", template: "RETAIL", tenantPrefix: "placeholder-retail" },
+  { name: "Software (placeholder — rename me)", template: "SOFTWARE", tenantPrefix: "placeholder-software" },
 ];
 
 function buildModulesForTemplate(template: ModuleTemplateKey) {

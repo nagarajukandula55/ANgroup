@@ -58,6 +58,7 @@ export type ModuleTemplateKey =
   | "TRANSPORTS"
   | "WHOLESALE"
   | "RETAIL"
+  | "SOFTWARE"
   | "PLATFORM"
   | "ALL";
 
@@ -71,6 +72,7 @@ export const MODULE_TEMPLATE_OPTIONS: { value: ModuleTemplateKey; label: string 
   { value: "TRANSPORTS", label: "Transports business" },
   { value: "WHOLESALE", label: "Wholesale business" },
   { value: "RETAIL", label: "Retail business" },
+  { value: "SOFTWARE", label: "Software business" },
   { value: "PLATFORM", label: "AN Group (platform only)" },
   { value: "ALL", label: "Everything on (no restriction)" },
 ];
@@ -79,10 +81,10 @@ export const MODULE_TEMPLATE_OPTIONS: { value: ModuleTemplateKey; label: string 
 // baseline (every module not in one of the three lists above) plus, where
 // it's genuinely relevant, a couple of otherwise-"only" keys carved back in.
 // No dedicated pages exist yet for Logistics/Laundry/Restaurant/Travels/
-// Transports specifically (unlike e-commerce and service, which have real
-// built features) -- so those templates deliberately stay common-only
-// rather than guessing at modules that don't exist. Extend this table when
-// dedicated features get built for a category.
+// Transports/Software specifically (unlike e-commerce and service, which
+// have real built features) -- so those templates deliberately stay
+// common-only rather than guessing at modules that don't exist. Extend
+// this table when dedicated features get built for a category.
 const TEMPLATE_EXTRA_KEYS: Partial<Record<ModuleTemplateKey, string[]>> = {
   // Logistics runs shipping/courier operations -- Logistics & Shipping is
   // directly relevant even though it's otherwise e-commerce-only.
@@ -117,7 +119,7 @@ export function isEnabledUnderTemplate(key: string, template: ModuleTemplateKey)
   if (template === "SERVICE") return !isEcommerce;
 
   // Every other category (Logistics/Laundry/Restaurant/Travels/Transports/
-  // Wholesale/Retail): common-only baseline plus whatever this template's
-  // TEMPLATE_EXTRA_KEYS carved back in above.
+  // Wholesale/Retail/Software): common-only baseline plus whatever this
+  // template's TEMPLATE_EXTRA_KEYS carved back in above.
   return !isEcommerce && !isService;
 }
