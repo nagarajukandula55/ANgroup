@@ -40,7 +40,12 @@ const navItems: { href: string; label: string; icon: any; modules: string[] | nu
   { href: '/vendor/staff', label: 'Staff', icon: Users, modules: ['staff'], managerOnly: true },
   { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText, modules: ['finance'] },
   { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet, modules: ['finance'], managerOnly: true },
-  { href: '/vendor/profile', label: 'My Profile', icon: User, modules: null },
+  // Was labeled only "My Profile" -- this IS the vendor's settings page
+  // (backed by /api/vendor/settings), already fully accessible to every
+  // Owner/Manager (modules: null), but an Owner/Manager looking for
+  // "Settings" specifically didn't recognize this as it and believed they
+  // had no settings access at all.
+  { href: '/vendor/profile', label: 'My Profile / Settings', icon: User, modules: null },
   { href: '/vendor/statement', label: 'Financial Statement', icon: BarChart3, modules: ['finance'] },
 ]
 
