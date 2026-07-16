@@ -89,14 +89,17 @@ export default function Sidebar() {
   // hiccup silently fell back to showing everything. Starts empty now --
   // nothing shows until the API actually confirms what this account may
   // see, and an empty/failed response means an empty sidebar, not a full one.
-  // Lazily hydrated from the previous mount's cached snapshot (if any) so a
-  // refresh paints the last-known-correct sidebar immediately instead of
-  // empty -- loadUser()/loadSidebarModules() below still run every mount
-  // and overwrite this the moment the real fetch resolves, so a stale or
-  // wrong cache never survives more than the first paint.
-  const cachedSnapshot = typeof window !== "undefined" ? readSidebarCache() : null;
-  const [modules, setModules]           = useState<any[]>(cachedSnapshot?.modules || []);
-  const [modulesLoaded, setModulesLoaded] = useState(!!cachedSnapshot);
+  // Must start IDENTICAL to what the server rendered (empty/null) -- SSR
+  // always sees `window === undefined`, so reading sessionStorage directly
+  // in a useState initializer made the client's very first render disagree
+  // with the server-rendered HTML the instant a cache existed, which is
+  // exactly what threw React's hydration-mismatch error (#418) in
+  // production. The cached snapshot is instead applied from an effect
+  // below, AFTER hydration completes, which is the safe way to do a
+  // client-only "paint from cache" — it causes one extra post-hydration
+  // render, never a mismatch.
+  const [modules, setModules]           = useState<any[]>([]);
+  const [modulesLoaded, setModulesLoaded] = useState(false);
   const [open, setOpen]                 = useState(false);
   const [collapsed, setCollapsed]       = useState(false);
   // When the sidebar is collapsed to icon-only, hovering over it expands it
@@ -105,9 +108,9 @@ export default function Sidebar() {
   // expand on hover".
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const isCollapsed = collapsed && !hoverExpanded;
-  const [user, setUser]                 = useState<UserInfo | null>(cachedSnapshot?.user || null);
-  const [businesses, setBusinesses]     = useState<Business[]>(cachedSnapshot?.businesses || []);
-  const [activeBiz, setActiveBiz]       = useState<Business | null>(cachedSnapshot?.activeBiz || null);
+  const [user, setUser]                 = useState<UserInfo | null>(null);
+  const [businesses, setBusinesses]     = useState<Business[]>([]);
+  const [activeBiz, setActiveBiz]       = useState<Business | null>(null);
   const [bizDropdown, setBizDropdown]   = useState(false);
   const [switching, setSwitching]       = useState(false);
   // Tracks which subgroups are open — default all open
@@ -132,6 +135,20 @@ export default function Sidebar() {
     subgroupHoverTimer.current = setTimeout(() => setHoveredSubgroup(null), 150);
   }
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Runs after hydration -- safe to read sessionStorage here since this
+  // effect never executes during SSR or the hydration pass itself, only
+  // once the client has already committed a render matching the server's.
+  useEffect(() => {
+    const cached = readSidebarCache();
+    if (cached) {
+      setUser(cached.user);
+      setBusinesses(cached.businesses);
+      setActiveBiz(cached.activeBiz);
+      setModules(cached.modules);
+      setModulesLoaded(true);
+    }
+  }, []);
 
   useEffect(() => { loadUser(); }, []);
 
