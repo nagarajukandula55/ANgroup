@@ -23,6 +23,7 @@ import { VENDOR_DOC_CATALOG } from "@/core/vendorCompliance";
 // section below).
 import { STATIC_MODULES } from "@/components/sidebar";
 import { useToast } from "@/components/shared/Toast";
+import { MODULE_TEMPLATE_OPTIONS, isEnabledUnderTemplate, type ModuleTemplateKey } from "@/core/access/moduleTemplates";
 
 interface AuditLogEntry {
   _id: string;
@@ -960,9 +961,28 @@ export default function BusinessDetailPage() {
           <h2 className="font-bold text-lg">Modules</h2>
           <p className="text-xs text-gray-400">
             Choose which application modules are available to this business.
-            Unchecked modules are hidden from this business's sidebar for
-            non-super-admin users.
+            Unchecked modules are hidden from this business's sidebar.
           </p>
+          <div className="flex flex-wrap gap-2">
+            {MODULE_TEMPLATE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    modules: form.modules.map((m) => ({
+                      ...m,
+                      enabled: isEnabledUnderTemplate(m.key, opt.value as ModuleTemplateKey),
+                    })),
+                  })
+                }
+                className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Apply: {opt.label}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {form.modules.map((mod) => (
               <label

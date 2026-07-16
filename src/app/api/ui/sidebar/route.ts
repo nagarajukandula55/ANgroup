@@ -79,10 +79,16 @@ export async function POST(req: Request) {
     );
 
     // Per-business module-access config (Business.ts's `modules` field,
-    // editable from admin/business/[id]'s "Modules" section) — a second,
+    // editable from admin/business/[id]'s "Modules" section, or bulk-set by
+    // an "Apply Template" button per moduleTemplates.ts) — a second,
     // independent gate on top of the permission-based ModuleDefinition
-    // filter above. Super admins always see everything, matching the rest
-    // of this route's super-admin bypass behavior.
+    // filter above. Applies to EVERYONE, including super admins: this gate
+    // is about which pages are RELEVANT to the active business (an
+    // e-commerce business shouldn't show CRM workorders; AN Group shouldn't
+    // show a shop's Products page), not a security boundary -- permission
+    // checks (the isSuperAdmin bypass above, and requirePermission() on the
+    // actual API routes) remain the only access-control gate. Without this,
+    // switching the active business never changed a super admin's own menu.
     //
     // DENY-list, not allow-list: a module key this business's modules[]
     // has never heard of (true for most keys, for most businesses -- most
@@ -96,7 +102,7 @@ export async function POST(req: Request) {
     // alias step meant several real modules could never match a saved
     // toggle at all, in either direction.
     const businessModules = Array.isArray(business?.modules) ? business.modules : [];
-    if (!session.isSuperAdmin && businessModules.length > 0) {
+    if (businessModules.length > 0) {
       const rawDisabledKeys = businessModules
         .filter((m: any) => m?.enabled === false)
         .map((m: any) => String(m?.key).toLowerCase());
