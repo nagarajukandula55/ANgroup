@@ -99,6 +99,15 @@ export const NAV_GROUPS: NavGroup[] = [
   { label: "Documents", items: [
     { key: "agreements",      label: "Agreements",      route: "/admin/agreements",       icon: "FileSignature" },
     { key: "admin-doc-nos",   label: "Document Numbers",route: "/admin/document-numbers", icon: "Hash" },
+    // 5 lightweight, party-facing document types with no record/CRUD
+    // anywhere in the app until now (see models/SalesDocument.ts) --
+    // added alongside their print pages once the underlying feature
+    // existed to print.
+    { key: "quotations",         label: "Quotations",         route: "/admin/quotations",         icon: "FileText" },
+    { key: "delivery-challans",  label: "Delivery Challans",  route: "/admin/delivery-challans",  icon: "FileText" },
+    { key: "credit-notes",       label: "Credit Notes",       route: "/admin/credit-notes",       icon: "FileText" },
+    { key: "debit-notes",        label: "Debit Notes",        route: "/admin/debit-notes",        icon: "FileText" },
+    { key: "proforma-invoices",  label: "Proforma Invoices",  route: "/admin/proforma-invoices",  icon: "FileText" },
   ]},
   { label: "Reports", items: [
     { key: "reports",   label: "Reports & Downloads", route: "/admin/reports",   icon: "BarChart3" },

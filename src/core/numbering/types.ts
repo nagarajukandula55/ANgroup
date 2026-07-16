@@ -122,6 +122,10 @@ export const DOCUMENT_TYPES = [
   // running series, separate from the walk-in/individual (B2C) series,
   // per explicit requirement.
   "B2B_INVOICE",
+  // The one document type from models/SalesDocument.ts's set that wasn't
+  // already in this list (QUOTATION/DELIVERY_CHALLAN/CREDIT_NOTE/DEBIT_NOTE
+  // all pre-existed here already, just never had a page/print until now).
+  "PROFORMA_INVOICE",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -166,6 +170,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   MATERIAL: "MAT",
   NON_GST_INVOICE: "BILL",
   B2B_INVOICE: "BINV",
+  PROFORMA_INVOICE: "PI",
 };
 
 export interface GeneratedNumber {

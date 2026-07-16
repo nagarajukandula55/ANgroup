@@ -294,3 +294,46 @@ export function salesInvoiceToRenderData(
     notes: invoice.notes,
   };
 }
+
+const SALES_DOCUMENT_LABELS: Record<string, string> = {
+  QUOTATION: "QUOTATION",
+  DELIVERY_CHALLAN: "DELIVERY CHALLAN",
+  CREDIT_NOTE: "CREDIT NOTE",
+  DEBIT_NOTE: "DEBIT NOTE",
+  PROFORMA_INVOICE: "PROFORMA INVOICE",
+};
+
+/** Maps a SalesDocument (Quotation/Delivery Challan/Credit Note/Debit
+ * Note/Proforma Invoice — see models/SalesDocument.ts for why these 5
+ * share one model) into the generic render shape. Its schema already
+ * matches DocumentRenderData closely by design, so this is mostly a
+ * straight pass-through plus computing each item's line amount. */
+export function salesDocumentToRenderData(
+  doc: any,
+  company: DocumentRenderData["company"]
+): DocumentRenderData {
+  return {
+    docTypeLabel: SALES_DOCUMENT_LABELS[doc.docType] || doc.docType,
+    docNumber: doc.docNumber,
+    date: fmtDate(doc.createdAt),
+    status: doc.status,
+    company,
+    party: doc.party,
+    items: (doc.items || []).map((it: any) => ({
+      description: it.description,
+      hsnCode: it.hsnCode,
+      qty: it.quantity || 0,
+      unit: it.unit,
+      unitPrice: it.unitPrice || 0,
+      taxRate: it.taxRate || 0,
+      amount: (it.quantity || 0) * (it.unitPrice || 0) * (1 + (it.taxRate || 0) / 100),
+    })),
+    totals: {
+      subtotal: doc.subtotal || 0,
+      tax: doc.taxTotal || 0,
+      discount: doc.discountAmount || 0,
+      grandTotal: doc.grandTotal || 0,
+    },
+    notes: doc.notes,
+  };
+}

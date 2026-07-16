@@ -125,6 +125,11 @@ export const ACCESS_HIERARCHY: Category[] = [
           { key: "finance", label: "Finance", description: "View/manage invoices, payments and financial records." },
           { key: "gst", label: "GST", description: "Manage GST filings and tax-related settings." },
           { key: "vendor_settlements", label: "Vendor Settlements", description: "See vendor payout settlements — owed, paid, pending, failed." },
+          // Quotations, Delivery Challans, Credit Notes, Debit Notes,
+          // Proforma Invoices -- share one permission code (and one model,
+          // see models/SalesDocument.ts) since they're the same kind of
+          // lightweight party-facing document, not five separate systems.
+          { key: "sales_documents", label: "Quotations / Challans / Credit & Debit Notes", description: "Create and manage quotations, delivery challans, credit notes, debit notes, and proforma invoices." },
         ],
       },
     ],
