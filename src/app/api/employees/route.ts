@@ -151,52 +151,78 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // employeeId is unique per business (see models/EmployeeProfile.ts's
-    // {businessId, employeeId} index) -- still generated through the
-    // global-scope numbering variant so the underlying counter is shared
-    // platform-wide (same mechanism vendor IDs use), it just can't collide
-    // across businesses since the schema index is scoped.
-    const { value: employeeId } = await generateGlobalDocumentNumber("EMPLOYEE", businessId);
-
     // Surface which specific thing already exists instead of a vague
     // "duplicate ID or already-linked user" -- a vendor Manager picking
     // someone from the (platform-wide, unscoped) user-search autocomplete
     // has no way to know upfront whether that person already has an
-    // EmployeeProfile in this business.
+    // EmployeeProfile in this business. Deliberately looks for ANY record
+    // (including soft-deleted) -- the {businessId, userId} unique index has
+    // no isDeleted filter, so a previously-removed employee's row still
+    // occupies that slot forever; only checking non-deleted rows here (as
+    // an earlier pass of this fix did) let that case fall through to the
+    // raw duplicate-key error below with the same unhelpful generic message
+    // this was supposed to replace.
+    let employee;
     if (linkedUserId && mongoose.Types.ObjectId.isValid(linkedUserId)) {
-      const already = await EmployeeProfile.findOne({
+      const existing = await EmployeeProfile.findOne({
         businessId: new mongoose.Types.ObjectId(businessId),
         userId: new mongoose.Types.ObjectId(linkedUserId),
-        isDeleted: { $ne: true },
-      }).lean();
-      if (already) {
+      });
+      if (existing && !existing.isDeleted) {
         return NextResponse.json(
           { success: false, error: "This user already has an employee record in this business — edit their existing record instead of creating a new one." },
           { status: 409 }
         );
       }
+      if (existing && existing.isDeleted) {
+        // Revive the previously-removed record instead of failing --
+        // re-adding someone who was taken off the books before is a
+        // legitimate action, not a genuine conflict.
+        existing.set({
+          isDeleted: false,
+          name: name.trim(),
+          email: email?.trim() || undefined,
+          phone: phone?.trim() || undefined,
+          department: department?.trim() || undefined,
+          designation: designation?.trim() || undefined,
+          employmentType: employmentType || "FULL_TIME",
+          joiningDate: joiningDate ? new Date(joiningDate) : undefined,
+          salary: typeof salary === "number" ? salary : 0,
+          status: "ACTIVE",
+        });
+        employee = await existing.save();
+      }
     }
 
-    // Links to the actual employee's own account when the caller picked one
-    // from the user-search autocomplete -- previously discarded (only used
-    // to prefill name/email/phone), so an employee created here could never
-    // be found by their own login. Falls back to no link (a pure HR record)
-    // when nobody was picked.
-    const employee = await EmployeeProfile.create({
-      userId: linkedUserId && mongoose.Types.ObjectId.isValid(linkedUserId)
-        ? new mongoose.Types.ObjectId(linkedUserId)
-        : undefined,
-      businessId: new mongoose.Types.ObjectId(businessId),
-      employeeId,
-      name: name.trim(),
-      email: email?.trim() || undefined,
-      phone: phone?.trim() || undefined,
-      department: department?.trim() || undefined,
-      designation: designation?.trim() || undefined,
-      employmentType: employmentType || "FULL_TIME",
-      joiningDate: joiningDate ? new Date(joiningDate) : undefined,
-      salary: typeof salary === "number" ? salary : 0,
-    });
+    if (!employee) {
+      // employeeId is unique per business (see models/EmployeeProfile.ts's
+      // {businessId, employeeId} index) -- still generated through the
+      // global-scope numbering variant so the underlying counter is shared
+      // platform-wide (same mechanism vendor IDs use), it just can't
+      // collide across businesses since the schema index is scoped.
+      const { value: employeeId } = await generateGlobalDocumentNumber("EMPLOYEE", businessId);
+
+      // Links to the actual employee's own account when the caller picked
+      // one from the user-search autocomplete -- previously discarded
+      // (only used to prefill name/email/phone), so an employee created
+      // here could never be found by their own login. Falls back to no
+      // link (a pure HR record) when nobody was picked.
+      employee = await EmployeeProfile.create({
+        userId: linkedUserId && mongoose.Types.ObjectId.isValid(linkedUserId)
+          ? new mongoose.Types.ObjectId(linkedUserId)
+          : undefined,
+        businessId: new mongoose.Types.ObjectId(businessId),
+        employeeId,
+        name: name.trim(),
+        email: email?.trim() || undefined,
+        phone: phone?.trim() || undefined,
+        department: department?.trim() || undefined,
+        designation: designation?.trim() || undefined,
+        employmentType: employmentType || "FULL_TIME",
+        joiningDate: joiningDate ? new Date(joiningDate) : undefined,
+        salary: typeof salary === "number" ? salary : 0,
+      });
+    }
 
     logAction({
       action: "CREATE",
