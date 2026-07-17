@@ -609,6 +609,16 @@ const BusinessSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Shown on the printed Intake Receipt/Workorder in place of the
+    // device brand's own logo -- per explicit direction, that document
+    // should never show the device manufacturer's branding or name.
+    // Blank (the default) means no logo prints at all, not a fallback to
+    // Business.logo or the device brand's logo.
+    customerLogoUrl: {
+      type: String,
+      default: "",
+    },
+
     // Vendor-wide Terms & Conditions text, editable from the vendor
     // Owner/Manager's own profile/settings page -- shown on workorder,
     // estimate and invoice pages/prints for this business.

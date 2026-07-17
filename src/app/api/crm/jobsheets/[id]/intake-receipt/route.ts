@@ -5,14 +5,14 @@
  * which is only available AFTER closing). Modeled on a standard OEM
  * service-handover-report layout up through the signature line.
  *
- * The header logo comes from the job sheet's OWN brandId (set when the
- * workorder was created) rather than the vendor's own logo -- an
- * authorized service center prints the manufacturer's branding on
- * intake paperwork, not its own. Falls back to no logo if the brand
- * has none set. "Special Notice" reuses the business's own Terms &
- * Conditions (Settings > Business Settings) rather than a second,
- * separate text field -- same text already shown on workorder/estimate/
- * invoice prints.
+ * The header logo is Business.customerLogoUrl (Settings > Business
+ * Settings), NOT the device brand's own logo/name -- per explicit
+ * direction, this document should never show the manufacturer's
+ * branding. Blank means no logo prints at all, no fallback to the brand
+ * or the vendor's own logo. "Special Notice" reuses the business's own
+ * Terms & Conditions (Settings > Business Settings) rather than a
+ * second, separate text field -- same text already shown on workorder/
+ * estimate/invoice prints.
  */
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
@@ -21,6 +21,7 @@ import CrmJobSheet from "@/models/CrmJobSheet";
 import Business from "@/models/Business";
 import "@/models/User";
 import "@/models/Brand";
+import "@/models/FaultCode";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const jobSheet = await CrmJobSheet.findOne({ _id: id, isDeleted: false })
       .populate("brandId", "name logoUrl")
+      .populate("faultCodeId", "code description")
       .populate("createdBy", "name email")
       .lean();
 
@@ -54,7 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, message: "Job sheet not found" }, { status: 404 });
     }
 
-    const business = await Business.findById((jobSheet as any).businessId).select("termsAndConditions").lean();
+    const business = await Business.findById((jobSheet as any).businessId).select("termsAndConditions customerLogoUrl").lean();
 
     const userId = session.user.id;
     const ctx = await resolveVendorContext(userId).catch(() => null);
@@ -63,6 +65,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       success: true,
       jobSheet,
       specialNotice: (business as any)?.termsAndConditions || "",
+      // Shown instead of the device brand's own logo, per explicit
+      // direction -- blank means no logo prints at all.
+      customerLogoUrl: (business as any)?.customerLogoUrl || "",
       vendor: ctx?.vendor
         ? {
             companyName: (ctx.vendor as any).companyName,

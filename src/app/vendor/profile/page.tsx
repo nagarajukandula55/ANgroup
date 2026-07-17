@@ -114,6 +114,12 @@ export default function VendorProfilePage() {
   // section as the rest of Business Settings.
   const [defaultLabourCharge, setDefaultLabourCharge] = useState('0')
   const [savingLabourCharge, setSavingLabourCharge] = useState(false)
+  // Customer Logo -- shown on the Intake Receipt/Workorder print in place
+  // of the device brand's own logo/name, per explicit direction (that
+  // document should never show the device manufacturer's branding).
+  // Blank = no logo prints at all.
+  const [customerLogoUrl, setCustomerLogoUrl] = useState('')
+  const [savingCustomerLogo, setSavingCustomerLogo] = useState(false)
   // Service Record settings -- printed on the document generated after
   // closing a job sheet (see /vendor/crm/jobsheets/[id]/service-record).
   // Owner/Manager only, same as the rest of this section.
@@ -153,6 +159,7 @@ export default function VendorProfilePage() {
           setInventorySerialized(Boolean(d.inventorySerialized))
           setTermsAndConditions(d.termsAndConditions || '')
           setDefaultLabourCharge(String(d.defaultLabourCharge ?? 0))
+          setCustomerLogoUrl(d.customerLogoUrl || '')
         }
       })
       .catch(() => {})
@@ -225,6 +232,24 @@ export default function VendorProfilePage() {
       setSettingsMessage('Failed to save.')
     } finally {
       setSavingLabourCharge(false)
+    }
+  }
+
+  async function saveCustomerLogo() {
+    setSavingCustomerLogo(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerLogoUrl }),
+      })
+      const d = await res.json()
+      setSettingsMessage(d.success ? 'Saved.' : d.error || 'Failed to save.')
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingCustomerLogo(false)
     }
   }
 
@@ -746,6 +771,36 @@ export default function VendorProfilePage() {
                 className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
               >
                 {savingLabourCharge ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Customer Logo</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Shown on the Intake Receipt/Workorder print instead of the device brand's own logo -- that
+              document never shows the manufacturer's branding. Leave blank for no logo at all.
+            </p>
+            <div className="flex items-center gap-3">
+              {customerLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={customerLogoUrl} alt="Customer logo preview" className="h-10 w-auto max-w-[120px] object-contain border border-gray-200 rounded-lg bg-white p-1" />
+              ) : (
+                <div className="h-10 w-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400">None</div>
+              )}
+              <input
+                type="url"
+                value={customerLogoUrl}
+                onChange={(e) => setCustomerLogoUrl(e.target.value)}
+                placeholder="https://…"
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+              />
+              <button
+                onClick={saveCustomerLogo}
+                disabled={savingCustomerLogo}
+                className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+              >
+                {savingCustomerLogo ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>

@@ -8,6 +8,8 @@
  *    estimate and invoice pages/prints.
  *  - defaultLabourCharge -- fallback rate for the workorder page's
  *    "Add Labour Charge" line when no LABOUR-type BOM entry is configured.
+ *  - customerLogoUrl -- shown on the Intake Receipt/Workorder print in
+ *    place of the device brand's own logo (blank = no logo at all).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
@@ -31,12 +33,13 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Vendor is not yet assigned to a business" }, { status: 400 });
     }
 
-    const business = await Business.findById((vendor as any).businessId).select("inventorySerialized termsAndConditions defaultLabourCharge").lean();
+    const business = await Business.findById((vendor as any).businessId).select("inventorySerialized termsAndConditions defaultLabourCharge customerLogoUrl").lean();
     return NextResponse.json({
       success: true,
       inventorySerialized: Boolean((business as any)?.inventorySerialized),
       termsAndConditions: (business as any)?.termsAndConditions || "",
       defaultLabourCharge: Number((business as any)?.defaultLabourCharge) || 0,
+      customerLogoUrl: (business as any)?.customerLogoUrl || "",
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -62,6 +65,7 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.inventorySerialized === "boolean") update.inventorySerialized = body.inventorySerialized;
     if (typeof body.termsAndConditions === "string") update.termsAndConditions = body.termsAndConditions;
     if (typeof body.defaultLabourCharge === "number" && body.defaultLabourCharge >= 0) update.defaultLabourCharge = body.defaultLabourCharge;
+    if (typeof body.customerLogoUrl === "string") update.customerLogoUrl = body.customerLogoUrl;
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ success: false, error: "Nothing to update" }, { status: 400 });
     }

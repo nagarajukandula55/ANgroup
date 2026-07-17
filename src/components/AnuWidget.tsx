@@ -11,22 +11,62 @@
  * knowledge can grow from the UI without a code deploy.
  */
 import { useEffect, useRef, useState } from "react";
-import { Bot, X, Send, GraduationCap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bot, X, Send, GraduationCap, Bell, Check, CheckCheck, Trash2, Info, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
 
-export default function AnuWidget() {
+interface NotificationItem {
+  _id: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  isRead: boolean;
+  createdAt: string;
+  link?: string;
+}
+
+const NOTIF_TYPE_CONFIG = {
+  info: { icon: Info, color: "text-blue-500", bg: "bg-blue-50" },
+  success: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-50" },
+  warning: { icon: AlertTriangle, color: "text-yellow-500", bg: "bg-yellow-50" },
+  error: { icon: XCircle, color: "text-red-500", bg: "bg-red-50" },
+};
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// `showNotifications` folds the separate floating NotificationBell into
+// this same widget instead of a second always-on-screen icon -- per
+// explicit direction for the vendor portal specifically ("remove bell
+// icon and push all type of notifications through ANu"). Admin usage is
+// unchanged (prop omitted there), so this is additive, not a behavior
+// change for admin pages.
+export default function AnuWidget({ showNotifications = false }: { showNotifications?: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [teachOpen, setTeachOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const [teachTopic, setTeachTopic] = useState("");
   const [teachSummary, setTeachSummary] = useState("");
@@ -52,6 +92,66 @@ export default function AnuWidget() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
+
+  function loadNotifications(silent = false) {
+    if (!showNotifications) return;
+    if (!silent) setNotifLoading(true);
+    fetch(`/api/notifications${businessId ? `?businessId=${businessId}` : ""}`)
+      .then((r) => r.json())
+      .then((d) => setNotifications(d.notifications ?? []))
+      .catch(() => {})
+      .finally(() => { if (!silent) setNotifLoading(false); });
+  }
+
+  // Background poll so the unread badge on the launcher bubble updates
+  // even while the panel is closed -- same behavior the standalone bell
+  // this replaces already had.
+  useEffect(() => {
+    if (!showNotifications) return;
+    loadNotifications(true);
+    const interval = setInterval(() => loadNotifications(true), 60000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNotifications, businessId]);
+
+  useEffect(() => {
+    if (notifOpen) loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifOpen]);
+
+  async function markNotifRead(id: string) {
+    try {
+      await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+      setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)));
+    } catch { /* best-effort */ }
+  }
+
+  async function markAllNotifsRead() {
+    if (!businessId) return;
+    try {
+      await fetch("/api/notifications/read-all", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch { /* best-effort */ }
+  }
+
+  async function removeNotif(id: string) {
+    try {
+      await fetch(`/api/notifications/${id}`, { method: "DELETE" });
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+    } catch { /* best-effort */ }
+  }
+
+  function openNotification(n: NotificationItem) {
+    if (!n.isRead) markNotifRead(n._id);
+    if (n.link) {
+      setOpen(false);
+      router.push(n.link);
+    }
+  }
 
   async function send() {
     const text = input.trim();
@@ -125,7 +225,11 @@ export default function AnuWidget() {
         }`}
       >
         {open ? <X size={20} /> : <Bot size={22} />}
-        {!open && (
+        {!open && showNotifications && unreadCount > 0 ? (
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        ) : !open && (
           <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
         )}
       </button>
@@ -138,19 +242,90 @@ export default function AnuWidget() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-900 text-white">
             <div className="flex items-center gap-2">
               <Bot size={16} />
-              <span className="text-sm font-semibold">ANu</span>
+              <span className="text-sm font-semibold">{notifOpen ? "Notifications" : "ANu"}</span>
             </div>
-            {isSuperAdmin && (
-              <button
-                onClick={() => setTeachOpen((v) => !v)}
-                title="Teach ANu something new"
-                className="p-1.5 rounded-lg hover:bg-white/10 transition"
-              >
-                <GraduationCap size={15} />
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {showNotifications && (
+                <button
+                  onClick={() => setNotifOpen((v) => !v)}
+                  title="Notifications"
+                  className="relative p-1.5 rounded-lg hover:bg-white/10 transition"
+                >
+                  <Bell size={15} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              {isSuperAdmin && !notifOpen && (
+                <button
+                  onClick={() => setTeachOpen((v) => !v)}
+                  title="Teach ANu something new"
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition"
+                >
+                  <GraduationCap size={15} />
+                </button>
+              )}
+            </div>
           </div>
 
+          {notifOpen ? (
+            <div className="flex-1 overflow-y-auto">
+              {notifLoading ? (
+                <p className="text-xs text-gray-400 text-center py-8">Loading…</p>
+              ) : notifications.length === 0 ? (
+                <div className="text-center py-8">
+                  <Bell className="w-8 h-8 mx-auto mb-2 text-gray-200" />
+                  <p className="text-xs text-gray-400">No notifications yet</p>
+                </div>
+              ) : (
+                <>
+                  {unreadCount > 0 && (
+                    <div className="flex justify-end px-4 pt-3">
+                      <button onClick={markAllNotifsRead} className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-900">
+                        <CheckCheck size={12} /> Mark all read
+                      </button>
+                    </div>
+                  )}
+                  <div className="divide-y divide-gray-100">
+                    {notifications.map((n) => {
+                      const cfg = NOTIF_TYPE_CONFIG[n.type] || NOTIF_TYPE_CONFIG.info;
+                      const Icon = cfg.icon;
+                      return (
+                        <div
+                          key={n._id}
+                          onClick={() => openNotification(n)}
+                          className={`flex gap-2.5 px-4 py-3 ${!n.isRead ? "bg-blue-50/30" : ""} ${n.link ? "cursor-pointer hover:bg-gray-50" : ""}`}
+                        >
+                          <div className={`mt-0.5 w-7 h-7 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                            <Icon size={13} className={cfg.color} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-medium ${n.isRead ? "text-gray-600" : "text-gray-900"}`}>{n.title}</p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">{n.message}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                          </div>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            {!n.isRead && (
+                              <button onClick={(e) => { e.stopPropagation(); markNotifRead(n._id); }} title="Mark as read" className="p-1 rounded text-gray-400 hover:text-green-600">
+                                <Check size={12} />
+                              </button>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); removeNotif(n._id); }} title="Delete" className="p-1 rounded text-gray-400 hover:text-red-600">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+          <>
           {teachOpen && (
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 space-y-2">
               <input
@@ -221,6 +396,8 @@ export default function AnuWidget() {
               <Send size={13} />
             </button>
           </div>
+          </>
+          )}
         </div>
       )}
     </>

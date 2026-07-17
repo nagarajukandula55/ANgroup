@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import VendorLogoutButton from '@/components/vendor/VendorLogoutButton'
 import AnuWidget from '@/components/AnuWidget'
-import NotificationBell from '@/components/NotificationBell'
 import { connectDB } from '@/lib/mongodb'
 import BusinessMember from '@/models/BusinessMember'
 import { resolveOwnerOrManagerVendor, getVendorStaffAccessMap } from '@/core/access/vendorAccess.service'
@@ -196,8 +195,10 @@ export default async function VendorLayout({
       <main className="flex-1 overflow-y-auto">
         <div className="p-4 lg:p-6">{children}</div>
       </main>
-      <AnuWidget />
-      <NotificationBell />
+      {/* Per explicit direction: no separate floating bell in the vendor
+          portal -- notifications live inside ANu instead (see AnuWidget's
+          showNotifications prop). */}
+      <AnuWidget showNotifications />
     </div>
   )
 }
