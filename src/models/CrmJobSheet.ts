@@ -50,6 +50,15 @@ export interface ICrmJobSheetLineItem {
   taxRate: number;
   hsnCode?: string; // set when the line was picked from ServiceCenterBOM
   serviceCenterBOMId?: Types.ObjectId; // ref ServiceCenterBOM, if picked from BOM
+  // Per-line diagnosis fields, per explicit direction: each item on the
+  // repair table gets its own Fault Phenomenon/Symptom/Solution rather than
+  // one shared set for the whole job sheet (moved off the job-sheet-level
+  // symptomCodeId/solutionId below, which are still populated -- derived
+  // from the line items at save time -- so the Service Record print page
+  // keeps working unchanged).
+  faultCodeId?: Types.ObjectId; // ref FaultCode
+  symptomCodeId?: Types.ObjectId; // ref SymptomCode
+  solutionId?: Types.ObjectId; // ref Solution
 }
 
 export interface ICrmJobSheet extends Document {
@@ -155,6 +164,9 @@ const CrmJobSheetLineItemSchema = new Schema<ICrmJobSheetLineItem>(
     taxRate: { type: Number, default: 0 },
     hsnCode: { type: String },
     serviceCenterBOMId: { type: Schema.Types.ObjectId, ref: "ServiceCenterBOM" },
+    faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
+    symptomCodeId: { type: Schema.Types.ObjectId, ref: "SymptomCode" },
+    solutionId: { type: Schema.Types.ObjectId, ref: "Solution" },
   },
   { _id: false }
 );

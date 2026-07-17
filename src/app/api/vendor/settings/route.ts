@@ -6,6 +6,8 @@
  *    Inventory stock or just pulls from the Service Center BOM price list.
  *  - termsAndConditions -- free text shown on this business's workorder,
  *    estimate and invoice pages/prints.
+ *  - defaultLabourCharge -- fallback rate for the workorder page's
+ *    "Add Labour Charge" line when no LABOUR-type BOM entry is configured.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
@@ -29,11 +31,12 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Vendor is not yet assigned to a business" }, { status: 400 });
     }
 
-    const business = await Business.findById((vendor as any).businessId).select("inventorySerialized termsAndConditions").lean();
+    const business = await Business.findById((vendor as any).businessId).select("inventorySerialized termsAndConditions defaultLabourCharge").lean();
     return NextResponse.json({
       success: true,
       inventorySerialized: Boolean((business as any)?.inventorySerialized),
       termsAndConditions: (business as any)?.termsAndConditions || "",
+      defaultLabourCharge: Number((business as any)?.defaultLabourCharge) || 0,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -58,6 +61,7 @@ export async function PATCH(req: NextRequest) {
     const update: Record<string, unknown> = {};
     if (typeof body.inventorySerialized === "boolean") update.inventorySerialized = body.inventorySerialized;
     if (typeof body.termsAndConditions === "string") update.termsAndConditions = body.termsAndConditions;
+    if (typeof body.defaultLabourCharge === "number" && body.defaultLabourCharge >= 0) update.defaultLabourCharge = body.defaultLabourCharge;
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ success: false, error: "Nothing to update" }, { status: 400 });
     }

@@ -575,7 +575,7 @@ export default function JobSheetDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
         <p className="text-red-600 text-sm">{error || 'Workorder not found'}</p>
-        <button onClick={() => router.push('/admin/crm/jobsheets')} className="text-sm text-gray-500 underline">Back to Workorders</button>
+        <button onClick={() => router.push('/vendor/crm/jobsheets')} className="text-sm text-gray-500 underline">Back to Workorders</button>
       </div>
     )
   }
@@ -610,7 +610,7 @@ export default function JobSheetDetailPage() {
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="px-6 py-10">
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => router.push('/admin/crm/jobsheets')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
+          <button onClick={() => router.push('/vendor/crm/jobsheets')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
@@ -626,6 +626,9 @@ export default function JobSheetDetailPage() {
             </span>
           )}
           <div className="ml-auto flex gap-2">
+            {/* Reuses the existing print route rather than duplicating it --
+                it's a standalone print view (opens in a new tab), not part
+                of the admin shell's navigation. */}
             <button
               onClick={() => window.open(`/admin/crm/jobsheets/${id}/print?doc=workorder`, '_blank')}
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition"
@@ -639,8 +642,10 @@ export default function JobSheetDetailPage() {
               <Printer className="w-4 h-4" /> Print Estimate
             </button>
             {job.invoiceId && (
+              // No vendor-side invoice detail page exists yet -- links to
+              // the vendor's own invoice list instead of the admin one.
               <button
-                onClick={() => router.push(`/admin/crm/invoices/${job.invoiceId}`)}
+                onClick={() => router.push('/vendor/invoices')}
                 className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
               >
                 <FileText className="w-4 h-4" /> View Invoice ({job.invoiceNumber})

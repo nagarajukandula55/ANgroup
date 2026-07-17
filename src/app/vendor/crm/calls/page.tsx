@@ -27,6 +27,12 @@ interface Brand {
   name: string
 }
 
+interface FaultCode {
+  _id: string
+  code: string
+  description: string
+}
+
 interface DeviceModelOption {
   _id: string
   name: string
@@ -69,8 +75,9 @@ export default function VendorCrmCallsPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const [convertingCall, setConvertingCall] = useState<Call | null>(null)
   const [convertForm, setConvertForm] = useState({
-    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '',
+    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '', faultCodeId: '',
   })
+  const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
   const [converting, setConverting] = useState(false)
   const [convertError, setConvertError] = useState<string | null>(null)
 
@@ -96,6 +103,10 @@ export default function VendorCrmCallsPage() {
           fetch(`/api/brands?businessId=${bId}`)
             .then((r) => r.json())
             .then((bd) => setBrands(bd.brands || bd.data || []))
+            .catch(() => {})
+          fetch(`/api/fault-codes?businessId=${bId}`)
+            .then((r) => r.json())
+            .then((fd) => setFaultCodes(fd.faultCodes || []))
             .catch(() => {})
         }
       })
@@ -182,7 +193,7 @@ export default function VendorCrmCallsPage() {
 
   function openConvert(call: Call) {
     setConvertingCall(call)
-    setConvertForm({ warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '' })
+    setConvertForm({ warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '', faultCodeId: '' })
     setConvertError(null)
   }
 
@@ -205,6 +216,7 @@ export default function VendorCrmCallsPage() {
           // only override when the CCO actually picked one here.
           brandId: convertForm.brandId || undefined,
           deviceModel: convertForm.deviceModel || undefined,
+          faultCodeId: convertForm.faultCodeId || undefined,
         }),
       })
       const d = await res.json()
@@ -421,6 +433,18 @@ export default function VendorCrmCallsPage() {
                 >
                   <option value="">{!convertForm.brandId ? 'Select a brand first' : loadingConvertModels ? 'Loading…' : 'Select…'}</option>
                   {convertModels.map((m) => <option key={m._id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Fault Code</label>
+                <select
+                  value={convertForm.faultCodeId}
+                  onChange={(e) => setConvertForm((p) => ({ ...p, faultCodeId: e.target.value }))}
+                  title="Select fault code"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  {faultCodes.map((f) => <option key={f._id} value={f._id}>{f.code} — {f.description}</option>)}
                 </select>
               </div>
               <div>

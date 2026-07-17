@@ -29,6 +29,12 @@ interface Brand {
   name: string
 }
 
+interface FaultCode {
+  _id: string
+  code: string
+  description: string
+}
+
 interface DeviceModelOption {
   _id: string
   name: string
@@ -53,11 +59,16 @@ const STATUSES = ['ALL', 'CREATED', 'REPAIR_STARTED', 'REPAIR_IN_PROGRESS', 'PAR
 // see each api/crm/jobsheets/[id]/*/route.ts's own docstring for the exact
 // milestone), exposed as one quick action per row instead of a separate
 // detail page. CREATED has no quick action here since assign-engineer
-// needs an engineer picked, not a single click.
+// needs an engineer picked, not a single click. REPAIR_IN_PROGRESS used to
+// have a one-click "Close (Invoice)" here too, but that blind-closed
+// whatever line items already happened to be saved -- now that the actual
+// repair page (line items, Fault Phenomenon/Symptom/Solution, Mark Part
+// Pending) lives at /vendor/crm/jobsheets/[id], closing from here would
+// skip filling those in and invoice an empty/stale job. That status now
+// only opens the detail page (see the jobSheetNumber link below).
 const NEXT_ACTION: Record<string, { label: string; action: string } | undefined> = {
   REPAIR_STARTED: { label: 'Start Repair', action: 'start-repair' },
   PART_PENDING: { label: 'Resume Repair', action: 'resume-repair' },
-  REPAIR_IN_PROGRESS: { label: 'Close (Invoice)', action: 'close' },
   REPAIR_COMPLETED: { label: 'Hand Over', action: 'handover' },
 }
 
@@ -85,10 +96,11 @@ export default function VendorCrmJobSheetsPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [createForm, setCreateForm] = useState({
     customerName: '', phone: '', title: '', brandId: '', deviceModel: '',
-    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '',
+    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', faultCodeId: '',
   })
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
+  const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
   const [models, setModels] = useState<DeviceModelOption[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
 
@@ -102,6 +114,10 @@ export default function VendorCrmJobSheetsPage() {
           fetch(`/api/brands?businessId=${bId}`)
             .then((r) => r.json())
             .then((bd) => setBrands(bd.brands || bd.data || []))
+            .catch(() => {})
+          fetch(`/api/fault-codes?businessId=${bId}`)
+            .then((r) => r.json())
+            .then((fd) => setFaultCodes(fd.faultCodes || []))
             .catch(() => {})
         }
       })
@@ -211,12 +227,13 @@ export default function VendorCrmJobSheetsPage() {
           warrantyStatus: createForm.warrantyStatus || undefined,
           deviceAppearance: createForm.deviceAppearance || undefined,
           fileBackupDescription: createForm.fileBackupDescription || undefined,
+          faultCodeId: createForm.faultCodeId || undefined,
         }),
       })
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create workorder')
       setShowCreate(false)
-      setCreateForm({ customerName: '', phone: '', title: '', brandId: '', deviceModel: '', warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '' })
+      setCreateForm({ customerName: '', phone: '', title: '', brandId: '', deviceModel: '', warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', faultCodeId: '' })
       fetchJobSheets()
     } catch (err: any) {
       setCreateError(err.message || 'Something went wrong')
@@ -302,7 +319,15 @@ export default function VendorCrmJobSheetsPage() {
                   const next = NEXT_ACTION[js.status]
                   return (
                     <tr key={js._id} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-3 font-mono text-xs text-gray-500">{js.jobSheetNumber}</td>
+                      <td className="px-6 py-3 font-mono text-xs">
+                        <button
+                          onClick={() => router.push(`/vendor/crm/jobsheets/${js._id}`)}
+                          className="text-gray-700 hover:text-gray-900 hover:underline"
+                          title="Open workorder"
+                        >
+                          {js.jobSheetNumber}
+                        </button>
+                      </td>
                       <td className="px-6 py-3 font-medium text-gray-900">{js.customerName}</td>
                       <td className="px-6 py-3 text-gray-500">{js.title}</td>
                       <td className="px-6 py-3 text-gray-500 text-xs">{js.assignedTo?.name || '—'}</td>
@@ -345,8 +370,19 @@ export default function VendorCrmJobSheetsPage() {
                           >
                             {actingId === js._id ? '...' : next.label}
                           </button>
-                        ) : (
+                        ) : js.status === 'CANCELLED' ? (
                           <span className="text-gray-300 text-xs">—</span>
+                        ) : (
+                          // CREATED (needs an engineer picked, not a single
+                          // click) and REPAIR_IN_PROGRESS (needs the actual
+                          // repair page for line items/Mark Part Pending) --
+                          // both just open the detail page instead.
+                          <button
+                            onClick={() => router.push(`/vendor/crm/jobsheets/${js._id}`)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                          >
+                            Open Workorder
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -411,6 +447,18 @@ export default function VendorCrmJobSheetsPage() {
                 >
                   <option value="">{!createForm.brandId ? 'Select a brand first' : loadingModels ? 'Loading…' : 'Select…'}</option>
                   {models.map((m) => <option key={m._id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Fault Code</label>
+                <select
+                  value={createForm.faultCodeId}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, faultCodeId: e.target.value }))}
+                  title="Select fault code"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  {faultCodes.map((f) => <option key={f._id} value={f._id}>{f.code} — {f.description}</option>)}
                 </select>
               </div>
               <div>

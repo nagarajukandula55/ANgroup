@@ -600,6 +600,15 @@ const BusinessSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Default rate for the workorder detail page's one-click "Add Labour
+    // Charge" line, set by the vendor's Owner/Manager (Settings > Business
+    // Settings) -- used whenever the vendor has no LABOUR-type
+    // ServiceCenterBOM entry of its own to pull a rate from instead.
+    defaultLabourCharge: {
+      type: Number,
+      default: 0,
+    },
+
     // Vendor-wide Terms & Conditions text, editable from the vendor
     // Owner/Manager's own profile/settings page -- shown on workorder,
     // estimate and invoice pages/prints for this business.

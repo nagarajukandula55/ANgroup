@@ -92,7 +92,7 @@ export async function POST(req: Request) {
       userId: user._id,
       status: "ACTIVE",
     })
-      .select("businessId isDefaultBusiness memberType")
+      .select("businessId isDefaultBusiness memberType vendorId")
       .lean()
       .exec() as any[];
 
@@ -144,16 +144,23 @@ export async function POST(req: Request) {
     // roles nobody has configured a home page for yet.
     const homeRoute = grantedRoles.find((r) => r.homeRoute && !MINIMAL_FLOOR_ROLE_CODES.includes(r.code))?.homeRoute || null;
 
-    // Someone attached to a vendor's team as its Owner/Manager (see
-    // resolveOwnerOrManagerVendor) belongs on /vendor no matter what a
-    // business-wide role they ALSO happen to hold sets as its own
-    // homeRoute -- e.g. manager@vendor.com holds the business-wide
-    // "MANAGER" role (homeRoute "/admin/crm", configured for a completely
-    // unrelated business-employee use case) purely to get Manager-
-    // equivalent vendor access (see vendorAccess.service.ts's broadened
-    // resolver), and was landing on /admin/crm instead of their own
-    // vendor portal every time they logged in.
-    const hasVendorAccess = !!(await resolveOwnerOrManagerVendor(user._id.toString()).catch(() => null));
+    // Anyone attached to a vendor's team -- Owner/Manager (see
+    // resolveOwnerOrManagerVendor) OR any other vendor-team member
+    // (CCO/Engineer/etc., tagged via an ACTIVE BusinessMember row with
+    // vendorId set, same test vendor/layout.tsx's own access guard uses)
+    // -- belongs on /vendor no matter what a business-wide role they ALSO
+    // happen to hold sets as its own homeRoute -- e.g. manager@vendor.com
+    // holds the business-wide "MANAGER" role (homeRoute "/admin/crm",
+    // configured for a completely unrelated business-employee use case)
+    // purely to get Manager-equivalent vendor access, and was landing on
+    // /admin/crm instead of their own vendor portal every time they
+    // logged in. Previously only Owner/Manager were covered here, so an
+    // Engineer/CCO with a homeRoute-bearing business role still landed on
+    // /admin despite /vendor/crm/calls + /vendor/crm/jobsheets existing
+    // specifically for them (see vendor/layout.tsx's own comment).
+    const hasVendorAccess =
+      memberships.some((m) => !!m.vendorId) ||
+      !!(await resolveOwnerOrManagerVendor(user._id.toString()).catch(() => null));
     const isMinimalOnly =
       roleCodes.length > 0 &&
       roleCodes.every((c: string) => MINIMAL_FLOOR_ROLE_CODES.includes(c)) &&

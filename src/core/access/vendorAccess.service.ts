@@ -323,3 +323,53 @@ export async function resolveOwnerOrManagerVendor(userId: string | null) {
 
   return VendorProfile.findById(membership.vendorId).lean();
 }
+
+// Anyone holding ONLY these floor roles has no admin-panel business at all
+// -- see api/auth/login/route.ts's original comment. Duplicated here (not
+// imported from there) since that file is a route handler, not a module
+// other code should import from.
+const MINIMAL_FLOOR_ROLE_CODES = ["CUSTOMER_SHOPNATIVE", "CUSTOMER_ANGROUP"];
+
+/**
+ * The ONE place that decides where a logged-in user should land --
+ * shared by api/auth/login/route.ts (right after a fresh login) AND
+ * api/auth/landing/route.ts (every other time the app needs to know,
+ * e.g. the root "/" page for a user who is already authenticated via
+ * cookie and never re-submits the login form). Having two separate
+ * copies of this logic is exactly how the root page's hardcoded
+ * `router.replace('/admin')` went stale the moment the vendor-team
+ * redirect fix landed only in the login route -- Engineer/CCO accounts
+ * that opened the app fresh (not via the login form) kept landing on
+ * /admin because the root page never got the same rule.
+ */
+export async function resolveLandingPath(userId: string, isSuperAdmin: boolean): Promise<string> {
+  if (isSuperAdmin) return "/admin";
+
+  const memberships = await BusinessMember.find({ userId, status: "ACTIVE" })
+    .select("vendorId")
+    .lean() as any[];
+
+  const userRoleDocs = await UserRole.find({ userId }).lean() as any[];
+  const grantedRoles = userRoleDocs.length
+    ? await Role.find({ _id: { $in: userRoleDocs.map((r) => r.roleId) } }).select("code homeRoute").lean() as any[]
+    : [];
+  const roleCodes = grantedRoles.map((r) => r.code);
+
+  const isMinimalOnly =
+    roleCodes.length > 0 &&
+    roleCodes.every((c: string) => MINIMAL_FLOOR_ROLE_CODES.includes(c)) &&
+    memberships.length === 0;
+  if (isMinimalOnly) return "https://shopnative.in";
+
+  // Any vendor-team member (Owner/Manager/CCO/Engineer/etc.) belongs on
+  // /vendor no matter what a business-wide role they ALSO happen to hold
+  // sets as its own homeRoute -- see resolveOwnerOrManagerVendor's own
+  // comment for the manager@vendor.com example this guards against.
+  const hasVendorAccess =
+    memberships.some((m) => !!m.vendorId) ||
+    !!(await resolveOwnerOrManagerVendor(userId).catch(() => null));
+  if (hasVendorAccess) return "/vendor";
+
+  const homeRoute = grantedRoles.find((r) => r.homeRoute && !MINIMAL_FLOOR_ROLE_CODES.includes(r.code))?.homeRoute;
+  return homeRoute || "/admin";
+}

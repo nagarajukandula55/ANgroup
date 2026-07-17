@@ -108,6 +108,12 @@ export default function VendorProfilePage() {
   const [termsAndConditions, setTermsAndConditions] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
+  // Default Labour Charge -- fallback rate for the workorder page's "Add
+  // Labour Charge" line, per explicit direction ("Add Labour charge key
+  // must add charges set by manager or owner"). Owner/Manager only, same
+  // section as the rest of Business Settings.
+  const [defaultLabourCharge, setDefaultLabourCharge] = useState('0')
+  const [savingLabourCharge, setSavingLabourCharge] = useState(false)
   // Service Record settings -- printed on the document generated after
   // closing a job sheet (see /vendor/crm/jobsheets/[id]/service-record).
   // Owner/Manager only, same as the rest of this section.
@@ -146,6 +152,7 @@ export default function VendorProfilePage() {
           setCanManageSettings(true)
           setInventorySerialized(Boolean(d.inventorySerialized))
           setTermsAndConditions(d.termsAndConditions || '')
+          setDefaultLabourCharge(String(d.defaultLabourCharge ?? 0))
         }
       })
       .catch(() => {})
@@ -199,6 +206,25 @@ export default function VendorProfilePage() {
       setSettingsMessage('Failed to save.')
     } finally {
       setSavingSettings(false)
+    }
+  }
+
+  async function saveLabourCharge() {
+    const value = parseFloat(defaultLabourCharge) || 0
+    setSavingLabourCharge(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultLabourCharge: value }),
+      })
+      const d = await res.json()
+      setSettingsMessage(d.success ? 'Saved.' : d.error || 'Failed to save.')
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingLabourCharge(false)
     }
   }
 
@@ -697,6 +723,32 @@ export default function VendorProfilePage() {
               list with no live stock check.
             </span>
           </label>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Default Labour Charge</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Rate used by the workorder page's "Add Labour Charge" button when this vendor has no
+              Labour-type Service Center BOM entry of its own.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">₹</span>
+              <input
+                type="number"
+                min={0}
+                value={defaultLabourCharge}
+                onChange={(e) => setDefaultLabourCharge(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                className="w-32 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+              />
+              <button
+                onClick={saveLabourCharge}
+                disabled={savingLabourCharge}
+                className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+              >
+                {savingLabourCharge ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
 
           <div className="mt-5 pt-5 border-t border-gray-100">
             <label className="block text-sm font-medium text-gray-900 mb-1">Terms &amp; Conditions</label>
