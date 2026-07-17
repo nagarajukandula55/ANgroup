@@ -14,6 +14,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { requireAssignedEngineer } from "@/core/access/crmJobsheetAccess";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/User";
 import "@/models/CrmCall";
@@ -165,6 +166,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { status: 403 }
         );
       }
+    }
+
+    // The actual repair content -- line items, work performed, symptom/
+    // solution, remark -- must be filled by the assigned engineer only,
+    // per explicit direction, not the CCO. CCO holds CRM_JOBSHEETS.EDIT
+    // too (for viewing, creating, converting calls, assigning engineers),
+    // so the permission check above alone doesn't distinguish this; same
+    // ownership check already enforced for start/resume/pause repair
+    // actions (see requireAssignedEngineer).
+    const ENGINEER_ONLY_FIELDS = ["lineItems", "workPerformed", "remark", "solutionId", "symptomCodeId"];
+    if (ENGINEER_ONLY_FIELDS.some((f) => updates[f] !== undefined)) {
+      const accessError = requireAssignedEngineer(existing, userId, !!session.isSuperAdmin);
+      if (accessError) return accessError;
     }
 
     const jobSheet = await CrmJobSheet.findOneAndUpdate(

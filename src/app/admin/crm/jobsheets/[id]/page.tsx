@@ -17,6 +17,11 @@ interface LineItem {
   serviceCenterBOMId?: string
 }
 
+function lineCost(item: LineItem): number {
+  const base = (item.quantity || 0) * (item.unitPrice || 0)
+  return base + base * ((item.taxRate || 0) / 100)
+}
+
 interface BOMPart {
   _id: string
   partName: string
@@ -65,7 +70,7 @@ interface JobSheet {
   createdAt: string
   lineItems: LineItem[]
   workPerformed?: string
-  materialsUsed?: string
+  remark?: string
   solutionId?: { _id?: string } | string
   invoiceId?: string
   invoiceNumber?: string
@@ -158,7 +163,11 @@ export default function JobSheetDetailPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [serviceCharge, setServiceCharge] = useState(0)
   const [workPerformed, setWorkPerformed] = useState('')
-  const [materialsUsed, setMaterialsUsed] = useState('')
+  // Per explicit direction: "Materials Used" free text is redundant with
+  // the Line Items table itself and is being retired; this slot is reused
+  // for Remark instead (same field already on the schema, previously only
+  // set at intake -- see api/crm/jobsheets/[id]/intake-receipt).
+  const [remark, setRemark] = useState('')
   // Brand Job No. -- moved here from the New Job Sheet creation form per
   // explicit direction ("Brand Job No should come at the time of Part
   // opening only, not while creating a new job sheet"): this is the
@@ -199,7 +208,7 @@ export default function JobSheetDetailPage() {
       setLineItems(d.jobSheet.lineItems?.length ? d.jobSheet.lineItems : [emptyLine()])
       setServiceCharge(d.jobSheet.serviceCharge || 0)
       setWorkPerformed(d.jobSheet.workPerformed || '')
-      setMaterialsUsed(d.jobSheet.materialsUsed || '')
+      setRemark(d.jobSheet.remark || '')
       setBrandJobNo(d.jobSheet.brandJobNoForPartOrder || '')
       const sid = d.jobSheet.solutionId
       setSolutionId(typeof sid === 'object' ? sid?._id || '' : sid || '')
@@ -244,13 +253,25 @@ export default function JobSheetDetailPage() {
   const [brandJobPopupIsPartPending, setBrandJobPopupIsPartPending] = useState(false)
   const [markingPartPending, setMarkingPartPending] = useState(false)
   const [stockWarning, setStockWarning] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isSuperAdminUser, setIsSuperAdminUser] = useState(false)
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       const user = d.user ?? d
       const role = String(user?.role || '').toUpperCase()
       setCanEditServiceCharge(Boolean(user?.isSuperAdmin) || role.includes('OWNER') || role.includes('MANAGER'))
+      setCurrentUserId(user?.id || null)
+      setIsSuperAdminUser(Boolean(user?.isSuperAdmin))
     }).catch(() => {})
   }, [])
+
+  // Per explicit direction: the actual repair content (line items, work
+  // performed, symptom/solution, remark) must be filled by the assigned
+  // engineer only, not the CCO -- same restriction already enforced for
+  // start/resume/pause repair actions (see requireAssignedEngineer),
+  // mirrored here at the API level too (this is just the UI reflecting it).
+  const assignedToId = job?.assignedTo ? (typeof job.assignedTo === 'object' ? job.assignedTo._id : job.assignedTo) : null
+  const isAssignedEngineer = isSuperAdminUser || (!!assignedToId && assignedToId === currentUserId)
 
   useEffect(() => {
     fetch(`/api/crm/jobsheets/${id}/engineers`)
@@ -296,15 +317,24 @@ export default function JobSheetDetailPage() {
     }])
   }
 
+  // Available stock per line, keyed by line index -- only populated when
+  // inventory is serialized (see the Inventory Qty column). null = not
+  // checked/not applicable for this line's part.
+  const [lineStock, setLineStock] = useState<Record<number, number | null>>({})
+
   async function pickBomPart(i: number, part: BOMPart) {
     setStockWarning(null)
+    setLineStock((prev) => { const next = { ...prev }; delete next[i]; return next })
     if (inventorySerialized && part.materialId) {
       try {
         const qs = job?.warehouseId ? `?warehouseId=${job.warehouseId}` : ''
         const res = await fetch(`/api/service-center-bom/${part._id}/stock${qs}`)
         const d = await res.json()
-        if (d.success && d.tracked && (d.availableQuantity ?? 0) <= 0) {
-          setStockWarning(`"${part.partName}" is out of stock (0 available) -- add it anyway only if you're sure, otherwise maintain sufficient stock first.`)
+        if (d.success && d.tracked) {
+          setLineStock((prev) => ({ ...prev, [i]: d.availableQuantity ?? 0 }))
+          if ((d.availableQuantity ?? 0) <= 0) {
+            setStockWarning(`"${part.partName}" is out of stock (0 available) -- add it anyway only if you're sure, otherwise maintain sufficient stock first.`)
+          }
         }
       } catch { /* best-effort check -- don't block on a network hiccup */ }
     }
@@ -338,7 +368,7 @@ export default function JobSheetDetailPage() {
       const res = await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, brandJobNoForPartOrder: brandJobNo || null, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, serviceCharge, ...extra }),
+        body: JSON.stringify({ lineItems, workPerformed, remark, brandJobNoForPartOrder: brandJobNo || null, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, serviceCharge, ...extra }),
       })
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to save')
@@ -434,7 +464,7 @@ export default function JobSheetDetailPage() {
       const saveRes = await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, serviceCharge }),
+        body: JSON.stringify({ lineItems, workPerformed, remark, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, serviceCharge }),
       })
       const saveData = await saveRes.json()
       if (!saveRes.ok || saveData.success === false) {
@@ -443,7 +473,7 @@ export default function JobSheetDetailPage() {
       const res = await fetch(`/api/crm/jobsheets/${id}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workPerformed, materialsUsed }),
+        body: JSON.stringify({ workPerformed, remark }),
       })
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to complete repair')
@@ -672,7 +702,7 @@ export default function JobSheetDetailPage() {
         <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Line Items</h3>
-            {!isLocked && (
+            {!isLocked && isAssignedEngineer && (
               <div className="flex items-center gap-3">
                 <button onClick={addLabourCharge} className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">
                   <Wrench className="w-3.5 h-3.5" /> Add Labour Charge
@@ -683,25 +713,43 @@ export default function JobSheetDetailPage() {
               </div>
             )}
           </div>
+          {!isLocked && !isAssignedEngineer && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+              Only the assigned engineer can add or edit line items on this workorder.
+            </p>
+          )}
 
-          <div className="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-            <span className="col-span-4">Description</span>
-            <span className="col-span-2">Qty</span>
+          <div className={`grid ${inventorySerialized ? 'grid-cols-14' : 'grid-cols-12'} gap-2 px-2 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-wide`}>
+            <span className="col-span-3">Description</span>
+            <span className="col-span-2">Material Code</span>
+            <span className="col-span-1">Qty</span>
+            {inventorySerialized && <span className="col-span-1">Inv. Qty</span>}
             <span className="col-span-2">Rate</span>
-            <span className="col-span-2">Tax %</span>
-            <span className="col-span-2 text-right pr-8">Part</span>
+            <span className="col-span-1">Tax %</span>
+            <span className="col-span-1">Cost</span>
+            <span className="col-span-1 text-right pr-8">Part</span>
           </div>
 
           <div className="space-y-2">
-            {lineItems.map((item, i) => (
+            {lineItems.map((item, i) => {
+              const bomMatch = item.serviceCenterBOMId ? bomParts.find((p) => p._id === item.serviceCenterBOMId) : undefined
+              const disabledLine = isLocked || !isAssignedEngineer
+              return (
               <div key={i} className="border border-gray-100 rounded-lg p-2 relative">
-                <div className="grid grid-cols-12 gap-2 items-center">
+                <div className={`grid ${inventorySerialized ? 'grid-cols-14' : 'grid-cols-12'} gap-2 items-center`}>
                   <input
-                    disabled={isLocked}
+                    disabled={disabledLine}
                     placeholder="Description"
                     value={item.description}
                     onChange={(e) => updateLine(i, { description: e.target.value, serviceCenterBOMId: undefined })}
-                    className="col-span-4 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
+                    className="col-span-3 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
+                  />
+                  <input
+                    disabled
+                    placeholder="—"
+                    value={bomMatch?.partCode || ''}
+                    title="Auto-filled from the picked BOM part"
+                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 font-mono"
                   />
                   <input
                     disabled
@@ -709,10 +757,19 @@ export default function JobSheetDetailPage() {
                     placeholder="Qty"
                     value={1}
                     title="Quantity is fixed at 1 per line -- add another line for more"
-                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                    className="col-span-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500"
                   />
+                  {inventorySerialized && (
+                    <input
+                      disabled
+                      placeholder="—"
+                      value={lineStock[i] != null ? String(lineStock[i]) : ''}
+                      title="Available stock for this part, at the moment it was picked"
+                      className={`col-span-1 border rounded-lg px-3 py-2 text-sm bg-gray-50 ${lineStock[i] === 0 ? 'border-red-200 text-red-500' : 'border-gray-200 text-gray-500'}`}
+                    />
+                  )}
                   <input
-                    disabled={isLocked}
+                    disabled={disabledLine}
                     type="number"
                     placeholder="Rate"
                     value={item.unitPrice}
@@ -721,15 +778,22 @@ export default function JobSheetDetailPage() {
                     className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                   />
                   <input
-                    disabled={isLocked}
+                    disabled={disabledLine}
                     type="number"
                     placeholder="Tax %"
                     value={item.taxRate}
                     onChange={(e) => updateLine(i, { taxRate: parseFloat(e.target.value) || 0 })}
                     onFocus={(e) => e.target.select()}
-                    className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
+                    className="col-span-1 border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                   />
-                  {!isLocked && bomParts.length > 0 && (
+                  <input
+                    disabled
+                    placeholder="—"
+                    value={`₹${lineCost(item).toLocaleString('en-IN')}`}
+                    title="Qty x Rate, plus tax"
+                    className="col-span-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600 font-medium"
+                  />
+                  {!isLocked && isAssignedEngineer && bomParts.length > 0 && (
                     <button
                       type="button"
                       onClick={() => { setPickerOpenIndex(pickerOpenIndex === i ? null : i); setBomSearch('') }}
@@ -739,7 +803,7 @@ export default function JobSheetDetailPage() {
                       BOM
                     </button>
                   )}
-                  {!isLocked && (
+                  {!isLocked && isAssignedEngineer && (
                     <button onClick={() => removeLine(i)} className="col-span-1 flex justify-center text-red-400 hover:text-red-600">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -789,7 +853,8 @@ export default function JobSheetDetailPage() {
                   <p className="mt-1 text-[11px] text-gray-400 pl-1">HSN: {item.hsnCode}</p>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="flex items-center justify-end mt-4 gap-2 text-sm">
@@ -818,11 +883,12 @@ export default function JobSheetDetailPage() {
           <div>
             <label className="block text-xs text-gray-500 mb-1.5">Work Performed</label>
             <textarea
-              disabled={isLocked}
+              disabled={isLocked || !isAssignedEngineer}
               value={workPerformed}
               onChange={(e) => setWorkPerformed(e.target.value)}
               placeholder="Describe the work performed"
               rows={2}
+              title={isAssignedEngineer ? undefined : 'Only the assigned engineer can edit this'}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
           </div>
@@ -830,9 +896,10 @@ export default function JobSheetDetailPage() {
             <div>
               <label className="block text-xs text-gray-500 mb-1.5">Symptom</label>
               <select
-                disabled={isLocked}
+                disabled={isLocked || !isAssignedEngineer}
                 value={symptomCodeId}
                 onChange={(e) => setSymptomCodeId(e.target.value)}
+                title={isAssignedEngineer ? undefined : 'Only the assigned engineer can edit this'}
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
               >
                 <option value="">— None —</option>
@@ -846,9 +913,10 @@ export default function JobSheetDetailPage() {
             <div>
               <label className="block text-xs text-gray-500 mb-1.5">Solution</label>
               <select
-                disabled={isLocked}
+                disabled={isLocked || !isAssignedEngineer}
                 value={solutionId}
                 onChange={(e) => setSolutionId(e.target.value)}
+                title={isAssignedEngineer ? undefined : 'Only the assigned engineer can edit this'}
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
               >
                 <option value="">— None —</option>
@@ -859,13 +927,14 @@ export default function JobSheetDetailPage() {
             </div>
           )}
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Materials Used</label>
+            <label className="block text-xs text-gray-500 mb-1.5">Remark</label>
             <textarea
-              disabled={isLocked}
-              value={materialsUsed}
-              onChange={(e) => setMaterialsUsed(e.target.value)}
-              placeholder="List materials used"
+              disabled={isLocked || !isAssignedEngineer}
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              placeholder="Any additional remark about this repair"
               rows={2}
+              title={isAssignedEngineer ? undefined : 'Only the assigned engineer can edit this'}
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
           </div>
@@ -879,7 +948,7 @@ export default function JobSheetDetailPage() {
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm disabled:bg-gray-50"
             />
           </div>
-          {!isLocked && (
+          {!isLocked && isAssignedEngineer && (
             <button onClick={() => saveLineItems()} disabled={saving} className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50">
               {saving ? 'Saving…' : 'Save'}
             </button>
