@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, ClipboardList, FileText, Pencil, X, Plus } from 'lucide-react'
+import { ArrowLeft, Loader2, ClipboardList, FileText, Printer, Receipt, Plus } from 'lucide-react'
 
 interface JobSheet {
   _id: string
@@ -70,11 +70,6 @@ export default function VendorCrmJobSheetsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [teamIds, setTeamIds] = useState<string[]>([])
   const [actingId, setActingId] = useState<string | null>(null)
-  const [editingIntake, setEditingIntake] = useState<JobSheet | null>(null)
-  const [intakeForm, setIntakeForm] = useState({
-    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', standardAccessories: '', specialDescription: '',
-  })
-  const [savingIntake, setSavingIntake] = useState(false)
 
   useEffect(() => {
     fetch('/api/vendor/staff')
@@ -111,43 +106,6 @@ export default function VendorCrmJobSheetsPage() {
   }, [statusFilter, teamIds])
 
   useEffect(() => { fetchJobSheets() }, [fetchJobSheets])
-
-  function openIntakeEdit(js: JobSheet) {
-    setEditingIntake(js)
-    setIntakeForm({
-      warrantyStatus: js.warrantyStatus || '',
-      deviceAppearance: js.deviceAppearance || '',
-      fileBackupDescription: js.fileBackupDescription || '',
-      standardAccessories: js.standardAccessories || '',
-      specialDescription: js.specialDescription || '',
-    })
-  }
-
-  async function saveIntake() {
-    if (!editingIntake) return
-    setSavingIntake(true)
-    try {
-      const res = await fetch(`/api/crm/jobsheets/${editingIntake._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          warrantyStatus: intakeForm.warrantyStatus || undefined,
-          deviceAppearance: intakeForm.deviceAppearance,
-          fileBackupDescription: intakeForm.fileBackupDescription,
-          standardAccessories: intakeForm.standardAccessories,
-          specialDescription: intakeForm.specialDescription,
-        }),
-      })
-      const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to save')
-      setEditingIntake(null)
-      fetchJobSheets()
-    } catch (err: any) {
-      setError(err.message || 'Failed to save intake details')
-    } finally {
-      setSavingIntake(false)
-    }
-  }
 
   async function runAction(jobSheetId: string, action: string) {
     setActingId(jobSheetId)
@@ -244,20 +202,31 @@ export default function VendorCrmJobSheetsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-3">
+                        {/* Edit removed -- intake details are edited from the
+                            actual repair page now, not a separate quick-edit
+                            here. Print options only: intake receipt, current
+                            workorder, and estimate. */}
                         <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => openIntakeEdit(js)}
-                            title="Edit intake details"
-                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
                           <button
                             onClick={() => router.push(`/vendor/crm/jobsheets/${js._id}/intake-receipt`)}
                             title="Print intake receipt"
                             className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                           >
                             <FileText className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => window.open(`/admin/crm/jobsheets/${js._id}/print?doc=workorder`, '_blank')}
+                            title="Print current workorder"
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => window.open(`/admin/crm/jobsheets/${js._id}/print?doc=estimate`, '_blank')}
+                            title="Print estimate"
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -301,83 +270,6 @@ export default function VendorCrmJobSheetsPage() {
         </div>
       </div>
 
-      {editingIntake && (
-        // `absolute inset-0` (not `flex-1`) keeps this backdrop out of the
-        // parent's flex flow so `justify-center` actually centers the
-        // dialog instead of the backdrop's flex-grow pushing it right.
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-50/60 backdrop-blur-sm" onClick={() => setEditingIntake(null)} />
-          <div className="relative w-full max-w-md max-h-[90vh] bg-gray-50 border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">Intake Details — {editingIntake.jobSheetNumber}</h2>
-              <button onClick={() => setEditingIntake(null)} className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Warranty Status</label>
-                <select
-                  value={intakeForm.warrantyStatus}
-                  onChange={(e) => setIntakeForm((p) => ({ ...p, warrantyStatus: e.target.value }))}
-                  title="Select warranty status"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
-                >
-                  <option value="">Select…</option>
-                  <option value="IW">In Warranty (IW)</option>
-                  <option value="OOW">Out of Warranty (OOW)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Device Appearance</label>
-                <select
-                  value={intakeForm.deviceAppearance}
-                  onChange={(e) => setIntakeForm((p) => ({ ...p, deviceAppearance: e.target.value }))}
-                  title="Select device appearance"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
-                >
-                  <option value="">Select…</option>
-                  <option value="GOOD">Good</option>
-                  <option value="USED">Used</option>
-                  <option value="DENTS">Dents</option>
-                  <option value="BROKEN">Broken</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">File Backup Done?</label>
-                <select
-                  value={intakeForm.fileBackupDescription}
-                  onChange={(e) => setIntakeForm((p) => ({ ...p, fileBackupDescription: e.target.value }))}
-                  title="Select whether file backup was done"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
-                >
-                  <option value="">Select…</option>
-                  <option value="YES">Yes</option>
-                  <option value="NO">No</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Standard Accessories</label>
-                <input value={intakeForm.standardAccessories} onChange={(e) => setIntakeForm((p) => ({ ...p, standardAccessories: e.target.value }))}
-                  placeholder="e.g. Card tray, Charger"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Special Description</label>
-                <textarea value={intakeForm.specialDescription} onChange={(e) => setIntakeForm((p) => ({ ...p, specialDescription: e.target.value }))}
-                  rows={3}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
-              <button onClick={() => setEditingIntake(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition">Cancel</button>
-              <button onClick={saveIntake} disabled={savingIntake} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                {savingIntake && <Loader2 className="w-4 h-4 animate-spin" />} Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Loader2, Plus, Phone, Clock, AlertCircle,
 } from 'lucide-react'
+import { formatAgeing } from '@/lib/format/ageing'
 
 interface Call {
   _id: string
@@ -63,7 +64,7 @@ function AgeingBadge({ call }: { call: Call }) {
   const overdue = days >= 2
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${overdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
-      {days}d
+      {formatAgeing(call.createdAt)}
     </span>
   )
 }

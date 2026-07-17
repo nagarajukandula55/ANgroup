@@ -6,6 +6,7 @@ import {
   ArrowLeft, Loader2, Plus, Trash2, CheckCircle2, FileText, PauseCircle,
   Check, Wrench, Printer,
 } from 'lucide-react'
+import { formatAgeing } from '@/lib/format/ageing'
 
 interface LineItem {
   description: string
@@ -622,7 +623,7 @@ export default function JobSheetDetailPage() {
           </div>
           {isOpen && (
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${overdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
-              {days}d open
+              {formatAgeing(job.createdAt)} open
             </span>
           )}
           <div className="ml-auto flex gap-2">
@@ -808,7 +809,7 @@ export default function JobSheetDetailPage() {
                     >
                       <option value="">— None —</option>
                       {faultCodes.map((f) => (
-                        <option key={f._id} value={f._id}>{f.code}</option>
+                        <option key={f._id} value={f._id}>{f.code} — {f.description}</option>
                       ))}
                     </select>
                     <select
@@ -819,7 +820,7 @@ export default function JobSheetDetailPage() {
                     >
                       <option value="">— None —</option>
                       {symptomCodes.map((s) => (
-                        <option key={s._id} value={s._id}>{s.code}</option>
+                        <option key={s._id} value={s._id}>{s.code} — {s.description}</option>
                       ))}
                     </select>
                     <select
@@ -830,7 +831,7 @@ export default function JobSheetDetailPage() {
                     >
                       <option value="">— None —</option>
                       {solutions.map((s) => (
-                        <option key={s._id} value={s._id}>{s.code}</option>
+                        <option key={s._id} value={s._id}>{s.code} — {s.description}</option>
                       ))}
                     </select>
                     <select

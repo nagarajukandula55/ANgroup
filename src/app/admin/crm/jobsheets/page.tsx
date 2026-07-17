@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, ClipboardList, Plus } from 'lucide-react'
+import { formatAgeing } from '@/lib/format/ageing'
 
 interface JobSheet {
   _id: string
@@ -47,7 +48,7 @@ function AgeingBadge({ js }: { js: JobSheet }) {
   const overdue = days >= 7
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${overdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
-      {days}d
+      {formatAgeing(js.createdAt)}
     </span>
   )
 }

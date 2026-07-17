@@ -139,10 +139,14 @@ export default async function VendorLayout({
     }
   }
 
+  // h-screen (not min-h-screen) locks this row to exactly the viewport
+  // height -- min-h-screen let it grow with tall page content, which
+  // dragged the sidebar's height along with it instead of keeping it
+  // capped to the screen with its own independent scroll.
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 text-gray-900 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Brand */}
         <div className="p-5 border-b border-gray-100">
           <p className="text-[10px] uppercase tracking-[0.45em] text-gray-400 mb-1">

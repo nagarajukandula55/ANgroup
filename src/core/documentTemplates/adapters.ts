@@ -10,10 +10,26 @@ export function resolveCompanyLogo(business: any, warehouse: any): string | unde
   return warehouse?.logoUrl || business?.logo || undefined;
 }
 
+/** When the document was issued from a specific service center (Warehouse),
+ * that service center's own name/address/phone print on the "From" block
+ * instead of the parent business's HQ details -- a customer walking into
+ * one of several service centers a business runs needs to see which one
+ * actually issued the document, not just the business's registered
+ * address. GSTIN stays the business's (that's the actual GST
+ * registration; a service center doesn't have its own), and logoUrl
+ * already had this same warehouse-override behavior (see
+ * resolveCompanyLogo above) -- this just extends it to the rest of the
+ * "From" block instead of leaving it as the one field on its own. */
 export function businessToCompany(business: any, warehouse: any) {
+  const name = warehouse?.warehouseName || business?.name || business?.brandName || "";
+  const address = warehouse
+    ? [warehouse.address, warehouse.city, warehouse.state, warehouse.pincode].filter(Boolean).join(", ")
+    : [business?.address, business?.city, business?.state].filter(Boolean).join(", ");
+  const phone = warehouse?.mobile || undefined;
   return {
-    name: business?.name || business?.brandName || "",
-    address: [business?.address, business?.city, business?.state].filter(Boolean).join(", "),
+    name,
+    address,
+    phone,
     gstin: business?.gstNumber || undefined,
     logoUrl: resolveCompanyLogo(business, warehouse),
     termsAndConditions: business?.termsAndConditions || undefined,

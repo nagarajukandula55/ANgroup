@@ -22,6 +22,9 @@ export interface DocumentRenderData {
   company: {
     name: string;
     address?: string;
+    /** Service center (Warehouse.mobile) when the document was issued from
+     * one -- see businessToCompany's own comment. */
+    phone?: string;
     gstin?: string;
     logoUrl?: string;
     /** Vendor-wide Terms & Conditions (Business.termsAndConditions, set
