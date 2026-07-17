@@ -23,6 +23,62 @@ export interface IBusinessContext {
 }
 
 /**
+ * The actual membership-resolution logic, split out so a caller that has
+ * ALREADY loaded the User document (getEnrichedSession, which needs it for
+ * its own role/permission lookup anyway) can reuse it instead of triggering
+ * a second, redundant User.findOne -- getEnrichedSession runs on nearly
+ * every authenticated request, so that duplicate query was pure overhead
+ * multiplied across the whole app. getBusinessContext() below is now a
+ * thin wrapper over this for every other existing caller.
+ */
+export async function resolveMembershipForUser(
+  userId: Types.ObjectId | string,
+  activeBusinessIdHeader: string | null
+): Promise<IBusinessContext | null> {
+  let membership = null as Awaited<ReturnType<typeof BusinessMember.findOne>> | null;
+
+  if (activeBusinessIdHeader) {
+    membership = await BusinessMember.findOne({
+      userId,
+      businessId: new Types.ObjectId(activeBusinessIdHeader),
+      isDeleted: false,
+      status: "ACTIVE",
+    }).lean();
+  }
+
+  // Fall back to whichever membership is flagged default — covers the case
+  // where no active-business header was sent (e.g. stale JWT) or it didn't
+  // match a valid membership.
+  if (!membership) {
+    membership = await BusinessMember.findOne({
+      userId,
+      isDeleted: false,
+      status: "ACTIVE",
+      isDefaultBusiness: true,
+    }).lean();
+  }
+
+  if (!membership) return null;
+
+  // BusinessMember has no `organizationId` field at all (see models/
+  // BusinessMember.ts) -- this used to call .toString() on `undefined`
+  // unconditionally, throwing on every single call. getEnrichedSession()
+  // wraps its call to getBusinessContext() in a try/catch that treats any
+  // thrown error the same as "no business context at all," so this crash
+  // silently short-circuited EVERY non-super-admin request straight to a
+  // permission-less session, before role/permission resolution ever ran.
+  // Organization is a real, standalone model but nothing in the active
+  // Business/BusinessMember flow references it yet -- default safely
+  // rather than crash until that's actually wired up.
+  return {
+    userId: userId.toString(),
+    businessId: (membership as any).businessId.toString(),
+    organizationId: (membership as any).organizationId?.toString() || "",
+    membershipId: (membership as any)._id.toString(),
+  };
+}
+
+/**
  * Get current active business context
  */
 export async function getBusinessContext(): Promise<IBusinessContext | null> {
@@ -43,47 +99,7 @@ export async function getBusinessContext(): Promise<IBusinessContext | null> {
 
   if (!user) return null;
 
-  let membership = null as Awaited<ReturnType<typeof BusinessMember.findOne>> | null;
-
-  if (activeBusinessIdHeader) {
-    membership = await BusinessMember.findOne({
-      userId: (user as any)._id,
-      businessId: new Types.ObjectId(activeBusinessIdHeader),
-      isDeleted: false,
-      status: "ACTIVE",
-    }).lean();
-  }
-
-  // Fall back to whichever membership is flagged default — covers the case
-  // where no active-business header was sent (e.g. stale JWT) or it didn't
-  // match a valid membership.
-  if (!membership) {
-    membership = await BusinessMember.findOne({
-      userId: (user as any)._id,
-      isDeleted: false,
-      status: "ACTIVE",
-      isDefaultBusiness: true,
-    }).lean();
-  }
-
-  if (!membership) return null;
-
-  // BusinessMember has no `organizationId` field at all (see models/
-  // BusinessMember.ts) -- this used to call .toString() on `undefined`
-  // unconditionally, throwing on every single call. getEnrichedSession()
-  // wraps its call to getBusinessContext() in a try/catch that treats any
-  // thrown error the same as "no business context at all," so this crash
-  // silently short-circuited EVERY non-super-admin request straight to a
-  // permission-less session, before role/permission resolution ever ran.
-  // Organization is a real, standalone model but nothing in the active
-  // Business/BusinessMember flow references it yet -- default safely
-  // rather than crash until that's actually wired up.
-  return {
-    userId: (user as any)._id.toString(),
-    businessId: (membership as any).businessId.toString(),
-    organizationId: (membership as any).organizationId?.toString() || "",
-    membershipId: (membership as any)._id.toString(),
-  };
+  return resolveMembershipForUser((user as any)._id, activeBusinessIdHeader);
 }
 
 /**
