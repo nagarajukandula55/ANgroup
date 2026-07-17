@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, ClipboardList, FileText, Printer, Receipt, Plus } from 'lucide-react'
+import { ArrowLeft, Loader2, ClipboardList, FileText, Receipt, Plus } from 'lucide-react'
 
 interface JobSheet {
   _id: string
@@ -204,12 +204,12 @@ export default function VendorCrmJobSheetsPage() {
                       <td className="px-6 py-3">
                         {/* Edit removed -- intake details are edited from the
                             actual repair page now, not a separate quick-edit
-                            here. One dynamic print button swaps between
-                            Intake Receipt (not yet closed) and Service Record
-                            (closed) based on status, instead of two separate
-                            icons -- plus the current Workorder/Estimate,
-                            which are distinct documents regardless of status.
-                            All three open the standalone /print/* route (no
+                            here. "Workorder" print is dynamic: Intake Receipt
+                            while open, Service Record once closed -- same
+                            document concept, per explicit direction, not a
+                            separate static workorder template. Estimate stays
+                            its own distinct document regardless of status.
+                            Both open the standalone /print/* route (no
                             sidebar/nav) so printing only prints the document,
                             not the whole app shell around it. */}
                         <div className="flex items-center justify-center gap-1">
@@ -220,17 +220,10 @@ export default function VendorCrmJobSheetsPage() {
                                 : `/print/jobsheets/${js._id}/intake-receipt`,
                               '_blank'
                             )}
-                            title={js.status === 'CLOSED' ? 'Print service record' : 'Print intake receipt'}
+                            title={js.status === 'CLOSED' ? 'Print service record' : 'Print intake receipt (workorder)'}
                             className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                           >
                             <FileText className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => window.open(`/print/jobsheets/${js._id}?doc=workorder`, '_blank')}
-                            title="Print current workorder"
-                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => window.open(`/print/jobsheets/${js._id}?doc=estimate`, '_blank')}

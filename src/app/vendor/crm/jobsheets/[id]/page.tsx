@@ -642,10 +642,15 @@ export default function JobSheetDetailPage() {
                 it's a standalone print view (opens in a new tab), not part
                 of the admin shell's navigation. */}
             <button
-              onClick={() => window.open(`/print/jobsheets/${id}?doc=workorder`, '_blank')}
+              onClick={() => window.open(
+                job.status === 'CLOSED'
+                  ? `/print/jobsheets/${id}/service-record`
+                  : `/print/jobsheets/${id}/intake-receipt`,
+                '_blank'
+              )}
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition"
             >
-              <Printer className="w-4 h-4" /> Print Workorder
+              <Printer className="w-4 h-4" /> {job.status === 'CLOSED' ? 'Print Service Record' : 'Print Workorder'}
             </button>
             <button
               onClick={() => window.open(`/print/jobsheets/${id}?doc=estimate`, '_blank')}
