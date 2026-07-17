@@ -52,6 +52,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       state,
       pincode,
       brandId,
+      deviceModel,
+      deviceModelId,
       imeiOrSerialNumber,
       issueDescription,
       faultCodeId,
@@ -100,7 +102,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       appointmentType: call.appointmentType,
       requestType: call.requestType,
       product: call.product,
-      deviceModel: call.deviceModel,
+      // deviceModel was accepted in the request body but never actually
+      // used here -- the vendor Convert-to-Workorder form's Model
+      // override was silently dropped, always falling back to whatever
+      // the call itself had. Same override pattern as brandId below.
+      deviceModel: deviceModel || call.deviceModel,
+      deviceModelId:
+        deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId)
+          ? new mongoose.Types.ObjectId(deviceModelId)
+          : call.deviceModelId,
       brandId:
         brandId && mongoose.Types.ObjectId.isValid(brandId)
           ? new mongoose.Types.ObjectId(brandId)

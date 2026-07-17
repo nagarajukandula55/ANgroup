@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
-import { ModelInput } from '@/components/shared/ModelInput'
 import { TreeSelect } from '@/components/shared/TreeSelect'
 import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
 
@@ -13,6 +12,7 @@ interface FaultCode { _id: string; code: string; description: string }
 interface CrmOption { _id: string; code: string; label: string }
 interface Warehouse { _id: string; warehouseName: string }
 interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
+interface DeviceModelOption { _id: string; name: string }
 
 // Vendor's own equivalent of /admin/crm/jobsheets/new -- a real page, not
 // the inline right-hand modal this used to be (which was also missing
@@ -28,18 +28,27 @@ export default function NewVendorJobSheetPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [appointmentTypes, setAppointmentTypes] = useState<CrmOption[]>([])
   const [requestTypes, setRequestTypes] = useState<CrmOption[]>([])
+  const [models, setModels] = useState<DeviceModelOption[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     customerName: '', company: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    product: '', brandId: '', deviceModel: '', imeiOrSerialNumber: '',
+    product: '', brandId: '', deviceModelId: '', deviceModel: '', imeiOrSerialNumber: '',
     faultCodeId: '', remark: '',
     appointmentType: '', requestType: '',
     warehouseId: '', title: '',
     warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '',
   })
+
+  useEffect(() => {
+    if (!form.brandId || !businessId) { setModels([]); return }
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
+      .then(r => r.json())
+      .then(d => setModels(d.models || []))
+      .catch(() => setModels([]))
+  }, [form.brandId, businessId])
 
   useEffect(() => {
     if (!businessId) return
@@ -174,20 +183,27 @@ export default function NewVendorJobSheetPage() {
                 <TreeSelect
                   items={brands}
                   value={form.brandId}
-                  onChange={(id) => setForm(p => ({ ...p, brandId: id }))}
+                  onChange={(id) => setForm(p => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
                   placeholder="Select brand…"
                   className={inputCls}
                 />
               </div>
               <div>
                 <label className={labelCls}>Model *</label>
-                <ModelInput
-                  value={form.deviceModel}
-                  onChange={(v) => setForm(p => ({ ...p, deviceModel: v }))}
-                  businessId={businessId}
-                  brandId={form.brandId}
-                  className={inputCls}
-                />
+                <select
+                  required
+                  value={form.deviceModelId}
+                  onChange={(e) => {
+                    const m = models.find((mm) => mm._id === e.target.value)
+                    setForm(p => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                  }}
+                  disabled={!form.brandId}
+                  title="Select model"
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
+                  {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
               </div>
             </div>
             <div>

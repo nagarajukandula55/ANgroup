@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
-import { ModelInput } from '@/components/shared/ModelInput'
 import { TreeSelect } from '@/components/shared/TreeSelect'
 import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
 
 interface Brand { _id: string; name: string; parentId?: string | null; logoUrl?: string }
 interface FaultCode { _id: string; code: string; description: string }
 interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
+interface DeviceModelOption { _id: string; name: string }
 
 export default function NewAppointmentPage() {
   const router = useRouter()
@@ -18,13 +18,14 @@ export default function NewAppointmentPage() {
   const [brands, setBrands] = useState<Brand[]>([])
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
+  const [models, setModels] = useState<DeviceModelOption[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     customerName: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    source: 'User Contact', product: '', brandId: '', deviceModel: '',
+    source: 'User Contact', product: '', brandId: '', deviceModelId: '', deviceModel: '',
     faultCodeId: '', subject: '',
   })
 
@@ -34,6 +35,14 @@ export default function NewAppointmentPage() {
     fetch(`/api/product-categories?businessId=${businessId}`).then(r => r.json()).then(d => setProductCategories(d.categories || d.productCategories || d.data || [])).catch(() => {})
     fetch(`/api/fault-codes?businessId=${businessId}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
   }, [businessId])
+
+  useEffect(() => {
+    if (!form.brandId || !businessId) { setModels([]); return }
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
+      .then(r => r.json())
+      .then(d => setModels(d.models || []))
+      .catch(() => setModels([]))
+  }, [form.brandId, businessId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -158,20 +167,27 @@ export default function NewAppointmentPage() {
                 <TreeSelect
                   items={brands}
                   value={form.brandId}
-                  onChange={(id) => setForm((p) => ({ ...p, brandId: id }))}
+                  onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
                   placeholder="Select brand…"
                   className={inputCls}
                 />
               </div>
               <div>
                 <label className={labelCls}>Model *</label>
-                <ModelInput
-                  value={form.deviceModel}
-                  onChange={(v) => setForm((p) => ({ ...p, deviceModel: v }))}
-                  businessId={businessId}
-                  brandId={form.brandId}
-                  className={inputCls}
-                />
+                <select
+                  required
+                  value={form.deviceModelId}
+                  onChange={(e) => {
+                    const m = models.find((mm) => mm._id === e.target.value)
+                    setForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                  }}
+                  disabled={!form.brandId}
+                  title="Select model"
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
+                  {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
               </div>
             </div>
             <div>

@@ -99,6 +99,7 @@ const ALLOWED_FIELDS = [
   "product",
   "brandId",
   "deviceModel",
+  "deviceModelId",
   "imeiOrSerialNumber",
   "issueDescription",
   "faultCodeId",

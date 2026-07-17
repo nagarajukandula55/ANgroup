@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
       product,
       brandId,
       deviceModel,
+      deviceModelId,
       imeiOrSerialNumber,
       issueDescription,
       faultCodeId,
@@ -203,6 +204,10 @@ export async function POST(req: NextRequest) {
           ? new mongoose.Types.ObjectId(brandId)
           : undefined,
       deviceModel,
+      deviceModelId:
+        deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId)
+          ? new mongoose.Types.ObjectId(deviceModelId)
+          : undefined,
       imeiOrSerialNumber,
       issueDescription,
       faultCodeId:

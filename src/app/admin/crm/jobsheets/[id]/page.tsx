@@ -79,6 +79,7 @@ interface JobSheet {
   deviceModel?: string
   imeiOrSerialNumber?: string
   brandId?: { _id?: string; name?: string } | string
+  deviceModelId?: { _id?: string; name?: string } | string
   faultCodeId?: { _id?: string } | string
   status: string
   createdAt: string
@@ -320,12 +321,16 @@ export default function JobSheetDetailPage() {
   useEffect(() => {
     if (!job) return
     const brandId = typeof job.brandId === 'object' ? job.brandId?._id : job.brandId
-    const qs = brandId ? `?brandId=${brandId}` : ''
+    const deviceModelId = typeof job.deviceModelId === 'object' ? job.deviceModelId?._id : job.deviceModelId
+    const params = new URLSearchParams()
+    if (brandId) params.set('brandId', brandId)
+    if (deviceModelId) params.set('deviceModelId', deviceModelId)
+    const qs = params.toString() ? `?${params.toString()}` : ''
     fetch(`/api/service-center-bom${qs}`)
       .then((r) => r.json())
       .then((d) => { if (d.success) setBomParts(d.parts || []) })
       .catch(() => {})
-  }, [job?.brandId])
+  }, [job?.brandId, job?.deviceModelId])
 
   function updateLine(i: number, updates: Partial<LineItem>) {
     setLineItems((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...updates } : l)))

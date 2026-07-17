@@ -72,7 +72,7 @@ export default function VendorCrmCallsPage() {
   const [teamIds, setTeamIds] = useState<string[]>([])
   const [convertingCall, setConvertingCall] = useState<Call | null>(null)
   const [convertForm, setConvertForm] = useState({
-    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '', faultCodeId: '',
+    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '',
   })
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
   const [converting, setConverting] = useState(false)
@@ -151,7 +151,7 @@ export default function VendorCrmCallsPage() {
 
   function openConvert(call: Call) {
     setConvertingCall(call)
-    setConvertForm({ warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '', faultCodeId: '' })
+    setConvertForm({ warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '' })
     setConvertError(null)
   }
 
@@ -174,6 +174,7 @@ export default function VendorCrmCallsPage() {
           // only override when the CCO actually picked one here.
           brandId: convertForm.brandId || undefined,
           deviceModel: convertForm.deviceModel || undefined,
+          deviceModelId: convertForm.deviceModelId || undefined,
           faultCodeId: convertForm.faultCodeId || undefined,
         }),
       })
@@ -306,7 +307,7 @@ export default function VendorCrmCallsPage() {
                 <label className="block text-xs text-gray-500 mb-1.5">Brand (leave blank to keep the appointment's)</label>
                 <select
                   value={convertForm.brandId}
-                  onChange={(e) => setConvertForm((p) => ({ ...p, brandId: e.target.value, deviceModel: '' }))}
+                  onChange={(e) => setConvertForm((p) => ({ ...p, brandId: e.target.value, deviceModelId: '', deviceModel: '' }))}
                   title="Select brand"
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
                 >
@@ -317,14 +318,17 @@ export default function VendorCrmCallsPage() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Model</label>
                 <select
-                  value={convertForm.deviceModel}
-                  onChange={(e) => setConvertForm((p) => ({ ...p, deviceModel: e.target.value }))}
+                  value={convertForm.deviceModelId}
+                  onChange={(e) => {
+                    const m = convertModels.find((mm) => mm._id === e.target.value)
+                    setConvertForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                  }}
                   disabled={!convertForm.brandId || loadingConvertModels}
                   title="Select model"
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none disabled:opacity-50"
                 >
                   <option value="">{!convertForm.brandId ? 'Select a brand first' : loadingConvertModels ? 'Loading…' : 'Select…'}</option>
-                  {convertModels.map((m) => <option key={m._id} value={m.name}>{m.name}</option>)}
+                  {convertModels.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </select>
               </div>
               <div>

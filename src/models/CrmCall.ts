@@ -80,6 +80,12 @@ export interface ICrmCall extends Document {
   product?: string; // device/category, e.g. "AC", "Washing Machine"
   brandId?: Types.ObjectId; // ref Brand
   deviceModel?: string;
+  // Structured model selection -- optional; deviceModel above stays the
+  // display string (also carries a one-off typed value for a model not
+  // in the DeviceModel master yet). deviceModelId is what lets the
+  // workorder's BOM-part picker filter to exactly this model instead of
+  // just the brand.
+  deviceModelId?: Types.ObjectId; // ref DeviceModel
   // Structured fault selection -- optional; the free-text subject field
   // below still carries the actual "Fault in Device" description shown
   // required in the UI, faultCodeId just links it to the Fault Code
@@ -171,6 +177,7 @@ const CrmCallSchema = new Schema<ICrmCall>(
     product: { type: String, trim: true },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
+    deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
     subject: { type: String, required: true, trim: true },
     description: { type: String, default: "" },

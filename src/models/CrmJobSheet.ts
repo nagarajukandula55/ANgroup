@@ -83,6 +83,11 @@ export interface ICrmJobSheet extends Document {
   product?: string; // device/category, e.g. "AC", "Washing Machine"
   brandId?: Types.ObjectId; // ref Brand
   deviceModel?: string;
+  // Structured model selection -- optional; deviceModel above stays the
+  // display string. deviceModelId is what lets the Service Info table's
+  // BOM-part picker filter to exactly this model, not just the brand
+  // (see /api/service-center-bom's deviceModelId filter).
+  deviceModelId?: Types.ObjectId; // ref DeviceModel
   imeiOrSerialNumber?: string;
   issueDescription?: string; // free-text VOC, independent of faultCodeId
   faultCodeId?: Types.ObjectId; // ref FaultCode
@@ -196,6 +201,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     product: { type: String, trim: true },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
+    deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },
     imeiOrSerialNumber: { type: String, trim: true },
     issueDescription: { type: String, default: "" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
