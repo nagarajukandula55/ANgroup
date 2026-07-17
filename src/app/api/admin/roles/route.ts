@@ -5,6 +5,7 @@ import { logAction } from '@/lib/audit/logAction';
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission, requireAnyPermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { generateDocumentNumber } from "@/core/numbering/numberingService";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -97,15 +98,10 @@ export async function POST(request: NextRequest) {
     const Role = mongoose.models.Role || (await import('@/models/Role')).default;
 
     const body = await request.json();
-    const { name, code, description, permissions, businessId, roleNumber } = body;
+    const { name, code, description, permissions, businessId } = body;
 
     if (!name || !code) {
       return NextResponse.json({ error: 'Name and code are required' }, { status: 400 });
-    }
-    // Per explicit direction: role numbers are assigned manually by the
-    // admin (to keep a deliberate serialized scheme), never auto-generated.
-    if (!roleNumber || !String(roleNumber).trim()) {
-      return NextResponse.json({ error: 'roleNumber is required' }, { status: 400 });
     }
     // Per explicit direction: roles are managed per business individually
     // from now on -- a businessId-less ("platform-wide") custom role is no
@@ -132,18 +128,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A role with this code already exists for this business' }, { status: 409 });
     }
 
-    // roleNumber is manually assigned (see above) -- still enforced unique
-    // per business via Role's own {businessId, roleNumber} partial index,
-    // but checked here first for a clear message instead of a raw 500 on
-    // the duplicate-key error.
-    const existingNumber = await Role.findOne({
-      businessId,
-      roleNumber: String(roleNumber).trim(),
-      isDeleted: { $ne: true },
-    });
-    if (existingNumber) {
-      return NextResponse.json({ error: 'That role number is already in use for this business' }, { status: 409 });
-    }
+    // Atomic per-business serial, e.g. "ECOM-0001" -- see
+    // scripts/seedRoleNumberConfig.ts for the "{businessCode}-{seq}"
+    // template this resolves through.
+    const { value: roleNumber } = await generateDocumentNumber(businessId, "ROLE");
 
     const role = await Role.create({
       name,
@@ -151,7 +139,7 @@ export async function POST(request: NextRequest) {
       description,
       permissions: permissions || [],
       businessId,
-      roleNumber: String(roleNumber).trim(),
+      roleNumber,
       isDeleted: false,
     });
 
