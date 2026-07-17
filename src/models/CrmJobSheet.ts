@@ -78,6 +78,16 @@ export interface ICrmJobSheet extends Document {
   issueDescription?: string; // free-text VOC, independent of faultCodeId
   faultCodeId?: Types.ObjectId; // ref FaultCode
   remark?: string;
+  // Intake-time fields, captured when the device is dropped off -- shown
+  // on the intake receipt printed before repair starts/before the call is
+  // closed (see api/crm/jobsheets/[id]/intake-receipt). warrantyStatus
+  // also feeds the materials table's "Type of charge" on the post-close
+  // Service Record.
+  warrantyStatus?: "IW" | "OOW";
+  deviceAppearance?: string; // e.g. "Intact", "Scratched", "Dented"
+  fileBackupDescription?: string; // e.g. "No backup required", "Backed up by customer"
+  standardAccessories?: string; // e.g. "Card tray, Charger"
+  specialDescription?: string; // additional intake notes distinct from the fault itself
   // Carried over from the originating call/appointment (see CrmCall) so
   // the workorder doesn't have to ask again.
   appointmentType?: "ONSITE" | "WALKIN";
@@ -177,6 +187,11 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     issueDescription: { type: String, default: "" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
     remark: { type: String, default: "" },
+    warrantyStatus: { type: String, enum: ["IW", "OOW"] },
+    deviceAppearance: { type: String, default: "" },
+    fileBackupDescription: { type: String, default: "" },
+    standardAccessories: { type: String, default: "" },
+    specialDescription: { type: String, default: "" },
     appointmentType: { type: String, enum: ["ONSITE", "WALKIN"] },
     requestType: { type: String, enum: ["REPAIR", "INSTALLATION"] },
 
