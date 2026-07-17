@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findOne({ email, isDeleted: { $ne: true }, isActive: true });
+    // password has select:false — must explicitly request it, otherwise
+    // every account looks passwordless and this always takes the
+    // generic-response early-exit below without ever sending an email.
+    const user = await User.findOne({ email, isDeleted: { $ne: true }, isActive: true }).select("+password");
 
     // No account, or SSO-only (no password to reset) — respond identically.
     if (!user || !user.password) {

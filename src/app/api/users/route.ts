@@ -15,6 +15,7 @@ import { sendAccountCredentialsEmail } from '@/services/email/resend.service'
 import { getEnrichedSession } from '@/lib/auth/session-enriched'
 import { requireAnyPermission } from '@/middleware/permission.guard'
 import { buildPermissionCode } from '@/core/access/actions'
+import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 
 const SALT_ROUNDS = 12
 
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      username: username?.toLowerCase()?.trim() || null,
+      username: username?.toLowerCase()?.trim() || (await generateUniqueUserId()),
       phone: phone?.trim() || null,
       password: hashedPassword,
       role: userRole || 'STAFF',

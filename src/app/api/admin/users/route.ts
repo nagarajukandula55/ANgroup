@@ -11,12 +11,13 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { sendAccountCredentialsEmail } from "@/services/email/resend.service";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/Role";
+import { generateUniqueUserId } from "@/lib/auth/generateUserId";
 
 // Roles any authenticated admin caller may assign. SUPER_ADMIN is
 // deliberately excluded here — it's checked separately below and only
 // permitted when the caller is ALREADY a super admin, so a normal admin
 // can never self-escalate or mint another super admin via this route.
-const ASSIGNABLE_ROLES = ['ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER'];
+const ASSIGNABLE_ROLES = ['ADMIN', 'MANAGER', 'EMPLOYEE', 'VENDOR', 'CUSTOMER', 'STAFF'];
 
 // Dynamic imports to avoid model recompilation
 async function getModels() {
@@ -154,13 +155,21 @@ export async function POST(request: NextRequest) {
     await connectDB();
     const { User, Role, UserRole, BusinessMember, EmployeeProfile, VendorProfile } = await getModels();
 
-    // This route previously had NO auth check at all — anyone able to
-    // reach it (including an unauthenticated caller, since middleware only
-    // gates on session presence for most routes but this one wasn't even
-    // checked here) could create a user with an arbitrary `role` string,
-    // including "SUPER_ADMIN". Now requires a valid session, and further
-    // requires the CALLER to already be a super admin before it will ever
-    // create another SUPER_ADMIN user.
+    // This route previously only checked that SOME session existed
+    // (`callerUserId` present) but never that the caller actually held any
+    // admin-level permission — so any authenticated CUSTOMER/EMPLOYEE/VENDOR
+    // could create ADMIN/EMPLOYEE/VENDOR/MANAGER accounts for themselves,
+    // same class of privilege-escalation bug the GET handler above was
+    // already fixed for (see its comment). The SUPER_ADMIN-only guard
+    // further down only ever protected the SUPER_ADMIN branch specifically
+    // — it did nothing to gate the route itself. Now requires the same
+    // USERS.CREATE permission as every other module's create endpoint.
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    requirePermission(session as any, buildPermissionCode("users", "create"));
+
     const h = await headers();
     const callerUserId = h.get('x-user-id');
     const callerIsSuperAdmin = h.get('x-is-super-admin') === 'true';
@@ -210,7 +219,7 @@ export async function POST(request: NextRequest) {
     const user = await User.create({
       name,
       email,
-      username: username ? String(username).toLowerCase().trim() : undefined,
+      username: username ? String(username).toLowerCase().trim() : (await generateUniqueUserId()),
       password: hashedPassword,
       // Previously never set — this route created a Role/UserRole doc in
       // the newer RBAC collections but left the User model's own legacy

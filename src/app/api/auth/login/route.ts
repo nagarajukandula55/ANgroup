@@ -73,6 +73,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // Several signup paths deliberately create the account with
+    // isActive:false — a vendor pending admin approval
+    // (register/vendor/route.ts), or an employee pending HR activation —
+    // but this check never existed, so a valid password alone was enough
+    // to log in and receive a full session token regardless of pending
+    // status. Must be checked here, not just left to "isActive" filters on
+    // individual downstream routes, since the token itself grants access.
+    if (user.isActive === false) {
+      return NextResponse.json(
+        { success: false, message: "Your account is not active yet. Please wait for approval or contact support." },
+        { status: 403 }
+      );
+    }
+
     /* ── Load business memberships from BusinessMember collection ────── */
     const memberships = await BusinessMember.find({
       userId: user._id,

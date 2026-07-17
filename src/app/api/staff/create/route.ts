@@ -13,6 +13,7 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { sendAccountCredentialsEmail } from "@/services/email/resend.service";
+import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 
 // Same anti-escalation allow-list as api/admin/users/route.ts's POST --
 // SUPER_ADMIN is deliberately excluded and checked separately below.
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
     const user = await User.create({
       name: body.name,
       email: body.email,
+      username: await generateUniqueUserId(),
       password: hashedPassword,
       role: requestedRole,
       businessId: body.businessId,
