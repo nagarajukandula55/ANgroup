@@ -20,6 +20,12 @@ export interface IServiceCenterBOM extends Document {
   businessId: Types.ObjectId;
   vendorId: Types.ObjectId;
   brandId?: Types.ObjectId; // ref Brand -- which device brand this part fits, if any
+  // Which specific device model this part fits, if any -- optional and
+  // nested under brandId (a part can be brand-wide/"Any Model" with this
+  // unset, or scoped to one exact model). Together with brandId this is
+  // the Brand -> Model -> Part tree the management page organizes parts
+  // by, per explicit direction.
+  deviceModelId?: Types.ObjectId; // ref DeviceModel
   partName: string;
   partCode: string;
   description?: string; // spec/detail beyond the name, for GST-invoice line clarity
@@ -46,6 +52,7 @@ const ServiceCenterBOMSchema = new Schema<IServiceCenterBOM>(
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
     vendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", required: true, index: true },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand", index: true },
+    deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel", index: true },
     partName: { type: String, required: true, trim: true },
     partCode: { type: String, required: true, trim: true },
     description: { type: String, trim: true, default: "" },
