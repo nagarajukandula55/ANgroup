@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, ClipboardList, FileText, Receipt, Plus } from 'lucide-react'
+import { ArrowLeft, Loader2, ClipboardList, Plus } from 'lucide-react'
+import { formatAgeing } from '@/lib/format/ageing'
 
 interface JobSheet {
   _id: string
@@ -35,6 +36,23 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUSES = ['ALL', 'CREATED', 'REPAIR_STARTED', 'REPAIR_IN_PROGRESS', 'PART_PENDING', 'REPAIR_COMPLETED', 'CLOSED', 'CANCELLED']
+
+// Per explicit direction: Cancelled, Completed and Closed all count as
+// "closed" for TAT purposes -- everything else (including Part Pending)
+// is still an open workorder whose clock keeps running.
+const CLOSED_STATUSES = new Set(['REPAIR_COMPLETED', 'CLOSED', 'CANCELLED'])
+const TAT_HIGHLIGHT_DAYS = 3
+
+function TatBadge({ js }: { js: JobSheet }) {
+  const isOpen = !CLOSED_STATUSES.has(js.status)
+  const ms = Date.now() - new Date(js.createdAt).getTime()
+  const overdue = isOpen && ms >= TAT_HIGHLIGHT_DAYS * 86400000
+  return (
+    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${overdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+      {formatAgeing(js.createdAt)}
+    </span>
+  )
+}
 
 // Which action moves a job sheet forward from its current status -- mirrors
 // the real lifecycle (CREATED -[assign-engineer]-> REPAIR_STARTED
@@ -165,7 +183,7 @@ export default function VendorCrmJobSheetsPage() {
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Title</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Assigned To</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
-                <th className="text-center px-6 py-3 text-gray-400 font-medium">Intake</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">TAT</th>
                 <th className="text-right px-6 py-3 text-gray-400 font-medium">Action</th>
               </tr>
             </thead>
@@ -201,38 +219,14 @@ export default function VendorCrmJobSheetsPage() {
                           {js.status.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="px-6 py-3">
-                        {/* Edit removed -- intake details are edited from the
-                            actual repair page now, not a separate quick-edit
-                            here. "Workorder" print is dynamic: Intake Receipt
-                            while open, Service Record once closed -- same
-                            document concept, per explicit direction, not a
-                            separate static workorder template. Estimate stays
-                            its own distinct document regardless of status.
-                            Both open the standalone /print/* route (no
-                            sidebar/nav) so printing only prints the document,
-                            not the whole app shell around it. */}
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => window.open(
-                              js.status === 'CLOSED'
-                                ? `/print/jobsheets/${js._id}/service-record`
-                                : `/print/jobsheets/${js._id}/intake-receipt`,
-                              '_blank'
-                            )}
-                            title={js.status === 'CLOSED' ? 'Print service record' : 'Print intake receipt (workorder)'}
-                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => window.open(`/print/jobsheets/${js._id}?doc=estimate`, '_blank')}
-                            title="Print estimate"
-                            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                          >
-                            <Receipt className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                      <td className="px-6 py-3 text-center">
+                        {/* Print (Workorder/Estimate) moved off this list --
+                            open the workorder itself to print from there,
+                            per explicit direction. This column is now
+                            Turn-Around Time: hours/minutes under 24h, days
+                            beyond, highlighted once an OPEN workorder (not
+                            Cancelled/Completed/Closed) crosses 3 days. */}
+                        <TatBadge js={js} />
                       </td>
                       <td className="px-6 py-3 text-right">
                         {next ? (

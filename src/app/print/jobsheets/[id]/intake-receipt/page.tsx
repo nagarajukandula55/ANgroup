@@ -67,7 +67,7 @@ export default function IntakeReceiptPage() {
   if (error || !jobSheet) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
-        <p className="text-sm text-red-600">{error || 'Intake receipt not found'}</p>
+        <p className="text-sm text-red-600">{error || 'Workorder not found'}</p>
         <button onClick={() => router.push('/vendor/crm/jobsheets')} className="text-sm text-gray-500 underline">
           Back to Workorders
         </button>

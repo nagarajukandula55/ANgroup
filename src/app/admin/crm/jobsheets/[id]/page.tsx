@@ -605,16 +605,21 @@ export default function JobSheetDetailPage() {
   // table now has more columns than that (Fault Phenomenon/Symptom/
   // Solution/Description/Material Code/Qty/[Inv Qty]/Rate/Tax/Cost/Delete).
   const CELL = {
-    faultCode: 'w-32 shrink-0',
-    symptom: 'w-32 shrink-0',
-    solution: 'w-32 shrink-0',
-    description: 'w-44 shrink-0',
-    materialCode: 'w-24 shrink-0',
-    qty: 'w-14 shrink-0',
-    invQty: 'w-16 shrink-0',
-    rate: 'w-20 shrink-0',
-    tax: 'w-16 shrink-0',
-    cost: 'w-20 shrink-0',
+    // flex-1 + a min-width (not a fixed w-*) so the row actually stretches
+    // to fill the card's full width instead of leaving space unused on the
+    // right -- was hard-coded narrow widths that summed to less than the
+    // container, and were too tight for "CODE — Description" values to be
+    // readable at all.
+    faultCode: 'flex-1 min-w-[160px]',
+    symptom: 'flex-1 min-w-[160px]',
+    solution: 'flex-1 min-w-[160px]',
+    description: 'flex-[1.6] min-w-[220px]',
+    materialCode: 'w-28 shrink-0',
+    qty: 'w-16 shrink-0',
+    invQty: 'w-20 shrink-0',
+    rate: 'w-24 shrink-0',
+    tax: 'w-20 shrink-0',
+    cost: 'w-24 shrink-0',
     delete: 'w-8 shrink-0',
   }
 
@@ -778,7 +783,7 @@ export default function JobSheetDetailPage() {
         <>
         <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-6 overflow-x-auto">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Line Items</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Service Info</h3>
             {!isLocked && isAssignedEngineer && (
               <div className="flex items-center gap-3">
                 <button onClick={addLabourCharge} className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800">
@@ -796,7 +801,7 @@ export default function JobSheetDetailPage() {
             </p>
           )}
 
-          <div className="min-w-max">
+          <div className="w-full">
             <div className="flex gap-2 px-2 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-wide">
               <span className={CELL.faultCode}>Fault Phenomenon</span>
               <span className={CELL.symptom}>Symptom</span>
