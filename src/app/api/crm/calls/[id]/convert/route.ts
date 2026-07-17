@@ -56,6 +56,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       issueDescription,
       faultCodeId,
       remark,
+      warrantyStatus,
+      deviceAppearance,
+      fileBackupDescription,
     } = body;
 
     await connectDB();
@@ -109,6 +112,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           ? new mongoose.Types.ObjectId(faultCodeId)
           : undefined,
       remark,
+      warrantyStatus: ["IW", "OOW"].includes(warrantyStatus) ? warrantyStatus : undefined,
+      deviceAppearance: ["GOOD", "USED", "DENTS", "BROKEN"].includes(deviceAppearance) ? deviceAppearance : undefined,
+      fileBackupDescription: ["YES", "NO"].includes(fileBackupDescription) ? fileBackupDescription : undefined,
       title: title?.trim() || call.subject,
       description: description ?? call.description,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, ClipboardList, FileText, Pencil, X } from 'lucide-react'
+import { ArrowLeft, Loader2, ClipboardList, FileText, Pencil, X, Plus } from 'lucide-react'
 
 interface JobSheet {
   _id: string
@@ -13,8 +13,8 @@ interface JobSheet {
   createdAt: string
   assignedTo?: { name?: string }
   warrantyStatus?: 'IW' | 'OOW'
-  deviceAppearance?: string
-  fileBackupDescription?: string
+  deviceAppearance?: 'GOOD' | 'USED' | 'DENTS' | 'BROKEN'
+  fileBackupDescription?: 'YES' | 'NO'
   standardAccessories?: string
   specialDescription?: string
 }
@@ -22,6 +22,16 @@ interface JobSheet {
 interface StaffMember {
   _id: string
   userId: { _id: string; name: string; email: string } | string
+}
+
+interface Brand {
+  _id: string
+  name: string
+}
+
+interface DeviceModelOption {
+  _id: string
+  name: string
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -70,6 +80,46 @@ export default function VendorCrmJobSheetsPage() {
     warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', standardAccessories: '', specialDescription: '',
   })
   const [savingIntake, setSavingIntake] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [createForm, setCreateForm] = useState({
+    customerName: '', phone: '', title: '', brandId: '', deviceModel: '',
+    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '',
+  })
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [brands, setBrands] = useState<Brand[]>([])
+  const [models, setModels] = useState<DeviceModelOption[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        const bId = d.user?.activeBusinessId ?? d.businesses?.[0]?._id ?? null
+        setBusinessId(bId)
+        if (bId) {
+          fetch(`/api/brands?businessId=${bId}`)
+            .then((r) => r.json())
+            .then((bd) => setBrands(bd.brands || bd.data || []))
+            .catch(() => {})
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!createForm.brandId || !businessId) {
+      setModels([])
+      return
+    }
+    setLoadingModels(true)
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${createForm.brandId}`)
+      .then((r) => r.json())
+      .then((d) => setModels(d.models || []))
+      .catch(() => setModels([]))
+      .finally(() => setLoadingModels(false))
+  }, [createForm.brandId, businessId])
 
   useEffect(() => {
     fetch('/api/vendor/staff')
@@ -144,6 +194,37 @@ export default function VendorCrmJobSheetsPage() {
     }
   }
 
+  async function submitCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const res = await fetch('/api/crm/jobsheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: createForm.customerName,
+          phone: createForm.phone,
+          title: createForm.title,
+          brandId: createForm.brandId || undefined,
+          deviceModel: createForm.deviceModel || undefined,
+          warrantyStatus: createForm.warrantyStatus || undefined,
+          deviceAppearance: createForm.deviceAppearance || undefined,
+          fileBackupDescription: createForm.fileBackupDescription || undefined,
+        }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create workorder')
+      setShowCreate(false)
+      setCreateForm({ customerName: '', phone: '', title: '', brandId: '', deviceModel: '', warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '' })
+      fetchJobSheets()
+    } catch (err: any) {
+      setCreateError(err.message || 'Something went wrong')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   async function runAction(jobSheetId: string, action: string) {
     setActingId(jobSheetId)
     try {
@@ -169,6 +250,12 @@ export default function VendorCrmJobSheetsPage() {
             <h1 className="text-2xl font-semibold">Workorders</h1>
             <p className="text-sm text-gray-400">Your team's repair jobs</p>
           </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
+          >
+            <Plus className="w-4 h-4" /> New Workorder
+          </button>
         </div>
 
         {error && <div className="mb-6 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</div>}
@@ -271,6 +358,113 @@ export default function VendorCrmJobSheetsPage() {
         </div>
       </div>
 
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
+          <div className="relative w-full max-w-md max-h-[90vh] bg-gray-50 border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-900">New Workorder</h2>
+              <button onClick={() => setShowCreate(false)} className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={submitCreate} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+              {createError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{createError}</div>
+              )}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Customer Name *</label>
+                <input required value={createForm.customerName} onChange={(e) => setCreateForm((p) => ({ ...p, customerName: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Phone *</label>
+                <input required value={createForm.phone} onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Fault / Title *</label>
+                <input required value={createForm.title} onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g. Screen replacement"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Brand</label>
+                <select
+                  value={createForm.brandId}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, brandId: e.target.value, deviceModel: '' }))}
+                  title="Select brand"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  {brands.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Model</label>
+                <select
+                  value={createForm.deviceModel}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, deviceModel: e.target.value }))}
+                  disabled={!createForm.brandId || loadingModels}
+                  title="Select model"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none disabled:opacity-50"
+                >
+                  <option value="">{!createForm.brandId ? 'Select a brand first' : loadingModels ? 'Loading…' : 'Select…'}</option>
+                  {models.map((m) => <option key={m._id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Warranty Status</label>
+                <select
+                  value={createForm.warrantyStatus}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, warrantyStatus: e.target.value }))}
+                  title="Select warranty status"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="IW">In Warranty (IW)</option>
+                  <option value="OOW">Out of Warranty (OOW)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Device Appearance</label>
+                <select
+                  value={createForm.deviceAppearance}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, deviceAppearance: e.target.value }))}
+                  title="Select device appearance"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="GOOD">Good</option>
+                  <option value="USED">Used</option>
+                  <option value="DENTS">Dents</option>
+                  <option value="BROKEN">Broken</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">File Backup Done?</label>
+                <select
+                  value={createForm.fileBackupDescription}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, fileBackupDescription: e.target.value }))}
+                  title="Select whether file backup was done"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="YES">Yes</option>
+                  <option value="NO">No</option>
+                </select>
+              </div>
+              <div className="px-0 pt-4 flex gap-3">
+                <button type="button" onClick={() => setShowCreate(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition">Cancel</button>
+                <button type="submit" disabled={creating} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                  {creating && <Loader2 className="w-4 h-4 animate-spin" />} Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {editingIntake && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setEditingIntake(null)} />
@@ -297,15 +491,31 @@ export default function VendorCrmJobSheetsPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Device Appearance</label>
-                <input value={intakeForm.deviceAppearance} onChange={(e) => setIntakeForm((p) => ({ ...p, deviceAppearance: e.target.value }))}
-                  placeholder="e.g. Intact, Scratched, Dented"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
+                <select
+                  value={intakeForm.deviceAppearance}
+                  onChange={(e) => setIntakeForm((p) => ({ ...p, deviceAppearance: e.target.value }))}
+                  title="Select device appearance"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="GOOD">Good</option>
+                  <option value="USED">Used</option>
+                  <option value="DENTS">Dents</option>
+                  <option value="BROKEN">Broken</option>
+                </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Description of File Backup</label>
-                <input value={intakeForm.fileBackupDescription} onChange={(e) => setIntakeForm((p) => ({ ...p, fileBackupDescription: e.target.value }))}
-                  placeholder="e.g. No backup required"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
+                <label className="block text-xs text-gray-500 mb-1.5">File Backup Done?</label>
+                <select
+                  value={intakeForm.fileBackupDescription}
+                  onChange={(e) => setIntakeForm((p) => ({ ...p, fileBackupDescription: e.target.value }))}
+                  title="Select whether file backup was done"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="YES">Yes</option>
+                  <option value="NO">No</option>
+                </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Standard Accessories</label>

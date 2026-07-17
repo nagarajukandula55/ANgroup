@@ -140,6 +140,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     for (const field of ALLOWED_FIELDS) {
       if (body[field] !== undefined) updates[field] = body[field];
     }
+    // Enum fields -- an unset dropdown sends "" (cleared), which the
+    // schema's enum validator would otherwise reject outright; treat that
+    // as "leave unset" instead of a validation error.
+    if (updates.deviceAppearance === "") delete updates.deviceAppearance;
+    if (updates.fileBackupDescription === "") delete updates.fileBackupDescription;
+    if (updates.warrantyStatus === "") delete updates.warrantyStatus;
 
     if (LOCKED_AFTER_INVOICE.has((existing as any).status) && updates.lineItems) {
       return NextResponse.json(

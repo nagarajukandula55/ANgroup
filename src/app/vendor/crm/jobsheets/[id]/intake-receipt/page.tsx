@@ -13,8 +13,8 @@ interface JobSheet {
   deviceModel?: string
   imeiOrSerialNumber?: string
   warrantyStatus?: 'IW' | 'OOW'
-  deviceAppearance?: string
-  fileBackupDescription?: string
+  deviceAppearance?: 'GOOD' | 'USED' | 'DENTS' | 'BROKEN'
+  fileBackupDescription?: 'YES' | 'NO'
   standardAccessories?: string
   issueDescription?: string
   specialDescription?: string
@@ -120,8 +120,8 @@ export default function IntakeReceiptPage() {
           </div>
 
           <div className="space-y-1.5 text-sm mb-4 border-t border-gray-100 pt-4">
-            <p><span className="text-gray-500">Device Appearance:</span> {jobSheet.deviceAppearance || '—'}</p>
-            <p><span className="text-gray-500">Description of File Backup:</span> {jobSheet.fileBackupDescription || '—'}</p>
+            <p><span className="text-gray-500">Device Appearance:</span> {jobSheet.deviceAppearance ? jobSheet.deviceAppearance.charAt(0) + jobSheet.deviceAppearance.slice(1).toLowerCase() : '—'}</p>
+            <p><span className="text-gray-500">File Backup Done:</span> {jobSheet.fileBackupDescription || '—'}</p>
             <p><span className="text-gray-500">Standard Accessories:</span> {jobSheet.standardAccessories || '—'}</p>
             <p><span className="text-gray-500">Customer Fault Description:</span> {jobSheet.issueDescription || '—'}</p>
             <p><span className="text-gray-500">Special Description:</span> {jobSheet.specialDescription || '—'}</p>
