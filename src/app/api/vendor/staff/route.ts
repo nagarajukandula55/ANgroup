@@ -7,7 +7,7 @@ import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
 import { logAction } from "@/lib/audit/logAction";
 import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
-import { grantVendorStaffAccess } from "@/core/access/vendorAccess.service";
+import { grantVendorStaffAccess, MEMBER_TYPE_IMPLIED_MODULES } from "@/core/access/vendorAccess.service";
 
 /**
  * Vendor-side staff management. Completes the hierarchy requested:
@@ -69,6 +69,42 @@ export async function GET() {
       .populate("userId", "name email username")
       .sort({ createdAt: -1 })
       .lean();
+
+    // Same self-healing idea as the resync above, but for staff tagged
+    // with a memberType (CCO/Engineer/Centre Manager) BEFORE
+    // MEMBER_TYPE_IMPLIED_MODULES gained fault_codes/solutions -- their
+    // personal VSTAFF_<userId> role never got those modules, and the fix
+    // otherwise only applies on the next grant. grantVendorStaffAccess
+    // itself REPLACES a role's permissions wholesale (not additive), so
+    // this reads each member's current grant and unions the implied
+    // modules into it first -- same pattern the POST handler below
+    // already uses -- so an existing broader Team & Access grant is
+    // never shrunk back down to just the implied set.
+    if (vendor.businessId) {
+      for (const m of members as any[]) {
+        const implied = MEMBER_TYPE_IMPLIED_MODULES[String(m.memberType)];
+        if (!implied) continue;
+        const staffUserId = String(m.userId?._id || m.userId);
+        const staffRoleCode = `VSTAFF_${staffUserId}`.toUpperCase();
+        const existingStaffRole = await Role.findOne({
+          code: staffRoleCode,
+          businessId: vendor.businessId,
+          vendorId: vendor._id,
+        }).lean();
+        const existingModules = new Set<string>(
+          ((existingStaffRole as any)?.permissions || []).map((p: string) => String(p).split(".")[0].toLowerCase())
+        );
+        const before = existingModules.size;
+        implied.forEach((mod) => existingModules.add(mod));
+        if (existingModules.size === before) continue; // nothing new to add
+        await grantVendorStaffAccess({
+          userId: staffUserId,
+          businessId: String(vendor.businessId),
+          vendorId: String(vendor._id),
+          modules: Array.from(existingModules),
+        }).catch(() => {});
+      }
+    }
 
     // The vendor's real assignable set is the UNION of its own structural
     // roles (Owner/Manager -- vendorId: vendor._id) AND whatever
@@ -253,9 +289,6 @@ export async function POST(req: NextRequest) {
     // modules an Engineer needs, additively (union with whatever Team &
     // Access already granted this person) so this call never clobbers a
     // broader grant made from that other screen.
-    const MEMBER_TYPE_IMPLIED_MODULES: Record<string, string[]> = {
-      ENGINEER: ["crm_calls", "crm_jobsheets"],
-    };
     const impliedModules = MEMBER_TYPE_IMPLIED_MODULES[String(member.memberType)];
     if (impliedModules) {
       const staffRoleCode = `VSTAFF_${(targetUser as any)._id}`.toUpperCase();

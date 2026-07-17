@@ -13,6 +13,8 @@ interface JobSheet {
   status: string
   createdAt: string
   assignedTo?: { name?: string }
+  brandId?: { name?: string; logoUrl?: string }
+  deviceModel?: string
   warrantyStatus?: 'IW' | 'OOW'
   deviceAppearance?: 'GOOD' | 'USED' | 'DENTS' | 'BROKEN'
   fileBackupDescription?: 'YES' | 'NO'
@@ -175,12 +177,13 @@ export default function VendorCrmJobSheetsPage() {
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm min-w-[760px]">
+          <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Workorder #</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Customer</th>
-                <th className="text-left px-6 py-3 text-gray-400 font-medium">Title</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Issue in Device</th>
+                <th className="text-left px-6 py-3 text-gray-400 font-medium">Device</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Assigned To</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">TAT</th>
@@ -189,10 +192,10 @@ export default function VendorCrmJobSheetsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={7} className="px-6 py-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-gray-400" /></td></tr>
+                <tr><td colSpan={8} className="px-6 py-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-gray-400" /></td></tr>
               ) : jobSheets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
+                  <td colSpan={8} className="px-6 py-10 text-center text-gray-400">
                     <ClipboardList className="w-6 h-6 mx-auto mb-2 text-gray-300" />
                     No workorders found
                   </td>
@@ -213,6 +216,17 @@ export default function VendorCrmJobSheetsPage() {
                       </td>
                       <td className="px-6 py-3 font-medium text-gray-900">{js.customerName}</td>
                       <td className="px-6 py-3 text-gray-500">{js.title}</td>
+                      <td className="px-6 py-3 text-gray-500">
+                        <div className="flex items-center gap-2">
+                          {js.brandId?.logoUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={js.brandId.logoUrl} alt="" className="h-5 w-5 object-contain rounded shrink-0" />
+                          )}
+                          <span className="truncate">
+                            {[js.brandId?.name, js.deviceModel].filter(Boolean).join(' · ') || '—'}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-6 py-3 text-gray-500 text-xs">{js.assignedTo?.name || '—'}</td>
                       <td className="px-6 py-3 text-center">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[js.status] ?? 'bg-gray-100 text-gray-500'}`}>

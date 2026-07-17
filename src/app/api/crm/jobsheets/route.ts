@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
         .skip((page - 1) * limit)
         .limit(limit)
         .populate("assignedTo", "name email")
-        .populate("brandId", "name")
+        .populate("brandId", "name logoUrl")
         .lean(),
       CrmJobSheet.countDocuments(filter),
     ]);

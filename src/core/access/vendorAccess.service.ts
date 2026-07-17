@@ -349,6 +349,28 @@ export async function resolveVendorTeamMembership(userId: string | null) {
   return VendorProfile.findById(membership.vendorId).lean();
 }
 
+/**
+ * Module read-access implied by a vendor staff member's memberType, used
+ * when tagging service-center staff (CCO/Engineer/Centre Manager) --
+ * previously duplicated (and out of sync with each other) across
+ * api/vendor/staff/create/route.ts and api/vendor/staff/route.ts. Missing
+ * "fault_codes" and "solutions" here is why an Engineer/CCO's workorder
+ * repair page could never load the Symptom dropdown (api/symptom-codes)
+ * or the Description/BOM-part dropdown (api/service-center-bom) --
+ * both of those routes check buildPermissionCode("fault_codes", "view")
+ * (same as api/fault-codes itself; not a typo, just a shared permission
+ * bucket for this whole "repair reference data" category), and Solution
+ * needs its own real "solutions" module. Fault Phenomenon had the exact
+ * same gap and silently showed no options either, just less noticeably
+ * since a job sheet's own faultCodeId still displayed even with an empty
+ * options list to match it against.
+ */
+export const MEMBER_TYPE_IMPLIED_MODULES: Record<string, string[]> = {
+  ENGINEER: ["crm_calls", "crm_jobsheets", "brands", "device_models", "fault_codes", "solutions"],
+  CCO: ["crm_calls", "brands", "device_models", "fault_codes", "solutions"],
+  CENTRE_MANAGER: ["crm_calls", "crm_jobsheets", "brands", "device_models", "fault_codes", "solutions"],
+};
+
 // Anyone holding ONLY these floor roles has no admin-panel business at all
 // -- see api/auth/login/route.ts's original comment. Duplicated here (not
 // imported from there) since that file is a route handler, not a module

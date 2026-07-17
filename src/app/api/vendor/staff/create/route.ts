@@ -8,7 +8,7 @@ import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
 import { logAction } from "@/lib/audit/logAction";
 import { generateScopedDocumentNumber } from "@/core/numbering/numberingService";
-import { grantVendorStaffAccess } from "@/core/access/vendorAccess.service";
+import { grantVendorStaffAccess, MEMBER_TYPE_IMPLIED_MODULES } from "@/core/access/vendorAccess.service";
 import { resolveOwnerOrManagerVendor as requireVendorOwnerOrManager } from "@/core/access/vendorAccess.service";
 
 const SALT_ROUNDS = 12;
@@ -20,22 +20,12 @@ const SALT_ROUNDS = 12;
 // forces them off it the moment they actually log in.
 const DEFAULT_FIRST_PASSWORD = "ANgroup@123";
 
-// Modules a given memberType implies real (permission-granting) access to,
-// on top of whatever roleCode/isManager grant is passed explicitly — same
-// mapping used in /api/vendor/staff for the existing-user "Add Staff" flow,
-// so a self-service-created Engineer/CCO shows up in the same assignment
-// pickers (e.g. job-sheet engineer assignment) without a separate manual
-// Team & Access step.
-// brands/device_models: read-only masters needed for the Brand/Model
-// dropdowns when creating or converting a call into a workorder (see
-// vendor/crm/calls and vendor/crm/jobsheets's create forms) -- without
-// these, CRM_CALLS/CRM_JOBSHEETS access alone still 403s on the very
-// picklists those forms need to populate.
-const MEMBER_TYPE_IMPLIED_MODULES: Record<string, string[]> = {
-  ENGINEER: ["crm_calls", "crm_jobsheets", "brands", "device_models"],
-  CCO: ["crm_calls", "brands", "device_models"],
-  CENTRE_MANAGER: ["crm_calls", "crm_jobsheets", "brands", "device_models"],
-};
+// MEMBER_TYPE_IMPLIED_MODULES is now shared (core/access/vendorAccess.service.ts)
+// -- was duplicated here and in api/vendor/staff/route.ts, out of sync
+// with each other (this copy had brands/device_models/fault_codes/
+// solutions; that one didn't), which is exactly how the Symptom and BOM-
+// part dropdowns silently had no options for anyone tagged through the
+// OTHER route.
 
 /**
  * POST /api/vendor/staff/create — lets a vendor's Owner/Manager onboard a
