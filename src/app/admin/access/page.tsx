@@ -53,6 +53,7 @@ export default function AccessPage() {
   const [creating, setCreating] = useState<boolean>(false);
   const [newRoleName, setNewRoleName] = useState<string>("");
   const [newRoleCode, setNewRoleCode] = useState<string>("");
+  const [newRoleNumber, setNewRoleNumber] = useState<string>("");
   const [newRoleColor, setNewRoleColor] = useState<string>("#6366f1");
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; role: Role | null }>({
     open: false,
@@ -342,7 +343,7 @@ export default function AccessPage() {
   }
 
   async function createRole() {
-    if (!newRoleName.trim() || !newRoleCode.trim()) return;
+    if (!newRoleName.trim() || !newRoleCode.trim() || !newRoleNumber.trim()) return;
     try {
       // Was never sending a businessId at all -- every new role landed
       // with businessId: null, which the (now-fixed) visibleRoles filter
@@ -356,6 +357,10 @@ export default function AccessPage() {
         body: JSON.stringify({
           name: newRoleName,
           code: newRoleCode,
+          // Per explicit direction: role numbers are assigned manually,
+          // not auto-generated -- the admin types the exact serialized ID
+          // (e.g. "BIZ-002-0004") themselves.
+          roleNumber: newRoleNumber.trim(),
           color: newRoleColor,
           permissions: [],
           businessId: activeBusinessId || undefined,
@@ -372,6 +377,7 @@ export default function AccessPage() {
       setCreating(false);
       setNewRoleName("");
       setNewRoleCode("");
+      setNewRoleNumber("");
       setNewRoleColor("#6366f1");
     } catch {
       toast.error("Failed to create role");
@@ -909,6 +915,20 @@ export default function AccessPage() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Role Number
+                </label>
+                <input
+                  type="text"
+                  value={newRoleNumber}
+                  onChange={(e) => setNewRoleNumber(e.target.value)}
+                  placeholder="e.g. BIZ-002-0004"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent placeholder-gray-300 font-mono"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Assigned manually — must be unique for this business.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
                   Color
                 </label>
                 <div className="flex items-center gap-3">
@@ -937,7 +957,7 @@ export default function AccessPage() {
               </button>
               <button
                 onClick={createRole}
-                disabled={!newRoleName.trim() || !newRoleCode.trim()}
+                disabled={!newRoleName.trim() || !newRoleCode.trim() || !newRoleNumber.trim()}
                 className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
                 Create
