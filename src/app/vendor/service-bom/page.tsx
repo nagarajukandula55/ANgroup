@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronRight, ChevronDown } from 'lucide-react'
+import { ChevronRight, ChevronDown, Download } from 'lucide-react'
 
 interface Brand { _id: string; name: string; logoUrl?: string }
 interface DeviceModelOption { _id: string; name: string }
@@ -46,7 +46,7 @@ function nameOf(ref: any): string | undefined {
   return ref && typeof ref === 'object' ? ref.name : undefined
 }
 
-function PartsTable({ parts, onDeactivate }: { parts: Part[]; onDeactivate: (id: string) => void }) {
+function PartsTable({ parts, onDeactivate, canManage }: { parts: Part[]; onDeactivate: (id: string) => void; canManage: boolean }) {
   return (
     <table className="w-full text-sm">
       <thead>
@@ -59,7 +59,7 @@ function PartsTable({ parts, onDeactivate }: { parts: Part[]; onDeactivate: (id:
           <th className="px-4 py-2">GST%</th>
           <th className="px-4 py-2">Rate</th>
           <th className="px-4 py-2">Status</th>
-          <th className="px-4 py-2"></th>
+          {canManage && <th className="px-4 py-2"></th>}
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
@@ -76,11 +76,13 @@ function PartsTable({ parts, onDeactivate }: { parts: Part[]; onDeactivate: (id:
             <td className="px-4 py-2 text-gray-500">{p.gstRate}%</td>
             <td className="px-4 py-2">₹{p.rate}</td>
             <td className="px-4 py-2">{p.isActive ? 'Active' : 'Inactive'}</td>
-            <td className="px-4 py-2">
-              {p.isActive && (
-                <button onClick={() => onDeactivate(p._id)} className="text-xs text-red-500 hover:underline">Deactivate</button>
-              )}
-            </td>
+            {canManage && (
+              <td className="px-4 py-2">
+                {p.isActive && (
+                  <button onClick={() => onDeactivate(p._id)} className="text-xs text-red-500 hover:underline">Deactivate</button>
+                )}
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
@@ -114,6 +116,16 @@ export default function ServiceCenterBOMPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [businessId, setBusinessId] = useState<string | null>(null)
+  // Add/edit is Owner/Manager only, per explicit direction -- everyone
+  // else on the vendor's team can view and export but not change the
+  // price list. GET /api/service-center-bom is readable by any team
+  // member (see resolveVendorForRead), so this page loaded fine for
+  // everyone already; the Add Part form just had no role gate of its
+  // own, so a non-Owner/Manager saw a fully "working" form that 403'd
+  // silently on submit (POST is Owner/Manager-only server-side) -- easy
+  // to mistake for "the Brand dropdown doesn't work" when it's actually
+  // the whole form being submitted by someone who was never allowed to.
+  const [canManage, setCanManage] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -135,6 +147,10 @@ export default function ServiceCenterBOMPage() {
       if (!bId) return
       fetch(`/api/brands?businessId=${bId}`).then(r => r.json()).then(bd => setBrands(bd.brands || bd.data || [])).catch(() => {})
     }).catch(() => {})
+    // /api/vendor/settings is Owner/Manager-only -- same detection
+    // pattern vendor/profile page already uses for its Business Settings
+    // section.
+    fetch('/api/vendor/settings').then(r => r.json()).then(d => setCanManage(!!d.success)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -182,6 +198,25 @@ export default function ServiceCenterBOMPage() {
     load()
   }
 
+  // Client-side CSV export -- available to everyone (view-only staff
+  // still need a way to get this list out, per explicit direction "can
+  // view or export but not edit"), no backend endpoint needed for it.
+  function exportCsv() {
+    const header = ['Part Code', 'Part Name', 'Description', 'Type', 'Brand', 'Model', 'Unit', 'HSN', 'GST%', 'Rate', 'Status']
+    const rows = parts.map((p) => [
+      p.partCode, p.partName, p.description || '', p.partType, nameOf(p.brandId) || '', nameOf(p.deviceModelId) || '',
+      p.unit, p.hsnCode, String(p.gstRate), String(p.rate), p.isActive ? 'Active' : 'Inactive',
+    ])
+    const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'service-center-bom.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900'
   const labelCls = 'block text-xs text-gray-500 mb-1'
 
@@ -199,11 +234,24 @@ export default function ServiceCenterBOMPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Service Center BOM</h1>
-        <p className="text-sm text-gray-500">Your spare-part / labour / consumable price list, organized Brand → Model → Part — used for workorder line items and GST-correct invoicing.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Service Center BOM</h1>
+          <p className="text-sm text-gray-500">
+            Your spare-part / labour / consumable price list, organized Brand → Model → Part — used for workorder line items and GST-correct invoicing.
+            {!canManage && ' You can view and export this list; only an Owner or Manager can add or deactivate parts.'}
+          </p>
+        </div>
+        <button
+          onClick={exportCsv}
+          disabled={parts.length === 0}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50 shrink-0"
+        >
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
       </div>
 
+      {canManage && (
       <form onSubmit={addPart} className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white border border-gray-200 rounded-xl p-4">
         <div className="col-span-2">
           <label className={labelCls}>Part Name *</label>
@@ -261,6 +309,7 @@ export default function ServiceCenterBOMPage() {
           </button>
         </div>
       </form>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -286,12 +335,12 @@ export default function ServiceCenterBOMPage() {
                   <div className="p-2 space-y-2 bg-gray-50">
                     {anyModelParts.length > 0 && (
                       <TreeNode label="Any Model" count={anyModelParts.length}>
-                        <PartsTable parts={anyModelParts} onDeactivate={deactivate} />
+                        <PartsTable parts={anyModelParts} onDeactivate={deactivate} canManage={canManage} />
                       </TreeNode>
                     )}
                     {sortedModelGroups.map(([modelId, mg]) => (
                       <TreeNode key={modelId} label={mg.name} count={mg.parts.length}>
-                        <PartsTable parts={mg.parts} onDeactivate={deactivate} />
+                        <PartsTable parts={mg.parts} onDeactivate={deactivate} canManage={canManage} />
                       </TreeNode>
                     ))}
                   </div>
@@ -300,7 +349,7 @@ export default function ServiceCenterBOMPage() {
             })}
             {universal.length > 0 && (
               <TreeNode label="Universal / No Brand" count={universal.length} defaultOpen={sortedBrandGroups.length === 0}>
-                <PartsTable parts={universal} onDeactivate={deactivate} />
+                <PartsTable parts={universal} onDeactivate={deactivate} canManage={canManage} />
               </TreeNode>
             )}
           </>

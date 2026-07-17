@@ -104,7 +104,6 @@ export const NAV_GROUPS: NavGroup[] = [
   ]},
   { label: "Documents", items: [
     { key: "agreements",      label: "Agreements",      route: "/admin/agreements",       icon: "FileSignature" },
-    { key: "admin-doc-nos",   label: "Document Numbers",route: "/admin/document-numbers", icon: "Hash" },
     // 5 lightweight, party-facing document types with no record/CRUD
     // anywhere in the app until now (see models/SalesDocument.ts) --
     // added alongside their print pages once the underlying feature

@@ -108,7 +108,18 @@ export async function POST(req: Request) {
         .map((m: any) => String(m?.key).toLowerCase());
       if (rawDisabledKeys.length > 0) {
         const disabledKeys = expandWithAliases(rawDisabledKeys);
-        visibleModules = visibleModules.filter((m: any) => !disabledKeys.has(String(m.key).toLowerCase()));
+        // Platform-level tools (AI Studio, Admin Settings) aren't a
+        // per-business catalog concern the way Products/CRM are -- a
+        // business's modules[] deny-list disabling them (deliberately or
+        // by an unrelated bulk "Apply Template") shouldn't be able to hide
+        // them from the one account that always needs them. Reported live:
+        // both were simply "not there" for a super admin.
+        const superAdminAlwaysVisible = new Set(["ai-image", "admin-settings"]);
+        visibleModules = visibleModules.filter((m: any) => {
+          const key = String(m.key).toLowerCase();
+          if (session.isSuperAdmin && superAdminAlwaysVisible.has(key)) return true;
+          return !disabledKeys.has(key);
+        });
       }
     }
 

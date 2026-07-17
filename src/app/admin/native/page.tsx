@@ -166,7 +166,8 @@ export default function NativePage() {
                 </div>
               </div>
               <Link
-                href="/admin/document-numbers"
+                href="/admin/business"
+                title="Document numbering now lives on each business's own view page (Document Numbering section) -- open Native's business record from here."
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
               >
                 Configure <ArrowRight className="w-3.5 h-3.5" />

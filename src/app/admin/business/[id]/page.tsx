@@ -24,6 +24,7 @@ import { VENDOR_DOC_CATALOG } from "@/core/vendorCompliance";
 import { STATIC_MODULES } from "@/components/sidebar";
 import { useToast } from "@/components/shared/Toast";
 import { MODULE_TEMPLATE_OPTIONS, isEnabledUnderTemplate, describeBusinessUsage, type ModuleTemplateKey } from "@/core/access/moduleTemplates";
+import DocumentNumbersPanel from "@/components/admin/DocumentNumbersPanel";
 
 interface AuditLogEntry {
   _id: string;
@@ -1013,6 +1014,16 @@ export default function BusinessDetailPage() {
               </label>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-bold text-lg">Document Numbering</h2>
+          <p className="text-xs text-gray-400">
+            Prefix, sequence, financial year and custom-template format for every document type this business
+            generates -- invoices, orders, GRNs, workorders, and more. This is the one place to configure it,
+            per business.
+          </p>
+          <DocumentNumbersPanel businessId={id} />
         </section>
 
         <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
