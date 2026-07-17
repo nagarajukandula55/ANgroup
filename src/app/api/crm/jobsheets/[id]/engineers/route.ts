@@ -54,13 +54,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const businessId = (jobSheet as any).businessId;
 
     // REBUILT: there is no fixed "Engineer" role anymore — an engineer is
-    // whoever the vendor's Owner/Manager granted workorder access to from
-    // Team & Access (their personal VSTAFF_* role, or the structural
-    // Owner/Manager roles, carries CRM_JOBSHEETS.EDIT). Resolve by that
-    // real capability instead of a job-title role code.
+    // whoever holds real workorder access (CRM_JOBSHEETS.EDIT), whether
+    // via a vendor's own structural/personal role (vendorId set) OR one of
+    // the business's own custom roles like "Engineer" created from
+    // Admin > Access (vendorId: null) -- was vendorId-exact-match-only,
+    // which meant a vendor's engineer holding the business-wide role
+    // (e.g. after a role reset re-granted it) never showed up in this
+    // picker at all, leaving it empty even though the permission grant was
+    // real. Resolve by the actual capability, not which of the two role
+    // shapes granted it.
     const engineerRoles = await Role.find({
       businessId,
-      vendorId: { $ne: null },
       permissions: buildPermissionCode("crm_jobsheets", "edit"),
     })
       .select("_id")
