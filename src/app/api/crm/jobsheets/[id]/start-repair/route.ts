@@ -11,6 +11,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { requireAssignedEngineer } from "@/core/access/crmJobsheetAccess";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -39,6 +40,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!jobSheet) {
       return NextResponse.json({ success: false, message: "Job sheet not found" }, { status: 404 });
     }
+    const accessError = requireAssignedEngineer(jobSheet, userId, !!session.isSuperAdmin);
+    if (accessError) return accessError;
     if (jobSheet.status !== "REPAIR_STARTED") {
       return NextResponse.json(
         { success: false, message: `Cannot start repair while status is ${jobSheet.status}.` },

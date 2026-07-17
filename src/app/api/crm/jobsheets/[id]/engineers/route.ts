@@ -70,18 +70,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .lean();
     const callerVendorId = (callerMembership as any)?.vendorId || null;
 
-    // REBUILT: there is no fixed "Engineer" role anymore — an engineer is
-    // whoever holds real workorder access (CRM_JOBSHEETS.EDIT), whether
-    // via a vendor's own structural/personal role (vendorId set) OR one of
-    // the business's own custom roles like "Engineer" created from
-    // Admin > Access (vendorId: null) -- was vendorId-exact-match-only,
-    // which meant a vendor's engineer holding the business-wide role
-    // (e.g. after a role reset re-granted it) never showed up in this
-    // picker at all, leaving it empty even though the permission grant was
-    // real. Resolve by the actual capability, not which of the two role
-    // shapes granted it.
+    // Per explicit direction: this picker is for assigning the actual
+    // repair work, so it must only list people holding an "Engineer"
+    // designation -- not everyone who merely has CRM_JOBSHEETS.EDIT
+    // (CCO/Manager/Owner also carry that permission for oversight, but
+    // aren't who a job gets assigned TO). Matches any role literally coded
+    // ENGINEER, whether business-wide (Admin > Access) or vendor-scoped.
     const engineerRoles = await Role.find({
       businessId,
+      code: "ENGINEER",
       permissions: buildPermissionCode("crm_jobsheets", "edit"),
     })
       .select("_id")

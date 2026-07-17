@@ -425,12 +425,21 @@ export default function JobSheetDetailPage() {
     setClosing(true)
     setActionError(null)
     try {
-      // Persist any pending edits first so completion invoices the latest line items.
-      await fetch(`/api/crm/jobsheets/${id}`, {
+      // Persist any pending edits first so completion invoices the latest
+      // line items -- this response was never checked, so a save that
+      // failed (e.g. a line item missing its required description) failed
+      // SILENTLY and close then read whatever was already in the DB
+      // (often nothing), surfacing as "no line items" even right after
+      // visibly adding some in the UI.
+      const saveRes = await fetch(`/api/crm/jobsheets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lineItems, workPerformed, materialsUsed, solutionId: solutionId || null, symptomCodeId: symptomCodeId || null, serviceCharge }),
       })
+      const saveData = await saveRes.json()
+      if (!saveRes.ok || saveData.success === false) {
+        throw new Error(saveData.message || 'Failed to save line items before closing')
+      }
       const res = await fetch(`/api/crm/jobsheets/${id}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
