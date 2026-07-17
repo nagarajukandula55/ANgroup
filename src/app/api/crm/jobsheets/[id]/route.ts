@@ -168,8 +168,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Fixed Service Charge is Owner/Manager-only, per explicit direction --
-    // enforced here too, not just by disabling the input client-side.
-    if (updates.serviceCharge !== undefined && !session.isSuperAdmin) {
+    // enforced here too, not just by disabling the input client-side. Was
+    // checking `updates.serviceCharge !== undefined`, i.e. merely PRESENT
+    // in the request body -- but the detail page's save always sends the
+    // current serviceCharge value regardless of whether it changed (it's
+    // just part of the same PATCH as line items), so this 403'd every
+    // single save an Engineer made (adding a part, etc.), not just an
+    // actual attempt to change the charge. Now only enforced when the
+    // value is actually different from what's already stored.
+    if (
+      updates.serviceCharge !== undefined &&
+      Number(updates.serviceCharge) !== Number((existing as any).serviceCharge || 0) &&
+      !session.isSuperAdmin
+    ) {
       const roles = (session.roles || []).map((r: string) => r.toUpperCase());
       const allowed = roles.some((r) => r.includes("OWNER") || r.includes("MANAGER"));
       if (!allowed) {

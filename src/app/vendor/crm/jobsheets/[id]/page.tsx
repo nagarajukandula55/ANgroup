@@ -283,7 +283,6 @@ export default function JobSheetDetailPage() {
   const [showBrandJobPopup, setShowBrandJobPopup] = useState(false)
   // When opened via "Mark Part Pending" (vs. the auto-prompt on first BOM
   // part add), confirming actually transitions the job status too.
-  const [brandJobPopupIsPartPending, setBrandJobPopupIsPartPending] = useState(false)
   const [markingPartPending, setMarkingPartPending] = useState(false)
   const [stockWarning, setStockWarning] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -368,8 +367,10 @@ export default function JobSheetDetailPage() {
       taxRate: part.gstRate,
       unit: part.unit,
     })
-
-    if (!brandJobNo.trim()) setShowBrandJobPopup(true)
+    // Popup only opens from "Mark Part Pending" now, per explicit
+    // direction -- it used to also auto-fire the first time any BOM part
+    // was picked, which fired constantly for parts that never end up
+    // needing an actual parts order.
   }
 
   function onDescriptionSelect(i: number, bomId: string) {
@@ -501,7 +502,6 @@ export default function JobSheetDetailPage() {
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to mark part pending')
       setShowBrandJobPopup(false)
-      setBrandJobPopupIsPartPending(false)
       fetchJob()
     } catch (err: any) {
       setActionError(err.message || 'Something went wrong')
@@ -743,7 +743,7 @@ export default function JobSheetDetailPage() {
                 Complete Repair & Generate Invoice
               </button>
               <button
-                onClick={() => { setBrandJobPopupIsPartPending(true); setShowBrandJobPopup(true) }}
+                onClick={() => setShowBrandJobPopup(true)}
                 disabled={markingPartPending}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800 hover:bg-amber-100 transition disabled:opacity-50"
               >
@@ -808,6 +808,15 @@ export default function JobSheetDetailPage() {
           {!isLocked && !isAssignedEngineer && (
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
               Only the assigned engineer can add or edit line items on this workorder.
+            </p>
+          )}
+          {!isLocked && isAssignedEngineer && bomParts.length === 0 && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+              No parts found in Service Center BOM for this device's brand/model.{' '}
+              <button type="button" onClick={() => router.push('/vendor/service-bom')} className="underline font-medium hover:text-amber-800">
+                Add some there
+              </button>{' '}
+              before picking a part here.
             </p>
           )}
 
@@ -1048,14 +1057,14 @@ export default function JobSheetDetailPage() {
         </div>
       )}
 
+      {/* Only ever opened from "Mark Part Pending" now -- used to also
+          auto-fire on the first BOM part pick. */}
       {showBrandJobPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white rounded-2xl border border-gray-200 p-6">
             <h2 className="font-semibold text-gray-900 mb-2">Brand Job Number</h2>
             <p className="text-xs text-gray-500 mb-4">
-              {brandJobPopupIsPartPending
-                ? 'If this brand requires their own job reference number for the part order, enter it now. Leave blank if not required, then confirm to mark this workorder Part Pending.'
-                : "If this brand requires their own job reference number for the part order, enter it now. Leave blank if not required."}
+              If this brand requires their own job reference number for the part order, enter it now. Leave blank if not required, then confirm to mark this workorder Part Pending.
             </p>
             <input
               value={brandJobNo}
@@ -1066,27 +1075,18 @@ export default function JobSheetDetailPage() {
             />
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowBrandJobPopup(false); setBrandJobPopupIsPartPending(false) }}
+                onClick={() => setShowBrandJobPopup(false)}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500"
               >
-                {brandJobPopupIsPartPending ? 'Cancel' : 'Skip'}
+                Cancel
               </button>
-              {brandJobPopupIsPartPending ? (
-                <button
-                  onClick={confirmPartPending}
-                  disabled={markingPartPending}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition disabled:opacity-50"
-                >
-                  {markingPartPending ? 'Marking…' : 'Confirm Part Pending'}
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowBrandJobPopup(false)}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition"
-                >
-                  OK (saved with line items)
-                </button>
-              )}
+              <button
+                onClick={confirmPartPending}
+                disabled={markingPartPending}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition disabled:opacity-50"
+              >
+                {markingPartPending ? 'Marking…' : 'Confirm Part Pending'}
+              </button>
             </div>
           </div>
         </div>
