@@ -19,6 +19,9 @@ import { requireAssignedEngineer } from "@/core/access/crmJobsheetAccess";
 import "@/models/User";
 import "@/models/CrmCall";
 import "@/models/Brand";
+import "@/models/FaultCode";
+import "@/models/SymptomCode";
+import "@/models/Solution";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -50,6 +53,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .populate("assignedTo", "name email")
       .populate("callId", "callNumber status")
       .populate("brandId", "name")
+      // Per-line Fault Phenomenon/Symptom/Solution -- needed both by the
+      // repair page's dropdowns (to show the currently-selected value's
+      // code+description, not just its id) and by the workorder/estimate
+      // print, which was still showing the old flat description-only
+      // format with no per-line diagnosis info at all.
+      .populate("lineItems.faultCodeId", "code description")
+      .populate("lineItems.symptomCodeId", "code description")
+      .populate("lineItems.solutionId", "code description")
       .lean();
 
     if (!jobSheet) {

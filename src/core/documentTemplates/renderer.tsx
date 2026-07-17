@@ -112,7 +112,10 @@ function renderBlock(
           <tbody>
             {data.items.map((item, i) => (
               <tr key={i} className="border-b border-gray-100">
-                <td className="py-2 pr-2">{item.description}</td>
+                <td className="py-2 pr-2">
+                  {item.description}
+                  {item.diagnosis && <p className="text-[10px] text-gray-400 mt-0.5">{item.diagnosis}</p>}
+                </td>
                 <td className="py-2 pr-2 text-gray-500">{item.hsnCode || "—"}</td>
                 <td className="py-2 pr-2 text-right">{item.qty} {item.unit || ""}</td>
                 <td className="py-2 pr-2 text-right">{fmtMoney(item.unitPrice)}</td>

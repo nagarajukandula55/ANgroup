@@ -222,9 +222,20 @@ export default function JobSheetDetailPage() {
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to load workorder')
       setJob(d.jobSheet)
-      setLineItems(d.jobSheet.lineItems?.length ? d.jobSheet.lineItems : [{
+      // Line items come back with faultCodeId/symptomCodeId/solutionId
+      // populated (object with code/description, for the print page) --
+      // normalize each back to a plain id string here since the editable
+      // dropdowns below compare against id strings, not populated objects.
+      const idOf = (v: any) => (v && typeof v === 'object' ? v._id : v) || undefined
+      const normalizedLines = (d.jobSheet.lineItems || []).map((l: any) => ({
+        ...l,
+        faultCodeId: idOf(l.faultCodeId),
+        symptomCodeId: idOf(l.symptomCodeId),
+        solutionId: idOf(l.solutionId),
+      }))
+      setLineItems(normalizedLines.length ? normalizedLines : [{
         description: '', quantity: 1, unit: 'pcs', unitPrice: 0, taxRate: 0,
-        faultCodeId: (typeof d.jobSheet.faultCodeId === 'object' ? d.jobSheet.faultCodeId?._id : d.jobSheet.faultCodeId) || undefined,
+        faultCodeId: idOf(d.jobSheet.faultCodeId),
       }])
       setServiceCharge(d.jobSheet.serviceCharge || 0)
       setRemark(d.jobSheet.remark || '')
@@ -631,13 +642,13 @@ export default function JobSheetDetailPage() {
                 it's a standalone print view (opens in a new tab), not part
                 of the admin shell's navigation. */}
             <button
-              onClick={() => window.open(`/admin/crm/jobsheets/${id}/print?doc=workorder`, '_blank')}
+              onClick={() => window.open(`/print/jobsheets/${id}?doc=workorder`, '_blank')}
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition"
             >
               <Printer className="w-4 h-4" /> Print Workorder
             </button>
             <button
-              onClick={() => window.open(`/admin/crm/jobsheets/${id}/print?doc=estimate`, '_blank')}
+              onClick={() => window.open(`/print/jobsheets/${id}?doc=estimate`, '_blank')}
               className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition"
             >
               <Printer className="w-4 h-4" /> Print Estimate

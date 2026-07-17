@@ -65,15 +65,26 @@ export function jobSheetToRenderData(
       phone: jobSheet.phone,
       email: jobSheet.email,
     },
-    items: lineItems.map((l: any) => ({
-      description: l.description,
-      hsnCode: l.hsnCode,
-      qty: l.quantity || 0,
-      unit: l.unit,
-      unitPrice: l.unitPrice || 0,
-      taxRate: l.taxRate || 0,
-      amount: (l.quantity || 0) * (l.unitPrice || 0) * (1 + (l.taxRate || 0) / 100),
-    })),
+    items: lineItems.map((l: any) => {
+      // Each ref is either populated ({code, description}) or a bare
+      // ObjectId (unpopulated) -- only render when actually populated.
+      const codeOf = (ref: any) => (ref && typeof ref === "object" && ref.code ? `${ref.code} — ${ref.description || ""}`.trim() : undefined);
+      const diagnosis = [
+        codeOf(l.faultCodeId) && `Fault: ${codeOf(l.faultCodeId)}`,
+        codeOf(l.symptomCodeId) && `Symptom: ${codeOf(l.symptomCodeId)}`,
+        codeOf(l.solutionId) && `Solution: ${codeOf(l.solutionId)}`,
+      ].filter(Boolean).join(" · ") || undefined;
+      return {
+        description: l.description,
+        hsnCode: l.hsnCode,
+        qty: l.quantity || 0,
+        unit: l.unit,
+        unitPrice: l.unitPrice || 0,
+        taxRate: l.taxRate || 0,
+        amount: (l.quantity || 0) * (l.unitPrice || 0) * (1 + (l.taxRate || 0) / 100),
+        diagnosis,
+      };
+    }),
     totals: { subtotal, tax, grandTotal: subtotal + tax },
     notes: [device && `Device: ${device}`, jobSheet.issueDescription && `Issue: ${jobSheet.issueDescription}`, jobSheet.workPerformed && `Work performed: ${jobSheet.workPerformed}`]
       .filter(Boolean)

@@ -204,25 +204,36 @@ export default function VendorCrmJobSheetsPage() {
                       <td className="px-6 py-3">
                         {/* Edit removed -- intake details are edited from the
                             actual repair page now, not a separate quick-edit
-                            here. Print options only: intake receipt, current
-                            workorder, and estimate. */}
+                            here. One dynamic print button swaps between
+                            Intake Receipt (not yet closed) and Service Record
+                            (closed) based on status, instead of two separate
+                            icons -- plus the current Workorder/Estimate,
+                            which are distinct documents regardless of status.
+                            All three open the standalone /print/* route (no
+                            sidebar/nav) so printing only prints the document,
+                            not the whole app shell around it. */}
                         <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => router.push(`/vendor/crm/jobsheets/${js._id}/intake-receipt`)}
-                            title="Print intake receipt"
+                            onClick={() => window.open(
+                              js.status === 'CLOSED'
+                                ? `/print/jobsheets/${js._id}/service-record`
+                                : `/print/jobsheets/${js._id}/intake-receipt`,
+                              '_blank'
+                            )}
+                            title={js.status === 'CLOSED' ? 'Print service record' : 'Print intake receipt'}
                             className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                           >
                             <FileText className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => window.open(`/admin/crm/jobsheets/${js._id}/print?doc=workorder`, '_blank')}
+                            onClick={() => window.open(`/print/jobsheets/${js._id}?doc=workorder`, '_blank')}
                             title="Print current workorder"
                             className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                           >
                             <Printer className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => window.open(`/admin/crm/jobsheets/${js._id}/print?doc=estimate`, '_blank')}
+                            onClick={() => window.open(`/print/jobsheets/${js._id}?doc=estimate`, '_blank')}
                             title="Print estimate"
                             className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                           >
@@ -231,14 +242,7 @@ export default function VendorCrmJobSheetsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-3 text-right">
-                        {js.status === 'CLOSED' ? (
-                          <button
-                            onClick={() => router.push(`/vendor/crm/jobsheets/${js._id}/service-record`)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
-                          >
-                            Service Record
-                          </button>
-                        ) : next ? (
+                        {next ? (
                           <button
                             onClick={() => runAction(js._id, next.action)}
                             disabled={actingId === js._id}

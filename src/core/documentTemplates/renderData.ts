@@ -12,6 +12,10 @@ export interface DocumentRenderItem {
   unitPrice: number;
   taxRate: number;
   amount: number;
+  /** Fault Phenomenon/Symptom/Solution codes for this line, when the
+   * source line item has them set -- currently only CrmJobSheet line
+   * items carry these (see jobSheetToRenderData). */
+  diagnosis?: string;
 }
 
 export interface DocumentRenderData {
