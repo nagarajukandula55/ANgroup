@@ -108,6 +108,13 @@ export default function VendorProfilePage() {
   const [termsAndConditions, setTermsAndConditions] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
+  // Service Record settings -- printed on the document generated after
+  // closing a job sheet (see /vendor/crm/jobsheets/[id]/service-record).
+  // Owner/Manager only, same as the rest of this section.
+  const [serviceHours, setServiceHours] = useState('')
+  const [serviceHotline, setServiceHotline] = useState('')
+  const [savingServiceRecord, setSavingServiceRecord] = useState(false)
+  const [serviceRecordMessage, setServiceRecordMessage] = useState('')
 
   // Team & Access -- every user Super Admin (or the vendor) attached to
   // this vendor, with per-module access checkboxes the Owner/Manager
@@ -266,6 +273,8 @@ export default function VendorProfilePage() {
             },
             servicePincodes: Array.isArray(p.servicePincodes) ? p.servicePincodes : [],
           })
+          setServiceHours(p.serviceCenterInfo?.hours || '')
+          setServiceHotline(p.serviceCenterInfo?.hotline || '')
         } else {
           setError(res.message || 'Failed to load profile')
         }
@@ -273,6 +282,24 @@ export default function VendorProfilePage() {
       .catch(() => setError('Failed to load profile'))
       .finally(() => setLoading(false))
   }, [])
+
+  async function saveServiceRecordInfo() {
+    setSavingServiceRecord(true)
+    setServiceRecordMessage('')
+    try {
+      const res = await fetch('/api/vendor/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceCenterInfo: { hours: serviceHours, hotline: serviceHotline } }),
+      })
+      const d = await res.json()
+      setServiceRecordMessage(d.success ? 'Saved.' : d.message || 'Failed to save.')
+    } catch {
+      setServiceRecordMessage('Failed to save.')
+    } finally {
+      setSavingServiceRecord(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -693,6 +720,35 @@ export default function VendorProfilePage() {
           </div>
 
           {settingsMessage && <p className="text-xs text-gray-500 mt-2">{settingsMessage}</p>}
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Service Record Details</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Printed on the Service Record generated after closing a job sheet, alongside your company name/address/phone above.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField
+                label="Service Hours"
+                value={serviceHours}
+                onChange={setServiceHours}
+                placeholder="10:00-13:00 14:00-19:00 (Week Off: Sunday)"
+              />
+              <FormField
+                label="Official Hotline"
+                value={serviceHotline}
+                onChange={setServiceHotline}
+                placeholder="18001028411"
+              />
+            </div>
+            <button
+              onClick={saveServiceRecordInfo}
+              disabled={savingServiceRecord}
+              className="mt-2 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+            >
+              {savingServiceRecord ? 'Saving…' : 'Save Service Record Details'}
+            </button>
+            {serviceRecordMessage && <p className="text-xs text-gray-500 mt-2">{serviceRecordMessage}</p>}
+          </div>
         </div>
       )}
 

@@ -177,7 +177,14 @@ export default function VendorCrmJobSheetsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-3 text-right">
-                        {next ? (
+                        {js.status === 'CLOSED' ? (
+                          <button
+                            onClick={() => router.push(`/vendor/crm/jobsheets/${js._id}/service-record`)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                          >
+                            Service Record
+                          </button>
+                        ) : next ? (
                           <button
                             onClick={() => runAction(js._id, next.action)}
                             disabled={actingId === js._id}

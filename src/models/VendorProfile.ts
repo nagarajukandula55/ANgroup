@@ -82,6 +82,18 @@ export interface IVendorProfile extends Document {
     pincode?: string;
     country:  string;
   };
+  /**
+   * Printed on the Service Record generated after closing a job sheet
+   * (see api/crm/jobsheets/[id]/service-record) -- kept editable here
+   * (Owner/Manager only, enforced in api/vendor/profile's PUT) rather
+   * than hardcoded into the print template, since every vendor's own
+   * hours/hotline differ. Address/phone above are reused for the same
+   * document rather than duplicating them here.
+   */
+  serviceCenterInfo?: {
+    hours?:   string; // e.g. "10:00-13:00 14:00-19:00 (Week Off: Sunday)"
+    hotline?: string;
+  };
   /** true = GST-registered vendor (gstNumber required), false = without GST */
   gstRegistered?: boolean;
   gstNumber?:  string;
@@ -203,6 +215,10 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
       state:   { type: String },
       pincode: { type: String },
       country: { type: String, default: 'India' },
+    },
+    serviceCenterInfo: {
+      hours:   { type: String },
+      hotline: { type: String },
     },
     gstRegistered: { type: Boolean, default: false },
     gstNumber:  { type: String },

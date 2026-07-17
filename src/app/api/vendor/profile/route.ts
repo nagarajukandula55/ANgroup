@@ -11,6 +11,7 @@ import { logAction } from "@/lib/audit/logAction";
 // real model, and recognizes vendor staff via resolveVendorContext too.
 import VendorProfile from '@/models/VendorProfile'
 import { resolveVendorContext } from '@/lib/auth/vendorContext'
+import { resolveOwnerOrManagerVendor } from '@/core/access/vendorAccess.service'
 
 export async function GET() {
   try {
@@ -102,6 +103,23 @@ export async function PUT(req: NextRequest) {
     }
 
     await connectDB()
+
+    // Service Record settings (printed after closing a job sheet) are
+    // Owner/Manager-only, same restriction already applied to Service
+    // Charge -- not just any vendor staff member.
+    if (body.serviceCenterInfo && typeof body.serviceCenterInfo === 'object') {
+      const ownerOrManager = await resolveOwnerOrManagerVendor(userId)
+      if (!ownerOrManager) {
+        return NextResponse.json(
+          { success: false, message: 'Only a vendor Owner or Manager can edit Service Record settings' },
+          { status: 403 }
+        )
+      }
+      if (body.serviceCenterInfo.hours !== undefined)
+        allowedUpdate['serviceCenterInfo.hours'] = String(body.serviceCenterInfo.hours).slice(0, 200)
+      if (body.serviceCenterInfo.hotline !== undefined)
+        allowedUpdate['serviceCenterInfo.hotline'] = String(body.serviceCenterInfo.hotline).slice(0, 50)
+    }
 
     // Staff can update the same vendor profile the owner sees — resolve
     // which vendor document that is instead of matching on this caller's
