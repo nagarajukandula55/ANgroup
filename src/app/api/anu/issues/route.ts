@@ -22,12 +22,24 @@ const DEFAULT_BUSINESS_ID = "6a4abddcf35feedb2392f556";
  * in the NotificationBell) and the existing STAFF_ALERT dispatcher (Telegram/
  * WhatsApp per Settings > Integrations) - this is the "all notifications
  * pass through ANu" path: an ANu-reported issue is what triggers them.
+ *
+ * Two ways to authenticate:
+ *  - a signed-in human (x-user-id, set by this app's own middleware from a
+ *    session) - reporterId is stamped, same as before.
+ *  - a backend service with no human session (e.g. ACP's
+ *    AnuReportingDeadLetterQueue reporting a permanently-failed message) via
+ *    `x-service-key` matching ANU_SERVICE_KEY. No reporterId is stamped for
+ *    these - `source` is required instead, so the report is still
+ *    attributable to which system sent it.
  */
 export async function POST(req: NextRequest) {
   try {
     const h = req.headers;
     const userId = h.get("x-user-id");
-    if (!userId) {
+    const serviceKey = h.get("x-service-key");
+    const isServiceCaller = Boolean(serviceKey) && serviceKey === process.env.ANU_SERVICE_KEY;
+
+    if (!userId && !isServiceCaller) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
@@ -39,6 +51,10 @@ export async function POST(req: NextRequest) {
     const severity = ["LOW", "MEDIUM", "HIGH"].includes(body?.severity) ? body.severity : "MEDIUM";
     const source = String(body?.source || "anu-widget").trim();
     const reporterEmail = body?.reporterEmail ? String(body.reporterEmail).trim().toLowerCase() : undefined;
+
+    if (isServiceCaller && !body?.source) {
+      return NextResponse.json({ success: false, message: "source is required for service-authenticated reports" }, { status: 400 });
+    }
 
     const headerBizId = h.get("x-active-business-id");
     const bodyBizId = body?.businessId && mongoose.Types.ObjectId.isValid(body.businessId) ? body.businessId : undefined;
@@ -53,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     const issue = await AnuIssue.create({
       businessId: new mongoose.Types.ObjectId(businessId),
-      reporterId: new mongoose.Types.ObjectId(userId),
+      ...(userId ? { reporterId: new mongoose.Types.ObjectId(userId) } : {}),
       reporterEmail,
       source,
       title,
