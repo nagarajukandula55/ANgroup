@@ -26,10 +26,15 @@ const DEFAULT_FIRST_PASSWORD = "ANgroup@123";
 // so a self-service-created Engineer/CCO shows up in the same assignment
 // pickers (e.g. job-sheet engineer assignment) without a separate manual
 // Team & Access step.
+// brands/device_models: read-only masters needed for the Brand/Model
+// dropdowns when creating or converting a call into a workorder (see
+// vendor/crm/calls and vendor/crm/jobsheets's create forms) -- without
+// these, CRM_CALLS/CRM_JOBSHEETS access alone still 403s on the very
+// picklists those forms need to populate.
 const MEMBER_TYPE_IMPLIED_MODULES: Record<string, string[]> = {
-  ENGINEER: ["crm_calls", "crm_jobsheets"],
-  CCO: ["crm_calls"],
-  CENTRE_MANAGER: ["crm_calls", "crm_jobsheets"],
+  ENGINEER: ["crm_calls", "crm_jobsheets", "brands", "device_models"],
+  CCO: ["crm_calls", "brands", "device_models"],
+  CENTRE_MANAGER: ["crm_calls", "crm_jobsheets", "brands", "device_models"],
 };
 
 /**

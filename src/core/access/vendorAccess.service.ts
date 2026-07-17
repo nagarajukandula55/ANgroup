@@ -58,6 +58,10 @@ export const VENDOR_MODULE_KEYS = [
   "banners",
   "blog",
   "staff",
+  // Read-only masters needed for the Brand/Model dropdowns on the
+  // Appointment/Workorder create/convert forms.
+  "brands",
+  "device_models",
 ] as const;
 
 const ALL_ACTION_KEYS = STANDARD_ACTIONS.map((a) => a.key);
