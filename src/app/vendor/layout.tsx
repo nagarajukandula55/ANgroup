@@ -23,12 +23,18 @@ import {
   ClipboardList,
   PackageCheck,
   ArrowLeftRight,
+  Wrench,
 } from 'lucide-react'
 
-// NOTE: Bill of Materials is intentionally NOT a top-level nav item — BOM
-// is per-product (see /vendor/products/[id]/bom, already built and wired
-// from each product's own detail page), not a flat vendor-wide list, so it
-// belongs inside "My Products" rather than getting its own nav entry.
+// NOTE: Product Bill of Materials is intentionally NOT a top-level nav
+// item — that BOM is per-product (see /vendor/products/[id]/bom, already
+// built and wired from each product's own detail page), not a flat
+// vendor-wide list, so it belongs inside "My Products" rather than
+// getting its own nav entry. Service Center BOM (the repair parts/
+// labour/consumable price list workorders pick from) is a DIFFERENT,
+// unrelated BOM -- see models/ServiceCenterBOM.ts's own comment -- and
+// DOES get a nav entry below, since it's genuinely vendor-wide, not
+// scoped to one product.
 //
 // `modules`: which granted module keys make this nav item visible to a
 // STAFF member (Owner/Manager always see everything; managerOnly items are
@@ -48,6 +54,7 @@ const navItems: { href: string; label: string; icon: any; modules: string[] | nu
   // endpoints, just scoped to this vendor's own team.
   { href: '/vendor/crm/calls', label: 'Appointments', icon: Phone, modules: ['crm_calls', 'crm'] },
   { href: '/vendor/crm/jobsheets', label: 'Workorders', icon: ClipboardList, modules: ['crm_jobsheets', 'crm'] },
+  { href: '/vendor/service-bom', label: 'Service Center BOM', icon: Wrench, modules: ['crm_jobsheets', 'crm'] },
   // Read-only vendor views of business-initiated procurement documents --
   // the business places/approves these, a vendor's role is to see and
   // fulfill them, not author them (see each page's own top comment).
