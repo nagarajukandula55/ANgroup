@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Plus, Phone, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Plus, X, Wrench } from 'lucide-react'
 
 interface Call {
   _id: string
@@ -14,11 +14,22 @@ interface Call {
   priority: string
   createdAt: string
   assignedTo?: { name?: string; email?: string }
+  jobSheetId?: string
 }
 
 interface StaffMember {
   _id: string
   userId: { _id: string; name: string; email: string } | string
+}
+
+interface Brand {
+  _id: string
+  name: string
+}
+
+interface DeviceModelOption {
+  _id: string
+  name: string
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -56,11 +67,60 @@ export default function VendorCrmCallsPage() {
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [convertingCall, setConvertingCall] = useState<Call | null>(null)
+  const [convertForm, setConvertForm] = useState({
+    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '',
+  })
+  const [converting, setConverting] = useState(false)
+  const [convertError, setConvertError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
-    customerName: '', phone: '', email: '', subject: '', product: '',
+    customerName: '', phone: '', email: '', subject: '', brandId: '', deviceModel: '',
     appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '',
   })
+
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [brands, setBrands] = useState<Brand[]>([])
+  const [formModels, setFormModels] = useState<DeviceModelOption[]>([])
+  const [convertModels, setConvertModels] = useState<DeviceModelOption[]>([])
+  const [loadingFormModels, setLoadingFormModels] = useState(false)
+  const [loadingConvertModels, setLoadingConvertModels] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        const bId = d.user?.activeBusinessId ?? d.businesses?.[0]?._id ?? null
+        setBusinessId(bId)
+        if (bId) {
+          fetch(`/api/brands?businessId=${bId}`)
+            .then((r) => r.json())
+            .then((bd) => setBrands(bd.brands || bd.data || []))
+            .catch(() => {})
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!form.brandId || !businessId) { setFormModels([]); return }
+    setLoadingFormModels(true)
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
+      .then((r) => r.json())
+      .then((d) => setFormModels(d.models || []))
+      .catch(() => setFormModels([]))
+      .finally(() => setLoadingFormModels(false))
+  }, [form.brandId, businessId])
+
+  useEffect(() => {
+    if (!convertForm.brandId || !businessId) { setConvertModels([]); return }
+    setLoadingConvertModels(true)
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${convertForm.brandId}`)
+      .then((r) => r.json())
+      .then((d) => setConvertModels(d.models || []))
+      .catch(() => setConvertModels([]))
+      .finally(() => setLoadingConvertModels(false))
+  }, [convertForm.brandId, businessId])
 
   useEffect(() => {
     fetch('/api/vendor/staff')
@@ -111,12 +171,51 @@ export default function VendorCrmCallsPage() {
       const d = await res.json()
       if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create appointment')
       setShowForm(false)
-      setForm({ customerName: '', phone: '', email: '', subject: '', product: '', appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '' })
+      setForm({ customerName: '', phone: '', email: '', subject: '', brandId: '', deviceModel: '', appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '' })
       fetchCalls()
     } catch (err: any) {
       setFormError(err.message || 'Something went wrong')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function openConvert(call: Call) {
+    setConvertingCall(call)
+    setConvertForm({ warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '' })
+    setConvertError(null)
+  }
+
+  async function submitConvert(e: React.FormEvent) {
+    e.preventDefault()
+    if (!convertingCall) return
+    setConverting(true)
+    setConvertError(null)
+    try {
+      const res = await fetch(`/api/crm/calls/${convertingCall._id}/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: convertingCall.subject,
+          warrantyStatus: convertForm.warrantyStatus || undefined,
+          deviceAppearance: convertForm.deviceAppearance || undefined,
+          fileBackupDescription: convertForm.fileBackupDescription || undefined,
+          // Left blank = keep the appointment's own brand/model (the
+          // convert route falls back to call.brandId/call.deviceModel);
+          // only override when the CCO actually picked one here.
+          brandId: convertForm.brandId || undefined,
+          deviceModel: convertForm.deviceModel || undefined,
+        }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to convert to workorder')
+      setConvertingCall(null)
+      fetchCalls()
+      router.push('/vendor/crm/jobsheets')
+    } catch (err: any) {
+      setConvertError(err.message || 'Something went wrong')
+    } finally {
+      setConverting(false)
     }
   }
 
@@ -167,13 +266,14 @@ export default function VendorCrmCallsPage() {
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Assigned To</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Date</th>
+                <th className="text-right px-6 py-3 text-gray-400 font-medium">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-gray-400" /></td></tr>
+                <tr><td colSpan={7} className="px-6 py-10 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-gray-400" /></td></tr>
               ) : calls.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-gray-400">No appointments found</td></tr>
+                <tr><td colSpan={7} className="px-6 py-10 text-center text-gray-400">No appointments found</td></tr>
               ) : (
                 calls.map((call) => (
                   <tr key={call._id} className="hover:bg-gray-50 transition">
@@ -190,6 +290,18 @@ export default function VendorCrmCallsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-3 text-gray-400">{fmtDate(call.createdAt)}</td>
+                    <td className="px-6 py-3 text-right">
+                      {!call.jobSheetId && call.status !== 'JOB_CREATED' && call.status !== 'CLOSED_LOST' && call.status !== 'NOT_INTERESTED' ? (
+                        <button
+                          onClick={() => openConvert(call)}
+                          className="flex items-center gap-1.5 ml-auto px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-900 text-white hover:bg-gray-800"
+                        >
+                          <Wrench className="w-3.5 h-3.5" /> Convert to Workorder
+                        </button>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -229,9 +341,29 @@ export default function VendorCrmCallsPage() {
                   className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Product</label>
-                <input value={form.product} onChange={(e) => setForm((p) => ({ ...p, product: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
+                <label className="block text-xs text-gray-500 mb-1.5">Brand</label>
+                <select
+                  value={form.brandId}
+                  onChange={(e) => setForm((p) => ({ ...p, brandId: e.target.value, deviceModel: '' }))}
+                  title="Select brand"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  {brands.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Model</label>
+                <select
+                  value={form.deviceModel}
+                  onChange={(e) => setForm((p) => ({ ...p, deviceModel: e.target.value }))}
+                  disabled={!form.brandId || loadingFormModels}
+                  title="Select model"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none disabled:opacity-50"
+                >
+                  <option value="">{!form.brandId ? 'Select a brand first' : loadingFormModels ? 'Loading…' : 'Select…'}</option>
+                  {formModels.map((m) => <option key={m._id} value={m.name}>{m.name}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Priority</label>
@@ -244,6 +376,98 @@ export default function VendorCrmCallsPage() {
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition">Cancel</button>
                 <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />} Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {convertingCall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setConvertingCall(null)} />
+          <div className="relative w-full max-w-md max-h-[90vh] bg-gray-50 border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-900">Convert to Workorder</h2>
+              <button onClick={() => setConvertingCall(null)} className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={submitConvert} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+              {convertError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{convertError}</div>
+              )}
+              <p className="text-xs text-gray-500">{convertingCall.customerName} — {convertingCall.subject}</p>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Brand (leave blank to keep the appointment's)</label>
+                <select
+                  value={convertForm.brandId}
+                  onChange={(e) => setConvertForm((p) => ({ ...p, brandId: e.target.value, deviceModel: '' }))}
+                  title="Select brand"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  {brands.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Model</label>
+                <select
+                  value={convertForm.deviceModel}
+                  onChange={(e) => setConvertForm((p) => ({ ...p, deviceModel: e.target.value }))}
+                  disabled={!convertForm.brandId || loadingConvertModels}
+                  title="Select model"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none disabled:opacity-50"
+                >
+                  <option value="">{!convertForm.brandId ? 'Select a brand first' : loadingConvertModels ? 'Loading…' : 'Select…'}</option>
+                  {convertModels.map((m) => <option key={m._id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Warranty Status</label>
+                <select
+                  value={convertForm.warrantyStatus}
+                  onChange={(e) => setConvertForm((p) => ({ ...p, warrantyStatus: e.target.value }))}
+                  title="Select warranty status"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="IW">In Warranty (IW)</option>
+                  <option value="OOW">Out of Warranty (OOW)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Device Appearance</label>
+                <select
+                  value={convertForm.deviceAppearance}
+                  onChange={(e) => setConvertForm((p) => ({ ...p, deviceAppearance: e.target.value }))}
+                  title="Select device appearance"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="GOOD">Good</option>
+                  <option value="USED">Used</option>
+                  <option value="DENTS">Dents</option>
+                  <option value="BROKEN">Broken</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">File Backup Done?</label>
+                <select
+                  value={convertForm.fileBackupDescription}
+                  onChange={(e) => setConvertForm((p) => ({ ...p, fileBackupDescription: e.target.value }))}
+                  title="Select whether file backup was done"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                >
+                  <option value="">Select…</option>
+                  <option value="YES">Yes</option>
+                  <option value="NO">No</option>
+                </select>
+              </div>
+              <div className="px-0 pt-4 flex gap-3">
+                <button type="button" onClick={() => setConvertingCall(null)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition">Cancel</button>
+                <button type="submit" disabled={converting} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                  {converting && <Loader2 className="w-4 h-4 animate-spin" />} Convert
                 </button>
               </div>
             </form>

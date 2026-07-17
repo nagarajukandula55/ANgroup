@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { getBusinessContext } from "./business-context";
+import { resolveMembershipForUser } from "./business-context";
 import User from "@/models/User";
 import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
@@ -7,6 +7,7 @@ import RolePermission from "@/models/RolePermission";
 import Permission from "@/models/Permission";
 import Business from "@/models/Business";
 import { expandWithAliases } from "@/core/access/moduleKeyAliases";
+import { getOrCreateANGroupBusinessId } from "@/core/access/anGroupBusiness.service";
 
 /**
  * =========================================================
@@ -55,10 +56,27 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   // Not authenticated — middleware didn't inject headers
   if (!userId || !userEmail) return null;
 
+  // This function runs on nearly every authenticated request, so trimming
+  // its round-trips to MongoDB matters app-wide, not just here. It used to
+  // fetch the User document TWICE (once inside getBusinessContext(), again
+  // a few lines below for the role/permission lookup) and only fetched
+  // anGroupId after the roles/permissions chain was already underway, all
+  // fully sequential. Now fetches user + anGroupId together up front
+  // (independent of each other) and reuses that one `user` for both the
+  // business-context resolution and the role lookup below.
+  const [user, anGroupId] = await Promise.all([
+    User.findOne({ email: userEmail }).lean().catch(() => null),
+    getOrCreateANGroupBusinessId().catch(() => null),
+  ]);
+
+  const activeBusinessIdHeader = headersList.get("x-active-business-id");
+
   // Try to get business context (sets businessId, organizationId, membershipId)
-  let businessContext: Awaited<ReturnType<typeof getBusinessContext>> = null;
+  let businessContext: Awaited<ReturnType<typeof resolveMembershipForUser>> = null;
   try {
-    businessContext = await getBusinessContext();
+    if (user) {
+      businessContext = await resolveMembershipForUser((user as any)._id, activeBusinessIdHeader);
+    }
   } catch {
     // business-context not available in this request (e.g. no cookie)
   }
@@ -74,8 +92,6 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   let permissions: string[] = [];
 
   try {
-    const user = await User.findOne({ email: userEmail }).lean();
-
     if (user) {
       // Was filtering on `isActive: true`, but UserRole has no `isActive`
       // field at all (see models/UserRole.ts) -- every query here matched
@@ -111,8 +127,6 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
         // actual active business. Skipped entirely when there's no active
         // business context at all (e.g. still picking one) -- in that
         // state only platform-wide roles apply.
-        const { getOrCreateANGroupBusinessId } = await import("@/core/access/anGroupBusiness.service");
-        const anGroupId = await getOrCreateANGroupBusinessId().catch(() => null);
         const activeBizId = businessContext?.businessId ? String(businessContext.businessId) : null;
         rolesDocs = rolesDocs.filter((r: any) => {
           const roleBiz = r.businessId ? String(r.businessId) : null;
