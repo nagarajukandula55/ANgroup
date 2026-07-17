@@ -324,6 +324,31 @@ export async function resolveOwnerOrManagerVendor(userId: string | null) {
   return VendorProfile.findById(membership.vendorId).lean();
 }
 
+/**
+ * ANY active vendor-team member (Owner/Manager/CCO/Engineer/etc.), not
+ * just Owner/Manager -- same lookup vendor/layout.tsx's own page guard
+ * uses. Distinct from resolveOwnerOrManagerVendor above: that one gates
+ * actual staff MANAGEMENT (add/remove staff, change roles), while this
+ * one is for read-only "which vendor's team am I on" checks, e.g. so a
+ * CCO/Engineer's own workorder/appointment list can scope to their team
+ * without needing Owner/Manager-level access.
+ */
+export async function resolveVendorTeamMembership(userId: string | null) {
+  if (!userId) return null;
+  const ownedVendor = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
+  if (ownedVendor) return ownedVendor;
+
+  const membership = await BusinessMember.findOne({
+    userId,
+    vendorId: { $ne: null },
+    status: "ACTIVE",
+    isDeleted: { $ne: true },
+  }).lean();
+  if (!membership?.vendorId) return null;
+
+  return VendorProfile.findById(membership.vendorId).lean();
+}
+
 // Anyone holding ONLY these floor roles has no admin-panel business at all
 // -- see api/auth/login/route.ts's original comment. Duplicated here (not
 // imported from there) since that file is a route handler, not a module

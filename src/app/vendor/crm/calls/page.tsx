@@ -70,9 +70,6 @@ export default function VendorCrmCallsPage() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [teamIds, setTeamIds] = useState<string[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
   const [convertingCall, setConvertingCall] = useState<Call | null>(null)
   const [convertForm, setConvertForm] = useState({
     warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '', brandId: '', deviceModel: '', faultCodeId: '',
@@ -81,16 +78,9 @@ export default function VendorCrmCallsPage() {
   const [converting, setConverting] = useState(false)
   const [convertError, setConvertError] = useState<string | null>(null)
 
-  const [form, setForm] = useState({
-    customerName: '', phone: '', email: '', subject: '', brandId: '', deviceModel: '',
-    appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '',
-  })
-
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
-  const [formModels, setFormModels] = useState<DeviceModelOption[]>([])
   const [convertModels, setConvertModels] = useState<DeviceModelOption[]>([])
-  const [loadingFormModels, setLoadingFormModels] = useState(false)
   const [loadingConvertModels, setLoadingConvertModels] = useState(false)
 
   useEffect(() => {
@@ -112,16 +102,6 @@ export default function VendorCrmCallsPage() {
       })
       .catch(() => {})
   }, [])
-
-  useEffect(() => {
-    if (!form.brandId || !businessId) { setFormModels([]); return }
-    setLoadingFormModels(true)
-    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
-      .then((r) => r.json())
-      .then((d) => setFormModels(d.models || []))
-      .catch(() => setFormModels([]))
-      .finally(() => setLoadingFormModels(false))
-  }, [form.brandId, businessId])
 
   useEffect(() => {
     if (!convertForm.brandId || !businessId) { setConvertModels([]); return }
@@ -168,28 +148,6 @@ export default function VendorCrmCallsPage() {
   }, [statusFilter, teamIds])
 
   useEffect(() => { fetchCalls() }, [fetchCalls])
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    setSubmitting(true)
-    setFormError(null)
-    try {
-      const res = await fetch('/api/crm/calls', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const d = await res.json()
-      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create appointment')
-      setShowForm(false)
-      setForm({ customerName: '', phone: '', email: '', subject: '', brandId: '', deviceModel: '', appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '' })
-      fetchCalls()
-    } catch (err: any) {
-      setFormError(err.message || 'Something went wrong')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   function openConvert(call: Call) {
     setConvertingCall(call)
@@ -243,7 +201,7 @@ export default function VendorCrmCallsPage() {
             <p className="text-sm text-gray-400">Your team's calls & appointments</p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => router.push('/vendor/crm/calls/new')}
             className="ml-auto flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
           >
             <Plus className="w-4 h-4" /> New Appointment
@@ -322,82 +280,16 @@ export default function VendorCrmCallsPage() {
         </div>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-md max-h-[90vh] bg-gray-50 border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-              <h2 className="font-semibold text-gray-900">New Appointment</h2>
-              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleCreate} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-              {formError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{formError}</div>
-              )}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Customer Name *</label>
-                <input required value={form.customerName} onChange={(e) => setForm((p) => ({ ...p, customerName: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Phone *</label>
-                <input required value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Fault in Device *</label>
-                <input required value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
-                  placeholder="e.g. AC not cooling"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Brand</label>
-                <select
-                  value={form.brandId}
-                  onChange={(e) => setForm((p) => ({ ...p, brandId: e.target.value, deviceModel: '' }))}
-                  title="Select brand"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
-                >
-                  <option value="">Select…</option>
-                  {brands.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Model</label>
-                <select
-                  value={form.deviceModel}
-                  onChange={(e) => setForm((p) => ({ ...p, deviceModel: e.target.value }))}
-                  disabled={!form.brandId || loadingFormModels}
-                  title="Select model"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none disabled:opacity-50"
-                >
-                  <option value="">{!form.brandId ? 'Select a brand first' : loadingFormModels ? 'Loading…' : 'Select…'}</option>
-                  {formModels.map((m) => <option key={m._id} value={m.name}>{m.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Priority</label>
-                <select value={form.priority} onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))}
-                  title="Select priority" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none">
-                  {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              <div className="px-0 pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition">Cancel</button>
-                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />} Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {convertingCall && (
+        // `flex-1` on this backdrop (inside a `flex items-center
+        // justify-center` parent) made it grow to fill the row and push
+        // the actual dialog to the right edge of the screen instead of
+        // centering it -- `absolute inset-0` takes it out of flex flow
+        // entirely so `justify-center` on the parent centers the dialog
+        // like it was always meant to.
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="flex-1 bg-gray-50/60 backdrop-blur-sm" onClick={() => setConvertingCall(null)} />
+          <div className="absolute inset-0 bg-gray-50/60 backdrop-blur-sm" onClick={() => setConvertingCall(null)} />
           <div className="relative w-full max-w-md max-h-[90vh] bg-gray-50 border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
               <h2 className="font-semibold text-gray-900">Convert to Workorder</h2>

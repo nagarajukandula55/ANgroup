@@ -30,16 +30,25 @@ import { grantVendorStaffAccess } from "@/core/access/vendorAccess.service";
 
 // ONE shared Owner-or-Manager definition for every vendor management
 // surface -- see core/access/vendorAccess.service.ts.
-import { resolveOwnerOrManagerVendor as requireVendorOwnerOrManager } from "@/core/access/vendorAccess.service";
+import { resolveOwnerOrManagerVendor as requireVendorOwnerOrManager, resolveVendorTeamMembership } from "@/core/access/vendorAccess.service";
 
 export async function GET() {
   try {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const vendor = await requireVendorOwnerOrManager(userId);
+    // Was Owner/Manager-only -- but the vendor Calls/Jobsheets list pages
+    // also call this GET just to resolve "which of my teammates' user IDs
+    // do I scope my own view to" (see vendor/crm/calls/page.tsx and
+    // vendor/crm/jobsheets/page.tsx's teamIds), which every team member
+    // needs, not just Owner/Manager. A CCO/Engineer got a 403 here and
+    // their own appointment/workorder lists silently never loaded
+    // anything (teamIds stayed empty, so the fetch that depends on it
+    // never ran at all). Any active team member can now read this;
+    // POST below (actually adding/changing staff) stays Owner/Manager-only.
+    const vendor = await requireVendorOwnerOrManager(userId) || await resolveVendorTeamMembership(userId);
     if (!vendor) {
-      return NextResponse.json({ success: false, error: "Only a vendor's Owner or Manager can view its staff" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "You are not part of a vendor's team" }, { status: 403 });
     }
 
     // Self-healing resync: createDefaultVendorRoles is a cheap, idempotent
