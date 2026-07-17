@@ -53,6 +53,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     const businessId = (jobSheet as any).businessId;
 
+    // Users are vendor-scoped even when the ROLE that grants them access is
+    // business-wide -- a CCO/Manager should only ever see and assign their
+    // OWN vendor's engineers, never pool every vendor under this business
+    // together. Resolve the caller's own vendorId from their membership; a
+    // genuine business-wide caller (no vendorId at all, e.g. AN Group
+    // staff) keeps seeing everyone, since they're not scoped to one vendor.
+    const callerMembership = await BusinessMember.findOne({
+      userId: session.user.id,
+      businessId,
+      vendorId: { $ne: null },
+      status: "ACTIVE",
+      isDeleted: { $ne: true },
+    })
+      .select("vendorId")
+      .lean();
+    const callerVendorId = (callerMembership as any)?.vendorId || null;
+
     // REBUILT: there is no fixed "Engineer" role anymore — an engineer is
     // whoever holds real workorder access (CRM_JOBSHEETS.EDIT), whether
     // via a vendor's own structural/personal role (vendorId set) OR one of
@@ -86,6 +103,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       businessId,
       status: "ACTIVE",
       isDeleted: { $ne: true },
+      ...(callerVendorId ? { vendorId: callerVendorId } : {}),
     })
       .populate("userId", "name email username")
       .lean();
