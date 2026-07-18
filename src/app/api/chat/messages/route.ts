@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { ChatMessage, ChatRoom } from '@/models/ChatMessage'
 import { logAction } from '@/lib/audit/logAction'
+import { sendPushToUsers } from '@/services/push.service'
 
 // GET /api/chat/messages?roomId=xxx&limit=50
 export async function GET(req: NextRequest) {
@@ -65,7 +66,21 @@ export async function POST(req: NextRequest) {
     })
 
     // Update lastMessageAt on the room
-    await ChatRoom.findByIdAndUpdate(roomId, { lastMessageAt: new Date() })
+    const room = await ChatRoom.findByIdAndUpdate(roomId, { lastMessageAt: new Date() })
+
+    // Push to every other member — fire-and-forget, must never block or
+    // fail the send itself. Excludes the sender (no "you got a message
+    // from yourself" notification).
+    if (room?.members?.length) {
+      const recipients = room.members
+        .map((m: any) => String(m))
+        .filter((id: string) => id !== userId)
+      sendPushToUsers(recipients, {
+        title: room.type === 'DIRECT' ? senderName || 'New message' : `#${room.name}`,
+        body: content.trim(),
+        data: { roomId },
+      }).catch(() => {})
+    }
 
     logAction({
       action: "CREATE",
