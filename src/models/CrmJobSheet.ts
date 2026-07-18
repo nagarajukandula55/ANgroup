@@ -14,6 +14,7 @@
  */
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
+import { DEVICE_CATEGORIES, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 // Milestone stepper, per explicit spec:
 //   CREATED         -- workorder just created (from an appointment or direct)
@@ -81,6 +82,10 @@ export interface ICrmJobSheet extends Document {
 
   // Workorder-creation fields (per CRM Appointment -> Workorder spec):
   product?: string; // device/category, e.g. "AC", "Washing Machine"
+  // Structured device-type selection -- see CrmCall.deviceCategory's
+  // matching comment for the full rationale (product above stays the
+  // legacy free-text field).
+  deviceCategory?: DeviceCategory | null;
   brandId?: Types.ObjectId; // ref Brand
   deviceModel?: string;
   // Structured model selection -- optional; deviceModel above stays the
@@ -199,6 +204,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     pincode: { type: String, trim: true },
 
     product: { type: String, trim: true },
+    deviceCategory: { type: String, enum: DEVICE_CATEGORIES, default: null },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
     deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },

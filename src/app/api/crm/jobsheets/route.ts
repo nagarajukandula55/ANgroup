@@ -130,12 +130,14 @@ export async function POST(req: NextRequest) {
       state,
       pincode,
       product,
+      deviceCategory,
       brandId,
       deviceModel,
       deviceModelId,
       imeiOrSerialNumber,
       issueDescription,
       faultCodeId,
+      symptomCodeId,
       remark,
       warrantyStatus,
       deviceAppearance,
@@ -199,6 +201,7 @@ export async function POST(req: NextRequest) {
       state,
       pincode,
       product,
+      deviceCategory: deviceCategory || undefined,
       brandId:
         brandId && mongoose.Types.ObjectId.isValid(brandId)
           ? new mongoose.Types.ObjectId(brandId)
@@ -213,6 +216,10 @@ export async function POST(req: NextRequest) {
       faultCodeId:
         faultCodeId && mongoose.Types.ObjectId.isValid(faultCodeId)
           ? new mongoose.Types.ObjectId(faultCodeId)
+          : undefined,
+      symptomCodeId:
+        symptomCodeId && mongoose.Types.ObjectId.isValid(symptomCodeId)
+          ? new mongoose.Types.ObjectId(symptomCodeId)
           : undefined,
       remark,
       warrantyStatus: ["IW", "OOW"].includes(warrantyStatus) ? warrantyStatus : undefined,

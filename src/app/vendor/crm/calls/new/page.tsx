@@ -6,9 +6,11 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
 import { TreeSelect } from '@/components/shared/TreeSelect'
 import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
+import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS, type DeviceCategory } from '@/core/catalog/deviceCategory'
 
 interface Brand { _id: string; name: string; parentId?: string | null; logoUrl?: string }
 interface FaultCode { _id: string; code: string; description: string }
+interface SymptomCode { _id: string; code: string; description: string }
 interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
 interface StaffMember { _id: string; userId: { _id: string; name: string; email: string } | string }
 interface DeviceModelOption { _id: string; name: string }
@@ -26,25 +28,42 @@ export default function NewVendorAppointmentPage() {
   const [brands, setBrands] = useState<Brand[]>([])
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
+  const [symptomCodes, setSymptomCodes] = useState<SymptomCode[]>([])
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [models, setModels] = useState<DeviceModelOption[]>([])
+  const [vendorCategories, setVendorCategories] = useState<DeviceCategory[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     customerName: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    source: 'User Contact', product: '', brandId: '', deviceModelId: '', deviceModel: '',
-    faultCodeId: '', subject: '',
+    source: 'User Contact', product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '',
+    faultCodeId: '', symptomCodeId: '', subject: '',
     appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '',
   })
 
+  // Restrict the Device Category picker to this vendor's own configured
+  // productCategories (Vendor detail page > Product Categories Serviced) --
+  // falls back to every category if the vendor hasn't set any yet.
+  useEffect(() => {
+    fetch('/api/vendor/profile').then(r => r.json()).then(d => {
+      const cats = d?.data?.productCategories as DeviceCategory[] | undefined
+      setVendorCategories(cats && cats.length > 0 ? cats : [...DEVICE_CATEGORIES])
+    }).catch(() => setVendorCategories([...DEVICE_CATEGORIES]))
+  }, [])
+
   useEffect(() => {
     if (!businessId) return
-    fetch(`/api/brands?businessId=${businessId}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
     fetch(`/api/product-categories?businessId=${businessId}`).then(r => r.json()).then(d => setProductCategories(d.categories || d.productCategories || d.data || [])).catch(() => {})
-    fetch(`/api/fault-codes?businessId=${businessId}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
   }, [businessId])
+
+  useEffect(() => {
+    if (!businessId || !form.deviceCategory) { setBrands([]); setFaultCodes([]); setSymptomCodes([]); return }
+    fetch(`/api/brands?businessId=${businessId}&category=${form.deviceCategory}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
+    fetch(`/api/fault-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
+    fetch(`/api/symptom-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setSymptomCodes(d.symptomCodes || d.data || [])).catch(() => {})
+  }, [businessId, form.deviceCategory])
 
   useEffect(() => {
     if (!form.brandId || !businessId) { setModels([]); return }
@@ -171,6 +190,20 @@ export default function NewVendorAppointmentPage() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className={labelCls}>Device Category *</label>
+              <select
+                required
+                value={form.deviceCategory}
+                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '', symptomCodeId: '' }))}
+                className={inputCls}
+              >
+                <option value="">Select device type…</option>
+                {vendorCategories.map((c) => (
+                  <option key={c} value={c}>{DEVICE_CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Device Brand *</label>
@@ -178,8 +211,8 @@ export default function NewVendorAppointmentPage() {
                   items={brands}
                   value={form.brandId}
                   onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
-                  placeholder="Select brand…"
-                  className={inputCls}
+                  placeholder={!form.deviceCategory ? 'Select a device type first' : 'Select brand…'}
+                  className={`${inputCls} ${!form.deviceCategory ? 'opacity-50 pointer-events-none' : ''}`}
                 />
               </div>
               <div>
@@ -200,14 +233,35 @@ export default function NewVendorAppointmentPage() {
                 </select>
               </div>
             </div>
-            <div>
-              <label className={labelCls}>Fault Code</label>
-              <select value={form.faultCodeId} onChange={(e) => setForm((p) => ({ ...p, faultCodeId: e.target.value }))} className={inputCls}>
-                <option value="">Select fault code…</option>
-                {faultCodes.map((f) => (
-                  <option key={f._id} value={f._id}>{f.code} — {f.description}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Fault Code</label>
+                <select
+                  value={form.faultCodeId}
+                  onChange={(e) => setForm((p) => ({ ...p, faultCodeId: e.target.value }))}
+                  disabled={!form.deviceCategory}
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.deviceCategory ? 'Select a device type first' : 'Select fault code…'}</option>
+                  {faultCodes.map((f) => (
+                    <option key={f._id} value={f._id}>{f.code} — {f.description}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Symptom Code</label>
+                <select
+                  value={form.symptomCodeId}
+                  onChange={(e) => setForm((p) => ({ ...p, symptomCodeId: e.target.value }))}
+                  disabled={!form.deviceCategory}
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.deviceCategory ? 'Select a device type first' : 'Select symptom code…'}</option>
+                  {symptomCodes.map((s) => (
+                    <option key={s._id} value={s._id}>{s.code} — {s.description}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className={labelCls}>Fault in Device *</label>
