@@ -25,10 +25,25 @@ interface StaffMember {
   joinedAt?: string
 }
 
+interface OwnerUser {
+  _id: string
+  name?: string
+  email?: string
+  username?: string
+}
+
+interface UserSearchResult {
+  _id: string
+  name?: string
+  email?: string
+  username?: string
+}
+
 interface VendorData {
   _id: string
   vendorId?: string
   companyName: string
+  userId?: OwnerUser | null
   contactPerson?: string
   email?: string
   phone?: string
@@ -73,6 +88,69 @@ function businessLabel(businessId: VendorData['businessId']): string {
   if (!businessId) return '—'
   if (typeof businessId === 'string') return businessId
   return businessId.brandName || businessId.legalName || businessId.name || businessId._id
+}
+
+// Shared search-and-assign box for Owner/Manager, since both are the same
+// "search existing users, pick one" interaction against the same
+// /api/admin/users search endpoint -- only what happens on pick differs.
+function UserSearchPicker({
+  search,
+  onSearchChange,
+  results,
+  searching,
+  saving,
+  error,
+  onPick,
+  onCancel,
+}: {
+  search: string
+  onSearchChange: (q: string) => void
+  results: UserSearchResult[]
+  searching: boolean
+  saving: boolean
+  error: string | null
+  onPick: (u: UserSearchResult) => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="mt-2 rounded-xl border border-gray-200 p-3 space-y-2">
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <input
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder="Search by name, email, or user ID…"
+        autoFocus
+        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400 transition"
+      />
+      {searching ? (
+        <p className="text-xs text-gray-400 py-2 text-center">Searching…</p>
+      ) : results.length > 0 ? (
+        <div className="space-y-1 max-h-48 overflow-y-auto">
+          {results.map((u) => (
+            <button
+              key={u._id}
+              type="button"
+              disabled={saving}
+              onClick={() => onPick(u)}
+              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition disabled:opacity-50"
+            >
+              <p className="text-xs font-medium text-gray-900 truncate">{u.name || u.username || 'Unknown'}</p>
+              <p className="text-[11px] text-gray-400 truncate">{u.email}</p>
+            </button>
+          ))}
+        </div>
+      ) : search.trim() ? (
+        <p className="text-xs text-gray-400 py-2 text-center">No matching users found</p>
+      ) : null}
+      <button
+        type="button"
+        onClick={onCancel}
+        className="w-full py-1.5 text-xs text-gray-400 hover:text-gray-700 transition"
+      >
+        Cancel
+      </button>
+    </div>
+  )
 }
 
 function FacilityCard({
@@ -123,6 +201,26 @@ export default function VendorDetailPage() {
   const [staffRoleInput, setStaffRoleInput] = useState('')
   const [addingStaff, setAddingStaff] = useState(false)
   const [staffError, setStaffError] = useState<string | null>(null)
+
+  // Owner (VendorProfile.userId) and Manager (a real VENDOR_MANAGER role
+  // grant, not just the cosmetic vendorRole label "Add Staff Member" sets)
+  // -- both search-and-assign against the same existing-user search
+  // /api/admin/users/page.tsx already uses, since there was previously no
+  // way at all to designate/change either from this page.
+  const [ownerPicker, setOwnerPicker] = useState(false)
+  const [ownerSearch, setOwnerSearch] = useState('')
+  const [ownerResults, setOwnerResults] = useState<UserSearchResult[]>([])
+  const [ownerSearching, setOwnerSearching] = useState(false)
+  const [ownerSaving, setOwnerSaving] = useState(false)
+  const [ownerError, setOwnerError] = useState<string | null>(null)
+
+  const [managerPicker, setManagerPicker] = useState(false)
+  const [managerSearch, setManagerSearch] = useState('')
+  const [managerResults, setManagerResults] = useState<UserSearchResult[]>([])
+  const [managerSearching, setManagerSearching] = useState(false)
+  const [managerSaving, setManagerSaving] = useState(false)
+  const [managerError, setManagerError] = useState<string | null>(null)
+  const [managerSuccess, setManagerSuccess] = useState<string | null>(null)
 
   const fetchVendor = useCallback(async () => {
     setLoading(true)
@@ -210,6 +308,73 @@ export default function VendorDetailPage() {
     }
   }
 
+  async function searchUsers(q: string, setResults: (u: UserSearchResult[]) => void, setSearching: (b: boolean) => void) {
+    if (!q.trim()) { setResults([]); return }
+    setSearching(true)
+    try {
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(q.trim())}&limit=10`)
+      const data = await res.json()
+      setResults(data.users || [])
+    } catch {
+      setResults([])
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  async function assignOwner(user: UserSearchResult) {
+    setOwnerSaving(true)
+    setOwnerError(null)
+    try {
+      const res = await fetch(`/api/vendors/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user._id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Failed to assign owner')
+      setVendor((v) => (v ? { ...v, userId: data.data?.userId ?? { _id: user._id, name: user.name, email: user.email, username: user.username } } : v))
+      setOwnerPicker(false)
+      setOwnerSearch('')
+      setOwnerResults([])
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setOwnerSaving(false)
+    }
+  }
+
+  // Grants the REAL VENDOR_MANAGER role (a UserRole grant, resolved by
+  // resolveOwnerOrManagerVendor same as the structural Owner) via the same
+  // /promote endpoint admin/users/page.tsx's "Attach to Vendor Team" flow
+  // already uses -- businessId/vendorId are already known from this page's
+  // own context, so no picker is needed for those, only the target user.
+  async function assignManager(user: UserSearchResult) {
+    if (!vendor?.businessId) { setManagerError('This vendor has no business assigned yet'); return }
+    const businessId = typeof vendor.businessId === 'string' ? vendor.businessId : vendor.businessId._id
+    setManagerSaving(true)
+    setManagerError(null)
+    setManagerSuccess(null)
+    try {
+      const res = await fetch(`/api/admin/users/${user._id}/promote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track: 'VENDOR_TEAM', businessId, vendorId: id, roleCode: 'VENDOR_MANAGER' }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.success === false) throw new Error(data.error || data.message || 'Failed to assign manager')
+      setManagerSuccess(`${user.name || user.email || 'User'} is now a Manager.`)
+      setManagerPicker(false)
+      setManagerSearch('')
+      setManagerResults([])
+      fetchStaff()
+    } catch (err) {
+      setManagerError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setManagerSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -269,6 +434,75 @@ export default function VendorDetailPage() {
             Service Area Coverage
           </button>
         </div>
+
+        {/* Owner (VendorProfile.userId, structural) and Manager (a real
+            VENDOR_MANAGER role grant) -- previously neither was settable
+            or even visible from this page at all. */}
+        <section className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Owner</h2>
+              {isSuperAdmin && !ownerPicker && (
+                <button
+                  onClick={() => { setOwnerPicker(true); setOwnerError(null) }}
+                  className="text-[11px] font-medium text-cyan-700 hover:underline"
+                >
+                  {vendor.userId ? 'Change' : 'Assign'}
+                </button>
+              )}
+            </div>
+            {vendor.userId ? (
+              <>
+                <p className="text-sm font-medium text-gray-900 truncate">{vendor.userId.name || vendor.userId.username || 'Unknown'}</p>
+                <p className="text-xs text-gray-400 truncate">{vendor.userId.email}</p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-400">No owner assigned yet</p>
+            )}
+            {ownerPicker && (
+              <UserSearchPicker
+                search={ownerSearch}
+                onSearchChange={(q) => { setOwnerSearch(q); searchUsers(q, setOwnerResults, setOwnerSearching) }}
+                results={ownerResults}
+                searching={ownerSearching}
+                saving={ownerSaving}
+                error={ownerError}
+                onPick={assignOwner}
+                onCancel={() => { setOwnerPicker(false); setOwnerSearch(''); setOwnerResults([]); setOwnerError(null) }}
+              />
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Add a Manager</h2>
+              {isSuperAdmin && !managerPicker && (
+                <button
+                  onClick={() => { setManagerPicker(true); setManagerError(null); setManagerSuccess(null) }}
+                  className="text-[11px] font-medium text-cyan-700 hover:underline"
+                >
+                  Assign
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-gray-400">
+              Grants full Manager-level vendor access -- see the Staff list for everyone already on this vendor's team.
+            </p>
+            {managerSuccess && <p className="mt-2 text-xs text-emerald-600">{managerSuccess}</p>}
+            {managerPicker && (
+              <UserSearchPicker
+                search={managerSearch}
+                onSearchChange={(q) => { setManagerSearch(q); searchUsers(q, setManagerResults, setManagerSearching) }}
+                results={managerResults}
+                searching={managerSearching}
+                saving={managerSaving}
+                error={managerError}
+                onPick={assignManager}
+                onCancel={() => { setManagerPicker(false); setManagerSearch(''); setManagerResults([]); setManagerError(null) }}
+              />
+            )}
+          </div>
+        </section>
 
         {/* Facility IDs — the headline ask: show where StoreFront/Warehouse
             were enabled and what real, generated ID each got. */}

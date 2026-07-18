@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import Warehouse from "@/models/Warehouse";
+import User from "@/models/User";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const vendor = await VendorProfile.findById(id);
+    const vendor = await VendorProfile.findById(id).populate("userId", "name email username");
     if (!vendor) {
       return NextResponse.json({ success: false, error: "Vendor not found" }, { status: 404 });
     }
@@ -73,6 +74,19 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: false, error: "Vendor not found" }, { status: 404 });
     }
 
+    // Reassigning the Owner (VendorProfile.userId) -- this route previously
+    // accepted an arbitrary request body with zero validation, so a raw
+    // `userId` in the body would silently point a vendor's Owner at any
+    // ObjectId-shaped string, valid user or not. Validated here since the
+    // admin Vendor detail page now exposes a real "change Owner" action
+    // that sends this field.
+    if (body.userId !== undefined && body.userId !== null && body.userId !== "") {
+      const targetUser = await User.findOne({ _id: body.userId, isDeleted: { $ne: true } }).select("_id").lean();
+      if (!targetUser) {
+        return NextResponse.json({ success: false, error: "That user account was not found" }, { status: 400 });
+      }
+    }
+
     // For every facility toggle flipping false -> true in this update,
     // generate a real facility ID exactly once via the canonical numbering
     // engine, and never regenerate it if already set.
@@ -99,7 +113,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       }
     }
 
-    const vendor = await VendorProfile.findByIdAndUpdate(id, body, { new: true });
+    const vendor = await VendorProfile.findByIdAndUpdate(id, body, { new: true }).populate("userId", "name email username");
 
     // Enabling the warehouse facility toggle only ever stamped an ID onto
     // VendorProfile.warehouseFacilityId -- nothing ever created a real
