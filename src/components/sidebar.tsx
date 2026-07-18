@@ -135,7 +135,14 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "analytics", label: "Analytics",           route: "/admin/analytics", icon: "BarChart3" },
   ]},
   { label: "Growth", items: [
-    { key: "social",   label: "Social Media", route: "/admin/social",    icon: "Share2" },
+    // Content generation + posting itself moved entirely to the separate
+    // Zenforge project -- this now links to the monitoring/control
+    // dashboard for it instead of ANgroup's own (now-removed) composer.
+    // Key stays "social" on purpose: Business.modules[] already has this
+    // key saved for businesses that enabled it, and renaming it would
+    // reproduce the exact module-key-mismatch bug moduleKeyAliases.ts was
+    // written to fix (see that file's top comment).
+    { key: "social",   label: "Zenforge",     route: "/admin/zenforge",  icon: "Share2" },
     { key: "ai-image", label: "AI Studio",    route: "/admin/ai-image",  icon: "Sparkles" },
     { key: "native",   label: "Native App",   route: "/admin/native",    icon: "MessageSquare" },
     // ANu is no longer a page -- it's the floating AnuWidget (see

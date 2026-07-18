@@ -1,7 +1,7 @@
 // Route: /api/integrations/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import Integration, { IntegrationConfig, TelegramConfig, WhatsAppConfig, EmailConfig } from '@/models/Integration';
+import Integration, { IntegrationConfig, TelegramConfig, WhatsAppConfig, EmailConfig, ZenforgeConfig } from '@/models/Integration';
 import { logAction } from '@/lib/audit/logAction';
 import { learnIntegrationStatus } from '@/services/anuAutoLearn.service';
 
@@ -33,6 +33,13 @@ function maskConfig(provider: string, config: IntegrationConfig): IntegrationCon
         ...c,
         smtpPass: c.smtpPass ? '***' : c.smtpPass,
         resendApiKey: c.resendApiKey ? `...${c.resendApiKey.slice(-4)}` : c.resendApiKey,
+      };
+    }
+    case 'ZENFORGE': {
+      const c = config as ZenforgeConfig;
+      return {
+        ...c,
+        apiSecret: c.apiSecret ? `...${c.apiSecret.slice(-4)}` : c.apiSecret,
       };
     }
     default:

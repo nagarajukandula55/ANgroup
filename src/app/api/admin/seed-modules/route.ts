@@ -20,8 +20,11 @@ const NEW_MODULES = [
   { key: "hr", label: "HR", route: "/hr", icon: "UserCheck", enabled: true },
   // ── NEW: Agreements ───────────────────────────────────────
   { key: "agreements", label: "Agreements", route: "/agreements", icon: "FileSignature", enabled: true },
-  // ── NEW: Social Media ─────────────────────────────────────
-  { key: "social", label: "Social Media", route: "/social", icon: "Share2", enabled: true },
+  // ── NEW: Zenforge (content generation + posting moved to the
+  // separate Zenforge project; this key is kept unchanged so businesses
+  // that already have "social" saved in Business.modules[] don't lose
+  // the module, see sidebar.tsx's matching comment) ──────────
+  { key: "social", label: "Zenforge", route: "/admin/zenforge", icon: "Share2", enabled: true },
   // ── NEW: AI Studio ────────────────────────────────────────
   { key: "ai-image", label: "AI Studio", route: "/ai-image", icon: "Sparkles", enabled: true },
   // ── Admin ─────────────────────────────────────────────────
