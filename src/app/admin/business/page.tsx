@@ -31,6 +31,8 @@ export default function BusinessListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     init();
@@ -51,7 +53,20 @@ export default function BusinessListPage() {
       if (meRes.ok) {
         const meData = await meRes.json();
         setActiveBusinessId(meData.user?.activeBusinessId ?? null);
-        setBusinesses(meData.businesses ?? []);
+        const superAdmin = !!meData.user?.isSuperAdmin;
+        setIsSuperAdmin(superAdmin);
+        if (superAdmin) {
+          // /api/auth/me only ever returns active businesses (even for
+          // super admins) -- inactive ones (soft-deleted, or seeded-
+          // inactive placeholders) were completely invisible here, so
+          // there was no way to even see, let alone reactivate, one. Only
+          // super admins can manage activation, so only they fetch this.
+          const listRes = await fetch("/api/businesses/list?includeInactive=true");
+          const listData = listRes.ok ? await listRes.json() : null;
+          setBusinesses(listData?.businesses ?? meData.businesses ?? []);
+        } else {
+          setBusinesses(meData.businesses ?? []);
+        }
       } else {
         setError("Failed to load businesses");
       }
@@ -59,6 +74,34 @@ export default function BusinessListPage() {
       setError("Failed to connect to server");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function toggleActive(biz: Business) {
+    if (togglingId) return;
+    const nextActive = biz.isActive === false;
+    if (!nextActive && biz._id === activeBusinessId) {
+      setError("Switch to a different business before deactivating your currently active one.");
+      return;
+    }
+    setTogglingId(biz._id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/businesses/${biz._id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: nextActive }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || "Failed to update business status");
+        return;
+      }
+      setBusinesses((prev) => prev.map((b) => (b._id === biz._id ? { ...b, isActive: nextActive } : b)));
+    } catch {
+      setError("Failed to connect to server");
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -197,6 +240,24 @@ export default function BusinessListPage() {
                     >
                       Edit
                     </Link>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => toggleActive(biz)}
+                        disabled={togglingId === biz._id}
+                        title={biz.isActive === false ? "Activate" : "Deactivate"}
+                        className={`rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                          biz.isActive === false
+                            ? "border-emerald-200 text-emerald-700 hover:border-emerald-400"
+                            : "border-red-200 text-red-600 hover:border-red-400"
+                        }`}
+                      >
+                        {togglingId === biz._id
+                          ? "…"
+                          : biz.isActive === false
+                          ? "Activate"
+                          : "Deactivate"}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

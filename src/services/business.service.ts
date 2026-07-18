@@ -97,7 +97,7 @@ export class BusinessService {
     return Business.findById(id);
   }
 
-  static async listBusinesses() {
-    return Business.find({ isActive: true }).sort({ createdAt: -1 });
+  static async listBusinesses(includeInactive = false) {
+    return Business.find(includeInactive ? {} : { isActive: true }).sort({ createdAt: -1 });
   }
 }
