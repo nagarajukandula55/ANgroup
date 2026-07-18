@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const businessId = searchParams.get("businessId");
     const search = searchParams.get("search");
     const isActive = searchParams.get("isActive");
+    const category = searchParams.get("category");
 
     if (!businessId) {
       return NextResponse.json({ error: "businessId is required" }, { status: 400 });
@@ -44,6 +45,10 @@ export async function GET(req: NextRequest) {
 
     if (isActive !== null) {
       query.isActive = isActive === "true";
+    }
+
+    if (category) {
+      query.category = category;
     }
 
     if (search) {
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, description, businessId, logoUrl, businessScope, businessIds, parentId } = body;
+    const { name, description, businessId, logoUrl, businessScope, businessIds, parentId, category } = body;
 
     if (!name || !businessId) {
       return NextResponse.json(
@@ -93,6 +98,7 @@ export async function POST(req: NextRequest) {
     const brand = await Brand.create({
       name: name.trim(),
       description: description?.trim(),
+      category: category || null,
       parentId: parentId ? new Types.ObjectId(parentId) : null,
       businessId: new Types.ObjectId(businessId),
       logoUrl: logoUrl?.trim(),

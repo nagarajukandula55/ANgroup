@@ -12,8 +12,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   ArrowLeft, Loader2, Building2, Store, Warehouse, Wrench,
-  Users, FileText, CreditCard, MapPin, ShieldCheck, Plus, X,
+  Users, FileText, CreditCard, MapPin, ShieldCheck, Plus, X, Layers,
 } from 'lucide-react'
+import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS, type DeviceCategory } from '@/core/catalog/deviceCategory'
 
 interface StaffMember {
   _id: string
@@ -49,6 +50,7 @@ interface VendorData {
     compliance?: Record<string, { url?: string; label?: string; number?: string }>
   }
   agreementId?: string
+  productCategories?: DeviceCategory[]
   enableStoreFront?: boolean
   enableServiceCenter?: boolean
   enableWarehouse?: boolean
@@ -159,6 +161,29 @@ export default function VendorDetailPage() {
       .catch(() => {})
   }, [id, fetchVendor, fetchStaff])
 
+  const [savingCategories, setSavingCategories] = useState(false)
+
+  async function toggleProductCategory(cat: DeviceCategory) {
+    if (!vendor) return
+    const current = vendor.productCategories || []
+    const next = current.includes(cat) ? current.filter((c) => c !== cat) : [...current, cat]
+    setVendor({ ...vendor, productCategories: next }) // optimistic
+    setSavingCategories(true)
+    try {
+      const res = await fetch(`/api/vendors/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productCategories: next }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.message || data.error || 'Failed to save')
+    } catch {
+      setVendor((v) => (v ? { ...v, productCategories: current } : v)) // revert on failure
+    } finally {
+      setSavingCategories(false)
+    }
+  }
+
   async function handleAddStaff() {
     if (!staffUsername.trim() || !staffRoleInput.trim()) {
       setStaffError('Enter both a user ID and a role')
@@ -253,6 +278,38 @@ export default function VendorDetailPage() {
             <FacilityCard icon={Store} label="Store Front" enabled={vendor.enableStoreFront} facilityId={vendor.storeFrontId} />
             <FacilityCard icon={Wrench} label="Service Center" enabled={vendor.enableServiceCenter} facilityId={vendor.serviceCenterId} />
             <FacilityCard icon={Warehouse} label="Warehouse" enabled={vendor.enableWarehouse} facilityId={vendor.warehouseFacilityId} />
+          </div>
+        </section>
+
+        {/* Product Categories — which electronics device types this vendor
+            services, per explicit direction ("add an option in Vendor
+            Settings page which is for which type of products in all
+            electronics types vendor is going to handle then we can add
+            those fault, symptom and solutions sections"). Same taxonomy as
+            Brand.category / FaultCode-SymptomCode.deviceCategory. */}
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5" /> Product Categories Serviced
+            </h2>
+            {savingCategories && <Loader2 className="w-3 h-3 text-gray-300 animate-spin" />}
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 flex flex-wrap gap-2">
+            {DEVICE_CATEGORIES.map((cat) => {
+              const active = (vendor.productCategories || []).includes(cat)
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => toggleProductCategory(cat)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                    active ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {DEVICE_CATEGORY_LABELS[cat]}
+                </button>
+              )
+            })}
           </div>
         </section>
 

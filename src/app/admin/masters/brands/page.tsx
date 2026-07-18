@@ -17,6 +17,7 @@ import {
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 import BusinessScopeControl, { type BusinessScopeValue } from "@/components/catalog/BusinessScopeControl";
 import { CategoryTree } from "@/components/shared/CategoryTree";
+import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 interface Brand {
   _id: string;
@@ -25,6 +26,7 @@ interface Brand {
   logoUrl?: string;
   isActive: boolean;
   parentId?: string | null;
+  category?: DeviceCategory | null;
   businessScope?: "SINGLE" | "MULTIPLE" | "ALL";
   businessIds?: string[];
   createdAt: string;
@@ -43,12 +45,14 @@ export default function BrandsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grid" | "tree">("tree");
+  const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | "">("");
   const [modal, setModal] = useState<ModalState>({ type: null });
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     logoUrl: "",
     parentId: "",
+    category: "" as DeviceCategory | "",
     businessScope: "SINGLE" as "SINGLE" | "MULTIPLE" | "ALL",
     businessIds: [] as string[],
   });
@@ -68,6 +72,7 @@ export default function BrandsPage() {
     try {
       const params = new URLSearchParams({ businessId });
       if (search) params.set("search", search);
+      if (categoryFilter) params.set("category", categoryFilter);
       const res = await fetch(`/api/brands?${params}`);
       const data = await res.json();
       if (data.success) setBrands(data.brands);
@@ -76,7 +81,7 @@ export default function BrandsPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessId, search]);
+  }, [businessId, search, categoryFilter]);
 
   useEffect(() => {
     const timer = setTimeout(fetchBrands, 300);
@@ -84,7 +89,7 @@ export default function BrandsPage() {
   }, [fetchBrands]);
 
   const openAdd = () => {
-    setFormData({ name: "", description: "", logoUrl: "", parentId: "", businessScope: "SINGLE", businessIds: [] });
+    setFormData({ name: "", description: "", logoUrl: "", parentId: "", category: "", businessScope: "SINGLE", businessIds: [] });
     setFormError("");
     setModal({ type: "add" });
   };
@@ -95,6 +100,7 @@ export default function BrandsPage() {
       description: brand.description || "",
       logoUrl: brand.logoUrl || "",
       parentId: brand.parentId || "",
+      category: brand.category || "",
       businessScope: brand.businessScope || "SINGLE",
       businessIds: brand.businessIds || [],
     });
@@ -128,6 +134,7 @@ export default function BrandsPage() {
           description: formData.description.trim(),
           logoUrl: formData.logoUrl.trim(),
           parentId: formData.parentId || undefined,
+          category: formData.category || undefined,
           businessId,
           businessScope: formData.businessScope,
           businessIds: formData.businessIds,
@@ -165,6 +172,7 @@ export default function BrandsPage() {
           description: formData.description.trim(),
           logoUrl: formData.logoUrl.trim(),
           parentId: formData.parentId || null,
+          category: formData.category || null,
           businessScope: formData.businessScope,
           businessIds: formData.businessIds,
         }),
@@ -284,6 +292,29 @@ export default function BrandsPage() {
           </div>
           <p className="text-2xl font-semibold text-gray-500">{inactiveBrands.length}</p>
         </div>
+      </div>
+
+      {/* Device Category filter */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          onClick={() => setCategoryFilter("")}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+            categoryFilter === "" ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-500 hover:border-gray-300"
+          }`}
+        >
+          All Categories
+        </button>
+        {DEVICE_CATEGORIES.map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategoryFilter(c)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+              categoryFilter === c ? "bg-gray-900 text-white border-gray-900" : "border-gray-200 text-gray-500 hover:border-gray-300"
+            }`}
+          >
+            {DEVICE_CATEGORY_LABELS[c]}
+          </button>
+        ))}
       </div>
 
       {/* Search + view toggle */}
@@ -528,8 +559,8 @@ function BrandModal({
   parentOptions,
 }: {
   title: string;
-  formData: { name: string; description: string; logoUrl: string; parentId: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] };
-  setFormData: (d: { name: string; description: string; logoUrl: string; parentId: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] }) => void;
+  formData: { name: string; description: string; logoUrl: string; parentId: string; category: DeviceCategory | ""; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] };
+  setFormData: (d: { name: string; description: string; logoUrl: string; parentId: string; category: DeviceCategory | ""; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] }) => void;
   formError: string;
   submitting: boolean;
   onClose: () => void;
@@ -618,6 +649,20 @@ function BrandModal({
               rows={3}
               className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 resize-none"
             />
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Device Category</label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value as DeviceCategory | "" })}
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
+            >
+              <option value="">Uncategorized</option>
+              {DEVICE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{DEVICE_CATEGORY_LABELS[c]}</option>
+              ))}
+            </select>
           </div>
 
           <div>

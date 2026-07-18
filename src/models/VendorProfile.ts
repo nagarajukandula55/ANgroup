@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { DEVICE_CATEGORIES, type DeviceCategory } from '@/core/catalog/deviceCategory';
 
 /**
  * Vendor onboarding lifecycle:
@@ -140,6 +141,14 @@ export interface IVendorProfile extends Document {
   paymentTerms: string;
   category?: string;
   businessType?: string;
+  /**
+   * Which electronics device types (Mobile, Laptop, TV, ...) this vendor
+   * actually services -- distinct from the single free-text `category`
+   * above. Scopes which Fault Code / Symptom Code / Solution sections are
+   * relevant to this vendor going forward, using the same taxonomy as
+   * Brand.category and FaultCode/SymptomCode.deviceCategory.
+   */
+  productCategories?: DeviceCategory[];
   notes?:    string;
   termsAndConditions?: string;
   rating:    number;
@@ -246,6 +255,7 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     paymentTerms: { type: String, default: '30 days' },
     category:     { type: String },
     businessType: { type: String },
+    productCategories: [{ type: String, enum: DEVICE_CATEGORIES }],
     notes:        { type: String },
     // Vendor-editable service terms & conditions, shown on the
     // customer-facing workorder document -- each Service Center sets its

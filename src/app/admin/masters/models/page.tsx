@@ -3,11 +3,38 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, X, Smartphone } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
+import { TreeSelect, type TreeSelectItem } from "@/components/shared/TreeSelect";
+import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 interface Brand {
   _id: string;
   name: string;
   parentId?: string | null;
+  category?: DeviceCategory | null;
+  logoUrl?: string;
+}
+
+const CATEGORY_NODE_PREFIX = "cat:";
+
+// Composes the flat Brand list into a Device Type > Brand tree for
+// TreeSelect: a synthetic root node per device category (not a real
+// document -- id-prefixed "cat:" so selection can be ignored for these),
+// with each real brand nested under its category (or left at the root if
+// uncategorized, same as today -- no data loss for brands added before
+// this field existed).
+function buildBrandTreeItems(brands: Brand[]): TreeSelectItem[] {
+  const categoryNodes: TreeSelectItem[] = DEVICE_CATEGORIES.map((c) => ({
+    _id: `${CATEGORY_NODE_PREFIX}${c}`,
+    name: DEVICE_CATEGORY_LABELS[c],
+    parentId: null,
+  }));
+  const brandNodes: TreeSelectItem[] = brands.map((b) => ({
+    _id: b._id,
+    name: b.name,
+    parentId: b.parentId || (b.category ? `${CATEGORY_NODE_PREFIX}${b.category}` : null),
+    logoUrl: b.logoUrl,
+  }));
+  return [...categoryNodes, ...brandNodes];
 }
 
 interface DeviceModelRow {
@@ -111,18 +138,17 @@ export default function ModelsPage() {
 
         <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
           <label className="block text-xs font-medium text-gray-600 mb-1.5">Brand</label>
-          <select
+          <TreeSelect
+            items={buildBrandTreeItems(brands)}
             value={selectedBrandId}
-            onChange={(e) => setSelectedBrandId(e.target.value)}
-            className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
-          >
-            <option value="">Select a brand…</option>
-            {brands.map((b) => (
-              <option key={b._id} value={b._id}>
-                {b.parentId ? `↳ ${b.name}` : b.name}
-              </option>
-            ))}
-          </select>
+            onChange={(id) => {
+              // Device Type nodes are synthetic (id-prefixed "cat:") -- for
+              // expanding/browsing only, never a real Brand to select.
+              if (id.startsWith(CATEGORY_NODE_PREFIX)) return;
+              setSelectedBrandId(id);
+            }}
+            placeholder="Select a device type, then a brand…"
+          />
         </div>
 
         {selectedBrandId && (

@@ -8,6 +8,7 @@
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
 import { BUSINESS_SCOPES, type BusinessScope } from "@/core/catalog/businessScope";
+import { DEVICE_CATEGORIES, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 export interface ISymptomCode extends Document {
   businessId?: Types.ObjectId | null;
@@ -15,6 +16,9 @@ export interface ISymptomCode extends Document {
   businessIds: Types.ObjectId[];
   code: string;
   description: string;
+  // Same "Device Type > Component Category > Symptom Code" tree as
+  // FaultCode -- see that model's matching fields for the full rationale.
+  deviceCategory?: DeviceCategory | null;
   category?: string;
   parentId?: Types.ObjectId | null;
   isActive: boolean;
@@ -29,6 +33,7 @@ const SymptomCodeSchema = new Schema<ISymptomCode>(
     businessIds: [{ type: Schema.Types.ObjectId, ref: "Business" }],
     code: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
+    deviceCategory: { type: String, enum: DEVICE_CATEGORIES, default: null },
     category: { type: String, trim: true },
     parentId: { type: Schema.Types.ObjectId, ref: "SymptomCode", default: null },
     isActive: { type: Boolean, default: true },
@@ -38,6 +43,7 @@ const SymptomCodeSchema = new Schema<ISymptomCode>(
 
 SymptomCodeSchema.index({ businessId: 1, isActive: 1 });
 SymptomCodeSchema.index({ businessId: 1, code: 1 }, { unique: true });
+SymptomCodeSchema.index({ businessId: 1, deviceCategory: 1, category: 1 });
 
 const SymptomCode: Model<ISymptomCode> =
   (mongoose.models.SymptomCode as Model<ISymptomCode>) ||
