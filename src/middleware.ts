@@ -182,8 +182,15 @@ export async function middleware(req: NextRequest) {
 
   if (isPublic(pathname)) return applyCors(NextResponse.next(), origin);
 
-  /* ── Extract & verify JWT from cookie ───────────────────────────────── */
-  const token = req.cookies.get("an_token")?.value;
+  /* ── Extract & verify JWT from cookie or Bearer header ─────────────────
+     Native mobile apps (ANgroup/mobile, AN Command) have no cookie jar --
+     they send the same JWT as `Authorization: Bearer <token>` instead. The
+     cookie stays the primary path for the web app; the header is a
+     fallback so mobile clients aren't silently locked out of every
+     authenticated route. ───────────────────────────────────────────────── */
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("an_token")?.value || bearerToken;
 
   if (!token) {
     if (pathname.startsWith("/api/")) {
