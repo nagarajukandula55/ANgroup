@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "AN Command",
+    "slug": "an-command",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "ancommand",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.angroup.command"
+    },
+    "android": {
+      "package": "in.angroup.command"
+    },
+    "plugins": ["expo-router"],
+    "extra": {
+      "anApiUrl": "https://REPLACE_WITH_DEPLOYED_ANGROUP_URL",
+      "anMailApiUrl": "https://REPLACE_WITH_AN_MAIL_PLATFORM_URL",
+      "anCommsApiUrl": "https://REPLACE_WITH_AN_COMMUNICATIONS_PLATFORM_URL",
+      "anTechApiUrl": "https://REPLACE_WITH_AN_TECHNOLOGIES_URL",
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
