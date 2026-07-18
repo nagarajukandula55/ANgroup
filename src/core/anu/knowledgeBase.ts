@@ -113,9 +113,9 @@ const STATIC_KNOWLEDGE: AnuKnowledgeEntry[] = [
       "Admin > Reports & Downloads generates exportable reports (CSV/PDF depending on the report). Admin > Analytics shows dashboards/trends across sales, inventory, and other business activity.",
   },
   {
-    topic: "Social Media & AI Studio",
+    topic: "Zenforge & AI Studio",
     summary:
-      "Admin > Social Media manages connected social accounts and posts. Admin > AI Studio is for AI-assisted image/content generation for products and marketing.",
+      "Admin > Zenforge monitors and controls the separate Zenforge project, which handles all content generation and posting (YouTube, Facebook, Instagram, LinkedIn, Twitter/X) -- connect it under Settings > Integrations > Zenforge first. Admin > AI Studio is for AI-assisted image/content generation for products and marketing, unrelated to Zenforge.",
   },
   {
     topic: "Logistics & Shipping",
