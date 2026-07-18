@@ -70,7 +70,12 @@ function LoginForm() {
         // (e.g. a generic "Manager" role granted just to get vendor-
         // Manager-equivalent access) whose own homeRoute was configured
         // for a totally different use case, and was winning here instead.
-        : data.user?.hasVendorAccess ? '/vendor'
+        // Engineer/CCO are vendor-team members too (same hasVendorAccess
+        // gate), but /vendor's own root page is a generic Owner/Manager
+        // sales dashboard -- irrelevant to their role. Send them to the
+        // CRM-specific overview instead; Owner/Manager keep landing on
+        // plain /vendor exactly as before.
+        : data.user?.hasVendorAccess ? (data.user?.isEngineerOrCco ? '/vendor/crm' : '/vendor')
         // Per-role configurable home page (Roles & Permissions > Home Page)
         // wins over the generic role/account-type default below when set.
         : data.user?.homeRoute ? data.user.homeRoute

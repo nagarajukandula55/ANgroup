@@ -161,6 +161,13 @@ export async function POST(req: Request) {
     const hasVendorAccess =
       memberships.some((m) => !!m.vendorId) ||
       !!(await resolveOwnerOrManagerVendor(user._id.toString()).catch(() => null));
+    // Engineer/CCO land on /vendor per hasVendorAccess above (correct --
+    // see that comment), but /vendor's own root page is a generic
+    // Owner/Manager sales dashboard, "nothing informative" for their role.
+    // Surfaced separately so the login page can send them to /vendor/crm
+    // instead, without touching hasVendorAccess itself or Owner/Manager's
+    // existing landing.
+    const isEngineerOrCco = memberships.some((m) => ["ENGINEER", "CCO"].includes(m.memberType));
     const isMinimalOnly =
       roleCodes.length > 0 &&
       roleCodes.every((c: string) => MINIMAL_FLOOR_ROLE_CODES.includes(c)) &&
@@ -196,6 +203,7 @@ export async function POST(req: Request) {
       isMinimalOnly,
       homeRoute,
       hasVendorAccess,
+      isEngineerOrCco,
     };
 
     /* ── Set httpOnly cookie + return token in JSON ──────────────────── */
