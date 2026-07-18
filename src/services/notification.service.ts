@@ -1,5 +1,6 @@
 import Notification from "@/models/Notification";
 import User from "@/models/User";
+import { sendPushToUser, sendPushToUsers } from "@/services/push.service";
 
 /**
  * Server-side helper for other routes/services to raise a persistent,
@@ -7,6 +8,11 @@ import User from "@/models/User";
  * sidebar's unread badge) without hand-rolling Notification.create() at
  * every call site. Best-effort: a notification failing to write must never
  * break the actual operation that triggered it.
+ *
+ * Also fans out to any Expo push tokens registered for this user (mobile
+ * apps only get this "live" — the web admin panel already shows it via
+ * the in-app Notification row + sidebar unread badge, no push needed).
+ * Push is fire-and-forget: it must never delay or fail this call.
  */
 export async function notifyUser({
   userId,
@@ -28,6 +34,7 @@ export async function notifyUser({
   } catch (err) {
     console.error("[notification] failed to create notification:", err);
   }
+  sendPushToUser(userId, { title, body: message, data: { link } }).catch(() => {});
 }
 
 /**
@@ -57,6 +64,10 @@ export async function notifySuperAdmins({
         Notification.create({ userId: u._id, title, message, type, link })
       )
     );
+    sendPushToUsers(
+      superAdmins.map((u) => String(u._id)),
+      { title, body: message, data: { link } }
+    ).catch(() => {});
   } catch (err) {
     console.error("[notification] failed to notify super admins:", err);
   }

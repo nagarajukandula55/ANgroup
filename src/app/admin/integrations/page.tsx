@@ -1,15 +1,19 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 
-type Tab = 'messaging' | 'social' | 'email';
+type Tab = 'messaging' | 'zenforge' | 'email';
 
-/* ── Social-media types ───────────────────────────────────────────── */
-interface SocialAccount {
-  id: string;
-  label: string;
-  enabled: boolean;
-  config: Record<string, string>;
+/* ── Zenforge connection type ─────────────────────────────────────── */
+// Posting/content-generation itself moved entirely to the Zenforge project
+// (github.com/nagarajukandula55/zenforge) -- ANgroup no longer stores
+// per-platform social credentials or publishes anything itself. This is
+// just the connection config (base URL + shared secret) used to monitor
+// and control that external service from /admin/zenforge.
+interface ZenforgeConfig {
+  baseUrl: string;
+  apiSecret: string;
 }
 
 interface EmailConfig {
@@ -233,217 +237,15 @@ function TextInput({
   );
 }
 
-/* ── Social account card ──────────────────────────────────────────── */
-function SocialAccountCard({
-  platform,
-  account,
-  fields,
-  onUpdate,
-  onRemove,
-  onTest,
-  testing,
-  saving,
-}: {
-  platform: string;
-  account: SocialAccount;
-  fields: { key: string; label: string; hint?: string; mono?: boolean; type?: string }[];
-  onUpdate: (id: string, patch: Partial<SocialAccount>) => void;
-  onRemove: (id: string) => void;
-  onTest: (id: string) => void;
-  testing: boolean;
-  saving: boolean;
-}) {
-  const [expanded, setExpanded] = useState(!account.config[fields[0]?.key]);
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Toggle
-            enabled={account.enabled}
-            onChange={(v) => onUpdate(account.id, { enabled: v })}
-          />
-          <input
-            value={account.label}
-            onChange={(e) => onUpdate(account.id, { label: e.target.value })}
-            className="bg-transparent text-sm font-medium text-gray-900 border-b border-transparent hover:border-gray-300 focus:border-violet-500 focus:outline-none w-40"
-            placeholder="Account label"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onTest(account.id)}
-            disabled={testing}
-            className="px-3 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 disabled:opacity-40 border border-gray-200 text-gray-700 text-xs font-medium"
-          >
-            {testing ? 'Testing…' : 'Test'}
-          </button>
-          <button
-            onClick={() => setExpanded((p) => !p)}
-            className="px-3 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs"
-          >
-            {expanded ? 'Hide' : 'Edit'}
-          </button>
-          <button
-            onClick={() => onRemove(account.id)}
-            className="px-2 py-1 rounded-lg text-red-600 hover:bg-red-50 text-xs"
-            title="Remove account"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-4">
-          {fields.map((f) => (
-            <Field key={f.key} label={f.label} hint={f.hint}>
-              <TextInput
-                value={account.config[f.key] || ''}
-                onChange={(v) =>
-                  onUpdate(account.id, { config: { ...account.config, [f.key]: v } })
-                }
-                placeholder={f.label}
-                mono={f.mono}
-                type={f.type}
-              />
-            </Field>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Social platform panel ────────────────────────────────────────── */
-function SocialPlatformPanel({
-  icon,
-  title,
-  subtitle,
-  color,
-  fields,
-  accounts,
-  onAccountsChange,
-  onSave,
-  onTest,
-  saving,
-  testingId,
-  guideUrl,
-}: {
-  icon: string;
-  title: string;
-  subtitle: string;
-  color: string;
-  fields: { key: string; label: string; hint?: string; mono?: boolean; type?: string }[];
-  accounts: SocialAccount[];
-  onAccountsChange: (accounts: SocialAccount[]) => void;
-  onSave: () => void;
-  onTest: (id: string) => void;
-  saving: boolean;
-  testingId: string | null;
-  guideUrl: string;
-}) {
-  const addAccount = () => {
-    onAccountsChange([
-      ...accounts,
-      {
-        id: Math.random().toString(36).slice(2),
-        label: `${title} Account ${accounts.length + 1}`,
-        enabled: true,
-        config: {},
-      },
-    ]);
-  };
-
-  const updateAccount = (id: string, patch: Partial<SocialAccount>) => {
-    onAccountsChange(accounts.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-  };
-
-  const removeAccount = (id: string) => {
-    onAccountsChange(accounts.filter((a) => a.id !== id));
-  };
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center text-lg`}>
-            {icon}
-          </div>
-          <div>
-            <h2 className="font-semibold text-gray-900">{title}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={guideUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-violet-600 hover:text-violet-700 underline"
-          >
-            Get credentials ↗
-          </a>
-          <button
-            onClick={addAccount}
-            className="px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 text-xs font-medium hover:bg-violet-100"
-          >
-            + Add Account
-          </button>
-        </div>
-      </div>
-
-      <div className="px-6 py-5 space-y-3">
-        {accounts.length === 0 ? (
-          <div className="text-center py-6 text-sm text-gray-500">
-            No {title} accounts connected.{' '}
-            <button onClick={addAccount} className="text-violet-600 hover:text-violet-700 underline">
-              Add one
-            </button>
-          </div>
-        ) : (
-          accounts.map((account) => (
-            <SocialAccountCard
-              key={account.id}
-              platform={title}
-              account={account}
-              fields={fields}
-              onUpdate={updateAccount}
-              onRemove={removeAccount}
-              onTest={onTest}
-              testing={testingId === account.id}
-              saving={saving}
-            />
-          ))
-        )}
-
-        {accounts.length > 0 && (
-          <div className="flex gap-2 pt-2">
-            <button
-              onClick={onSave}
-              disabled={saving}
-              className="px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white text-sm font-medium"
-            >
-              {saving ? 'Saving…' : 'Save All Accounts'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function IntegrationsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('messaging');
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  /* Social accounts */
-  const [fbAccounts, setFbAccounts] = useState<SocialAccount[]>([]);
-  const [twAccounts, setTwAccounts] = useState<SocialAccount[]>([]);
-  const [liAccounts, setLiAccounts] = useState<SocialAccount[]>([]);
-  const [ytAccounts, setYtAccounts] = useState<SocialAccount[]>([]);
+  /* Zenforge (content generation + posting, external service) */
+  const [zenforgeConfig, setZenforgeConfig] = useState<ZenforgeConfig>({ baseUrl: '', apiSecret: '' });
+  const [zenforgeConfigured, setZenforgeConfigured] = useState(false);
 
   /* Email */
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({
@@ -512,17 +314,10 @@ export default function IntegrationsPage() {
             notificationTriggers: cfg.notificationTriggers || [],
           });
         }
-        if (integration.provider === 'FACEBOOK') {
-          setFbAccounts((integration.config as any).accounts || []);
-        }
-        if (integration.provider === 'TWITTER') {
-          setTwAccounts((integration.config as any).accounts || []);
-        }
-        if (integration.provider === 'LINKEDIN') {
-          setLiAccounts((integration.config as any).accounts || []);
-        }
-        if (integration.provider === 'YOUTUBE') {
-          setYtAccounts((integration.config as any).accounts || []);
+        if (integration.provider === 'ZENFORGE') {
+          setZenforgeConfigured(true);
+          const cfg = integration.config as Partial<ZenforgeConfig>;
+          setZenforgeConfig({ baseUrl: cfg.baseUrl || '', apiSecret: cfg.apiSecret || '' });
         }
         if (integration.provider === 'EMAIL') {
           const cfg = integration.config as Partial<EmailConfig>;
@@ -549,43 +344,46 @@ export default function IntegrationsPage() {
     }
   }, []);
 
-  const saveSocialPlatform = async (provider: string, accounts: SocialAccount[]) => {
+  const saveZenforgeConfig = async () => {
     if (!businessId) { showToast('No active business selected', 'error'); return; }
-    setSaving(provider);
+    setSaving('ZENFORGE');
     try {
-      const res = await fetch(`/api/integrations/${provider}`, {
+      const res = await fetch('/api/integrations/ZENFORGE', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-active-business-id': businessId },
-        body: JSON.stringify({ config: { accounts }, isActive: accounts.some((a) => a.enabled) }),
+        body: JSON.stringify({ config: zenforgeConfig, isActive: true }),
       });
       let ok = res.ok;
       if (res.status === 404) {
         const createRes = await fetch('/api/integrations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider, businessId, config: { accounts }, isActive: accounts.some((a) => a.enabled) }),
+          body: JSON.stringify({ provider: 'ZENFORGE', businessId, config: zenforgeConfig, isActive: true }),
         });
         ok = createRes.ok;
       }
       if (!ok) throw new Error('Save failed');
-      showToast(`${provider} accounts saved`, 'success');
+      setZenforgeConfigured(true);
+      showToast('Zenforge connection saved', 'success');
     } catch {
-      showToast(`Failed to save ${provider}`, 'error');
+      showToast('Failed to save Zenforge connection', 'error');
     } finally {
       setSaving(null);
     }
   };
 
-  // No backing /api/integrations/<provider>/test route exists yet for the
-  // social platforms (Facebook/Twitter/LinkedIn/YouTube — unlike Telegram,
-  // WhatsApp and Email, which each have a real send/test endpoint). Rather
-  // than leaving a "Test" button that always 404s and shows a misleading
-  // "test failed — check credentials" toast, this says so honestly.
-  // Credentials still save/persist via the PUT above; testing those
-  // provider integrations needs real OAuth/API wiring per platform —
-  // out of scope for this pass.
-  const testSocialAccount = async (provider: string, _accountId: string) => {
-    showToast(`${provider} connection testing isn't available yet — credentials are saved though`, 'error');
+  const testZenforgeConnection = async () => {
+    if (!businessId) { showToast('No active business selected', 'error'); return; }
+    setTesting('ZENFORGE');
+    try {
+      const res = await fetch('/api/admin/zenforge/status', { headers: { 'x-active-business-id': businessId } });
+      if (!res.ok) throw new Error();
+      showToast('Connected to Zenforge', 'success');
+    } catch {
+      showToast('Could not reach Zenforge — check the URL and secret', 'error');
+    } finally {
+      setTesting(null);
+    }
   };
 
   const saveEmail = async () => {
@@ -805,7 +603,7 @@ export default function IntegrationsPage() {
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'messaging', label: 'Messaging', icon: '💬' },
-    { id: 'social', label: 'Social Media', icon: '📱' },
+    { id: 'zenforge', label: 'Zenforge', icon: '🎬' },
     { id: 'email', label: 'Email', icon: '✉️' },
   ];
 
@@ -1201,100 +999,79 @@ export default function IntegrationsPage() {
               </div>
             )}
 
-            {/* Social Media Tab */}
-            {activeTab === 'social' && (
+            {/* Zenforge Tab */}
+            {activeTab === 'zenforge' && (
               <div className="space-y-6">
                 <div className="bg-violet-50 border border-violet-200 rounded-2xl px-5 py-3 text-xs text-violet-700/90 leading-relaxed">
-                  <strong className="text-violet-700">How it works:</strong> Enter the API credentials
-                  from your developer app for each platform. You can add multiple accounts per platform
-                  (e.g. multiple Facebook Pages). Credentials are stored encrypted per business.
+                  <strong className="text-violet-700">How it works:</strong> Content generation and
+                  posting (YouTube, Facebook, Instagram, LinkedIn, Twitter/X) all live in the separate
+                  Zenforge project now, not in ANgroup. Connect it here with its deployed URL and the
+                  shared API secret (set as <code className="font-mono">API_SECRET</code> in Zenforge's
+                  env vars) — ANgroup then only monitors and controls it, it never stores platform
+                  credentials itself.
                 </div>
 
-                {/* Facebook / Instagram */}
-                <SocialPlatformPanel
-                  icon="📘"
-                  title="Facebook & Instagram"
-                  subtitle="Post updates, share products, and manage Meta pages"
-                  color="bg-blue-50 border border-blue-200"
-                  guideUrl="https://developers.facebook.com/apps/"
-                  accounts={fbAccounts}
-                  onAccountsChange={setFbAccounts}
-                  onSave={() => saveSocialPlatform('FACEBOOK', fbAccounts)}
-                  onTest={(id) => testSocialAccount('FACEBOOK', id)}
-                  saving={saving === 'FACEBOOK'}
-                  testingId={testing}
-                  fields={[
-                    { key: 'appId',       label: 'App ID',            mono: true },
-                    { key: 'appSecret',   label: 'App Secret',        mono: true, type: 'password' },
-                    { key: 'pageId',      label: 'Page ID',           mono: true, hint: 'Facebook Page numeric ID' },
-                    { key: 'accessToken', label: 'Page Access Token', mono: true, type: 'password', hint: 'Long-lived page token from Meta Business Suite' },
-                    { key: 'igAccountId', label: 'Instagram Business Account ID', mono: true, hint: 'Optional — only if managing Instagram too' },
-                  ]}
-                />
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center text-lg">
+                        🎬
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-gray-900">Zenforge</h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Automated content pipeline + multi-platform posting
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge active={zenforgeConfigured} configured={zenforgeConfigured} />
+                  </div>
 
-                {/* Twitter / X */}
-                <SocialPlatformPanel
-                  icon="𝕏"
-                  title="Twitter / X"
-                  subtitle="Post tweets and engage with your audience"
-                  color="bg-zinc-50 border border-zinc-200"
-                  guideUrl="https://developer.twitter.com/en/portal/projects-and-apps"
-                  accounts={twAccounts}
-                  onAccountsChange={setTwAccounts}
-                  onSave={() => saveSocialPlatform('TWITTER', twAccounts)}
-                  onTest={(id) => testSocialAccount('TWITTER', id)}
-                  saving={saving === 'TWITTER'}
-                  testingId={testing}
-                  fields={[
-                    { key: 'apiKey',             label: 'API Key (Consumer Key)', mono: true },
-                    { key: 'apiSecret',          label: 'API Secret',             mono: true, type: 'password' },
-                    { key: 'accessToken',        label: 'Access Token',           mono: true },
-                    { key: 'accessTokenSecret',  label: 'Access Token Secret',    mono: true, type: 'password' },
-                    { key: 'bearerToken',        label: 'Bearer Token',           mono: true, type: 'password', hint: 'For read operations (optional)' },
-                  ]}
-                />
+                  <div className="px-6 py-5 space-y-4">
+                    <Field label="Zenforge base URL" hint="Your deployed Vercel URL, e.g. https://zenforge.vercel.app">
+                      <TextInput
+                        value={zenforgeConfig.baseUrl}
+                        onChange={(v) => setZenforgeConfig((p) => ({ ...p, baseUrl: v }))}
+                        placeholder="https://zenforge.vercel.app"
+                        mono
+                      />
+                    </Field>
+                    <Field label="API secret" hint="Same value as Zenforge's API_SECRET env var">
+                      <TextInput
+                        value={zenforgeConfig.apiSecret}
+                        onChange={(v) => setZenforgeConfig((p) => ({ ...p, apiSecret: v }))}
+                        placeholder="API secret"
+                        mono
+                        type="password"
+                      />
+                    </Field>
 
-                {/* LinkedIn */}
-                <SocialPlatformPanel
-                  icon="in"
-                  title="LinkedIn"
-                  subtitle="Share company updates and professional content"
-                  color="bg-sky-50 border border-sky-200"
-                  guideUrl="https://www.linkedin.com/developers/apps"
-                  accounts={liAccounts}
-                  onAccountsChange={setLiAccounts}
-                  onSave={() => saveSocialPlatform('LINKEDIN', liAccounts)}
-                  onTest={(id) => testSocialAccount('LINKEDIN', id)}
-                  saving={saving === 'LINKEDIN'}
-                  testingId={testing}
-                  fields={[
-                    { key: 'clientId',      label: 'Client ID',          mono: true },
-                    { key: 'clientSecret',  label: 'Client Secret',      mono: true, type: 'password' },
-                    { key: 'accessToken',   label: 'Access Token',       mono: true, type: 'password', hint: 'OAuth 2.0 access token from LinkedIn' },
-                    { key: 'orgId',         label: 'Organization URN',   mono: true, hint: 'e.g. urn:li:organization:12345 (for company pages)' },
-                  ]}
-                />
-
-                {/* YouTube */}
-                <SocialPlatformPanel
-                  icon="▶"
-                  title="YouTube"
-                  subtitle="Upload product videos and manage your channel"
-                  color="bg-red-50 border border-red-200"
-                  guideUrl="https://console.cloud.google.com/apis/credentials"
-                  accounts={ytAccounts}
-                  onAccountsChange={setYtAccounts}
-                  onSave={() => saveSocialPlatform('YOUTUBE', ytAccounts)}
-                  onTest={(id) => testSocialAccount('YOUTUBE', id)}
-                  saving={saving === 'YOUTUBE'}
-                  testingId={testing}
-                  fields={[
-                    { key: 'clientId',      label: 'OAuth Client ID',     mono: true },
-                    { key: 'clientSecret',  label: 'OAuth Client Secret', mono: true, type: 'password' },
-                    { key: 'refreshToken',  label: 'Refresh Token',       mono: true, type: 'password', hint: 'Obtained via Google OAuth2 flow' },
-                    { key: 'channelId',     label: 'Channel ID',          mono: true },
-                  ]}
-                />
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={saveZenforgeConfig}
+                        disabled={saving === 'ZENFORGE'}
+                        className="px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white text-sm font-medium"
+                      >
+                        {saving === 'ZENFORGE' ? 'Saving…' : 'Save connection'}
+                      </button>
+                      <button
+                        onClick={testZenforgeConnection}
+                        disabled={testing === 'ZENFORGE' || !zenforgeConfigured}
+                        className="px-4 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 disabled:opacity-40 border border-gray-200 text-gray-700 text-sm font-medium"
+                      >
+                        {testing === 'ZENFORGE' ? 'Testing…' : 'Test connection'}
+                      </button>
+                      {zenforgeConfigured && (
+                        <Link
+                          href="/admin/zenforge"
+                          className="ml-auto px-4 py-2 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 text-sm font-medium hover:bg-violet-100"
+                        >
+                          Open Zenforge dashboard →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

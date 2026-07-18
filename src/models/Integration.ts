@@ -7,26 +7,13 @@ export type CourierProviderKey =
   | 'XPRESSBEES'
   | 'ECOM_EXPRESS';
 
-export type SocialProviderKey =
-  | 'FACEBOOK'
-  | 'TWITTER'
-  | 'LINKEDIN'
-  | 'YOUTUBE';
-
-export const SOCIAL_PROVIDER_KEYS: SocialProviderKey[] = [
-  'FACEBOOK',
-  'TWITTER',
-  'LINKEDIN',
-  'YOUTUBE',
-];
-
 export type IntegrationProvider =
   | 'TELEGRAM'
   | 'WHATSAPP'
   | 'SLACK'
   | 'EMAIL'
-  | CourierProviderKey
-  | SocialProviderKey;
+  | 'ZENFORGE'
+  | CourierProviderKey;
 
 export const COURIER_PROVIDER_KEYS: CourierProviderKey[] = [
   'SHIPROCKET',
@@ -96,12 +83,26 @@ export interface CourierConfig {
   pickupLocation?: string;
 }
 
+/**
+ * Content generation + multi-platform posting all live in the separate
+ * Zenforge project (github.com/nagarajukandula55/zenforge), not in
+ * ANgroup -- this is only the connection ANgroup uses to monitor and
+ * control that external service (see src/app/api/admin/zenforge/*, which
+ * proxies to Zenforge's own API using this baseUrl + apiSecret). ANgroup
+ * never stores per-platform (YouTube/Facebook/etc.) credentials itself.
+ */
+export interface ZenforgeConfig {
+  baseUrl: string;
+  apiSecret: string;
+}
+
 export type IntegrationConfig =
   | TelegramConfig
   | WhatsAppConfig
   | SlackConfig
   | EmailConfig
-  | CourierConfig;
+  | CourierConfig
+  | ZenforgeConfig;
 
 export interface IIntegration extends Document {
   businessId: mongoose.Types.ObjectId;
@@ -120,7 +121,7 @@ const IntegrationSchema = new Schema<IIntegration>(
     },
     provider: {
       type: String,
-      enum: ['TELEGRAM', 'WHATSAPP', 'SLACK', 'EMAIL', ...COURIER_PROVIDER_KEYS, ...SOCIAL_PROVIDER_KEYS],
+      enum: ['TELEGRAM', 'WHATSAPP', 'SLACK', 'EMAIL', 'ZENFORGE', ...COURIER_PROVIDER_KEYS],
       required: true,
     },
     isActive: {
