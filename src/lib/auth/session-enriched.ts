@@ -91,6 +91,18 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   let roles: string[] = userRole ? [userRole] : [];
   let permissions: string[] = [];
 
+  // Only depends on businessContext (resolved above), not on the role/
+  // permission chain below -- was previously kicked off only AFTER that
+  // whole chain finished (behind a `permissions.length > 0` check that
+  // itself waited on it), adding a full extra sequential round trip to
+  // every single authenticated request for no reason. Runs concurrently
+  // with the role/permission resolution instead; both are awaited before
+  // the module-based permission filter is applied below.
+  const businessModulesPromise =
+    !isSuperAdmin && businessContext?.businessId
+      ? Business.findById(businessContext.businessId).select("modules").lean().catch(() => null)
+      : Promise.resolve(null);
+
   try {
     if (user) {
       // Was filtering on `isActive: true`, but UserRole has no `isActive`
@@ -198,7 +210,7 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   // array has no opinion on) stays granted.
   if (!isSuperAdmin && businessContext?.businessId && permissions.length > 0) {
     try {
-      const business = await Business.findById(businessContext.businessId).select("modules").lean();
+      const business = await businessModulesPromise;
       const businessModules = Array.isArray((business as any)?.modules) ? (business as any).modules : [];
       if (businessModules.length > 0) {
         const rawDisabledKeys = businessModules
