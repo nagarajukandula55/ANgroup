@@ -39,7 +39,7 @@ export interface AnuQueryInput {
 export interface AnuQueryResult {
   reply: string;
   /** Which underlying provider actually answered (useful for debugging / cost tracking). */
-  provider: "anthropic" | "openai" | "none";
+  provider: "anthropic" | "openai" | "google" | "openrouter" | "none";
   /** Set when ANu could not run at all (e.g. no API key configured for this business). */
   error?: string;
 }
