@@ -65,18 +65,20 @@ function formatNumber(input: FormatInput): string {
  * Renders a custom template string (DocumentNumberConfig.template) by
  * substituting {token} placeholders. Built-in tokens are always available;
  * everything else comes from the `context` map the calling code supplies
- * (e.g. {vendorId} for vendor product codes) — a token with no match
- * throws rather than silently leaving "{vendorId}" in a real document
- * number or dropping it and risking a collision.
+ * (e.g. {vendorId} for vendor product codes, or another document type's own
+ * number via DOCUMENT_NUMBER_TOKENS — e.g. {invoiceNumber} in a Credit Note
+ * template). Per explicit direction every document type's number is a valid
+ * token in every other type's template, and most (type, token) combinations
+ * have no real relationship and will never be supplied by the generating
+ * call site — so a token with no match renders as "" rather than throwing,
+ * instead of blocking generation for every template that references a token
+ * this particular call site doesn't happen to populate.
  */
 function renderTemplate(template: string, builtins: Record<string, string>, context: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) => {
     if (key in builtins) return builtins[key];
     if (key in context) return context[key];
-    throw new Error(
-      `Document number template uses {${key}}, but no value for it was supplied. ` +
-        `Available: ${[...Object.keys(builtins), ...Object.keys(context)].join(", ") || "(none)"}.`
-    );
+    return "";
   });
 }
 

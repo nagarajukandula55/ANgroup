@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { DOCUMENT_NUMBER_TOKENS } from "@/core/numbering/types";
 
 /**
  * Document numbering configuration, embedded directly into a business's
@@ -47,7 +48,9 @@ type DocumentType =
   | "JOB_SHEET"
   | "MATERIAL"
   | "NON_GST_INVOICE"
-  | "B2B_INVOICE";
+  | "B2B_INVOICE"
+  | "PROFORMA_INVOICE"
+  | "ROLE";
 
 interface DocumentConfig {
   documentType: DocumentType;
@@ -103,6 +106,8 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   MATERIAL: "Material Code",
   NON_GST_INVOICE: "Non-GST Invoice (Bill)",
   B2B_INVOICE: "B2B Invoice",
+  PROFORMA_INVOICE: "Proforma Invoice",
+  ROLE: "Role Number",
 };
 
 const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
@@ -137,6 +142,8 @@ const DEFAULT_CONFIGS: Record<DocumentType, DocumentConfig> = {
   MATERIAL: { documentType: "MATERIAL", prefix: "MAT", separator: "-", includeFinancialYear: false, includeMonth: false, sequenceLength: 5, suffix: "", startFrom: 1 },
   NON_GST_INVOICE: { documentType: "NON_GST_INVOICE", prefix: "BILL", separator: "/", includeFinancialYear: true, includeMonth: false, sequenceLength: 4, suffix: "", startFrom: 1 },
   B2B_INVOICE: { documentType: "B2B_INVOICE", prefix: "BINV", separator: "/", includeFinancialYear: true, includeMonth: false, sequenceLength: 4, suffix: "", startFrom: 1 },
+  PROFORMA_INVOICE: { documentType: "PROFORMA_INVOICE", prefix: "PI", separator: "/", includeFinancialYear: true, includeMonth: false, sequenceLength: 4, suffix: "", startFrom: 1 },
+  ROLE: { documentType: "ROLE", prefix: "ROLE", separator: "-", includeFinancialYear: false, includeMonth: false, sequenceLength: 4, suffix: "", startFrom: 1 },
 };
 
 const DOCUMENT_TYPES: DocumentType[] = Object.keys(DEFAULT_CONFIGS) as DocumentType[];
@@ -169,8 +176,26 @@ const TYPE_SPECIFIC_TOKENS: Partial<Record<DocumentType, { token: string; label:
   WAREHOUSE: [{ token: "{vendorId}", label: "This vendor's code" }],
 };
 
+// Every OTHER document type's own generated number, available as a token
+// here too (e.g. {invoiceNumber} in a Credit Note template) -- per explicit
+// direction, every type is a valid token everywhere, not just where a
+// relationship between the two types actually exists. Most combinations
+// have no real relationship, so the generating call site simply won't have
+// a value to supply for most of these -- see renderTemplate()'s comment for
+// why that renders as "" instead of blocking generation. VENDOR/BUSINESS are
+// excluded here since they're already covered by {vendorId}/{businessCode}
+// in UNIVERSAL_TOKENS/TYPE_SPECIFIC_TOKENS above.
+function crossDocumentTokens(docType: DocumentType): { token: string; label: string }[] {
+  return Object.entries(DOCUMENT_NUMBER_TOKENS)
+    .filter(([dt]) => dt !== docType)
+    .map(([dt, tokenName]) => ({
+      token: `{${tokenName}}`,
+      label: `${DOCUMENT_TYPE_LABELS[dt as DocumentType] ?? dt} number (only set when this document is generated from/for one)`,
+    }));
+}
+
 function tokensForDocType(docType: DocumentType): { token: string; label: string }[] {
-  return [...UNIVERSAL_TOKENS, ...(TYPE_SPECIFIC_TOKENS[docType] || [])];
+  return [...UNIVERSAL_TOKENS, ...(TYPE_SPECIFIC_TOKENS[docType] || []), ...crossDocumentTokens(docType)];
 }
 
 function buildPreview(config: DocumentConfig): string {
@@ -186,7 +211,9 @@ function buildPreview(config: DocumentConfig): string {
       };
       if (key in builtins) return builtins[key];
       if (key in TEMPLATE_PREVIEW_CONTEXT) return TEMPLATE_PREVIEW_CONTEXT[key];
-      return `{${key}}`;
+      // Matches renderTemplate()'s real runtime behavior (numberingService.ts) --
+      // a token nothing supplies a value for renders as "", not literal "{key}".
+      return "";
     });
   }
 
@@ -219,10 +246,17 @@ function DocumentCard({
   onReset: () => void;
   onToggleOpen: () => void;
 }) {
-  const { current, isOpen, isSaving, successMsg, errorMsg } = cardState;
+  const { current, saved, isOpen, isSaving, successMsg, errorMsg } = cardState;
   const docType = current.documentType;
   const label = DOCUMENT_TYPE_LABELS[docType];
   const preview = buildPreview(current);
+  // This card's own Save button is the ONLY thing that persists it -- the
+  // page's unrelated bottom "Save Changes" button only PATCHes the business
+  // form and never touches this config, so an edit left here with the card
+  // collapsed (or the page navigated away from) is silently lost. Surfacing
+  // "Unsaved" even while collapsed is what makes that discoverable instead
+  // of the admin assuming the page-wide save covered it.
+  const isDirty = JSON.stringify(current) !== JSON.stringify(saved);
   const separatorOptions = ["-", "/", "."];
   const sequenceLengthOptions = [3, 4, 5, 6];
   const update = (partial: Partial<DocumentConfig>) => onChange({ ...current, ...partial });
@@ -233,6 +267,11 @@ function DocumentCard({
         <div className="flex items-center gap-3">
           <span className="text-gray-900 font-medium text-sm">{label}</span>
           <span className="text-xs text-gray-400 font-mono">{docType}</span>
+          {isDirty && (
+            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+              Unsaved — click Save below
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {!isOpen && <span className="text-xs text-gray-400 font-mono">{preview}</span>}

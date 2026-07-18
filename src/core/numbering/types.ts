@@ -184,3 +184,54 @@ export interface GeneratedNumber {
   /** The raw numeric sequence used, before formatting — for audit/debug. */
   sequence: number;
 }
+
+/**
+ * Canonical {token} name for referencing one document type's OWN generated
+ * number from inside another document type's custom template — e.g. a
+ * Credit Note template can use {invoiceNumber} to embed the invoice it was
+ * issued against. Per explicit direction, every type here is a valid token
+ * everywhere (not just where a natural relationship exists) — the caller
+ * that actually generates a document decides whether it has a real value to
+ * supply via `context`; renderTemplate() renders "" for any token nothing
+ * supplied a value for, rather than throwing, since most (type, token)
+ * combinations have no natural relationship and are expected to go unused.
+ *
+ * VENDOR and BUSINESS are deliberately omitted: their number is already
+ * exposed under the pre-existing {vendorId} and {businessCode} token names
+ * (see numberingService.ts's built-ins and DocumentNumbersPanel.tsx's
+ * UNIVERSAL_TOKENS) — adding {vendorNumber}/{businessNumber} as well would
+ * just be two names for the same value.
+ */
+export const DOCUMENT_NUMBER_TOKENS: Partial<Record<DocumentType, string>> = {
+  INVOICE: "invoiceNumber",
+  SALES_ORDER: "salesOrderNumber",
+  PURCHASE_ORDER: "purchaseOrderNumber",
+  GRN: "grnNumber",
+  CREDIT_NOTE: "creditNoteNumber",
+  DEBIT_NOTE: "debitNoteNumber",
+  QUOTATION: "quotationNumber",
+  DELIVERY_CHALLAN: "deliveryChallanNumber",
+  PAYMENT_RECEIPT: "paymentReceiptNumber",
+  PRODUCTION_ORDER: "productionOrderNumber",
+  PRODUCT: "productCode",
+  PRODUCT_VARIANT: "productVariantCode",
+  VENDOR_PRODUCT: "vendorProductCode",
+  STOCK_ADJUSTMENT: "stockAdjustmentNumber",
+  STOCK_TRANSFER: "stockTransferNumber",
+  BATCH: "batchNumber",
+  CUSTOMER_ORDER: "customerOrderNumber",
+  RECEIPT: "receiptNumber",
+  AGREEMENT: "agreementNumber",
+  EMPLOYEE: "employeeId",
+  VENDOR_REQUEST: "vendorRequestNumber",
+  CALL: "callNumber",
+  JOB_SHEET: "jobSheetNumber",
+  WAREHOUSE: "warehouseId",
+  SERVICE_CENTER: "serviceCenterId",
+  STORE_FRONT: "storeFrontId",
+  MATERIAL: "materialCode",
+  NON_GST_INVOICE: "nonGstInvoiceNumber",
+  B2B_INVOICE: "b2bInvoiceNumber",
+  PROFORMA_INVOICE: "proformaInvoiceNumber",
+  ROLE: "roleNumber",
+};
