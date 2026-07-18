@@ -4,6 +4,7 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: true }}>
       <Tabs.Screen name="index" options={{ title: "Dashboard" }} />
+      <Tabs.Screen name="assistants" options={{ title: "Assistants" }} />
       <Tabs.Screen name="chat" options={{ title: "Team Chat" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
     </Tabs>

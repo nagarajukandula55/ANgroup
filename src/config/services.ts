@@ -5,9 +5,32 @@ export interface ServiceDefinition {
   label: string;
   repo: string;
   baseUrlEnvKey: string;
-  kind: "ecommerce" | "mail" | "chat" | "devops" | "generic";
+  kind: "ecommerce" | "mail" | "chat" | "devops" | "assistant" | "generic";
   enabled: boolean;
 }
+
+/**
+ * Bots/assistants declared per-service. ANu (ANgroup) is real today —
+ * src/core/anu/anuService.ts, multi-provider, POST /api/anu. Future bots
+ * (an-communications-platform's own, AN-Technologies', etc.) get one entry
+ * each here once their API is known; the Assistants tab lists whichever
+ * are `enabled`.
+ */
+export interface AssistantDefinition {
+  id: string;
+  label: string;
+  serviceId: ServiceId;
+  enabled: boolean;
+}
+
+export const ASSISTANTS: AssistantDefinition[] = [
+  {
+    id: "anu",
+    label: "ANu",
+    serviceId: "angroup",
+    enabled: true,
+  },
+];
 
 /**
  * Every backend this app talks to is declared here. Adding a future repo

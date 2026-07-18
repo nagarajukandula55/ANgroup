@@ -14,6 +14,7 @@ interface LoginResponse {
     role: string;
     isSuperAdmin: boolean;
     isPlatformStaff: boolean;
+    activeBusinessId?: string;
   };
 }
 

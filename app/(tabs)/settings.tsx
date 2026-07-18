@@ -1,16 +1,29 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useAuth } from "@/context/AuthContext";
-import { SERVICES } from "@/config/services";
+import { SERVICES, ASSISTANTS } from "@/config/services";
 
 export default function SettingsScreen() {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   return (
     <View style={styles.container}>
+      {user && (
+        <Text style={styles.item}>
+          Signed in as {user.name} ({user.email})
+        </Text>
+      )}
+
       <Text style={styles.sectionTitle}>Registered Services</Text>
       {SERVICES.map((s) => (
         <Text key={s.id} style={styles.item}>
           {s.enabled ? "✅" : "⬜️"} {s.label} — {s.repo}
+        </Text>
+      ))}
+
+      <Text style={styles.sectionTitle}>Bots &amp; Assistants</Text>
+      {ASSISTANTS.map((a) => (
+        <Text key={a.id} style={styles.item}>
+          {a.enabled ? "✅" : "⬜️"} {a.label} (via {a.serviceId})
         </Text>
       ))}
 

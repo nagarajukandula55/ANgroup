@@ -3,6 +3,17 @@ import * as SecureStore from "expo-secure-store";
 import { ServiceDefinition } from "@/config/services";
 
 const TOKEN_KEY = "an_command_auth_token";
+const USER_KEY = "an_command_auth_user";
+
+export interface StoredUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isSuperAdmin: boolean;
+  isPlatformStaff: boolean;
+  activeBusinessId?: string;
+}
 
 export async function getToken(): Promise<string | null> {
   return SecureStore.getItemAsync(TOKEN_KEY);
@@ -14,6 +25,19 @@ export async function setToken(token: string): Promise<void> {
 
 export async function clearToken(): Promise<void> {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+}
+
+export async function getStoredUser(): Promise<StoredUser | null> {
+  const raw = await SecureStore.getItemAsync(USER_KEY);
+  return raw ? JSON.parse(raw) : null;
+}
+
+export async function setStoredUser(user: StoredUser): Promise<void> {
+  await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+}
+
+export async function clearStoredUser(): Promise<void> {
+  await SecureStore.deleteItemAsync(USER_KEY);
 }
 
 function baseUrlFor(service: ServiceDefinition): string {

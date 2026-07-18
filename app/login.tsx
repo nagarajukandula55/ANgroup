@@ -15,7 +15,7 @@ export default function LoginScreen() {
     setBusy(true);
     try {
       const res = await login(email.trim(), password);
-      await signIn(res.token);
+      await signIn(res.token, res.user);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");
     } finally {
