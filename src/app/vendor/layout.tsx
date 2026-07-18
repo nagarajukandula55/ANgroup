@@ -5,7 +5,7 @@ import VendorLogoutButton from '@/components/vendor/VendorLogoutButton'
 import AnuWidget from '@/components/AnuWidget'
 import { connectDB } from '@/lib/mongodb'
 import BusinessMember from '@/models/BusinessMember'
-import { resolveOwnerOrManagerVendor, getVendorStaffAccessMap } from '@/core/access/vendorAccess.service'
+import { resolveOwnerOrManagerVendor, getVendorStaffAccessMap, getVendorAvailableModules } from '@/core/access/vendorAccess.service'
 import {
   LayoutDashboard,
   Package,
@@ -119,30 +119,57 @@ export default async function VendorLayout({
   // Nav filtering by the member's actual granted access ("based on access
   // that user should get access privileges and accordingly... UI changes"):
   //  - the structural Owner (role === 'VENDOR' login, or VendorProfile
-  //    match) and Managers see every item;
-  //  - other staff only see items whose module set intersects what the
-  //    vendor's Owner/Manager granted them from Team & Access.
+  //    match) and Managers see every item THAT BUSINESS HAS ENABLED
+  //    (Business.modules[] deny-list, via getVendorAvailableModules --
+  //    previously this branch was skipped entirely for Owner/Manager, so
+  //    they always saw every nav item regardless of what was actually
+  //    enabled for their business -- e.g. a vendor's Manager seeing
+  //    Purchase Orders/GRN/Stock Transfers nav links even though those
+  //    modules were never assigned/enabled for that business at all);
+  //  - other staff only see items whose module set intersects BOTH what
+  //    the vendor's Owner/Manager granted them from Team & Access AND
+  //    what the business has enabled.
   let visibleItems = navItems
-  if (role !== 'VENDOR' && userId && membership?.vendorId) {
-    try {
-      const ownerOrManager = await resolveOwnerOrManagerVendor(userId)
-      if (!ownerOrManager) {
-        const accessMap = await getVendorStaffAccessMap(
-          String(membership.vendorId),
-          String(membership.businessId)
-        )
-        const granted = new Set(accessMap[String(userId).toLowerCase()]?.modules || [])
-        visibleItems = navItems.filter((item) => {
-          if (item.managerOnly) return false
-          if (item.modules === null) return true
-          return item.modules.some((m) => granted.has(m))
-        })
+  try {
+    // resolveOwnerOrManagerVendor also correctly resolves a true
+    // structural Owner (role === 'VENDOR' login) via the VendorProfile
+    // match, not just BusinessMember-based Managers -- so this single
+    // call (and the businessId it returns) now covers both cases, where
+    // previously the whole `role !== 'VENDOR'` gate above meant a
+    // structural Owner login never ran ANY nav filtering at all.
+    const ownerOrManagerVendor = await resolveOwnerOrManagerVendor(userId)
+    const businessIdForModules = ownerOrManagerVendor?.businessId
+      ? String(ownerOrManagerVendor.businessId)
+      : membership?.businessId
+      ? String(membership.businessId)
+      : null
+
+    if (ownerOrManagerVendor) {
+      if (businessIdForModules) {
+        const availableModules = await getVendorAvailableModules(businessIdForModules)
+        const availableKeys = new Set(availableModules.map((m) => m.key))
+        visibleItems = navItems.filter((item) => item.modules === null || item.modules.some((m) => availableKeys.has(m)))
       }
-    } catch {
-      // On any resolution error, fail CLOSED for staff: only the always-
-      // visible items (Dashboard, Profile) render, never the full menu.
-      visibleItems = navItems.filter((item) => item.modules === null && !item.managerOnly)
+      // No resolvable businessId at all (shouldn't happen for a real
+      // Owner/Manager) -- fall through with the full, unfiltered navItems
+      // rather than guessing.
+    } else if (userId && membership?.vendorId) {
+      const [accessMap, availableModules] = await Promise.all([
+        getVendorStaffAccessMap(String(membership.vendorId), String(membership.businessId)),
+        getVendorAvailableModules(String(membership.businessId)),
+      ])
+      const availableKeys = new Set(availableModules.map((m) => m.key))
+      const granted = new Set(accessMap[String(userId).toLowerCase()]?.modules || [])
+      visibleItems = navItems.filter((item) => {
+        if (item.managerOnly) return false
+        if (item.modules === null) return true
+        return item.modules.some((m) => granted.has(m) && availableKeys.has(m))
+      })
     }
+  } catch {
+    // On any resolution error, fail CLOSED: only the always-visible items
+    // (Dashboard, Profile) render, never the full menu.
+    visibleItems = navItems.filter((item) => item.modules === null && !item.managerOnly)
   }
 
   // h-screen (not min-h-screen) locks this row to exactly the viewport
