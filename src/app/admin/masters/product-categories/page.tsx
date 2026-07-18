@@ -51,7 +51,7 @@ interface ModalState {
 }
 
 export default function ProductCategoriesPage() {
-  const { businessId } = useActiveBusinessId();
+  const { businessId, businessName } = useActiveBusinessId();
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -267,6 +267,11 @@ export default function ProductCategoriesPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Product Categories</h1>
+          {businessName && (
+            <p className="text-xs font-medium text-blue-500 mt-1">
+              Editing categories for: {businessName}
+            </p>
+          )}
           <p className="text-sm text-gray-500 mt-0.5 max-w-2xl">
             Powers the category dropdown on every product form (admin and vendor product
             creation) and the storefront/mobile app's category browsing and filters. Branch

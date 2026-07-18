@@ -21,8 +21,9 @@ import { useEffect, useState } from "react";
  * page already uses: GET /api/auth/me's user.activeBusinessId (server
  * session, kept in sync by the real business switcher).
  */
-export function useActiveBusinessId(): { businessId: string | null } {
+export function useActiveBusinessId(): { businessId: string | null; businessName: string | null } {
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +31,9 @@ export function useActiveBusinessId(): { businessId: string | null } {
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        setBusinessId(d?.user?.activeBusinessId || d?.businesses?.[0]?._id || null);
+        const id = d?.user?.activeBusinessId || d?.businesses?.[0]?._id || null;
+        setBusinessId(id);
+        setBusinessName(d?.businesses?.find((b: any) => b._id === id)?.name || null);
       })
       .catch(() => {});
     return () => {
@@ -38,5 +41,5 @@ export function useActiveBusinessId(): { businessId: string | null } {
     };
   }, []);
 
-  return { businessId };
+  return { businessId, businessName };
 }

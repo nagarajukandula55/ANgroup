@@ -40,28 +40,80 @@ export default function StepBasicInfo({
   const [brands, setBrands] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canManageCatalog, setCanManageCatalog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
+  const [newBrandName, setNewBrandName] = useState<string | null>(null);
 
+  // Category/Brand creation is normally a Super Admin-only action (vendors
+  // just pick from what's already tagged) -- but a Super Admin using this
+  // same wizard themselves shouldn't have to leave it to add a missing one,
+  // so the "+ Add new" affordance only shows for them.
   useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setCanManageCatalog(!!(d?.user?.isSuperAdmin || d?.user?.isPlatformStaff)))
+      .catch(() => {});
+  }, []);
+
+  const fetchCategories = () => {
     if (!businessId) return;
     fetch(`/api/product-categories?businessId=${businessId}`)
       .then((r) => r.json())
       .then((d) => d.success && setCategories(d.categories || []))
       .catch(() => {});
-  }, [businessId]);
+  };
+
+  useEffect(fetchCategories, [businessId]);
+
+  const fetchBrands = () => {
+    if (!businessId || !form.categoryId) { setBrands([]); return; }
+    fetch(`/api/brands?businessId=${businessId}&productCategoryId=${form.categoryId}`)
+      .then((r) => r.json())
+      .then((d) => d.success && setBrands(d.brands || []))
+      .catch(() => {});
+  };
+
+  const createCategory = async () => {
+    if (!newCategoryName?.trim() || !businessId) return;
+    const res = await fetch("/api/product-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newCategoryName.trim(), businessId, businessScope: "SINGLE" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      setError(data.error || "Failed to create category");
+      return;
+    }
+    setNewCategoryName(null);
+    fetchCategories();
+    setForm((prev) => ({ ...prev, categoryId: data.category._id, brandId: "" }));
+  };
+
+  const createBrand = async () => {
+    if (!newBrandName?.trim() || !businessId || !form.categoryId) return;
+    const res = await fetch("/api/brands", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newBrandName.trim(), businessId, productCategoryId: form.categoryId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      setError(data.error || "Failed to create brand");
+      return;
+    }
+    setNewBrandName(null);
+    fetchBrands();
+    setForm((prev) => ({ ...prev, brandId: data.brand._id }));
+  };
 
   // Brand list is scoped to the chosen Category (Brand.productCategoryId) --
   // previously these were two fully independent, unfiltered dropdowns, so
   // e.g. every electronics brand still showed up under an unrelated
   // grocery category and vice versa. Clears the previously-picked brand
   // when the category changes, since it may not belong under the new one.
-  useEffect(() => {
-    if (!businessId || !form.categoryId) { setBrands([]); return; }
-    fetch(`/api/brands?businessId=${businessId}&productCategoryId=${form.categoryId}`)
-      .then((r) => r.json())
-      .then((d) => d.success && setBrands(d.brands || []))
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId, form.categoryId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(fetchBrands, [businessId, form.categoryId]);
 
   // Load whatever this draft already has saved -- was never fetched here at
   // all, so resuming an existing draft (e.g. via the "Edit" link on
@@ -185,7 +237,24 @@ export default function StepBasicInfo({
               <option key={c._id} value={c._id}>{c.name}</option>
             ))}
           </select>
-          {categories.length === 0 ? (
+          {newCategoryName !== null ? (
+            <div className="flex gap-1 mt-1">
+              <input
+                autoFocus
+                className={`${inputClass} text-sm`}
+                placeholder="New category name…"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && createCategory()}
+              />
+              <button type="button" onClick={createCategory} className="px-3 rounded bg-blue-600 text-white text-sm">Add</button>
+              <button type="button" onClick={() => setNewCategoryName(null)} className="px-3 rounded border text-sm">Cancel</button>
+            </div>
+          ) : canManageCatalog ? (
+            <button type="button" onClick={() => setNewCategoryName("")} className="text-xs text-blue-600 text-left mt-0.5">
+              + Add new category
+            </button>
+          ) : categories.length === 0 ? (
             <p className="text-xs text-amber-600">
               No categories exist yet for this business — ask your Super
               Admin to add one (Admin &gt; Products &gt; Product Categories),
@@ -214,7 +283,24 @@ export default function StepBasicInfo({
               <option key={b._id} value={b._id}>{b.name}</option>
             ))}
           </select>
-          {!form.categoryId ? null : brands.length === 0 ? (
+          {!form.categoryId ? null : newBrandName !== null ? (
+            <div className="flex gap-1 mt-1">
+              <input
+                autoFocus
+                className={`${inputClass} text-sm`}
+                placeholder="New brand name…"
+                value={newBrandName}
+                onChange={(e) => setNewBrandName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && createBrand()}
+              />
+              <button type="button" onClick={createBrand} className="px-3 rounded bg-blue-600 text-white text-sm">Add</button>
+              <button type="button" onClick={() => setNewBrandName(null)} className="px-3 rounded border text-sm">Cancel</button>
+            </div>
+          ) : canManageCatalog ? (
+            <button type="button" onClick={() => setNewBrandName("")} className="text-xs text-blue-600 text-left mt-0.5">
+              + Add new brand
+            </button>
+          ) : brands.length === 0 ? (
             <p className="text-xs text-amber-600">
               No brands are tagged to this category yet — ask your Super
               Admin to tag one (Admin &gt; Products &gt; Brands), then
