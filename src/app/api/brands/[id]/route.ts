@@ -72,7 +72,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, description, logoUrl, isActive, businessScope, businessIds, parentId, category } = body;
+    const { name, description, logoUrl, isActive, businessScope, businessIds, parentId, category, productCategoryId } = body;
 
     await connectDB();
 
@@ -94,6 +94,7 @@ export async function PUT(
     if (businessIds !== undefined) updates.businessIds = businessIds;
     if (parentId !== undefined) updates.parentId = parentId || null;
     if (category !== undefined) updates.category = category || null;
+    if (productCategoryId !== undefined) updates.productCategoryId = productCategoryId || null;
 
     const brand = await Brand.findByIdAndUpdate(
       id,

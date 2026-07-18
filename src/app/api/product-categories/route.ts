@@ -20,6 +20,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
     const search = searchParams.get("search");
+    // Was never enforced here even though ProductCategory.isActive is
+    // fully toggleable from the admin Product Categories page -- every
+    // consumer of this route (including the vendor product-creation
+    // wizard's Category dropdown) showed deactivated categories exactly
+    // the same as active ones. includeInactive lets the admin management
+    // page itself keep seeing everything (it needs to show/toggle
+    // inactive rows), while every other caller (storefront-facing pickers)
+    // now only sees what's actually "allowed" for the business.
+    const includeInactive = searchParams.get("includeInactive") === "true";
 
     if (!businessId) {
       return NextResponse.json({ error: "businessId is required" }, { status: 400 });
@@ -29,6 +38,7 @@ export async function GET(req: NextRequest) {
 
     const scopeQuery = buildBusinessScopeQuery(businessId);
     const query: Record<string, unknown> = { ...scopeQuery, isDeleted: false };
+    if (!includeInactive) query.isActive = true;
 
     if (search) {
       query.$and = [

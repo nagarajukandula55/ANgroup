@@ -47,11 +47,21 @@ export default function StepBasicInfo({
       .then((r) => r.json())
       .then((d) => d.success && setCategories(d.categories || []))
       .catch(() => {});
-    fetch(`/api/brands?businessId=${businessId}`)
+  }, [businessId]);
+
+  // Brand list is scoped to the chosen Category (Brand.productCategoryId) --
+  // previously these were two fully independent, unfiltered dropdowns, so
+  // e.g. every electronics brand still showed up under an unrelated
+  // grocery category and vice versa. Clears the previously-picked brand
+  // when the category changes, since it may not belong under the new one.
+  useEffect(() => {
+    if (!businessId || !form.categoryId) { setBrands([]); return; }
+    fetch(`/api/brands?businessId=${businessId}&productCategoryId=${form.categoryId}`)
       .then((r) => r.json())
       .then((d) => d.success && setBrands(d.brands || []))
       .catch(() => {});
-  }, [businessId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, form.categoryId]);
 
   // Load whatever this draft already has saved -- was never fetched here at
   // all, so resuming an existing draft (e.g. via the "Edit" link on
@@ -168,7 +178,7 @@ export default function StepBasicInfo({
           <select
             className={inputClass}
             value={form.categoryId}
-            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+            onChange={(e) => setForm({ ...form, categoryId: e.target.value, brandId: "" })}
           >
             <option value="">Select category…</option>
             {categories.map((c) => (
@@ -195,17 +205,20 @@ export default function StepBasicInfo({
             className={inputClass}
             value={form.brandId}
             onChange={(e) => setForm({ ...form, brandId: e.target.value })}
+            disabled={!form.categoryId}
           >
-            <option value="">Select brand…</option>
+            <option value="">
+              {!form.categoryId ? "Select a category first" : "Select brand…"}
+            </option>
             {brands.map((b) => (
               <option key={b._id} value={b._id}>{b.name}</option>
             ))}
           </select>
-          {brands.length === 0 ? (
+          {!form.categoryId ? null : brands.length === 0 ? (
             <p className="text-xs text-amber-600">
-              No brands exist yet for this business — ask your Super Admin
-              to add one (Admin &gt; Products &gt; Brands), then refresh
-              this page.
+              No brands are tagged to this category yet — ask your Super
+              Admin to tag one (Admin &gt; Products &gt; Brands), then
+              refresh this page.
             </p>
           ) : (
             <p className="text-xs text-gray-400">

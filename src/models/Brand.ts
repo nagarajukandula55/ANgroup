@@ -15,6 +15,17 @@ export interface IBrand extends Document {
   // list, rather than one row lumping every product line's models together
   // under a single arbitrary category.
   category?: DeviceCategory | null;
+  // Which of this business's storefront ProductCategory nodes this brand
+  // sells under -- a DIFFERENT, unrelated taxonomy from `category` above
+  // (DeviceCategory is the CRM/repair device-type grouping; ProductCategory
+  // is the storefront/catalog taxonomy a business defines for itself, e.g.
+  // "Mobile Phones", "Cold Pressed Oils"). Vendor product creation
+  // (StepBasicInfo.tsx) picks a ProductCategory first, then this narrows
+  // the Brand list to only brands actually tagged under it -- previously
+  // Category and Brand were two fully independent, unfiltered dropdowns
+  // with no relationship at all, so e.g. every electronics brand still
+  // showed up under an unrelated grocery category and vice versa.
+  productCategoryId?: mongoose.Types.ObjectId | null;
   // Optional parent brand -- lets a business branch brands the same way
   // ProductCategory/MaterialCategory already do (e.g. a "Mobile" group
   // with its own set of logo entries under it, a separate "Laptops"
@@ -38,6 +49,7 @@ const BrandSchema = new Schema<IBrand>(
     name: { type: String, required: true },
     description: { type: String },
     category: { type: String, enum: DEVICE_CATEGORIES, default: null },
+    productCategoryId: { type: Schema.Types.ObjectId, ref: "ProductCategory", default: null },
     parentId: { type: Schema.Types.ObjectId, ref: "Brand", default: null },
     businessId: { type: Schema.Types.ObjectId, required: true },
     businessScope: { type: String, enum: BUSINESS_SCOPES, default: "SINGLE" },
@@ -49,6 +61,7 @@ const BrandSchema = new Schema<IBrand>(
 );
 
 BrandSchema.index({ businessId: 1, isActive: 1 });
+BrandSchema.index({ businessId: 1, productCategoryId: 1 });
 // A brand name is unique per (business, category) rather than per business
 // alone -- lets a genuinely multi-line brand (e.g. Samsung: Mobile, TV,
 // Refrigerator, ...) have one row per category it's classified under. Two

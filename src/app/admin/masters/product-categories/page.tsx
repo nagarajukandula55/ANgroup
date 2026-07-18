@@ -80,7 +80,7 @@ export default function ProductCategoriesPage() {
     if (!businessId) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ businessId });
+      const params = new URLSearchParams({ businessId, includeInactive: "true" });
       if (search) params.set("search", search);
       const res = await fetch(`/api/product-categories?${params}`);
       const data = await res.json();

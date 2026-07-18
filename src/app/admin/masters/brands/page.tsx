@@ -27,10 +27,17 @@ interface Brand {
   isActive: boolean;
   parentId?: string | null;
   category?: DeviceCategory | null;
+  productCategoryId?: string | null;
   businessScope?: "SINGLE" | "MULTIPLE" | "ALL";
   businessIds?: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface ProductCategoryOption {
+  _id: string;
+  name: string;
+  parentId?: { _id: string; name: string } | null;
 }
 
 interface ModalState {
@@ -46,6 +53,7 @@ export default function BrandsPage() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"grid" | "tree">("tree");
   const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | "">("");
+  const [productCategories, setProductCategories] = useState<ProductCategoryOption[]>([]);
   const [modal, setModal] = useState<ModalState>({ type: null });
   const [formData, setFormData] = useState({
     name: "",
@@ -53,6 +61,7 @@ export default function BrandsPage() {
     logoUrl: "",
     parentId: "",
     category: "" as DeviceCategory | "",
+    productCategoryId: "",
     businessScope: "SINGLE" as "SINGLE" | "MULTIPLE" | "ALL",
     businessIds: [] as string[],
   });
@@ -88,8 +97,16 @@ export default function BrandsPage() {
     return () => clearTimeout(timer);
   }, [fetchBrands]);
 
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/product-categories?businessId=${businessId}&includeInactive=true`)
+      .then((r) => r.json())
+      .then((d) => d.success && setProductCategories(d.categories || []))
+      .catch(() => {});
+  }, [businessId]);
+
   const openAdd = () => {
-    setFormData({ name: "", description: "", logoUrl: "", parentId: "", category: "", businessScope: "SINGLE", businessIds: [] });
+    setFormData({ name: "", description: "", logoUrl: "", parentId: "", category: "", productCategoryId: "", businessScope: "SINGLE", businessIds: [] });
     setFormError("");
     setModal({ type: "add" });
   };
@@ -101,6 +118,7 @@ export default function BrandsPage() {
       logoUrl: brand.logoUrl || "",
       parentId: brand.parentId || "",
       category: brand.category || "",
+      productCategoryId: brand.productCategoryId || "",
       businessScope: brand.businessScope || "SINGLE",
       businessIds: brand.businessIds || [],
     });
@@ -135,6 +153,7 @@ export default function BrandsPage() {
           logoUrl: formData.logoUrl.trim(),
           parentId: formData.parentId || undefined,
           category: formData.category || undefined,
+          productCategoryId: formData.productCategoryId || undefined,
           businessId,
           businessScope: formData.businessScope,
           businessIds: formData.businessIds,
@@ -173,6 +192,7 @@ export default function BrandsPage() {
           logoUrl: formData.logoUrl.trim(),
           parentId: formData.parentId || null,
           category: formData.category || null,
+          productCategoryId: formData.productCategoryId || null,
           businessScope: formData.businessScope,
           businessIds: formData.businessIds,
         }),
@@ -397,6 +417,7 @@ export default function BrandsPage() {
           onSubmit={handleSubmitAdd}
           existingLogos={Array.from(new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)))}
           parentOptions={brands}
+          productCategories={productCategories}
         />
       )}
 
@@ -412,6 +433,7 @@ export default function BrandsPage() {
           onSubmit={handleSubmitEdit}
           existingLogos={Array.from(new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)))}
           parentOptions={brands.filter((b) => b._id !== modal.brand!._id)}
+          productCategories={productCategories}
         />
       )}
 
@@ -557,16 +579,18 @@ function BrandModal({
   onSubmit,
   existingLogos,
   parentOptions,
+  productCategories,
 }: {
   title: string;
-  formData: { name: string; description: string; logoUrl: string; parentId: string; category: DeviceCategory | ""; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] };
-  setFormData: (d: { name: string; description: string; logoUrl: string; parentId: string; category: DeviceCategory | ""; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] }) => void;
+  formData: { name: string; description: string; logoUrl: string; parentId: string; category: DeviceCategory | ""; productCategoryId: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] };
+  setFormData: (d: { name: string; description: string; logoUrl: string; parentId: string; category: DeviceCategory | ""; productCategoryId: string; businessScope: "SINGLE" | "MULTIPLE" | "ALL"; businessIds: string[] }) => void;
   formError: string;
   submitting: boolean;
   onClose: () => void;
   onSubmit: () => void;
   existingLogos: string[];
   parentOptions: Brand[];
+  productCategories: ProductCategoryOption[];
 }) {
   const [logoPreviewError, setLogoPreviewError] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -663,6 +687,24 @@ function BrandModal({
                 <option key={c} value={c}>{DEVICE_CATEGORY_LABELS[c]}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Storefront Product Category</label>
+            <select
+              value={formData.productCategoryId}
+              onChange={(e) => setFormData({ ...formData, productCategoryId: e.target.value })}
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
+            >
+              <option value="">Untagged</option>
+              {productCategories.map((c) => (
+                <option key={c._id} value={c._id}>{c.parentId ? `↳ ${c.name}` : c.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">
+              Which storefront category this brand sells under -- narrows the Brand list the vendor
+              product-creation wizard shows once that category is picked.
+            </p>
           </div>
 
           <div>

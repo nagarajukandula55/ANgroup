@@ -25,6 +25,7 @@ import { STATIC_MODULES } from "@/components/sidebar";
 import { useToast } from "@/components/shared/Toast";
 import { MODULE_TEMPLATE_OPTIONS, isEnabledUnderTemplate, describeBusinessUsage, type ModuleTemplateKey } from "@/core/access/moduleTemplates";
 import DocumentNumbersPanel from "@/components/admin/DocumentNumbersPanel";
+import ProductCategoriesPanel from "@/components/admin/ProductCategoriesPanel";
 
 interface AuditLogEntry {
   _id: string;
@@ -1014,6 +1015,17 @@ export default function BusinessDetailPage() {
               </label>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-bold text-lg">Product Categories</h2>
+          <p className="text-xs text-gray-400">
+            Which of this business's storefront categories are allowed for use right now -- an unchecked
+            category is hidden from the vendor product-creation wizard's Category dropdown (and every other
+            storefront-facing picker), without deleting it or its existing products. Same toggle as
+            Admin &gt; Masters &gt; Product Categories, surfaced here for convenience.
+          </p>
+          <ProductCategoriesPanel businessId={id} />
         </section>
 
         <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">

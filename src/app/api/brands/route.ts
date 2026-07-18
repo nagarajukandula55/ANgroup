@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search");
     const isActive = searchParams.get("isActive");
     const category = searchParams.get("category");
+    const productCategoryId = searchParams.get("productCategoryId");
 
     if (!businessId) {
       return NextResponse.json({ error: "businessId is required" }, { status: 400 });
@@ -49,6 +50,10 @@ export async function GET(req: NextRequest) {
 
     if (category) {
       query.category = category;
+    }
+
+    if (productCategoryId) {
+      query.productCategoryId = productCategoryId;
     }
 
     if (search) {
@@ -84,7 +89,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, description, businessId, logoUrl, businessScope, businessIds, parentId, category } = body;
+    const { name, description, businessId, logoUrl, businessScope, businessIds, parentId, category, productCategoryId } = body;
 
     if (!name || !businessId) {
       return NextResponse.json(
@@ -99,6 +104,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       description: description?.trim(),
       category: category || null,
+      productCategoryId: productCategoryId ? new Types.ObjectId(productCategoryId) : null,
       parentId: parentId ? new Types.ObjectId(parentId) : null,
       businessId: new Types.ObjectId(businessId),
       logoUrl: logoUrl?.trim(),
