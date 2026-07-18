@@ -22,6 +22,7 @@ interface JWTPayload {
   name: string;
   role: string;
   isSuperAdmin: boolean;
+  isPlatformStaff?: boolean;
   businessIds: string[];
   activeBusinessId?: string;
   organizationId?: string;
@@ -53,7 +54,17 @@ async function verifyEdgeToken(token: string): Promise<JWTPayload | null> {
 // /api/reviews/[id] (moderation, requires a real session) must NOT become
 // public as a side effect of a prefix match -- using PUBLIC_EXACT rather
 // than PUBLIC_PREFIXES for this one is what keeps that route protected.
-const PUBLIC_EXACT = new Set(["/login", "/register", "/favicon.ico", "/api/reviews"]);
+const PUBLIC_EXACT = new Set([
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/favicon.ico",
+  "/api/reviews",
+  "/api/newsletter/subscribe",
+  "/api/auth/reset-password",
+  "/api/auth/reset-password/request",
+]);
 
 /* ── Public prefixes ────────────────────────────────────────────────────── */
 const PUBLIC_PREFIXES = [
@@ -102,6 +113,13 @@ const PUBLIC_PREFIXES = [
   // /api/admin/mobile-app/config path (see that route's own comment for
   // why it's deliberately not this same path).
   "/api/mobile-app/config",
+  // Public PIN-code lookup (read-only) backing the PincodeInput autofill
+  // component -- was missing here, so on the public, unauthenticated
+  // /vendor-apply form every lookup silently 401'd and fell back to
+  // "not found", even for a real, valid pincode. Admin write/refresh of
+  // the underlying dataset lives at the separate /api/admin/pincode-*
+  // paths, which stay protected.
+  "/api/pincode/",
   "/api/products/",
   "/api/newsletter/subscribe",
   "/api/appointment-requests",   // public appointment-request submission
@@ -164,8 +182,15 @@ export async function middleware(req: NextRequest) {
 
   if (isPublic(pathname)) return applyCors(NextResponse.next(), origin);
 
-  /* ── Extract & verify JWT from cookie ───────────────────────────────── */
-  const token = req.cookies.get("an_token")?.value;
+  /* ── Extract & verify JWT from cookie or Bearer header ─────────────────
+     Native mobile apps (ANgroup/mobile, AN Command) have no cookie jar --
+     they send the same JWT as `Authorization: Bearer <token>` instead. The
+     cookie stays the primary path for the web app; the header is a
+     fallback so mobile clients aren't silently locked out of every
+     authenticated route. ───────────────────────────────────────────────── */
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("an_token")?.value || bearerToken;
 
   if (!token) {
     if (pathname.startsWith("/api/")) {
@@ -207,6 +232,12 @@ export async function middleware(req: NextRequest) {
   requestHeaders.set("x-user-email",    payload.email);
   requestHeaders.set("x-user-role",     payload.role);
   requestHeaders.set("x-is-super-admin", payload.isSuperAdmin ? "true" : "false");
+  // AN Group platform staff -- an account holding a platform-wide Role
+  // (businessId/vendorId both null), same class of account as super admin
+  // for cross-business VISIBILITY purposes (still gated per-module by
+  // their actual granted permissions -- see api/auth/login's
+  // isPlatformStaff computation and api/auth/me's mirror of it).
+  requestHeaders.set("x-is-platform-staff", payload.isPlatformStaff ? "true" : "false");
 
   if (payload.organizationId)   requestHeaders.set("x-organization-id",   payload.organizationId);
   if (payload.activeBusinessId) requestHeaders.set("x-active-business-id", payload.activeBusinessId);

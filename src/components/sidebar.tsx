@@ -15,11 +15,42 @@ import {
 import { useToast } from "@/components/shared/Toast";
 
 const SIDEBAR_COLLAPSED_KEY = "an_sidebar_collapsed";
+// Every full page refresh re-fetched /api/auth/me + /api/ui/sidebar from a
+// deliberately-empty starting state (see the comment on `modules` below for
+// why it starts empty rather than falling back to STATIC_MODULES) -- which
+// is what actually produced the "sidebar reloads/flashes every refresh"
+// complaint: it wasn't remounting on navigation (Next persists this layout
+// across client-side route changes), it was genuinely re-rendering from
+// blank on every hard reload. Snapshotting the last successful render here
+// lets the very next mount paint immediately from cache while the real
+// fetch below still runs in the background and overwrites it the moment it
+// resolves -- so a stale/wrong cache can never persist beyond one refresh,
+// but a normal refresh no longer visibly collapses to empty first.
+const SIDEBAR_CACHE_KEY = "an_sidebar_cache_v1";
 
-interface Business { _id: string; name: string; brandName?: string; businessCode?: string }
+function readSidebarCache(): { user: UserInfo; businesses: Business[]; activeBiz: Business | null; modules: any[] } | null {
+  try {
+    const raw = sessionStorage.getItem(SIDEBAR_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeSidebarCache(snapshot: { user: UserInfo | null; businesses: Business[]; activeBiz: Business | null; modules: any[] }) {
+  try {
+    if (!snapshot.user) return;
+    sessionStorage.setItem(SIDEBAR_CACHE_KEY, JSON.stringify(snapshot));
+  } catch { /* sessionStorage unavailable -- cache is a pure optimization */ }
+}
+
+interface Business { _id: string; name: string; brandName?: string; businessCode?: string; isPlatform?: boolean }
 interface UserInfo {
   id: string; name: string; email: string; role: string;
   isSuperAdmin: boolean; activeBusinessId: string | null;
+  isPlatformStaff?: boolean;
+  moduleOrder?: string[];
 }
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -32,17 +63,13 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   ShieldCheck, Smartphone,
 };
 
-interface NavItem {
-  key: string; label: string; route: string; icon: string;
-}
-interface NavSubGroup {
-  key: string; label: string; items: NavItem[];
-}
-interface NavGroup {
-  label: string;
-  items?: NavItem[];
-  subgroups?: NavSubGroup[];
-}
+// Nav data moved to sidebar-nav.ts (a plain module) because the server-side
+// /api/ui/sidebar route imports STATIC_MODULES too — importing it from this
+// "use client" file handed that route a client-reference proxy instead of
+// the array in production builds, 500ing every sidebar load. Re-exported
+// here so existing client-page imports keep working unchanged.
+export { NAV_GROUPS, STATIC_MODULES } from "./sidebar-nav";
+import { NAV_GROUPS, STATIC_MODULES, type NavItem } from "./sidebar-nav";
 
 export const NAV_GROUPS: NavGroup[] = [
   { label: "Overview", items: [
@@ -206,7 +233,29 @@ export default function Sidebar() {
   const router   = useRouter();
   const toast    = useToast();
 
-  const [modules, setModules]           = useState<any[]>(STATIC_MODULES);
+  // Was initialized to STATIC_MODULES (the FULL, unfiltered nav list) as a
+  // "safe" default -- but that meant any account whose permission fetch
+  // hadn't resolved yet, failed, or genuinely came back with a short list
+  // fell straight through to seeing EVERY module in the sidebar, since the
+  // old fetch handler only ever called setModules() when the response was
+  // both successful AND non-empty (see loadSidebarModules below). This is
+  // the actual reason every permission fix for a limited-access role
+  // "didn't stick": no matter how correctly scoped the API's response was,
+  // a slow network, a legitimate zero-module business, or any upstream
+  // hiccup silently fell back to showing everything. Starts empty now --
+  // nothing shows until the API actually confirms what this account may
+  // see, and an empty/failed response means an empty sidebar, not a full one.
+  // Must start IDENTICAL to what the server rendered (empty/null) -- SSR
+  // always sees `window === undefined`, so reading sessionStorage directly
+  // in a useState initializer made the client's very first render disagree
+  // with the server-rendered HTML the instant a cache existed, which is
+  // exactly what threw React's hydration-mismatch error (#418) in
+  // production. The cached snapshot is instead applied from an effect
+  // below, AFTER hydration completes, which is the safe way to do a
+  // client-only "paint from cache" — it causes one extra post-hydration
+  // render, never a mismatch.
+  const [modules, setModules]           = useState<any[]>([]);
+  const [modulesLoaded, setModulesLoaded] = useState(false);
   const [open, setOpen]                 = useState(false);
   const [collapsed, setCollapsed]       = useState(false);
   // When the sidebar is collapsed to icon-only, hovering over it expands it
@@ -226,7 +275,36 @@ export default function Sidebar() {
     NAV_GROUPS.forEach((g) => (g.subgroups ?? []).forEach((sg) => { allOpen[sg.key] = true; }));
     return allOpen;
   });
+  // A subgroup collapsed via its header (openSubgroups[key] === false) still
+  // reveals its items on hover, without requiring a click to re-open it --
+  // "upon hover on main entry sub entries should be visible". Cleared with a
+  // short delay on mouse-leave so moving from the header into the revealed
+  // items themselves doesn't instantly hide them.
+  const [hoveredSubgroup, setHoveredSubgroup] = useState<string | null>(null);
+  const subgroupHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function previewSubgroup(key: string) {
+    if (subgroupHoverTimer.current) clearTimeout(subgroupHoverTimer.current);
+    setHoveredSubgroup(key);
+  }
+  function unpreviewSubgroup() {
+    if (subgroupHoverTimer.current) clearTimeout(subgroupHoverTimer.current);
+    subgroupHoverTimer.current = setTimeout(() => setHoveredSubgroup(null), 150);
+  }
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Runs after hydration -- safe to read sessionStorage here since this
+  // effect never executes during SSR or the hydration pass itself, only
+  // once the client has already committed a render matching the server's.
+  useEffect(() => {
+    const cached = readSidebarCache();
+    if (cached) {
+      setUser(cached.user);
+      setBusinesses(cached.businesses);
+      setActiveBiz(cached.activeBiz);
+      setModules(cached.modules);
+      setModulesLoaded(true);
+    }
+  }, []);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -266,25 +344,44 @@ export default function Sidebar() {
       if (data.success) {
         setUser(data.user);
         setBusinesses(data.businesses || []);
-        // Super admins land in "All Businesses" (no auto-pick) unless the
-        // JWT already has a real activeBusinessId — a business must never
-        // be silently auto-selected out from under them, since that was
-        // hiding platform-wide features (Modules, cross-business reports,
-        // etc.) behind a business context nobody explicitly chose.
+
+        // Unconditional Super Admin bypass -- matches how isSuperAdmin
+        // already behaves as an absolute bypass everywhere else in this
+        // app (requirePermission, filterModulesByPermission, etc.). The
+        // real permission-filtered fetch below still runs and will keep
+        // this in sync, but it must never be the ONLY path a Super Admin
+        // depends on to see any menu at all -- if that fetch is ever
+        // slow, fails, or can't resolve which business to ask about
+        // (e.g. AN Group not found in `businesses` yet on a fresh
+        // session), a genuine Super Admin must still see the full nav
+        // immediately rather than a blank sidebar. Non-super-admin
+        // accounts are NOT given this bypass -- they only ever see
+        // exactly what the real permission check confirms.
+        if (data.user?.isSuperAdmin) {
+          setModules(STATIC_MODULES);
+        }
+
+        // Super admins / AN Group platform staff land on the real AN Group
+        // business (no auto-pick into a random tenant business) unless the
+        // JWT already has a real activeBusinessId — a tenant business must
+        // never be silently auto-selected out from under them, since that
+        // was hiding platform-wide features (Modules, cross-business
+        // reports, etc.) behind a business context nobody explicitly chose.
         // Non-super-admin users still default to their first business,
-        // since they don't have an "all businesses" view to fall back to.
+        // since they have no AN Group / platform view to fall back to.
         const found = data.user?.activeBusinessId
           ? data.businesses?.find((b: Business) => b._id === data.user.activeBusinessId) || null
-          : data.user?.isSuperAdmin
-            ? null
+          : (data.user?.isSuperAdmin || data.user?.isPlatformStaff)
+            ? data.businesses?.find((b: Business) => b.isPlatform) || null
             : data.businesses?.[0] || null;
         setActiveBiz(found);
-        if (found?._id) loadSidebarModules(found._id);
+        writeSidebarCache({ user: data.user, businesses: data.businesses || [], activeBiz: found, modules });
+        if (found?._id) loadSidebarModules(found._id, data.user, data.businesses || [], found);
       }
     } catch { /* static fallback */ }
   }
 
-  async function loadSidebarModules(businessId: string) {
+  async function loadSidebarModules(businessId: string, userForCache?: UserInfo | null, businessesForCache?: Business[], activeBizForCache?: Business | null) {
     try {
       const res  = await fetch("/api/ui/sidebar", {
         method: "POST",
@@ -292,25 +389,65 @@ export default function Sidebar() {
         body: JSON.stringify({ businessId }),
       });
       const data = await res.json();
-      if (data.success && data.modules?.length > 0) {
-        // Was merging back every STATIC_MODULES entry NOT present in the
-        // API's response ("extra") on the assumption those were simply
-        // modules the DB registry hadn't caught up on yet -- but the API
-        // (api/ui/sidebar/route.ts) already does the real filtering,
-        // including explicitly EXCLUDING modules the business admin
-        // disabled via Business.modules. Re-adding "missing" keys via
-        // `extra` silently undid that exclusion, so unticking a module in
-        // Business > Modules never actually hid it from the sidebar.
-        // Trust the API's list as-is -- it already returns everything
-        // permission-allows when the business has no explicit config, and
-        // exactly the enabled subset when it does.
-        setModules(data.modules);
-      }
-    } catch { /* static */ }
+      // Trust the API's list exactly as returned -- including an empty
+      // one. api/ui/sidebar/route.ts already does the real filtering
+      // (permission-based, plus explicitly excluding modules the business
+      // admin disabled via Business.modules); this used to only call
+      // setModules() when the list was non-empty, silently keeping
+      // whatever was there before (the full STATIC_MODULES list on first
+      // load) for any account with a short or zero-length real list. A
+      // limited-access role account is SUPPOSED to see a short list --
+      // that must render as a short sidebar, not fall back to everything.
+      const resolvedModules = data.success ? (data.modules || []) : [];
+      setModules(resolvedModules);
+      writeSidebarCache({
+        user: userForCache ?? user,
+        businesses: businessesForCache ?? businesses,
+        activeBiz: activeBizForCache ?? activeBiz,
+        modules: resolvedModules,
+      });
+    } catch {
+      setModules([]);
+    } finally {
+      setModulesLoaded(true);
+    }
   }
 
   async function switchBusiness(biz: Business) {
-    if (switching || biz._id === user?.activeBusinessId) { setBizDropdown(false); return; }
+    if (switching) return;
+    // AN Group is a real Business record for DISPLAY/selection purposes
+    // (dropdowns, Admin > Access, role scoping), but it must NOT become a
+    // real x-active-business-id in the session -- every existing
+    // business-scoped list route in this app (Brands, Products, Vendors,
+    // etc.) filters strictly by that header, and AN Group's own Business
+    // document legitimately has zero brands/products/vendors of its own.
+    // Setting it as a real active business made every one of those pages
+    // look like all its data had vanished. "AN Group sees everything" is
+    // the SAME thing the old cross-business/no-active-business state
+    // already meant for Super Admin -- so selecting AN Group clears the
+    // active business (exit-business) instead of switching into it as if
+    // it were a normal tenant.
+    if (biz.isPlatform) {
+      if (!user?.activeBusinessId) { setBizDropdown(false); return; }
+      setSwitching(true);
+      try {
+        const res = await fetch("/api/auth/exit-business", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          setActiveBiz(biz);
+          setUser((prev) => prev ? { ...prev, activeBusinessId: null } : prev);
+          setBizDropdown(false);
+          router.refresh();
+        } else {
+          toast.error(data.message || "Failed to switch to AN Group");
+        }
+      } catch {
+        toast.error("Failed to connect to server");
+      } finally { setSwitching(false); }
+      return;
+    }
+
+    if (biz._id === user?.activeBusinessId) { setBizDropdown(false); return; }
     setSwitching(true);
     try {
       const res  = await fetch("/api/auth/switch-business", {
@@ -332,24 +469,6 @@ export default function Sidebar() {
     } finally { setSwitching(false); }
   }
 
-  async function exitBusiness() {
-    if (switching) return;
-    setSwitching(true);
-    try {
-      const res  = await fetch("/api/auth/exit-business", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setActiveBiz(null);
-        setUser((prev) => prev ? { ...prev, activeBusinessId: null } : prev);
-        setBizDropdown(false);
-        router.refresh();
-      } else {
-        toast.error(data.message || "Failed to exit business");
-      }
-    } catch {
-      toast.error("Failed to connect to server");
-    } finally { setSwitching(false); }
-  }
 
   async function handleLogout() {
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* silent */ }
@@ -357,6 +476,24 @@ export default function Sidebar() {
   }
 
   const moduleKeys = new Set(modules.map((m: any) => m.key));
+
+  // Per-role custom nav ordering (admin/access page's "Sidebar Order"
+  // editor, via Role.moduleOrder) -- items whose key appears in the list
+  // are moved to the front in that order (e.g. CRM Overview before
+  // Appointments/Workorders); anything not listed keeps its original
+  // relative position after them. Scoped to within each group/subgroup's
+  // own item list, not a full nav restructure.
+  const roleOrder: string[] = user?.moduleOrder || [];
+  function applyModuleOrder<T extends { key: string }>(items: T[]): T[] {
+    if (!roleOrder.length) return items;
+    const ranked: T[] = [];
+    const rest: T[] = [];
+    for (const item of items) {
+      if (roleOrder.includes(item.key)) ranked.push(item); else rest.push(item);
+    }
+    ranked.sort((a, b) => roleOrder.indexOf(a.key) - roleOrder.indexOf(b.key));
+    return [...ranked, ...rest];
+  }
 
   // "Modules" (the module-DEFINITION editor) is a platform-level admin
   // capability, not a per-business seeded module in the ui/sidebar sense —
@@ -440,7 +577,7 @@ export default function Sidebar() {
             <button
               onClick={() => setBizDropdown(!bizDropdown)}
               disabled={switching}
-              title={activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
+              title={activeBiz ? (activeBiz.isPlatform ? "AN Group" : (activeBiz.brandName || activeBiz.name)) : "Select Business"}
               className={`flex w-full items-center rounded-lg border border-gray-200 bg-gray-50 py-2 text-left transition hover:bg-gray-100 disabled:opacity-60 ${
                 isCollapsed ? "justify-center px-0" : "justify-between px-3"
               }`}
@@ -449,7 +586,7 @@ export default function Sidebar() {
                 <Building2 size={12} className="shrink-0 text-gray-400" />
                 {!isCollapsed && (
                   <span className="truncate text-xs font-medium text-gray-700">
-                    {activeBiz ? (activeBiz.brandName || activeBiz.name) : (user?.isSuperAdmin ? "All Businesses" : "Select Business")}
+                    {activeBiz ? (activeBiz.isPlatform ? "AN Group" : (activeBiz.brandName || activeBiz.name)) : "Select Business"}
                   </span>
                 )}
               </div>
@@ -462,36 +599,31 @@ export default function Sidebar() {
               <div className={`absolute top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden ${
                 isCollapsed ? "left-3 w-56" : "left-3 right-3"
               }`}>
-                {/* "All Businesses" is a first-class option for Super Admins,
-                    not just a way to exit a business you got stuck in — it
-                    always appears at the top of the list so choosing "look
-                    at everything" is as deliberate a choice as picking one
-                    specific business. */}
-                {user?.isSuperAdmin && (
-                  <button
-                    onClick={exitBusiness}
-                    disabled={switching}
-                    className="flex w-full items-center justify-between px-3 py-2.5 text-left bg-gray-50 hover:bg-gray-100 border-b border-gray-100 disabled:opacity-60"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <LogOut size={12} className="shrink-0 text-gray-500" />
-                      <span className="truncate text-xs font-medium text-gray-700">All Businesses</span>
-                    </div>
-                    {!user?.activeBusinessId && <Check size={11} className="shrink-0 text-emerald-500 ml-2" />}
-                  </button>
-                )}
-
-                {businesses.map((biz) => {
-                  const isActive = biz._id === user?.activeBusinessId;
+                {/* AN Group (the platform owner itself) is a real Business
+                    record now (see anGroupBusiness.service.ts) so it's a
+                    real, selectable entry in this same list -- but
+                    selecting it clears the active business rather than
+                    scoping into it as a real tenant (see switchBusiness's
+                    isPlatform branch), since AN Group means "see across
+                    every business", the same thing "no active business"
+                    already meant for Super Admin everywhere else in the
+                    app. Visible to every Super Admin / AN Group
+                    platform-staff account since api/auth/me's isPlatformStaff
+                    branch always includes it. */}
+                {[...businesses].sort((a, b) => (b.isPlatform ? 1 : 0) - (a.isPlatform ? 1 : 0)).map((biz) => {
+                  const isActive = biz.isPlatform ? !user?.activeBusinessId : biz._id === user?.activeBusinessId;
                   return (
                     <button
                       key={biz._id}
                       onClick={() => switchBusiness(biz)}
-                      className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                      className={`flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0 ${biz.isPlatform ? "bg-gray-50" : ""}`}
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-xs text-gray-800 font-medium">{biz.brandName || biz.name}</p>
-                        {biz.businessCode && <p className="text-[10px] text-gray-400">{biz.businessCode}</p>}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {biz.isPlatform && <LogOut size={12} className="shrink-0 text-gray-500" />}
+                        <div className="min-w-0">
+                          <p className="truncate text-xs text-gray-800 font-medium">{biz.isPlatform ? "AN Group" : (biz.brandName || biz.name)}</p>
+                          {!biz.isPlatform && biz.businessCode && <p className="text-[10px] text-gray-400">{biz.businessCode}</p>}
+                        </div>
                       </div>
                       {isActive && <Check size={11} className="shrink-0 text-emerald-500 ml-2" />}
                     </button>
@@ -503,18 +635,23 @@ export default function Sidebar() {
         )}
 
         {/* Persistent "currently viewing" banner — visible even when the
-            dropdown is closed, so a super admin never loses track of the
-            fact they're scoped into a single business and forgets there's
-            a way out. */}
-        {!isCollapsed && user?.isSuperAdmin && user?.activeBusinessId && activeBiz && (
+            dropdown is closed, so a super admin/AN Group staff member
+            never loses track of the fact they're scoped into one tenant
+            business and forgets there's a way back to AN Group. Hidden
+            when AN Group itself is the active business, since that IS the
+            "way out" state. */}
+        {!isCollapsed && (user?.isSuperAdmin || user?.isPlatformStaff) && activeBiz && !activeBiz.isPlatform && (
           <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
             <span className="truncate text-[10px] text-amber-700">
               Viewing as: <strong>{activeBiz.brandName || activeBiz.name}</strong>
             </span>
             <button
-              onClick={exitBusiness}
+              onClick={() => {
+                const anGroup = businesses.find((b) => b.isPlatform);
+                if (anGroup) switchBusiness(anGroup);
+              }}
               disabled={switching}
-              title="Return to Super Admin view"
+              title="Return to AN Group view"
               className="shrink-0 text-[10px] font-medium text-amber-700 underline hover:text-amber-900 disabled:opacity-60"
             >
               Exit
@@ -578,8 +715,7 @@ export default function Sidebar() {
                 {/* Flat items */}
                 {group.items && (
                   <div className="space-y-0.5">
-                    {group.items
-                      .filter((item) => isVisible(item.key))
+                    {applyModuleOrder(group.items.filter((item) => isVisible(item.key)))
                       .map((item) => renderItem(item))}
                   </div>
                 )}
@@ -595,12 +731,24 @@ export default function Sidebar() {
                   // separating there.
                   <div className={isCollapsed ? "space-y-2.5" : "space-y-0.5"}>
                     {group.subgroups.map((sg, sgIndex) => {
-                      const visibleSgItems = sg.items.filter((i) => isVisible(i.key));
+                      const visibleSgItems = applyModuleOrder(sg.items.filter((i) => isVisible(i.key)));
                       if (visibleSgItems.length === 0) return null;
                       const sgOpen = openSubgroups[sg.key] !== false;
 
+                      // A closed subgroup previews its items on hover without
+                      // needing a click -- the header's own hover state isn't
+                      // enough since moving the mouse down into the revealed
+                      // items would otherwise count as "left the header."
+                      // Covering the header + revealed items in one
+                      // mouse-tracking region fixes that.
+                      const previewing = hoveredSubgroup === sg.key;
+
                       return (
-                        <div key={sg.key}>
+                        <div
+                          key={sg.key}
+                          onMouseEnter={() => previewSubgroup(sg.key)}
+                          onMouseLeave={unpreviewSubgroup}
+                        >
                           {/* Sub-group toggle header */}
                           {!isCollapsed && (
                             <button
@@ -612,7 +760,7 @@ export default function Sidebar() {
                               <span>{sg.label}</span>
                               <ChevronDown
                                 size={10}
-                                className={`transition-transform ${sgOpen ? "" : "-rotate-90"}`}
+                                className={`transition-transform ${sgOpen || previewing ? "" : "-rotate-90"}`}
                               />
                             </button>
                           )}
@@ -624,8 +772,11 @@ export default function Sidebar() {
                             <div className="mx-3 mb-2.5 border-t border-gray-100" />
                           )}
 
-                          {/* Sub-group items */}
-                          {(sgOpen || isCollapsed) && (
+                          {/* Sub-group items -- open (pinned via click),
+                              hovered (temporary preview of a closed
+                              subgroup), or the whole sidebar is in icon-only
+                              mode (grouping doesn't apply there). */}
+                          {(sgOpen || isCollapsed || previewing) && (
                             <div className="space-y-0.5 mt-0.5">
                               {visibleSgItems.map((item) => renderItem(item, !isCollapsed))}
                             </div>

@@ -26,6 +26,9 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { logAction } from "@/lib/audit/logAction";
+import { resolveOwnerOrManagerVendor, resolveVendorTeamMembership } from "@/core/access/vendorAccess.service";
+// Required for .populate("deviceModelId", ...) below -- model must be registered before populate can resolve it.
+import "@/models/DeviceModel";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -35,9 +38,34 @@ function permissionErrorResponse(err: any) {
 }
 
 async function resolveVendorAndBusiness(userId: string, explicitVendorId?: string | null) {
-  const vendor = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
+  const vendor = await resolveOwnerOrManagerVendor(userId);
   if (vendor) {
     return { vendorId: (vendor as any)._id, businessId: (vendor as any).businessId };
+  }
+  if (explicitVendorId && mongoose.Types.ObjectId.isValid(explicitVendorId)) {
+    const v = await VendorProfile.findOne({ _id: explicitVendorId, isDeleted: { $ne: true } }).lean();
+    if (v) return { vendorId: (v as any)._id, businessId: (v as any).businessId };
+  }
+  return null;
+}
+
+// Read-only variant used by GET only -- an Owner/Manager isn't the only
+// one who needs to SEE this vendor's BOM (CCO/Engineer/Centre Manager
+// pick parts from it on every workorder), just the only one who can
+// manage it (POST stays on resolveVendorAndBusiness above). This was the
+// actual reason the workorder Description/BOM-part dropdown had no
+// options for those roles -- they never pass an explicit vendorId (the
+// job sheet page just calls GET with a brandId filter), and
+// resolveOwnerOrManagerVendor is exclusively Owner/Manager, so this
+// route 403'd "No vendor profile found" for every other team member.
+async function resolveVendorForRead(userId: string, explicitVendorId?: string | null) {
+  const ownerOrManager = await resolveOwnerOrManagerVendor(userId);
+  if (ownerOrManager) {
+    return { vendorId: (ownerOrManager as any)._id, businessId: (ownerOrManager as any).businessId };
+  }
+  const anyTeamMember = await resolveVendorTeamMembership(userId);
+  if (anyTeamMember) {
+    return { vendorId: (anyTeamMember as any)._id, businessId: (anyTeamMember as any).businessId };
   }
   if (explicitVendorId && mongoose.Types.ObjectId.isValid(explicitVendorId)) {
     const v = await VendorProfile.findOne({ _id: explicitVendorId, isDeleted: { $ne: true } }).lean();
@@ -63,7 +91,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const explicitVendorId = searchParams.get("vendorId");
 
-    const resolved = await resolveVendorAndBusiness(session.user.id, explicitVendorId);
+    const resolved = await resolveVendorForRead(session.user.id, explicitVendorId);
     if (!resolved) {
       return NextResponse.json(
         { success: false, error: "No vendor profile found for this account" },
@@ -73,6 +101,7 @@ export async function GET(req: NextRequest) {
 
     const search = searchParams.get("search");
     const brandId = searchParams.get("brandId");
+    const deviceModelId = searchParams.get("deviceModelId");
     const query: Record<string, unknown> = {
       businessId: resolved.businessId,
       vendorId: resolved.vendorId,
@@ -91,8 +120,18 @@ export async function GET(req: NextRequest) {
     if (brandId && mongoose.Types.ObjectId.isValid(brandId)) {
       query.$and = [{ $or: [{ brandId }, { brandId: null }, { brandId: { $exists: false } }] }];
     }
+    // Same inclusive pattern one level down -- a model-agnostic part under
+    // that brand ("fits every model") still shows when browsing one model.
+    if (deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId)) {
+      const modelOr = { $or: [{ deviceModelId }, { deviceModelId: null }, { deviceModelId: { $exists: false } }] };
+      query.$and = query.$and ? [...(query.$and as any[]), modelOr] : [modelOr];
+    }
 
-    const parts = await ServiceCenterBOM.find(query).populate("brandId", "name").sort({ partName: 1 }).lean();
+    const parts = await ServiceCenterBOM.find(query)
+      .populate("brandId", "name")
+      .populate("deviceModelId", "name")
+      .sort({ partName: 1 })
+      .lean();
     return NextResponse.json({ success: true, parts });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -110,7 +149,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       partName, hsnCode, rate, vendorId: explicitVendorId,
-      brandId, description, partType, unit, gstRate, warrantyDays, materialId,
+      brandId, deviceModelId, description, partType, unit, gstRate, warrantyDays, materialId,
     } = body;
 
     if (!partName?.trim() || !hsnCode?.trim() || rate === undefined || rate === null) {
@@ -140,6 +179,7 @@ export async function POST(req: NextRequest) {
       businessId: resolved.businessId,
       vendorId: resolved.vendorId,
       brandId: brandId && mongoose.Types.ObjectId.isValid(brandId) ? brandId : undefined,
+      deviceModelId: deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId) ? deviceModelId : undefined,
       partName: partName.trim(),
       partCode,
       description: description?.trim(),

@@ -55,7 +55,7 @@ const EmployeeProfileSchema = new Schema<IEmployeeProfile>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User' },
     businessId: { type: Schema.Types.ObjectId, ref: 'Business', required: true },
-    employeeId: { type: String, unique: true },
+    employeeId: { type: String },
     name: { type: String },
     email: { type: String },
     phone: { type: String },
@@ -114,6 +114,11 @@ const EmployeeProfileSchema = new Schema<IEmployeeProfile>(
 // coexist per business -- only two records both linked to the SAME user
 // in the SAME business collide.
 EmployeeProfileSchema.index({ businessId: 1, userId: 1 }, { unique: true, sparse: true });
+
+// employeeId was GLOBALLY unique -- two businesses couldn't both have
+// "EMP-001". Scoped per-business instead (sparse: some HR-only records may
+// have no employeeId assigned yet).
+EmployeeProfileSchema.index({ businessId: 1, employeeId: 1 }, { unique: true, sparse: true });
 
 const EmployeeProfile: Model<IEmployeeProfile> =
   mongoose.models.EmployeeProfile ||

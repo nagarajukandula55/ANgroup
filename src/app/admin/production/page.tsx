@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -16,6 +17,7 @@ import {
   ChevronDown,
   Package,
   CalendarDays,
+  Printer,
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
@@ -861,6 +863,16 @@ export default function ProductionOrdersPage() {
                         order.status === "CANCELLED") && (
                         <span className="text-xs text-gray-600 italic">—</span>
                       )}
+
+                      <Link
+                        href={`/admin/production/${order._id}/print`}
+                        target="_blank"
+                        title="Print"
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:text-gray-900 hover:border-gray-400 transition-colors"
+                      >
+                        <Printer size={11} />
+                        Print
+                      </Link>
                     </div>
                   </td>
                 </tr>

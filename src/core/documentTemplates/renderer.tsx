@@ -74,6 +74,7 @@ function renderBlock(
             <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">From</p>
             <p className="font-semibold">{data.company.name}</p>
             {data.company.address && <p className="text-xs text-gray-500">{data.company.address}</p>}
+            {data.company.phone && <p className="text-xs text-gray-500">{data.company.phone}</p>}
             {data.company.gstin && <p className="text-xs text-gray-500">GSTIN: {data.company.gstin}</p>}
           </div>
           {logoUrl && (
@@ -111,7 +112,10 @@ function renderBlock(
           <tbody>
             {data.items.map((item, i) => (
               <tr key={i} className="border-b border-gray-100">
-                <td className="py-2 pr-2">{item.description}</td>
+                <td className="py-2 pr-2">
+                  {item.description}
+                  {item.diagnosis && <p className="text-[10px] text-gray-400 mt-0.5">{item.diagnosis}</p>}
+                </td>
                 <td className="py-2 pr-2 text-gray-500">{item.hsnCode || "—"}</td>
                 <td className="py-2 pr-2 text-right">{item.qty} {item.unit || ""}</td>
                 <td className="py-2 pr-2 text-right">{fmtMoney(item.unitPrice)}</td>
@@ -139,15 +143,28 @@ function renderBlock(
         </div>
       );
 
-    case "terms":
+    case "terms": {
+      // Was `config.text || data.notes || company.termsAndConditions` --
+      // whichever came first WON outright, so whenever a document also had
+      // device/issue notes (almost always, for a job sheet), the actual
+      // business Terms & Conditions text never rendered at all. These are
+      // two different things -- render both, independently, when present.
+      const termsText = (block.config?.text as string) || data.company?.termsAndConditions;
       return (
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Terms &amp; Notes</p>
-          <p className="text-xs text-gray-600 whitespace-pre-line">
-            {(block.config?.text as string) || data.notes || "—"}
-          </p>
+        <div className="space-y-3">
+          {data.notes && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Notes</p>
+              <p className="text-xs text-gray-600 whitespace-pre-line">{data.notes}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Terms &amp; Conditions</p>
+            <p className="text-xs text-gray-600 whitespace-pre-line">{termsText || "—"}</p>
+          </div>
         </div>
       );
+    }
 
     case "signature":
       return (

@@ -7,6 +7,9 @@ import { logAction } from "@/lib/audit/logAction";
 import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/ProductCategory";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 /* =========================================================
  * GET  /api/material-categories?businessId=xxx
@@ -19,6 +22,14 @@ export async function GET(req: NextRequest) {
     const userId = h.get("x-user-id");
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("material_categories", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -58,6 +69,14 @@ export async function POST(req: NextRequest) {
     const userId = h.get("x-user-id");
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("material_categories", "create"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
     }
 
     const body = await req.json();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -16,6 +17,7 @@ import {
   Trash2,
   Eye,
   AlertCircle,
+  Printer,
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
@@ -606,6 +608,14 @@ export default function StockTransfersPage() {
                         <Eye size={11} />
                         View
                       </button>
+                      <Link
+                        href={`/admin/stock-transfers/${transfer._id}/print`}
+                        target="_blank"
+                        className="px-2.5 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:text-gray-900 hover:border-gray-400 flex items-center gap-1"
+                      >
+                        <Printer size={11} />
+                        Print
+                      </Link>
                       {transfer.status === "DRAFT" && (
                         <button
                           disabled={updatingId === transfer._id}

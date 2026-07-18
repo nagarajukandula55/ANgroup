@@ -1,0 +1,361 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
+import { TreeSelect } from '@/components/shared/TreeSelect'
+import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
+import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS, type DeviceCategory } from '@/core/catalog/deviceCategory'
+
+interface Brand { _id: string; name: string; parentId?: string | null; logoUrl?: string }
+interface FaultCode { _id: string; code: string; description: string }
+interface SymptomCode { _id: string; code: string; description: string }
+interface CrmOption { _id: string; code: string; label: string }
+interface Warehouse { _id: string; warehouseName: string }
+interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
+interface DeviceModelOption { _id: string; name: string }
+
+// Vendor's own equivalent of /admin/crm/jobsheets/new -- a real page, not
+// the inline right-hand modal this used to be (which was also missing
+// Company, Email, Address/Pincode/State/City, Product Category, IMEI/
+// Serial Number, Visit type, Warehouse and Remark entirely -- this now
+// matches the admin form field-for-field).
+export default function NewVendorJobSheetPage() {
+  const router = useRouter()
+  const { businessId } = useActiveBusinessId()
+  const [brands, setBrands] = useState<Brand[]>([])
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
+  const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
+  const [symptomCodes, setSymptomCodes] = useState<SymptomCode[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [appointmentTypes, setAppointmentTypes] = useState<CrmOption[]>([])
+  const [requestTypes, setRequestTypes] = useState<CrmOption[]>([])
+  const [models, setModels] = useState<DeviceModelOption[]>([])
+  const [vendorCategories, setVendorCategories] = useState<DeviceCategory[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const [form, setForm] = useState({
+    customerName: '', company: '', phone: '', email: '',
+    address: '', city: '', state: '', pincode: '',
+    product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', imeiOrSerialNumber: '',
+    faultCodeId: '', symptomCodeId: '', remark: '',
+    appointmentType: '', requestType: '',
+    warehouseId: '', title: '',
+    warrantyStatus: '', deviceAppearance: '', fileBackupDescription: '',
+  })
+
+  useEffect(() => {
+    if (!form.brandId || !businessId) { setModels([]); return }
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
+      .then(r => r.json())
+      .then(d => setModels(d.models || []))
+      .catch(() => setModels([]))
+  }, [form.brandId, businessId])
+
+  useEffect(() => {
+    fetch('/api/vendor/profile').then(r => r.json()).then(d => {
+      const cats = d?.data?.productCategories as DeviceCategory[] | undefined
+      setVendorCategories(cats && cats.length > 0 ? cats : [...DEVICE_CATEGORIES])
+    }).catch(() => setVendorCategories([...DEVICE_CATEGORIES]))
+  }, [])
+
+  useEffect(() => {
+    if (!businessId) return
+    fetch(`/api/product-categories?businessId=${businessId}`).then(r => r.json()).then(d => setProductCategories(d.categories || d.productCategories || d.data || [])).catch(() => {})
+    fetch(`/api/warehouses?businessId=${businessId}`).then(r => r.json()).then(d => setWarehouses(d.warehouses || d.data || [])).catch(() => {})
+    fetch(`/api/crm-option-lists?listType=APPOINTMENT_TYPE&businessId=${businessId}`).then(r => r.json()).then(d => setAppointmentTypes(d.options || [])).catch(() => {})
+    fetch(`/api/crm-option-lists?listType=REQUEST_TYPE&businessId=${businessId}`).then(r => r.json()).then(d => setRequestTypes(d.options || [])).catch(() => {})
+  }, [businessId])
+
+  useEffect(() => {
+    if (!businessId || !form.deviceCategory) { setBrands([]); setFaultCodes([]); setSymptomCodes([]); return }
+    fetch(`/api/brands?businessId=${businessId}&category=${form.deviceCategory}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
+    fetch(`/api/fault-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
+    fetch(`/api/symptom-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setSymptomCodes(d.symptomCodes || d.data || [])).catch(() => {})
+  }, [businessId, form.deviceCategory])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!businessId) {
+      setFormError('Could not determine your business -- try reloading the page.')
+      return
+    }
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      const res = await fetch('/api/crm/jobsheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, businessId }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to create job sheet')
+      router.push(`/vendor/crm/jobsheets/${d.jobSheet._id}`)
+    } catch (err: any) {
+      setFormError(err.message || 'Something went wrong')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const inputCls = "w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-400"
+  const labelCls = "block text-xs text-gray-500 mb-1.5"
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="max-w-[1800px] mx-auto px-6 py-10">
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => router.push('/vendor/crm/jobsheets')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold">New Workorder</h1>
+            <p className="text-sm text-gray-400">For a direct walk-in — no appointment needed first.</p>
+          </div>
+        </div>
+
+        {formError && (
+          <div className="mb-6 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{formError}</div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Customer</h2>
+            <div>
+              <label className={labelCls}>Customer Name *</label>
+              <input required value={form.customerName} onChange={e => setForm(p => ({ ...p, customerName: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>
+                Company <span className="text-gray-400 font-normal">(optional — only if this is a B2B customer needing a company name on the invoice)</span>
+              </label>
+              <input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} className={inputCls} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Contact No *</label>
+                <input required type="tel" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Email</label>
+                <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} className={inputCls} />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Address</h2>
+            <div>
+              <label className={labelCls}>Address</label>
+              <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} className={inputCls} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Pincode</label>
+                <PincodeInput
+                  value={form.pincode}
+                  onChange={(value) => setForm(p => ({ ...p, pincode: value }))}
+                  onResolved={({ state, city }) => setForm(p => ({ ...p, state: p.state || state, city: p.city || city }))}
+                  placeholder="400001"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>State</label>
+                <StateSelect
+                  value={form.state}
+                  onChange={(value) => setForm(p => ({ ...p, state: value, city: '' }))}
+                  className={`${inputCls} appearance-none`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>City</label>
+                <CitySelect
+                  value={form.city}
+                  state={form.state}
+                  onChange={(value) => setForm(p => ({ ...p, city: value }))}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Device</h2>
+            <div>
+              <label className={labelCls}>Product *</label>
+              <select required value={form.product} onChange={e => setForm(p => ({ ...p, product: e.target.value }))} className={inputCls}>
+                <option value="">Select product category…</option>
+                {productCategories.map(c => (
+                  <option key={c._id} value={c.name}>{c.parentId ? `↳ ${c.name}` : c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Device Category *</label>
+              <select
+                required
+                value={form.deviceCategory}
+                onChange={e => setForm(p => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '', symptomCodeId: '' }))}
+                className={inputCls}
+              >
+                <option value="">Select device type…</option>
+                {vendorCategories.map(c => (
+                  <option key={c} value={c}>{DEVICE_CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Device Brand *</label>
+                <TreeSelect
+                  items={brands}
+                  value={form.brandId}
+                  onChange={(id) => setForm(p => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
+                  placeholder={!form.deviceCategory ? 'Select a device type first' : 'Select brand…'}
+                  className={`${inputCls} ${!form.deviceCategory ? 'opacity-50 pointer-events-none' : ''}`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Model *</label>
+                <select
+                  required
+                  value={form.deviceModelId}
+                  onChange={(e) => {
+                    const m = models.find((mm) => mm._id === e.target.value)
+                    setForm(p => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                  }}
+                  disabled={!form.brandId}
+                  title="Select model"
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
+                  {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>IMEI / Serial Number</label>
+              <input value={form.imeiOrSerialNumber} onChange={e => setForm(p => ({ ...p, imeiOrSerialNumber: e.target.value }))} className={inputCls} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Workorder Details</h2>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Warranty Status</label>
+                <select value={form.warrantyStatus} onChange={e => setForm(p => ({ ...p, warrantyStatus: e.target.value }))} className={inputCls}>
+                  <option value="">—</option>
+                  <option value="IW">In Warranty (IW)</option>
+                  <option value="OOW">Out of Warranty (OOW)</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Device Appearance</label>
+                <select value={form.deviceAppearance} onChange={e => setForm(p => ({ ...p, deviceAppearance: e.target.value }))} className={inputCls}>
+                  <option value="">—</option>
+                  <option value="GOOD">Good</option>
+                  <option value="USED">Used</option>
+                  <option value="DENTS">Dents</option>
+                  <option value="BROKEN">Broken</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>File Backup Done?</label>
+                <select value={form.fileBackupDescription} onChange={e => setForm(p => ({ ...p, fileBackupDescription: e.target.value }))} className={inputCls}>
+                  <option value="">—</option>
+                  <option value="YES">Yes</option>
+                  <option value="NO">No</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Visit</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Appointment Type</label>
+                <select value={form.appointmentType} onChange={e => setForm(p => ({ ...p, appointmentType: e.target.value }))} className={inputCls}>
+                  <option value="">—</option>
+                  {appointmentTypes.map(o => <option key={o._id} value={o.code}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Request Type</label>
+                <select value={form.requestType} onChange={e => setForm(p => ({ ...p, requestType: e.target.value }))} className={inputCls}>
+                  <option value="">—</option>
+                  {requestTypes.map(o => <option key={o._id} value={o.code}>{o.label}</option>)}
+                </select>
+              </div>
+            </div>
+            {warehouses.length > 0 && (
+              <div>
+                <label className={labelCls}>Service Center / Warehouse</label>
+                <select value={form.warehouseId} onChange={e => setForm(p => ({ ...p, warehouseId: e.target.value }))} className={inputCls}>
+                  <option value="">—</option>
+                  {warehouses.map(w => <option key={w._id} value={w._id}>{w.warehouseName}</option>)}
+                </select>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Issue</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Fault Code</label>
+                <select
+                  value={form.faultCodeId}
+                  onChange={e => setForm(p => ({ ...p, faultCodeId: e.target.value }))}
+                  disabled={!form.deviceCategory}
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.deviceCategory ? 'Select a device type first' : 'Select fault code…'}</option>
+                  {faultCodes.map(f => <option key={f._id} value={f._id}>{f.code} — {f.description}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Symptom Code</label>
+                <select
+                  value={form.symptomCodeId}
+                  onChange={e => setForm(p => ({ ...p, symptomCodeId: e.target.value }))}
+                  disabled={!form.deviceCategory}
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.deviceCategory ? 'Select a device type first' : 'Select symptom code…'}</option>
+                  {symptomCodes.map(s => <option key={s._id} value={s._id}>{s.code} — {s.description}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Fault in Device *</label>
+              <textarea required rows={3} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className={`${inputCls} resize-none`} />
+            </div>
+            <div>
+              <label className={labelCls}>Remark</label>
+              <input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} className={inputCls} />
+            </div>
+          </section>
+
+          <div className="flex gap-3">
+            <button type="button" onClick={() => router.push('/vendor/crm/jobsheets')} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:text-gray-900 transition">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              Create Job Sheet
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

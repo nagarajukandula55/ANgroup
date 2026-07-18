@@ -32,9 +32,17 @@ export type DocumentTemplateType =
   | "QUOTATION"
   | "DELIVERY_CHALLAN"
   | "CREDIT_NOTE"
+  | "DEBIT_NOTE"
   | "PROFORMA_INVOICE"
   | "WORK_ORDER"
-  | "ESTIMATE";
+  | "ESTIMATE"
+  // Added alongside real print pages for each (these DO have real, existing
+  // records the system already generates, just no print page until now).
+  | "SALES_ORDER"
+  | "STOCK_TRANSFER"
+  | "STOCK_ADJUSTMENT"
+  | "PRODUCTION_ORDER"
+  | "GRN";
 
 export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "INVOICE",
@@ -42,9 +50,15 @@ export const DOCUMENT_TEMPLATE_TYPES: DocumentTemplateType[] = [
   "QUOTATION",
   "DELIVERY_CHALLAN",
   "CREDIT_NOTE",
+  "DEBIT_NOTE",
   "PROFORMA_INVOICE",
   "WORK_ORDER",
   "ESTIMATE",
+  "SALES_ORDER",
+  "STOCK_TRANSFER",
+  "STOCK_ADJUSTMENT",
+  "PRODUCTION_ORDER",
+  "GRN",
 ];
 
 export type TemplateBlockType =

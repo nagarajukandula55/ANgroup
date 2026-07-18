@@ -9,6 +9,9 @@ import VendorSettlement from "@/models/VendorSettlement";
 // hasn't been registered for model 'VendorProfile'" the moment any
 // settlement existed to populate.
 import "@/models/VendorProfile";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 /* =========================================================
  * GET /api/admin/vendor-settlements?businessId=&status=
@@ -17,12 +20,17 @@ import "@/models/VendorProfile";
  * =======================================================*/
 export async function GET(req: NextRequest) {
   try {
-    await connectDB();
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    try {
+      requirePermission(session as any, buildPermissionCode("vendor_settlements", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+    await connectDB();
+    const h = await headers();
 
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId") || h.get("x-active-business-id");

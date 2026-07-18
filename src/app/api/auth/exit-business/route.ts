@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       name:             payload.name,
       role:             payload.role,
       isSuperAdmin:     payload.isSuperAdmin,
+      isPlatformStaff:  payload.isPlatformStaff,
       businessIds:      payload.businessIds,
       activeBusinessId: undefined,
       organizationId:   payload.organizationId,

@@ -5,6 +5,9 @@ import Warehouse from "@/models/Warehouse";
 import Business from "@/models/Business";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // GET /api/warehouses — previously returned EVERY warehouse across every
 // business/vendor with no scoping at all. Now scoped:
@@ -15,12 +18,19 @@ import { generateDocumentNumber } from "@/core/numbering/numberingService";
 //    warehouses specifically (e.g. from a vendor detail screen)
 export async function GET(req) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session, buildPermissionCode("warehouses", "view"));
+    } catch (err) {
+      return NextResponse.json({ success: false, message: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
 
     const { searchParams } = new URL(req.url);
     const query = {};
@@ -57,12 +67,19 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session, buildPermissionCode("warehouses", "create"));
+    } catch (err) {
+      return NextResponse.json({ success: false, message: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
 
     const body = await req.json();
 

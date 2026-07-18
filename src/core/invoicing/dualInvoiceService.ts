@@ -213,3 +213,23 @@ export async function generateDualInvoicesForOrder(orderId: string) {
 
   return { b2c, b2bInvoices };
 }
+
+/**
+ * "B2B2C" is not a distinct invoice type in this system -- it's the label
+ * for the vendor -> AN Group -> end customer chain generateDualInvoicesForOrder
+ * already produces above (a B2B leg per fulfilling vendor + one B2C leg for
+ * the order), linked by the shared sourceOrderId. This returns that full
+ * chain for a given order so a print/view page can show "part of a B2B2C
+ * chain" with links to the sibling invoice(s), without inventing a new
+ * generation path or a third invoiceType value.
+ */
+export async function getB2B2CChain(sourceOrderId: string) {
+  const invoices = await SalesInvoice.find({ sourceOrderId }).sort({ invoiceType: 1, createdAt: 1 }).lean();
+  const b2b = invoices.filter((inv: any) => inv.invoiceType === "B2B");
+  const b2c = invoices.filter((inv: any) => inv.invoiceType === "B2C");
+  return {
+    isB2B2C: b2b.length > 0 && b2c.length > 0,
+    b2b,
+    b2c,
+  };
+}

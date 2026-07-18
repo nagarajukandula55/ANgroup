@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
-import VendorProfile from "@/models/VendorProfile";
 import Business from "@/models/Business";
 import SalesInvoice from "@/models/SalesInvoice";
 import Order from "@/models/Order";
 import NativeProduct from "@/models/NativeProduct";
+import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: false, message: "Vendor access required" }, { status: 403 });
     }
 
-    const vendor = await VendorProfile.findOne({ userId, isDeleted: false }).lean();
+    const vendor = await resolveOwnerOrManagerVendor(userId);
     if (!vendor) {
       return NextResponse.json({ success: false, message: "Vendor profile not found" }, { status: 404 });
     }

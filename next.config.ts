@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
       { source: "/erp/purchase", destination: "/admin/purchase", permanent: false },
       { source: "/erp/sales", destination: "/admin/sales", permanent: false },
       { source: "/documents/agreements", destination: "/admin/agreements", permanent: false },
+      { source: "/agreements", destination: "/admin/agreements", permanent: false },
     ];
   },
 };

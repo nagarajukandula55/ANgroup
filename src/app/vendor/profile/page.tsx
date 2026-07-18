@@ -105,8 +105,50 @@ export default function VendorProfilePage() {
   // false and the section below never renders for them.
   const [canManageSettings, setCanManageSettings] = useState(false)
   const [inventorySerialized, setInventorySerialized] = useState(false)
+  const [termsAndConditions, setTermsAndConditions] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
+  // Default Labour Charge -- fallback rate for the workorder page's "Add
+  // Labour Charge" line, per explicit direction ("Add Labour charge key
+  // must add charges set by manager or owner"). Owner/Manager only, same
+  // section as the rest of Business Settings.
+  const [defaultLabourCharge, setDefaultLabourCharge] = useState('0')
+  const [savingLabourCharge, setSavingLabourCharge] = useState(false)
+  // Customer Logo -- shown on the Intake Receipt/Workorder print in place
+  // of the device brand's own logo/name, per explicit direction (that
+  // document should never show the device manufacturer's branding).
+  // Blank = no logo prints at all.
+  const [customerLogoUrl, setCustomerLogoUrl] = useState('')
+  const [savingCustomerLogo, setSavingCustomerLogo] = useState(false)
+  // Service Record settings -- printed on the document generated after
+  // closing a job sheet (see /vendor/crm/jobsheets/[id]/service-record).
+  // Owner/Manager only, same as the rest of this section.
+  const [serviceHours, setServiceHours] = useState('')
+  const [serviceHotline, setServiceHotline] = useState('')
+  const [savingServiceRecord, setSavingServiceRecord] = useState(false)
+  const [serviceRecordMessage, setServiceRecordMessage] = useState('')
+
+  // Team & Access -- every user Super Admin (or the vendor) attached to
+  // this vendor, with per-module access checkboxes the Owner/Manager
+  // controls directly ("vendor can give either single access to user or
+  // multiple access"). Backed by /api/vendor/team.
+  interface TeamMember { userId: string; name?: string; email?: string; username?: string; isOwner: boolean; isManager: boolean; modules: string[] }
+  interface AccessModule { key: string; label: string; description?: string }
+  const [team, setTeam] = useState<TeamMember[]>([])
+  const [availableModules, setAvailableModules] = useState<AccessModule[]>([])
+  const [teamSaving, setTeamSaving] = useState<string | null>(null)
+  const [teamMessage, setTeamMessage] = useState('')
+
+  async function loadTeam() {
+    try {
+      const res = await fetch('/api/vendor/team')
+      const d = await res.json()
+      if (d.success) {
+        setTeam(d.team || [])
+        setAvailableModules(d.availableModules || [])
+      }
+    } catch { /* section stays hidden for non-managers */ }
+  }
 
   useEffect(() => {
     fetch('/api/vendor/settings')
@@ -115,10 +157,41 @@ export default function VendorProfilePage() {
         if (d.success) {
           setCanManageSettings(true)
           setInventorySerialized(Boolean(d.inventorySerialized))
+          setTermsAndConditions(d.termsAndConditions || '')
+          setDefaultLabourCharge(String(d.defaultLabourCharge ?? 0))
+          setCustomerLogoUrl(d.customerLogoUrl || '')
         }
       })
       .catch(() => {})
+    loadTeam()
   }, [])
+
+  function toggleMemberModule(userId: string, moduleKey: string) {
+    setTeam((prev) => prev.map((m) => {
+      if (m.userId !== userId) return m
+      const has = m.modules.includes(moduleKey)
+      return { ...m, modules: has ? m.modules.filter((k) => k !== moduleKey) : [...m.modules, moduleKey] }
+    }))
+  }
+
+  async function saveMemberAccess(member: TeamMember) {
+    setTeamSaving(member.userId)
+    setTeamMessage('')
+    try {
+      const res = await fetch('/api/vendor/team', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: member.userId, modules: member.modules, isManager: member.isManager }),
+      })
+      const d = await res.json()
+      setTeamMessage(d.success ? `Saved access for ${member.name || member.email}.` : d.error || 'Failed to save.')
+      if (d.success) loadTeam()
+    } catch {
+      setTeamMessage('Failed to save.')
+    } finally {
+      setTeamSaving(null)
+    }
+  }
 
   async function saveInventorySetting(value: boolean) {
     setSavingSettings(true)
@@ -136,6 +209,64 @@ export default function VendorProfilePage() {
       } else {
         setSettingsMessage(d.error || 'Failed to save.')
       }
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  async function saveLabourCharge() {
+    const value = parseFloat(defaultLabourCharge) || 0
+    setSavingLabourCharge(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultLabourCharge: value }),
+      })
+      const d = await res.json()
+      setSettingsMessage(d.success ? 'Saved.' : d.error || 'Failed to save.')
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingLabourCharge(false)
+    }
+  }
+
+  async function saveCustomerLogo() {
+    setSavingCustomerLogo(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerLogoUrl }),
+      })
+      const d = await res.json()
+      setSettingsMessage(d.success ? 'Saved.' : d.error || 'Failed to save.')
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingCustomerLogo(false)
+    }
+  }
+
+  // Terms & Conditions -- shown on this business's workorder, estimate and
+  // invoice pages/prints. Saved separately (own button) from the
+  // inventory toggle above since it's a text field, not a flip-and-save.
+  async function saveTerms() {
+    setSavingSettings(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ termsAndConditions }),
+      })
+      const d = await res.json()
+      setSettingsMessage(d.success ? 'Saved.' : d.error || 'Failed to save.')
     } catch {
       setSettingsMessage('Failed to save.')
     } finally {
@@ -193,6 +324,8 @@ export default function VendorProfilePage() {
             },
             servicePincodes: Array.isArray(p.servicePincodes) ? p.servicePincodes : [],
           })
+          setServiceHours(p.serviceCenterInfo?.hours || '')
+          setServiceHotline(p.serviceCenterInfo?.hotline || '')
         } else {
           setError(res.message || 'Failed to load profile')
         }
@@ -200,6 +333,24 @@ export default function VendorProfilePage() {
       .catch(() => setError('Failed to load profile'))
       .finally(() => setLoading(false))
   }, [])
+
+  async function saveServiceRecordInfo() {
+    setSavingServiceRecord(true)
+    setServiceRecordMessage('')
+    try {
+      const res = await fetch('/api/vendor/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceCenterInfo: { hours: serviceHours, hotline: serviceHotline } }),
+      })
+      const d = await res.json()
+      setServiceRecordMessage(d.success ? 'Saved.' : d.message || 'Failed to save.')
+    } catch {
+      setServiceRecordMessage('Failed to save.')
+    } finally {
+      setSavingServiceRecord(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -597,7 +748,186 @@ export default function VendorProfilePage() {
               list with no live stock check.
             </span>
           </label>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Default Labour Charge</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Rate used by the workorder page's "Add Labour Charge" button when this vendor has no
+              Labour-type Service Center BOM entry of its own.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">₹</span>
+              <input
+                type="number"
+                min={0}
+                value={defaultLabourCharge}
+                onChange={(e) => setDefaultLabourCharge(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                className="w-32 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+              />
+              <button
+                onClick={saveLabourCharge}
+                disabled={savingLabourCharge}
+                className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+              >
+                {savingLabourCharge ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Customer Logo</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Shown on the Intake Receipt/Workorder print instead of the device brand's own logo -- that
+              document never shows the manufacturer's branding. Leave blank for no logo at all.
+            </p>
+            <div className="flex items-center gap-3">
+              {customerLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={customerLogoUrl} alt="Customer logo preview" className="h-10 w-auto max-w-[120px] object-contain border border-gray-200 rounded-lg bg-white p-1" />
+              ) : (
+                <div className="h-10 w-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400">None</div>
+              )}
+              <input
+                type="url"
+                value={customerLogoUrl}
+                onChange={(e) => setCustomerLogoUrl(e.target.value)}
+                placeholder="https://…"
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+              />
+              <button
+                onClick={saveCustomerLogo}
+                disabled={savingCustomerLogo}
+                className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+              >
+                {savingCustomerLogo ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Terms &amp; Conditions</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Shown on this business's workorder, estimate and invoice pages/prints.
+            </p>
+            <textarea
+              value={termsAndConditions}
+              onChange={(e) => setTermsAndConditions(e.target.value)}
+              rows={5}
+              placeholder="e.g. Payment due within 7 days of invoice. Warranty does not cover physical/liquid damage..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+            />
+            <button
+              onClick={saveTerms}
+              disabled={savingSettings}
+              className="mt-2 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+            >
+              {savingSettings ? 'Saving…' : 'Save Terms & Conditions'}
+            </button>
+          </div>
+
           {settingsMessage && <p className="text-xs text-gray-500 mt-2">{settingsMessage}</p>}
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-900 mb-1">Service Record Details</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Printed on the Service Record generated after closing a job sheet, alongside your company name/address/phone above.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField
+                label="Service Hours"
+                value={serviceHours}
+                onChange={setServiceHours}
+                placeholder="10:00-13:00 14:00-19:00 (Week Off: Sunday)"
+              />
+              <FormField
+                label="Official Hotline"
+                value={serviceHotline}
+                onChange={setServiceHotline}
+                placeholder="18001028411"
+              />
+            </div>
+            <button
+              onClick={saveServiceRecordInfo}
+              disabled={savingServiceRecord}
+              className="mt-2 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+            >
+              {savingServiceRecord ? 'Saving…' : 'Save Service Record Details'}
+            </button>
+            {serviceRecordMessage && <p className="text-xs text-gray-500 mt-2">{serviceRecordMessage}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Team & Access -- Owner/Manager only. Every user attached to this
+          vendor (by Super Admin or the vendor), each with per-module
+          access checkboxes. Access takes effect on the member's next
+          page load / login. */}
+      {team.length > 0 && availableModules.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Team &amp; Access</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Users attached to your vendor. Tick the modules each person may use — one or many — then save.
+            &quot;Manager&quot; grants full access plus the ability to manage this team.
+          </p>
+          {teamMessage && (
+            <div className="mb-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{teamMessage}</div>
+          )}
+          <div className="space-y-4">
+            {team.map((member) => (
+              <div key={member.userId} className="rounded-xl border border-gray-100 p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {member.name || member.email}
+                      {member.isOwner && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600">Owner</span>}
+                      {member.isManager && !member.isOwner && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">Manager</span>}
+                    </p>
+                    <p className="text-xs text-gray-400">{member.username || member.email}</p>
+                  </div>
+                  {!member.isOwner && (
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={member.isManager}
+                          onChange={(e) => setTeam((prev) => prev.map((m) => m.userId === member.userId ? { ...m, isManager: e.target.checked } : m))}
+                          className="w-3.5 h-3.5"
+                        />
+                        Manager
+                      </label>
+                      <button
+                        onClick={() => saveMemberAccess(member)}
+                        disabled={teamSaving === member.userId}
+                        className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
+                      >
+                        {teamSaving === member.userId ? 'Saving…' : 'Save Access'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {member.isOwner ? (
+                  <p className="text-xs text-gray-400">The Owner always has full access to every available module.</p>
+                ) : member.isManager ? (
+                  <p className="text-xs text-gray-400">Managers have full access to every available module. Untick Manager to grant specific modules instead.</p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                    {availableModules.map((mod) => (
+                      <label key={mod.key} title={mod.description} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer rounded-lg border border-gray-100 px-2 py-1.5 hover:border-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={member.modules.includes(mod.key)}
+                          onChange={() => toggleMemberModule(member.userId, mod.key)}
+                          className="w-3.5 h-3.5"
+                        />
+                        {mod.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

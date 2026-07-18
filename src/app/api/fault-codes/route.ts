@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
     const businessId = searchParams.get("businessId");
     const search = searchParams.get("search");
     const isActive = searchParams.get("isActive");
+    const deviceCategory = searchParams.get("deviceCategory");
 
     await connectDB();
     await ensureSeeded();
@@ -65,6 +66,9 @@ export async function GET(req: NextRequest) {
     }
     if (isActive !== null) {
       query.isActive = isActive === "true";
+    }
+    if (deviceCategory) {
+      query.deviceCategory = deviceCategory;
     }
     if (search) {
       const searchOr = [
@@ -99,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { code, description, category, businessId, businessScope, businessIds, parentId } = body;
+    const { code, description, category, deviceCategory, businessId, businessScope, businessIds, parentId } = body;
 
     if (!code?.trim() || !description?.trim()) {
       return NextResponse.json(
@@ -114,6 +118,7 @@ export async function POST(req: NextRequest) {
       code: code.trim(),
       description: description.trim(),
       category: category?.trim(),
+      deviceCategory: deviceCategory || null,
       businessId: businessId && Types.ObjectId.isValid(businessId) ? new Types.ObjectId(businessId) : null,
       businessScope: businessScope || "SINGLE",
       businessIds: Array.isArray(businessIds) ? businessIds : [],

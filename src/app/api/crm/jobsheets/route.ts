@@ -56,6 +56,14 @@ export async function GET(req: NextRequest) {
       filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
     }
 
+    // Vendor CRM pages (see app/vendor/crm/jobsheets) scope to a whole
+    // vendor TEAM's assignments at once -- same reasoning as calls/route.ts.
+    const assignedToIn = req.nextUrl.searchParams.get("assignedToIn");
+    if (assignedToIn) {
+      const ids = assignedToIn.split(",").filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (ids.length > 0) filter.assignedTo = { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) };
+    }
+
     const search = req.nextUrl.searchParams.get("search");
     if (search) {
       filter.$or = [
@@ -74,7 +82,7 @@ export async function GET(req: NextRequest) {
         .skip((page - 1) * limit)
         .limit(limit)
         .populate("assignedTo", "name email")
-        .populate("brandId", "name")
+        .populate("brandId", "name logoUrl")
         .lean(),
       CrmJobSheet.countDocuments(filter),
     ]);
@@ -122,12 +130,20 @@ export async function POST(req: NextRequest) {
       state,
       pincode,
       product,
+      deviceCategory,
       brandId,
       deviceModel,
+      deviceModelId,
       imeiOrSerialNumber,
       issueDescription,
       faultCodeId,
+      symptomCodeId,
       remark,
+      warrantyStatus,
+      deviceAppearance,
+      fileBackupDescription,
+      standardAccessories,
+      specialDescription,
       appointmentType,
       requestType,
       brandJobNoForPartOrder,
@@ -185,18 +201,32 @@ export async function POST(req: NextRequest) {
       state,
       pincode,
       product,
+      deviceCategory: deviceCategory || undefined,
       brandId:
         brandId && mongoose.Types.ObjectId.isValid(brandId)
           ? new mongoose.Types.ObjectId(brandId)
           : undefined,
       deviceModel,
+      deviceModelId:
+        deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId)
+          ? new mongoose.Types.ObjectId(deviceModelId)
+          : undefined,
       imeiOrSerialNumber,
       issueDescription,
       faultCodeId:
         faultCodeId && mongoose.Types.ObjectId.isValid(faultCodeId)
           ? new mongoose.Types.ObjectId(faultCodeId)
           : undefined,
+      symptomCodeId:
+        symptomCodeId && mongoose.Types.ObjectId.isValid(symptomCodeId)
+          ? new mongoose.Types.ObjectId(symptomCodeId)
+          : undefined,
       remark,
+      warrantyStatus: ["IW", "OOW"].includes(warrantyStatus) ? warrantyStatus : undefined,
+      deviceAppearance: ["GOOD", "USED", "DENTS", "BROKEN"].includes(deviceAppearance) ? deviceAppearance : undefined,
+      fileBackupDescription: ["YES", "NO"].includes(fileBackupDescription) ? fileBackupDescription : undefined,
+      standardAccessories,
+      specialDescription,
       appointmentType: ["ONSITE", "WALKIN"].includes(appointmentType) ? appointmentType : undefined,
       requestType: ["REPAIR", "INSTALLATION"].includes(requestType) ? requestType : undefined,
       brandJobNoForPartOrder,

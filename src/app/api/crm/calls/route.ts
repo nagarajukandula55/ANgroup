@@ -65,6 +65,17 @@ export async function GET(req: NextRequest) {
       filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
     }
 
+    // Vendor CRM pages (see app/vendor/crm/calls) scope to a whole vendor
+    // TEAM's assignments at once (not just one person), since these records
+    // have no vendorId of their own -- only assignedTo. Comma-separated
+    // list of userIds, same permission gate as the single-assignedTo form
+    // above (crm_calls.view).
+    const assignedToIn = req.nextUrl.searchParams.get("assignedToIn");
+    if (assignedToIn) {
+      const ids = assignedToIn.split(",").filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (ids.length > 0) filter.assignedTo = { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) };
+    }
+
     const search = req.nextUrl.searchParams.get("search");
     if (search) {
       filter.$or = [
@@ -143,9 +154,12 @@ export async function POST(req: NextRequest) {
       pincode,
       source,
       product,
+      deviceCategory,
       brandId,
       deviceModel,
+      deviceModelId,
       faultCodeId,
+      symptomCodeId,
       subject,
       description,
       priority,
@@ -198,9 +212,12 @@ export async function POST(req: NextRequest) {
       pincode,
       source,
       product,
+      deviceCategory: deviceCategory || undefined,
       brandId: brandId && mongoose.Types.ObjectId.isValid(brandId) ? new mongoose.Types.ObjectId(brandId) : undefined,
       deviceModel,
+      deviceModelId: deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId) ? new mongoose.Types.ObjectId(deviceModelId) : undefined,
       faultCodeId: faultCodeId && mongoose.Types.ObjectId.isValid(faultCodeId) ? new mongoose.Types.ObjectId(faultCodeId) : undefined,
+      symptomCodeId: symptomCodeId && mongoose.Types.ObjectId.isValid(symptomCodeId) ? new mongoose.Types.ObjectId(symptomCodeId) : undefined,
       subject: subject.trim(),
       description,
       priority: priority || "MEDIUM",

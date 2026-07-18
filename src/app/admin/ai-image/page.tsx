@@ -233,6 +233,7 @@ function ProviderCard({
   const [model, setModel] = useState(providerData.model ?? meta.defaultModel ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showKey, setShowKey] = useState(false)
 
   useEffect(() => {
@@ -245,10 +246,13 @@ function ProviderCard({
 
   async function handleSave() {
     setSaving(true)
+    setSaveError(null)
     try {
       await onSave(meta.name, { apiKey, isEnabled, model: meta.hasModel ? model : undefined })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save')
     } finally {
       setSaving(false)
     }
@@ -361,6 +365,7 @@ function ProviderCard({
           ) : null}
           {saved ? 'Saved!' : 'Save'}
         </button>
+        {saveError && <p className="mt-1.5 text-xs text-red-600">{saveError}</p>}
       </div>
     </div>
   )
@@ -852,7 +857,7 @@ export default function AIStudioPage() {
     providerName: ProviderName,
     data: { apiKey: string; isEnabled: boolean; model?: string }
   ) {
-    await fetch('/api/ai/providers', {
+    const res = await fetch('/api/ai/providers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -862,6 +867,14 @@ export default function AIStudioPage() {
         model: data.model,
       }),
     })
+    const result = await res.json().catch(() => ({}))
+    // Was discarded entirely -- the card always showed "Saved!" even when
+    // this 400'd (most commonly: no active business selected, see
+    // /api/ai/providers' POST handler), so a save that silently did
+    // nothing looked identical to a real one until the next page refresh.
+    if (!res.ok || result?.success === false) {
+      throw new Error(result?.error || 'Failed to save. Select a business (top-right switcher) and try again.')
+    }
     await fetchConfig()
   }
 

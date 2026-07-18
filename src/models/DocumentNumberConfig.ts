@@ -52,13 +52,16 @@ export interface IDocumentNumberConfig extends Document {
   // prefix/separator/fy/month/seq/suffix builder entirely. Supports
   // placeholder tokens: {prefix} {fy} {month} {year} {seq} {suffix}, plus
   // arbitrary caller-supplied tokens like {vendorId}, {customerId},
-  // {businessCode} for document types whose generating code passes that
-  // context (see generateDocumentNumber's `context` param) — e.g. vendor
-  // product codes pass {vendorId} so every vendor's own code appears in
-  // their products' numbers instead of a fixed literal. A token with no
-  // matching context at generation time throws rather than silently
-  // producing a wrong/colliding number — design the template against
-  // what the specific document type's generating code actually supplies.
+  // {businessCode}, and every other document type's own number under its
+  // DOCUMENT_NUMBER_TOKENS name (e.g. {invoiceNumber}, {grnNumber} — see
+  // core/numbering/types.ts) for document types whose generating code
+  // passes that context (see generateDocumentNumber's `context` param) —
+  // e.g. vendor product codes pass {vendorId} so every vendor's own code
+  // appears in their products' numbers instead of a fixed literal. A token
+  // with no matching context at generation time renders as "" rather than
+  // throwing (see numberingService.ts's renderTemplate) — most (type,
+  // token) combinations have no real relationship and are expected to
+  // never be supplied.
   template: string;
 
   // Control

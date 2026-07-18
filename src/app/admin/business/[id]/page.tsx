@@ -23,6 +23,8 @@ import { VENDOR_DOC_CATALOG } from "@/core/vendorCompliance";
 // section below).
 import { STATIC_MODULES } from "@/components/sidebar";
 import { useToast } from "@/components/shared/Toast";
+import { MODULE_TEMPLATE_OPTIONS, isEnabledUnderTemplate, describeBusinessUsage, type ModuleTemplateKey } from "@/core/access/moduleTemplates";
+import DocumentNumbersPanel from "@/components/admin/DocumentNumbersPanel";
 
 interface AuditLogEntry {
   _id: string;
@@ -960,18 +962,38 @@ export default function BusinessDetailPage() {
           <h2 className="font-bold text-lg">Modules</h2>
           <p className="text-xs text-gray-400">
             Choose which application modules are available to this business.
-            Unchecked modules are hidden from this business's sidebar for
-            non-super-admin users.
+            Unchecked modules are hidden from this business's sidebar.
           </p>
+          <div className="flex flex-wrap gap-2">
+            {MODULE_TEMPLATE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    modules: form.modules.map((m) => ({
+                      ...m,
+                      enabled: isEnabledUnderTemplate(m.key, opt.value as ModuleTemplateKey),
+                    })),
+                  })
+                }
+                className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Apply: {opt.label}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {form.modules.map((mod) => (
               <label
                 key={mod.key}
-                className="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                className="flex items-start gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
               >
                 <input
                   type="checkbox"
                   checked={mod.enabled}
+                  className="mt-0.5"
                   onChange={(e) =>
                     setForm({
                       ...form,
@@ -981,10 +1003,27 @@ export default function BusinessDetailPage() {
                     })
                   }
                 />
-                {mod.label}
+                <span>
+                  <span className="block">{mod.label}</span>
+                  {/* Which business TYPES this page/data is actually for --
+                      per explicit direction, so an admin has clarity while
+                      configuring modules per business without needing to
+                      remember or re-derive it from moduleTemplates.ts. */}
+                  <span className="block text-[10px] text-gray-400">{describeBusinessUsage(mod.key)}</span>
+                </span>
               </label>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-bold text-lg">Document Numbering</h2>
+          <p className="text-xs text-gray-400">
+            Prefix, sequence, financial year and custom-template format for every document type this business
+            generates -- invoices, orders, GRNs, workorders, and more. This is the one place to configure it,
+            per business.
+          </p>
+          <DocumentNumbersPanel businessId={id} />
         </section>
 
         <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4 lg:col-span-2">

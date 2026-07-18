@@ -3,9 +3,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import VendorLogoutButton from '@/components/vendor/VendorLogoutButton'
 import AnuWidget from '@/components/AnuWidget'
-import NotificationBell from '@/components/NotificationBell'
 import { connectDB } from '@/lib/mongodb'
 import BusinessMember from '@/models/BusinessMember'
+import { resolveOwnerOrManagerVendor, getVendorStaffAccessMap } from '@/core/access/vendorAccess.service'
 import {
   LayoutDashboard,
   Package,
@@ -19,24 +19,58 @@ import {
   Warehouse,
   Users,
   Boxes,
+  Phone,
+  ClipboardList,
+  PackageCheck,
+  ArrowLeftRight,
+  Wrench,
 } from 'lucide-react'
 
-// NOTE: Bill of Materials is intentionally NOT a top-level nav item — BOM
-// is per-product (see /vendor/products/[id]/bom, already built and wired
-// from each product's own detail page), not a flat vendor-wide list, so it
-// belongs inside "My Products" rather than getting its own nav entry.
-const navItems = [
-  { href: '/vendor', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/vendor/products', label: 'My Products', icon: Package },
-  { href: '/vendor/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart },
-  { href: '/vendor/offline-sales', label: 'Offline Sales', icon: ShoppingBag },
-  { href: '/vendor/warehouses', label: 'Warehouses', icon: Warehouse },
-  { href: '/vendor/staff', label: 'Staff', icon: Users },
-  { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText },
-  { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet },
-  { href: '/vendor/profile', label: 'My Profile', icon: User },
-  { href: '/vendor/statement', label: 'Financial Statement', icon: BarChart3 },
+// NOTE: Product Bill of Materials is intentionally NOT a top-level nav
+// item — that BOM is per-product (see /vendor/products/[id]/bom, already
+// built and wired from each product's own detail page), not a flat
+// vendor-wide list, so it belongs inside "My Products" rather than
+// getting its own nav entry. Service Center BOM (the repair parts/
+// labour/consumable price list workorders pick from) is a DIFFERENT,
+// unrelated BOM -- see models/ServiceCenterBOM.ts's own comment -- and
+// DOES get a nav entry below, since it's genuinely vendor-wide, not
+// scoped to one product.
+//
+// `modules`: which granted module keys make this nav item visible to a
+// STAFF member (Owner/Manager always see everything; managerOnly items are
+// theirs regardless of module grants). null = visible to every team member.
+const navItems: { href: string; label: string; icon: any; modules: string[] | null; managerOnly?: boolean }[] = [
+  { href: '/vendor', label: 'Dashboard', icon: LayoutDashboard, modules: null },
+  { href: '/vendor/products', label: 'My Products', icon: Package, modules: ['vendor_products', 'products'] },
+  { href: '/vendor/inventory', label: 'Inventory', icon: Boxes, modules: ['inventory'] },
+  { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart, modules: ['sales'] },
+  { href: '/vendor/offline-sales', label: 'Offline Sales', icon: ShoppingBag, modules: ['sales'] },
+  { href: '/vendor/warehouses', label: 'Warehouses', icon: Warehouse, modules: ['warehouses'] },
+  // Service-center staff (CCO/Engineer/Centre Manager) already get
+  // crm_calls/crm_jobsheets permissions via MEMBER_TYPE_IMPLIED_MODULES
+  // (see vendor/staff/create/route.ts) but had no vendor-side page to use
+  // them on -- only /admin/crm existed, which isn't theirs to navigate
+  // into. These reuse the exact same /api/crm/calls, /api/crm/jobsheets
+  // endpoints, just scoped to this vendor's own team.
+  { href: '/vendor/crm/calls', label: 'Appointments', icon: Phone, modules: ['crm_calls', 'crm'] },
+  { href: '/vendor/crm/jobsheets', label: 'Workorders', icon: ClipboardList, modules: ['crm_jobsheets', 'crm'] },
+  { href: '/vendor/service-bom', label: 'Service Center BOM', icon: Wrench, modules: ['crm_jobsheets', 'crm'] },
+  // Read-only vendor views of business-initiated procurement documents --
+  // the business places/approves these, a vendor's role is to see and
+  // fulfill them, not author them (see each page's own top comment).
+  { href: '/vendor/purchase', label: 'Purchase Orders', icon: ShoppingCart, modules: ['purchase'] },
+  { href: '/vendor/grn', label: 'Goods Receipts', icon: PackageCheck, modules: ['grn'] },
+  { href: '/vendor/stock-transfers', label: 'Stock Transfers', icon: ArrowLeftRight, modules: ['stock_transfers'] },
+  { href: '/vendor/staff', label: 'Staff', icon: Users, modules: ['staff'], managerOnly: true },
+  { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText, modules: ['finance'] },
+  { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet, modules: ['finance'], managerOnly: true },
+  // Was labeled only "My Profile" -- this IS the vendor's settings page
+  // (backed by /api/vendor/settings), already fully accessible to every
+  // Owner/Manager (modules: null), but an Owner/Manager looking for
+  // "Settings" specifically didn't recognize this as it and believed they
+  // had no settings access at all.
+  { href: '/vendor/profile', label: 'My Profile / Settings', icon: User, modules: null },
+  { href: '/vendor/statement', label: 'Financial Statement', icon: BarChart3, modules: ['finance'] },
 ]
 
 export default async function VendorLayout({
@@ -62,10 +96,11 @@ export default async function VendorLayout({
   // ACTIVE BusinessMember row tied to a real vendor (vendorId set), which
   // is what actually grants vendor-portal access today.
   let hasVendorTeamAccess = false
+  let membership: any = null
   if (role !== 'VENDOR' && userId) {
     try {
       await connectDB()
-      const membership = await BusinessMember.findOne({
+      membership = await BusinessMember.findOne({
         userId,
         vendorId: { $ne: null },
         status: 'ACTIVE',
@@ -81,10 +116,43 @@ export default async function VendorLayout({
     redirect('/login')
   }
 
+  // Nav filtering by the member's actual granted access ("based on access
+  // that user should get access privileges and accordingly... UI changes"):
+  //  - the structural Owner (role === 'VENDOR' login, or VendorProfile
+  //    match) and Managers see every item;
+  //  - other staff only see items whose module set intersects what the
+  //    vendor's Owner/Manager granted them from Team & Access.
+  let visibleItems = navItems
+  if (role !== 'VENDOR' && userId && membership?.vendorId) {
+    try {
+      const ownerOrManager = await resolveOwnerOrManagerVendor(userId)
+      if (!ownerOrManager) {
+        const accessMap = await getVendorStaffAccessMap(
+          String(membership.vendorId),
+          String(membership.businessId)
+        )
+        const granted = new Set(accessMap[String(userId).toLowerCase()]?.modules || [])
+        visibleItems = navItems.filter((item) => {
+          if (item.managerOnly) return false
+          if (item.modules === null) return true
+          return item.modules.some((m) => granted.has(m))
+        })
+      }
+    } catch {
+      // On any resolution error, fail CLOSED for staff: only the always-
+      // visible items (Dashboard, Profile) render, never the full menu.
+      visibleItems = navItems.filter((item) => item.modules === null && !item.managerOnly)
+    }
+  }
+
+  // h-screen (not min-h-screen) locks this row to exactly the viewport
+  // height -- min-h-screen let it grow with tall page content, which
+  // dragged the sidebar's height along with it instead of keeping it
+  // capped to the screen with its own independent scroll.
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 text-gray-900 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full">
         {/* Brand */}
         <div className="p-5 border-b border-gray-100">
           <p className="text-[10px] uppercase tracking-[0.45em] text-gray-400 mb-1">
@@ -105,7 +173,7 @@ export default async function VendorLayout({
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => (
+          {visibleItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -134,8 +202,10 @@ export default async function VendorLayout({
       <main className="flex-1 overflow-y-auto">
         <div className="p-4 lg:p-6">{children}</div>
       </main>
-      <AnuWidget />
-      <NotificationBell />
+      {/* Per explicit direction: no separate floating bell in the vendor
+          portal -- notifications live inside ANu instead (see AnuWidget's
+          showNotifications prop). */}
+      <AnuWidget showNotifications />
     </div>
   )
 }

@@ -87,7 +87,7 @@ export default function BusinessListPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="px-6 py-10">
         <div className="flex items-center justify-between mb-8">
           <div>
             <p className="text-xs uppercase tracking-[0.4em] text-gray-500">Business</p>

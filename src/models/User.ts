@@ -121,7 +121,12 @@ const UserSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
       index: true,
-      default: null,
+      // No `default: null` — MongoDB's sparse index only skips a document
+      // where this field is genuinely ABSENT. An explicit null is still
+      // indexed, so a default of null meant every user created without a
+      // username collided with every other one on that shared null value.
+      // Every creation path must now supply a real value (see
+      // lib/auth/generateUserId.ts) instead of relying on a default.
     },
 
     phone: {

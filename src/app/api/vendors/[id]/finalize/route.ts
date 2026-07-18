@@ -13,6 +13,7 @@ import UserRole from "@/models/UserRole";
 import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
 import { logAction } from "@/lib/audit/logAction";
 import { sendAccountCredentialsEmail } from "@/services/email/resend.service";
+import { generateUniqueUserId } from "@/lib/auth/generateUserId";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       user = await User.create({
         name: vendor.contactPerson || vendor.companyName,
         email: vendor.email,
+        username: await generateUniqueUserId(),
         password: hashed,
         phone: vendor.phone || undefined,
         role: "VENDOR",

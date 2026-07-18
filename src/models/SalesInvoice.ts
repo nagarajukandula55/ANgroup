@@ -164,7 +164,7 @@ export interface ISalesInvoice extends Document {
 
 const InvoiceSchema = new Schema<ISalesInvoice>(
   {
-    invoiceNumber: { type: String, unique: true },
+    invoiceNumber: { type: String },
     businessId: { type: Schema.Types.ObjectId },
     // Service center this invoice was issued from -- optional; when set,
     // its Warehouse.logoUrl overrides the business logo on the printed
@@ -275,6 +275,16 @@ const InvoiceSchema = new Schema<ISalesInvoice>(
 InvoiceSchema.index({ businessId: 1, createdAt: -1 });
 InvoiceSchema.index({ businessId: 1, status: 1 });
 InvoiceSchema.index({ businessId: 1, isDeleted: 1 });
+
+// invoiceNumber used to carry a bare schema-level `unique: true` -- a
+// GLOBAL constraint across every business. Numbering (numberingService.ts)
+// resets its counter per business, so two businesses both on the default
+// (uncustomized) invoice prefix generate identical-looking numbers (e.g.
+// "INV-2025-0001") and the second business's very first invoice creation
+// would hard-fail on a duplicate-key error. Scoped to per-business here;
+// sparse because invoiceNumber can be unset on drafts and businessId is
+// optional on this schema (see its own field comment).
+InvoiceSchema.index({ businessId: 1, invoiceNumber: 1 }, { unique: true, sparse: true });
 
 const SalesInvoice: Model<ISalesInvoice> =
   (mongoose.models.SalesInvoice as Model<ISalesInvoice>) ||

@@ -86,7 +86,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-8">
           <p className="text-xs text-gray-400 mb-1">{today}</p>

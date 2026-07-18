@@ -600,6 +600,33 @@ const BusinessSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Default rate for the workorder detail page's one-click "Add Labour
+    // Charge" line, set by the vendor's Owner/Manager (Settings > Business
+    // Settings) -- used whenever the vendor has no LABOUR-type
+    // ServiceCenterBOM entry of its own to pull a rate from instead.
+    defaultLabourCharge: {
+      type: Number,
+      default: 0,
+    },
+
+    // Shown on the printed Intake Receipt/Workorder in place of the
+    // device brand's own logo -- per explicit direction, that document
+    // should never show the device manufacturer's branding or name.
+    // Blank (the default) means no logo prints at all, not a fallback to
+    // Business.logo or the device brand's logo.
+    customerLogoUrl: {
+      type: String,
+      default: "",
+    },
+
+    // Vendor-wide Terms & Conditions text, editable from the vendor
+    // Owner/Manager's own profile/settings page -- shown on workorder,
+    // estimate and invoice pages/prints for this business.
+    termsAndConditions: {
+      type: String,
+      default: "",
+    },
+
     pincode: {
       type: String,
       default: "",
@@ -608,6 +635,20 @@ const BusinessSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
+    },
+
+    // Marks the single, real, always-present "AN Group" business record --
+    // the platform owner itself, used wherever code previously meant "no
+    // specific business" via a null/sentinel businessId. Having a real
+    // Business document for this (instead of null) means AN Group behaves
+    // exactly like any other business everywhere a business is expected --
+    // it shows up in business lists/switchers/dropdowns as itself, and
+    // every business-scoped record (like Admin > Access's category layout)
+    // can use a real businessId for it instead of a null special case.
+    isPlatform: {
+      type: Boolean,
+      default: false,
       index: true,
     },
 

@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
-import { requirePermission } from "@/middleware/permission.guard";
+import { requirePermission, requireAnyPermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/Role";
@@ -59,7 +59,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
-      requirePermission(session as any, buildPermissionCode("users", "view"));
+      // Also accepts employees.edit -- a Manager granted full Employees
+      // access needs to see their own employee's current roles to manage
+      // access from the Employees page, without needing the separate
+      // Users module grant too.
+      requireAnyPermission(session as any, [
+        buildPermissionCode("users", "view"),
+        buildPermissionCode("employees", "edit"),
+      ]);
     } catch (err: any) {
       return permissionErrorResponse(err);
     }
@@ -81,7 +88,7 @@ export async function GET(
     }
 
     const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
-    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId));
+    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId).filter(Boolean));
 
     const employeeProfile = await EmployeeProfile.findOne({
       userId: id,
@@ -196,20 +203,22 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Update role if provided. Was silently minting a blank, zero-permission
-    // Role for any unrecognized string -- same fix as api/admin/users POST,
-    // see that route's comment. Every assignable role is seeded up front now.
+    // Update role if provided. Under the rebuilt access architecture there
+    // are no seeded default roles (ADMIN/MANAGER/EMPLOYEE/... only exist if
+    // the Super Admin created them) -- so a missing Role doc here is now a
+    // SKIP, not a hard 400: the rest of the edit (name/email/status) still
+    // saves, and real access is managed from Admin > Access / the vendor's
+    // Team & Access instead of this legacy flat field.
+    let roleWarning: string | undefined;
     if (role) {
       const roleDoc = await Role.findOne({ code: role.toUpperCase() });
-      if (!roleDoc) {
-        return NextResponse.json(
-          { error: `Role "${role}" does not exist. Configure it in Roles & Permissions first.` },
-          { status: 400 }
-        );
+      if (roleDoc) {
+        // Replace existing user role
+        await UserRole.deleteMany({ userId: id });
+        await UserRole.create({ userId: id, roleId: roleDoc._id });
+      } else {
+        roleWarning = `Role "${role}" does not exist — user saved, but no role was assigned. Create roles in Admin > Access.`;
       }
-      // Replace existing user role
-      await UserRole.deleteMany({ userId: id });
-      await UserRole.create({ userId: id, roleId: roleDoc._id });
     }
 
     // Assign to a business -- this is the "tag an existing user to a
@@ -244,7 +253,7 @@ export async function PUT(
 
     // Re-fetch enriched user
     const userRoles = await UserRole.find({ userId: id }).populate('roleId').lean();
-    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId));
+    const roles = sortRolesFloorLast(userRoles.map((ur: Record<string, unknown>) => ur.roleId).filter(Boolean));
 
     logAction({
       action: "UPDATE",

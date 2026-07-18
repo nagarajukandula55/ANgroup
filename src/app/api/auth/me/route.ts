@@ -3,6 +3,9 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Business from "@/models/Business";
 import BusinessMember from "@/models/BusinessMember";
+import UserRole from "@/models/UserRole";
+import Role from "@/models/Role";
+import { getOrCreateANGroupBusinessId } from "@/core/access/anGroupBusiness.service";
 
 export async function GET(req: Request) {
   try {
@@ -31,12 +34,31 @@ export async function GET(req: Request) {
       );
     }
 
+    const userRoleDocs = await UserRole.find({ userId: user._id }).select("roleId").lean().exec() as any[];
+
+    // A platform-wide ("AN Group") role -- one granted with no businessId/
+    // vendorId, e.g. AN_ADMIN or a custom AN staff role created from Admin
+    // > Access -- means this account works across every business, not one
+    // tenant. Previously only isSuperAdmin got that: an AN Group staff
+    // member with real platform-wide access still only saw the handful of
+    // businesses they happened to have an explicit BusinessMember row for,
+    // and had no "AN Group" / cross-business option in the switcher at all.
+    const platformRoleCount = userRoleDocs.length
+      ? await Role.countDocuments({ _id: { $in: userRoleDocs.map((r) => r.roleId) }, businessId: null, vendorId: null })
+      : 0;
+    const isPlatformStaff = isSuperAdmin || platformRoleCount > 0;
+
     let businesses: any[] = [];
 
-    if (isSuperAdmin) {
-      // Super admin: return all active businesses
+    if (isPlatformStaff) {
+      // Super admin or AN Group platform staff: see every active business
+      // (per-page/module permission checks still gate what data within
+      // each business they can actually view/edit). Ensures AN Group's own
+      // real Business record exists so it's always present in this list,
+      // not just after some other feature happens to create it first.
+      await getOrCreateANGroupBusinessId();
       businesses = await (Business as any).find({ isActive: true })
-        .select("_id name brandName businessCode type")
+        .select("_id name brandName businessCode type isPlatform")
         .lean();
     } else {
       // Regular users: load via BusinessMember
@@ -70,6 +92,23 @@ export async function GET(req: Request) {
       }
     }
 
+    // First granted role that has a custom moduleOrder configured (see
+    // admin/access page's "Sidebar Order" editor) -- lets the sidebar
+    // re-order nav items per role without a separate round trip per page.
+    // Was skipped entirely for isSuperAdmin accounts, on the assumption a
+    // super admin has no meaningful "role" -- but a super admin account
+    // can still hold a real granted UserRole (e.g. testing a custom role,
+    // or a super admin who is ALSO a business Manager), and that's exactly
+    // who was testing this feature and seeing it silently do nothing.
+    let moduleOrder: string[] = [];
+    if (userRoleDocs.length) {
+      const roleWithOrder = await Role.findOne({
+        _id: { $in: userRoleDocs.map((r) => r.roleId) },
+        moduleOrder: { $exists: true, $not: { $size: 0 } },
+      }).select("moduleOrder").lean().exec() as any;
+      moduleOrder = roleWithOrder?.moduleOrder || [];
+    }
+
     return NextResponse.json({
       success: true,
       user: {
@@ -81,11 +120,13 @@ export async function GET(req: Request) {
         avatar:                user.avatar || null,
         role:                  user.role,
         isSuperAdmin,
+        isPlatformStaff,
         activeBusinessId:      activeBusinessId || null,
         defaultBusinessId:     user.defaultBusinessId?.toString() || null,
         defaultOrganizationId: user.defaultOrganizationId?.toString() || null,
         lastLogin:             user.lastLogin || null,
         createdAt:             user.createdAt,
+        moduleOrder,
       },
       businesses,
     });

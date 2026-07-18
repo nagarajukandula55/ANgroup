@@ -3,6 +3,20 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import Warehouse from "@/models/Warehouse";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
+
+async function guard(action) {
+  const session = await getEnrichedSession();
+  if (!session?.user) return { error: NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 }) };
+  try {
+    requirePermission(session, buildPermissionCode("warehouses", action));
+  } catch (err) {
+    return { error: NextResponse.json({ success: false, message: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 }) };
+  }
+  return { session };
+}
 
 /** A vendor caller (owner OR staff — see lib/auth/vendorContext.ts) may
  * only touch their own warehouse. Business staff/admin are not restricted
@@ -18,12 +32,11 @@ async function assertVendorOwnsWarehouseOrNotVendor(userId, warehouse) {
 
 export async function GET(req, { params }) {
   try {
+    const { error } = await guard("view");
+    if (error) return error;
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
 
     const warehouse = await Warehouse.findById(params.id);
     if (!(await assertVendorOwnsWarehouseOrNotVendor(userId, warehouse))) {
@@ -47,12 +60,11 @@ export async function GET(req, { params }) {
 
 export async function PUT(req, { params }) {
   try {
+    const { error } = await guard("edit");
+    if (error) return error;
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
 
     const existing = await Warehouse.findById(params.id);
     if (!(await assertVendorOwnsWarehouseOrNotVendor(userId, existing))) {
@@ -87,12 +99,11 @@ export async function PUT(req, { params }) {
 
 export async function DELETE(req, { params }) {
   try {
+    const { error } = await guard("delete");
+    if (error) return error;
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
 
     const existing = await Warehouse.findById(params.id);
     if (!(await assertVendorOwnsWarehouseOrNotVendor(userId, existing))) {

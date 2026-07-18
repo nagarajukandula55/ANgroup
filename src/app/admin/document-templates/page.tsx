@@ -70,9 +70,15 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   QUOTATION: "Quotation",
   DELIVERY_CHALLAN: "Delivery Challan",
   CREDIT_NOTE: "Credit Note",
+  DEBIT_NOTE: "Debit Note",
   PROFORMA_INVOICE: "Proforma Invoice",
   WORK_ORDER: "Work Order",
   ESTIMATE: "Estimate",
+  SALES_ORDER: "Sales Order",
+  STOCK_TRANSFER: "Stock Transfer",
+  STOCK_ADJUSTMENT: "Stock Adjustment",
+  PRODUCTION_ORDER: "Production Order",
+  GRN: "Goods Receipt (GRN)",
 };
 
 // Representative sample data for the live preview -- pure client-side

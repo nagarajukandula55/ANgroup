@@ -33,7 +33,7 @@ export interface IStockAdjustment extends Document {
 const StockAdjustmentSchema = new Schema<IStockAdjustment>(
   {
     businessId: { type: Schema.Types.ObjectId, required: true, index: true },
-    adjustmentNumber: { type: String, sparse: true, unique: true },
+    adjustmentNumber: { type: String, sparse: true },
     inventoryItemId: {
       type: Schema.Types.ObjectId,
       required: true,
@@ -54,6 +54,10 @@ const StockAdjustmentSchema = new Schema<IStockAdjustment>(
   },
   { timestamps: true }
 );
+
+// adjustmentNumber was GLOBALLY unique -- same cross-business collision
+// risk as PurchaseOrder.poNumber: scoped per-business instead.
+StockAdjustmentSchema.index({ businessId: 1, adjustmentNumber: 1 }, { unique: true, sparse: true });
 
 const StockAdjustment: Model<IStockAdjustment> =
   (mongoose.models.StockAdjustment as Model<IStockAdjustment>) ||

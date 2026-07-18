@@ -4,13 +4,15 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
-import { ModelInput } from '@/components/shared/ModelInput'
 import { TreeSelect } from '@/components/shared/TreeSelect'
 import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
+import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS, type DeviceCategory } from '@/core/catalog/deviceCategory'
 
-interface Brand { _id: string; name: string; parentId?: string | null }
+interface Brand { _id: string; name: string; parentId?: string | null; logoUrl?: string }
 interface FaultCode { _id: string; code: string; description: string }
+interface SymptomCode { _id: string; code: string; description: string }
 interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
+interface DeviceModelOption { _id: string; name: string }
 
 export default function NewAppointmentPage() {
   const router = useRouter()
@@ -18,22 +20,40 @@ export default function NewAppointmentPage() {
   const [brands, setBrands] = useState<Brand[]>([])
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
+  const [symptomCodes, setSymptomCodes] = useState<SymptomCode[]>([])
+  const [models, setModels] = useState<DeviceModelOption[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     customerName: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    source: 'User Contact', product: '', brandId: '', deviceModel: '',
-    faultCodeId: '', subject: '',
+    source: 'User Contact', product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '',
+    faultCodeId: '', symptomCodeId: '', subject: '',
   })
 
   useEffect(() => {
     if (!businessId) return
-    fetch(`/api/brands?businessId=${businessId}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
     fetch(`/api/product-categories?businessId=${businessId}`).then(r => r.json()).then(d => setProductCategories(d.categories || d.productCategories || d.data || [])).catch(() => {})
-    fetch(`/api/fault-codes?businessId=${businessId}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
   }, [businessId])
+
+  // Admin appointment form has no vendor context to restrict Device
+  // Category to -- shows all 12, unlike the vendor-side form which limits
+  // this to the logged-in vendor's own productCategories.
+  useEffect(() => {
+    if (!businessId || !form.deviceCategory) { setBrands([]); setFaultCodes([]); setSymptomCodes([]); return }
+    fetch(`/api/brands?businessId=${businessId}&category=${form.deviceCategory}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
+    fetch(`/api/fault-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
+    fetch(`/api/symptom-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setSymptomCodes(d.symptomCodes || d.data || [])).catch(() => {})
+  }, [businessId, form.deviceCategory])
+
+  useEffect(() => {
+    if (!form.brandId || !businessId) { setModels([]); return }
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
+      .then(r => r.json())
+      .then(d => setModels(d.models || []))
+      .catch(() => setModels([]))
+  }, [form.brandId, businessId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -152,36 +172,78 @@ export default function NewAppointmentPage() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className={labelCls}>Device Category *</label>
+              <select
+                required
+                value={form.deviceCategory}
+                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '', symptomCodeId: '' }))}
+                className={inputCls}
+              >
+                <option value="">Select device type…</option>
+                {DEVICE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{DEVICE_CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Device Brand *</label>
                 <TreeSelect
                   items={brands}
                   value={form.brandId}
-                  onChange={(id) => setForm((p) => ({ ...p, brandId: id }))}
-                  placeholder="Select brand…"
-                  className={inputCls}
+                  onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
+                  placeholder={!form.deviceCategory ? 'Select a device type first' : 'Select brand…'}
+                  className={`${inputCls} ${!form.deviceCategory ? 'opacity-50 pointer-events-none' : ''}`}
                 />
               </div>
               <div>
                 <label className={labelCls}>Model *</label>
-                <ModelInput
-                  value={form.deviceModel}
-                  onChange={(v) => setForm((p) => ({ ...p, deviceModel: v }))}
-                  businessId={businessId}
-                  brandId={form.brandId}
-                  className={inputCls}
-                />
+                <select
+                  required
+                  value={form.deviceModelId}
+                  onChange={(e) => {
+                    const m = models.find((mm) => mm._id === e.target.value)
+                    setForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                  }}
+                  disabled={!form.brandId}
+                  title="Select model"
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
+                  {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
               </div>
             </div>
-            <div>
-              <label className={labelCls}>Fault Code</label>
-              <select value={form.faultCodeId} onChange={(e) => setForm((p) => ({ ...p, faultCodeId: e.target.value }))} className={inputCls}>
-                <option value="">Select fault code…</option>
-                {faultCodes.map((f) => (
-                  <option key={f._id} value={f._id}>{f.code} — {f.description}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Fault Code</label>
+                <select
+                  value={form.faultCodeId}
+                  onChange={(e) => setForm((p) => ({ ...p, faultCodeId: e.target.value }))}
+                  disabled={!form.deviceCategory}
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.deviceCategory ? 'Select a device type first' : 'Select fault code…'}</option>
+                  {faultCodes.map((f) => (
+                    <option key={f._id} value={f._id}>{f.code} — {f.description}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Symptom Code</label>
+                <select
+                  value={form.symptomCodeId}
+                  onChange={(e) => setForm((p) => ({ ...p, symptomCodeId: e.target.value }))}
+                  disabled={!form.deviceCategory}
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">{!form.deviceCategory ? 'Select a device type first' : 'Select symptom code…'}</option>
+                  {symptomCodes.map((s) => (
+                    <option key={s._id} value={s._id}>{s.code} — {s.description}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className={labelCls}>Fault in Device *</label>

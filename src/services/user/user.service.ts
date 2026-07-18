@@ -103,7 +103,42 @@ export class UserService {
     // Role/permission, so removing it doesn't touch their order access at
     // all -- it only stops "Customer" from cluttering the role display
     // once they've been given a real role.
-    const assignedRole = await Role.findById(data.roleId).select("code").lean();
+    const assignedRole = await Role.findById(data.roleId).select("code businessId vendorId name").lean();
+
+    // A vendor-scoped role (VENDOR_OWNER/VENDOR_MANAGER/any custom vendor
+    // role) grants the RIGHT permissions via UserRole above, but every
+    // /vendor/* page and API (see lib/auth/vendorContext.ts,
+    // vendorAccess.service.ts's resolveOwnerOrManagerVendor) additionally
+    // requires an ACTIVE BusinessMember row with that vendorId before it'll
+    // recognize the person as vendor staff at all -- assigning the role
+    // from here (Admin > Employees / Admin > Users, as opposed to the
+    // vendor's own self-service Team & Access flow, which always creates
+    // this row alongside the role) previously left that row missing
+    // entirely. The person held the role but was 404'd by every vendor
+    // API and redirected straight back to /login by vendor/layout.tsx the
+    // moment they tried to open the portal -- reproduced and confirmed
+    // against production before this fix. Upserting it here closes that
+    // gap for every admin-side role-assignment surface at once.
+    if (assignedRole && (assignedRole as any).vendorId) {
+      const r = assignedRole as any;
+      await BusinessMember.findOneAndUpdate(
+        { userId: new Types.ObjectId(data.userId), businessId: r.businessId, vendorId: r.vendorId },
+        {
+          $set: { status: "ACTIVE", isDeleted: false, vendorRole: r.name },
+          $setOnInsert: {
+            userId: new Types.ObjectId(data.userId),
+            businessId: r.businessId,
+            vendorId: r.vendorId,
+            memberType: "VENDOR",
+            isDefaultBusiness: false,
+            joinedAt: new Date(),
+            invitedBy: data.assignedBy ? new Types.ObjectId(data.assignedBy) : null,
+          },
+        },
+        { upsert: true }
+      );
+    }
+
     if (assignedRole && (assignedRole as any).code !== "CUSTOMER") {
       // code is NOT globally unique (scoped per {code, businessId, vendorId}
       // -- see Role.ts), so this must collect every CUSTOMER Role doc, not

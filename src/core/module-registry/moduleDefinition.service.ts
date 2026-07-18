@@ -1,7 +1,7 @@
 import type { FlattenMaps, Types } from "mongoose";
 import ModuleDefinition, { IModuleDefinition } from "./ModuleDefinition.model";
 import type { FieldDefinition } from "./types";
-import { syncPermissionsForModule, syncSuperAdminRole, syncManagerRole } from "@/core/access/permissionSync.service";
+import { syncPermissionsForModule, syncSuperAdminRole } from "@/core/access/permissionSync.service";
 
 // .lean() returns plain objects shaped by FlattenMaps<T>, not the Document
 // interface itself (Document-only members like .save()/.populate() aren't
@@ -90,7 +90,11 @@ export async function createModuleDefinition(
   // permission-less the way several original-repo modules effectively were.
   await syncPermissionsForModule(moduleDef);
   await syncSuperAdminRole();
-  await syncManagerRole();
+  // NOTE: syncManagerRole() deliberately no longer called here -- it
+  // auto-recreated a global, all-permission MANAGER role every time a
+  // module was created, which contradicts the final architecture's
+  // "no default roles; every role is created explicitly per business by
+  // the Super Admin" rule.
 
   return moduleDef;
 }
@@ -139,7 +143,6 @@ export async function updateModuleDefinition(
   if (updates.applicableActions !== undefined || updates.label !== undefined) {
     await syncPermissionsForModule(moduleDef);
     await syncSuperAdminRole();
-    await syncManagerRole();
   }
 
   return moduleDef.toObject();

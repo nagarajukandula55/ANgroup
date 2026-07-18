@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import mongoose from "mongoose";
 import ServiceCenterBOM from "@/models/ServiceCenterBOM";
-import VendorProfile from "@/models/VendorProfile";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { logAction } from "@/lib/audit/logAction";
+import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
 
 async function resolveVendor(userId: string) {
-  return VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
+  return resolveOwnerOrManagerVendor(userId);
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

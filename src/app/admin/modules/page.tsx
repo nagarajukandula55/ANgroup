@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { STANDARD_ACTIONS } from "@/core/access/actions";
 
 type FieldType =
   | "text" | "textarea" | "number" | "boolean" | "date"
@@ -53,6 +54,7 @@ interface ModuleDef {
   fields: FieldDefinition[];
   enabled: boolean;
   sortOrder: number;
+  applicableActions?: string[];
 }
 
 const emptyField = (): FieldDefinition => ({
@@ -73,6 +75,13 @@ const emptyModule = () => ({
   icon: "Box",
   route: "",
   fields: [] as FieldDefinition[],
+  // Both already supported by the update/create API (moduleDefinition.
+  // service.ts's Pick<>) but never surfaced in this form until now.
+  // Empty applicableActions means "all standard actions apply" (the
+  // service's own default) -- not surfacing it here wasn't wrong, just
+  // incomplete.
+  applicableActions: [] as string[],
+  sortOrder: 0,
 });
 
 export default function ModulesAdminPage() {
@@ -167,6 +176,8 @@ export default function ModulesAdminPage() {
       icon: mod.icon || "Box",
       route: mod.route,
       fields: mod.fields.map((f) => ({ ...f })),
+      applicableActions: mod.applicableActions || [],
+      sortOrder: mod.sortOrder ?? 0,
     });
     setEditingKey(mod.key);
     setShowCreate(true);
@@ -265,6 +276,8 @@ export default function ModulesAdminPage() {
             description: form.description,
             icon: form.icon,
             fields: form.fields,
+            applicableActions: form.applicableActions,
+            sortOrder: form.sortOrder,
           }),
         });
       } else {
@@ -462,6 +475,41 @@ export default function ModulesAdminPage() {
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Sort Order</label>
+              <input
+                type="number"
+                className={inputClass}
+                value={form.sortOrder}
+                onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1 col-span-2">
+              <label className={labelClass}>
+                Applicable Actions <span className="text-gray-400 font-normal">(none checked = all apply)</span>
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {STANDARD_ACTIONS.map((a) => (
+                  <label key={a.key} className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={form.applicableActions.includes(a.key)}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          applicableActions: e.target.checked
+                            ? [...form.applicableActions, a.key]
+                            : form.applicableActions.filter((k) => k !== a.key),
+                        })
+                      }
+                    />
+                    {a.label}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 

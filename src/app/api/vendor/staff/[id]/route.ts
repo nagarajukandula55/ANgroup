@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
-import VendorProfile from "@/models/VendorProfile";
 import BusinessMember from "@/models/BusinessMember";
 import { logAction } from "@/lib/audit/logAction";
+import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -14,9 +14,9 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const vendor = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
+    const vendor = await resolveOwnerOrManagerVendor(userId);
     if (!vendor) {
-      return NextResponse.json({ success: false, error: "Only a vendor account can manage its own staff" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Only a vendor's Owner or Manager can manage its own staff" }, { status: 403 });
     }
 
     const { id } = await context.params;

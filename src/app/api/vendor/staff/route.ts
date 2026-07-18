@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
-import VendorProfile from "@/models/VendorProfile";
 import BusinessMember, { BusinessMemberStatus, BusinessMemberType } from "@/models/BusinessMember";
 import User from "@/models/User";
 import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
 import { logAction } from "@/lib/audit/logAction";
 import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.service";
+import { grantVendorStaffAccess, MEMBER_TYPE_IMPLIED_MODULES } from "@/core/access/vendorAccess.service";
 
 /**
  * Vendor-side staff management. Completes the hierarchy requested:
@@ -28,20 +28,27 @@ import { createDefaultVendorRoles } from "@/core/access/vendorDefaultRoles.servi
  * Orders/BOM pages exist to actually gate.
  */
 
-async function requireVendorOwner(userId: string | null) {
-  if (!userId) return null;
-  const vendor = await VendorProfile.findOne({ userId, isDeleted: { $ne: true } }).lean();
-  return vendor;
-}
+// ONE shared Owner-or-Manager definition for every vendor management
+// surface -- see core/access/vendorAccess.service.ts.
+import { resolveOwnerOrManagerVendor as requireVendorOwnerOrManager, resolveVendorTeamMembership } from "@/core/access/vendorAccess.service";
 
 export async function GET() {
   try {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const vendor = await requireVendorOwner(userId);
+    // Was Owner/Manager-only -- but the vendor Calls/Jobsheets list pages
+    // also call this GET just to resolve "which of my teammates' user IDs
+    // do I scope my own view to" (see vendor/crm/calls/page.tsx and
+    // vendor/crm/jobsheets/page.tsx's teamIds), which every team member
+    // needs, not just Owner/Manager. A CCO/Engineer got a 403 here and
+    // their own appointment/workorder lists silently never loaded
+    // anything (teamIds stayed empty, so the fetch that depends on it
+    // never ran at all). Any active team member can now read this;
+    // POST below (actually adding/changing staff) stays Owner/Manager-only.
+    const vendor = await requireVendorOwnerOrManager(userId) || await resolveVendorTeamMembership(userId);
     if (!vendor) {
-      return NextResponse.json({ success: false, error: "Only a vendor account can view its own staff" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "You are not part of a vendor's team" }, { status: 403 });
     }
 
     // Self-healing resync: createDefaultVendorRoles is a cheap, idempotent
@@ -63,18 +70,59 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .lean();
 
-    // The vendor's own fixed default role set (Owner, Manager, Finance
-    // Manager, etc. — see vendorDefaultRoles.service.ts), scoped to
-    // {businessId, vendorId} so this vendor can only ever see/grant its
-    // own 11 roles, never another vendor's or a full business-wide role.
-    // Surfaced here so the staff UI can offer real permission-granting
-    // roles instead of only a free-text label — previously this list was
-    // never exposed to the frontend at all, which is why "Owner" wasn't
-    // pickable here and admins were falling back to the business-wide
-    // Admin > Users flow (which grants access to the ENTIRE business, not
-    // just this vendor) just to hand out a Manager/Owner-equivalent role.
-    const roles = await Role.find({ businessId: vendor.businessId, vendorId: vendor._id, status: "ACTIVE" })
-      .select("code name description")
+    // Same self-healing idea as the resync above, but for staff tagged
+    // with a memberType (CCO/Engineer/Centre Manager) BEFORE
+    // MEMBER_TYPE_IMPLIED_MODULES gained fault_codes/solutions -- their
+    // personal VSTAFF_<userId> role never got those modules, and the fix
+    // otherwise only applies on the next grant. grantVendorStaffAccess
+    // itself REPLACES a role's permissions wholesale (not additive), so
+    // this reads each member's current grant and unions the implied
+    // modules into it first -- same pattern the POST handler below
+    // already uses -- so an existing broader Team & Access grant is
+    // never shrunk back down to just the implied set.
+    if (vendor.businessId) {
+      for (const m of members as any[]) {
+        const implied = MEMBER_TYPE_IMPLIED_MODULES[String(m.memberType)];
+        if (!implied) continue;
+        const staffUserId = String(m.userId?._id || m.userId);
+        const staffRoleCode = `VSTAFF_${staffUserId}`.toUpperCase();
+        const existingStaffRole = await Role.findOne({
+          code: staffRoleCode,
+          businessId: vendor.businessId,
+          vendorId: vendor._id,
+        }).lean();
+        const existingModules = new Set<string>(
+          ((existingStaffRole as any)?.permissions || []).map((p: string) => String(p).split(".")[0].toLowerCase())
+        );
+        const before = existingModules.size;
+        implied.forEach((mod) => existingModules.add(mod));
+        if (existingModules.size === before) continue; // nothing new to add
+        await grantVendorStaffAccess({
+          userId: staffUserId,
+          businessId: String(vendor.businessId),
+          vendorId: String(vendor._id),
+          modules: Array.from(existingModules),
+        }).catch(() => {});
+      }
+    }
+
+    // The vendor's real assignable set is the UNION of its own structural
+    // roles (Owner/Manager -- vendorId: vendor._id) AND whatever
+    // business-wide custom roles this business has defined from
+    // Admin > Access (vendorId: null, e.g. CCO/Engineer, each with their
+    // own serialized roleNumber) -- was exact-match-only on vendorId, so a
+    // vendor could never assign one of the business's own custom roles to
+    // their staff, only the two auto-generated structural ones. Matches
+    // the same union GET /api/admin/roles?businessId&vendorId already
+    // returns for the Super Admin's "Assign to Vendor" role picker --
+    // reported live: a business's serialized custom roles (CCO, Engineer,
+    // Manager) weren't listed here at all, only Owner/Manager.
+    const roles = await Role.find({
+      businessId: vendor.businessId,
+      status: "ACTIVE",
+      $or: [{ vendorId: vendor._id }, { vendorId: null }],
+    })
+      .select("code name description roleNumber")
       .sort({ name: 1 })
       .lean();
 
@@ -113,9 +161,9 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const vendor = await requireVendorOwner(userId);
+    const vendor = await requireVendorOwnerOrManager(userId);
     if (!vendor) {
-      return NextResponse.json({ success: false, error: "Only a vendor account can add its own staff" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Only a vendor's Owner or Manager can add its own staff" }, { status: 403 });
     }
     if (!vendor.businessId) {
       return NextResponse.json({ success: false, error: "Vendor is not yet assigned to a business" }, { status: 400 });
@@ -157,14 +205,16 @@ export async function POST(req: NextRequest) {
 
     let grantedRoleDoc = null;
     if (roleCode) {
+      // Same union as the GET above -- this vendor's own structural roles
+      // OR one of the business's own custom roles (vendorId: null).
       grantedRoleDoc = await Role.findOne({
         code: String(roleCode).toUpperCase(),
         businessId: vendor.businessId,
-        vendorId: vendor._id,
+        $or: [{ vendorId: vendor._id }, { vendorId: null }],
       });
       if (!grantedRoleDoc) {
         return NextResponse.json(
-          { success: false, error: "That role does not belong to your vendor's default role set" },
+          { success: false, error: "That role does not belong to your vendor or this business" },
           { status: 400 }
         );
       }
@@ -221,6 +271,43 @@ export async function POST(req: NextRequest) {
         },
         { upsert: true }
       );
+      // Real access granted -> the registration floor (shopnative view)
+      // is removed; the user retains exactly what was added, and the DB
+      // reflects it for the next login's routing.
+      const { stripFloorRoles } = await import("@/core/access/floorRoles.service");
+      await stripFloorRoles(String((targetUser as any)._id));
+    }
+
+    // `memberType: "ENGINEER"` was purely a display label -- tagging
+    // someone Engineer here never actually granted them CRM_JOBSHEETS.EDIT,
+    // which is the ONE permission /api/crm/jobsheets/[id]/engineers filters
+    // on. A vendor Owner naturally expects "add staff as Engineer" alone to
+    // be sufficient (it visually implies real access), but the only place
+    // that ever granted that permission was the separate Team & Access
+    // module-checkbox screen -- so an Engineer added only from here never
+    // showed up in the job-sheet assignment dropdown. Auto-grant the
+    // modules an Engineer needs, additively (union with whatever Team &
+    // Access already granted this person) so this call never clobbers a
+    // broader grant made from that other screen.
+    const impliedModules = MEMBER_TYPE_IMPLIED_MODULES[String(member.memberType)];
+    if (impliedModules) {
+      const staffRoleCode = `VSTAFF_${(targetUser as any)._id}`.toUpperCase();
+      const existingStaffRole = await Role.findOne({
+        code: staffRoleCode,
+        businessId: vendor.businessId,
+        vendorId: vendor._id,
+      }).lean();
+      const existingModules = new Set<string>(
+        ((existingStaffRole as any)?.permissions || []).map((p: string) => String(p).split(".")[0].toLowerCase())
+      );
+      impliedModules.forEach((m) => existingModules.add(m));
+      await grantVendorStaffAccess({
+        userId: String((targetUser as any)._id),
+        businessId: String(vendor.businessId),
+        vendorId: String(vendor._id),
+        modules: Array.from(existingModules),
+        grantedBy: userId || undefined,
+      });
     }
 
     logAction({

@@ -11,11 +11,12 @@ import { logAction } from '@/lib/audit/logAction'
 import { generateUniqueUserId } from '@/lib/auth/generateUserId'
 import { sendWelcomeEmail } from '@/services/email/resend.service'
 
-// Safest floor if the registering origin doesn't match any configured
-// mapping (unknown/spoofed Origin) -- view-only, never the more permissive
-// shopnative default.
-const FALLBACK_ROLE_CODE = 'CUSTOMER_ANGROUP'
-const FALLBACK_SOURCE_LABEL = 'unknown'
+// Per explicit direction: EVERY new user starts with exactly one access —
+// the shopnative.in view floor. It's removed automatically the moment any
+// real access is granted (see core/access/floorRoles.service.ts), so the
+// user retains only what was explicitly added and login routing follows.
+const FALLBACK_ROLE_CODE = 'CUSTOMER_SHOPNATIVE'
+const FALLBACK_SOURCE_LABEL = 'shopnative'
 
 /**
  * Best-effort SSO source detection: match the request's Origin/Referer
@@ -113,7 +114,25 @@ export async function POST(req: NextRequest) {
     // User, so a missing/misconfigured Role never results in a roleless
     // account -- every user must get a non-blank role at creation.
     const { sourceLabel, roleCode } = await resolveRegistrationSource(req)
-    const floorRole = await Role.findOne({ code: roleCode, businessId: null, vendorId: null })
+    let floorRole = await Role.findOne({ code: roleCode, businessId: null, vendorId: null })
+    // Self-heal the three well-known floor codes (see FLOOR_ROLE_CODES in
+    // admin/users/[id]/route.ts) if the Role document is ever missing --
+    // these are meant to always exist and cost nothing to recreate with a
+    // minimal/no-op permission set. A missing role for a CUSTOM SSO source
+    // mapping (admin/sso) still hard-errors below, since that genuinely
+    // means an admin misconfigured a mapping and silently minting a role
+    // for it would hide that mistake.
+    if (!floorRole && ['CUSTOMER', 'CUSTOMER_ANGROUP', 'CUSTOMER_SHOPNATIVE'].includes(roleCode)) {
+      floorRole = await Role.create({
+        code: roleCode,
+        name: roleCode.replace(/_/g, ' '),
+        description: 'Minimal self-registration floor role.',
+        permissions: [],
+        businessId: null,
+        vendorId: null,
+        isSystem: true,
+      });
+    }
     if (!floorRole) {
       return NextResponse.json(
         {

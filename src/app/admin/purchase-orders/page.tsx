@@ -10,7 +10,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Plus, ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Loader2, Plus, ShoppingCart, Printer } from "lucide-react";
 
 interface PO {
   _id: string;
@@ -74,7 +75,7 @@ export default function PurchaseOrdersListPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="px-6 py-10">
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => router.push("/admin")}
@@ -108,12 +109,13 @@ export default function PurchaseOrdersListPage() {
                 <th className="text-left px-6 py-3 text-gray-400 font-medium">Expected</th>
                 <th className="text-right px-6 py-3 text-gray-400 font-medium">Amount</th>
                 <th className="text-center px-6 py-3 text-gray-400 font-medium">Status</th>
+                <th className="text-center px-6 py-3 text-gray-400 font-medium">Print</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {pos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
                     <ShoppingCart className="w-6 h-6 mx-auto mb-2 text-gray-300" />
                     No purchase orders found
                   </td>
@@ -134,6 +136,16 @@ export default function PurchaseOrdersListPage() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[po.status] ?? "bg-gray-100 text-gray-500"}`}>
                         {po.status?.replace(/_/g, " ")}
                       </span>
+                    </td>
+                    <td className="px-6 py-3 text-center">
+                      <Link
+                        href={`/admin/purchase-orders/${po._id}/print`}
+                        target="_blank"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                        title="Print"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Link>
                     </td>
                   </tr>
                 ))

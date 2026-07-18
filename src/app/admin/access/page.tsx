@@ -1,26 +1,51 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { ACCESS_HIERARCHY } from "@/core/access/moduleHierarchy";
 import { STANDARD_ACTIONS } from "@/core/access/actions";
+import { STATIC_MODULES } from "@/components/sidebar";
+import { MODULE_KEY_ALIASES } from "@/core/access/moduleKeyAliases";
+import { useToast } from "@/components/shared/Toast";
 
 interface Role {
   _id: string;
   name: string;
   code: string;
+  roleNumber?: string | null;
   description?: string;
   color?: string;
   isSystem?: boolean;
   isProtected?: boolean;
   permissions: string[];
+  businessId?: string | null;
+  homeRoute?: string;
+  moduleOrder?: string[];
 }
+
+interface Business { _id: string; name: string; isPlatform?: boolean }
+
+interface EffModule { key: string; label: string; description?: string; parentKey: string }
+interface EffSubcategory { key: string; label: string; isCustom: boolean; modules: EffModule[] }
+interface EffCategory { key: string; label: string; isCustom: boolean; subcategories: EffSubcategory[] }
 
 function buildCode(moduleKey: string, actionKey: string): string {
   return `${moduleKey.toUpperCase()}.${actionKey.toUpperCase()}`;
 }
 
+// A module's real permission key and the sidebar's UI nav key sometimes
+// differ (see moduleKeyAliases.ts) -- resolve either direction to the key
+// the sidebar actually renders/matches on, so "Sidebar Order" and the
+// business's enabled-modules filter both line up with what the sidebar
+// itself checks, instead of silently matching nothing for aliased keys.
+function toSidebarKey(moduleKey: string): string {
+  if (STATIC_MODULES.some((m) => m.key === moduleKey)) return moduleKey;
+  const uiKey = Object.entries(MODULE_KEY_ALIASES).find(([, real]) => real === moduleKey)?.[0];
+  return uiKey || moduleKey;
+}
+
 export default function AccessPage() {
+  const toast = useToast();
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -34,29 +59,175 @@ export default function AccessPage() {
     role: null,
   });
   const [search, setSearch] = useState("");
-  // Every category (and, within it, every subcategory) starts expanded so
-  // the whole tree — main category > sub category > module > privilege —
-  // is visible at a glance, matching what was asked for: every access
-  // entry visible, not buried behind extra clicks.
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
-    const open: Record<string, boolean> = {};
-    ACCESS_HIERARCHY.forEach((c) => { open[c.key] = true; });
-    return open;
-  });
-  const [openSubcategories, setOpenSubcategories] = useState<Record<string, boolean>>(() => {
-    const open: Record<string, boolean> = {};
-    ACCESS_HIERARCHY.forEach((c) => (c.subcategories ?? []).forEach((sc) => { open[sc.key] = true; }));
-    return open;
-  });
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
+  const [openSubcategories, setOpenSubcategories] = useState<Record<string, boolean>>({});
+
+  // Active-business context: "current active business and its active
+  // modules should show there, then Role name and access it should allow
+  // me to select" -- picking a business filters the tree down to only the
+  // modules that business actually has enabled (same enabled-set logic
+  // Business > Modules already uses), and filters the role list to that
+  // business's own roles (plus platform-wide roles with no businessId).
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [activeBusinessId, setActiveBusinessId] = useState<string>("");
+  // Keys EXPLICITLY turned off for this business (Business > Modules,
+  // enabled: false) -- a module absent from the saved array entirely is
+  // NOT the same as disabled; it just means this business's modules[]
+  // predates that module key existing at all (true for most modules
+  // added this session: assets/customers/designs/employees/solutions/
+  // crm/settings/integrations/users/roles/access/gst/...). Treating
+  // "absent" as "disabled" (an earlier, stricter version of this filter)
+  // hid every module a business had never explicitly re-saved since,
+  // which is why Settings/Integrations/User Management/etc. kept
+  // vanishing a couple seconds after the page loaded (the initial
+  // unrestricted render, then this filter kicking in once the fetch
+  // resolved). Every other consumer of Business.modules[] in this
+  // codebase already uses the same "enabled unless explicitly false"
+  // convention -- this page was the one place that didn't.
+  const [businessDisabledKeys, setBusinessDisabledKeys] = useState<Set<string>>(new Set());
+  const anGroupBusinessId = useMemo(() => businesses.find((b) => b.isPlatform)?._id || "", [businesses]);
+
+  // DB-backed, admin-editable category/subcategory tree (built-in
+  // ACCESS_HIERARCHY + any custom containers/re-parenting on top of it --
+  // see accessLayout.service.ts).
+  const [hierarchy, setHierarchy] = useState<EffCategory[]>([]);
+  const [hierarchyLoading, setHierarchyLoading] = useState(true);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
+  const [newNodeLabel, setNewNodeLabel] = useState("");
+
+  // AN Group is a real, always-present Business record (see
+  // anGroupBusiness.service.ts) -- it shows up in `businesses` like any
+  // other business, so activeBusinessId is always a real business's id,
+  // never a null/empty sentinel. Defaults to AN Group once the list loads.
+  const businessParam = activeBusinessId;
 
   useEffect(() => {
-    fetchRoles();
+    fetch("/api/businesses/list").then((r) => r.json()).then((d) => {
+      const list: Business[] = d.businesses || d.data || [];
+      setBusinesses(list);
+      const anGroup = list.find((b) => b.isPlatform);
+      if (anGroup) setActiveBusinessId((prev) => prev || anGroup._id);
+    }).catch(() => {});
   }, []);
+
+  // Roles are fetched scoped to the active business (server-side now, not
+  // just hidden client-side after an unscoped fetch of EVERY business's
+  // roles -- see fetchRoles below) -- so this must wait for a real
+  // activeBusinessId before firing, and re-fire on switch.
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    fetchRoles();
+  }, [activeBusinessId]);
+
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    fetchHierarchy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBusinessId]);
+
+  async function fetchHierarchy() {
+    setHierarchyLoading(true);
+    try {
+      const res = await fetch(`/api/admin/access-layout?businessId=${businessParam}`);
+      const data = await res.json();
+      const list: EffCategory[] = data.hierarchy || [];
+      setHierarchy(list);
+      setOpenCategories((prev) => {
+        const open = { ...prev };
+        list.forEach((c) => { if (open[c.key] === undefined) open[c.key] = true; });
+        return open;
+      });
+      setOpenSubcategories((prev) => {
+        const open = { ...prev };
+        list.forEach((c) => c.subcategories.forEach((sc) => { if (open[sc.key] === undefined) open[sc.key] = true; }));
+        return open;
+      });
+    } catch {
+      setHierarchy([]);
+    } finally {
+      setHierarchyLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!activeBusinessId || activeBusinessId === anGroupBusinessId) { setBusinessDisabledKeys(new Set()); return; }
+    fetch(`/api/businesses/${activeBusinessId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const biz = d.business || d;
+        const mods = Array.isArray(biz?.modules) ? biz.modules : [];
+        // Only keys EXPLICITLY saved as enabled: false are hidden -- a key
+        // this business's modules[] has never heard of (most modules, for
+        // most businesses -- see the state comment above) stays visible.
+        const disabled = mods.filter((m: any) => m?.enabled === false).map((m: any) => String(m?.key));
+        setBusinessDisabledKeys(new Set(disabled));
+      })
+      .catch(() => setBusinessDisabledKeys(new Set()));
+  }, [activeBusinessId, anGroupBusinessId]);
+
+  async function addCategory() {
+    if (!newNodeLabel.trim()) return;
+    await fetch("/api/admin/access-layout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "addCategory", label: newNodeLabel.trim(), businessId: businessParam }),
+    });
+    setNewNodeLabel(""); setAddingCategory(false);
+    fetchHierarchy();
+  }
+
+  async function addSubcategory(parentKey: string) {
+    if (!newNodeLabel.trim()) return;
+    await fetch("/api/admin/access-layout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "addSubcategory", label: newNodeLabel.trim(), parentKey, businessId: businessParam }),
+    });
+    setNewNodeLabel(""); setAddingSubFor(null);
+    fetchHierarchy();
+  }
+
+  async function renameNode(key: string, label: string) {
+    if (!label.trim()) return;
+    await fetch("/api/admin/access-layout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rename", key, label: label.trim(), businessId: businessParam }),
+    });
+    fetchHierarchy();
+  }
+
+  async function deleteNode(key: string) {
+    await fetch("/api/admin/access-layout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", key, businessId: businessParam }),
+    });
+    fetchHierarchy();
+  }
+
+  async function moveModuleTo(moduleKey: string, parentKey: string) {
+    await fetch("/api/admin/access-layout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "moveModule", moduleKey, parentKey, businessId: businessParam }),
+    });
+    fetchHierarchy();
+  }
+
+  const allSubcategories = useMemo(
+    () => hierarchy.flatMap((c) => c.subcategories.map((sc) => ({ key: sc.key, label: `${c.label} / ${sc.label}` }))),
+    [hierarchy]
+  );
 
   async function fetchRoles() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/roles");
+      // Was unscoped ("/api/admin/roles" with no params) -- every
+      // business's roles shipped to the browser and were only ever hidden
+      // by the client-side visibleRoles filter below, so switching
+      // business never actually stopped a stale role _id from another
+      // business from being editable/deletable via this page. Scoped
+      // server-side now; visibleRoles below still applies as a defensive
+      // second filter (e.g. the AN Group platform-wide exception).
+      const qs = activeBusinessId ? `?businessId=${activeBusinessId}` : "";
+      const res = await fetch(`/api/admin/roles${qs}`);
       const data = await res.json();
       const list = data.roles || data || [];
       setRoles(list);
@@ -99,11 +270,21 @@ export default function AccessPage() {
       const res = await fetch(`/api/admin/roles/${selectedRole._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ permissions: selectedRole.permissions }),
+        body: JSON.stringify({
+          permissions: selectedRole.permissions,
+          homeRoute: selectedRole.homeRoute || "",
+          moduleOrder: selectedRole.moduleOrder || [],
+          name: selectedRole.name,
+          description: selectedRole.description || "",
+          // Required for the server-side business-ownership check now --
+          // editing a role always happens in the context of the currently
+          // active business.
+          businessId: selectedRole.businessId ?? activeBusinessId,
+        }),
       });
       if (!res.ok) throw new Error("Failed to save");
       const updated = roles.map((r) =>
-        r._id === selectedRole._id ? { ...r, permissions: selectedRole.permissions } : r
+        r._id === selectedRole._id ? { ...r, ...selectedRole } : r
       );
       setRoles(updated);
     } catch {
@@ -113,10 +294,63 @@ export default function AccessPage() {
     }
   }
 
+  function setHomeRoute(route: string) {
+    if (!selectedRole) return;
+    setSelectedRole({ ...selectedRole, homeRoute: route });
+  }
+
+  // Module keys this role currently has view access to, expressed in the
+  // SIDEBAR's own UI key namespace (not the raw permission-module-key
+  // namespace ACCESS_HIERARCHY uses) -- moduleOrder is matched against
+  // NAV_GROUPS item.key in components/sidebar.tsx, so saving raw
+  // permission keys here silently reordered nothing for any module whose
+  // sidebar key differs from its permission key (most of the "masters-*"
+  // pages). Deduped by sidebar key since a couple of real modules share
+  // one sidebar entry.
+  const grantedModuleKeys = useMemo(() => {
+    if (!selectedRole) return [];
+    const all: { key: string; label: string }[] = [];
+    ACCESS_HIERARCHY.forEach((cat) => {
+      (cat.modules ?? []).forEach((m) => all.push(m));
+      (cat.subcategories ?? []).forEach((sc) => sc.modules.forEach((m) => all.push(m)));
+    });
+    const viewGranted = all.filter((m) =>
+      selectedRole.permissions.includes(buildCode(m.key, "view"))
+    );
+    const bySidebarKey = new Map<string, string>();
+    viewGranted.forEach((m) => {
+      const sk = toSidebarKey(m.key);
+      if (!bySidebarKey.has(sk)) {
+        bySidebarKey.set(sk, STATIC_MODULES.find((sm) => sm.key === sk)?.label || m.label);
+      }
+    });
+    const order = selectedRole.moduleOrder?.length ? selectedRole.moduleOrder : Array.from(bySidebarKey.keys());
+    const ordered = order.filter((k) => bySidebarKey.has(k)).map((k) => ({ key: k, label: bySidebarKey.get(k)! }));
+    const placed = new Set(ordered.map((m) => m.key));
+    bySidebarKey.forEach((label, key) => { if (!placed.has(key)) ordered.push({ key, label }); });
+    return ordered;
+  }, [selectedRole]);
+
+  function moveModule(key: string, dir: -1 | 1) {
+    if (!selectedRole) return;
+    const current = grantedModuleKeys.map((m) => m.key);
+    const idx = current.indexOf(key);
+    const swapWith = idx + dir;
+    if (idx < 0 || swapWith < 0 || swapWith >= current.length) return;
+    [current[idx], current[swapWith]] = [current[swapWith], current[idx]];
+    setSelectedRole({ ...selectedRole, moduleOrder: current });
+  }
+
   async function createRole() {
     if (!newRoleName.trim() || !newRoleCode.trim()) return;
     try {
-      await fetch("/api/admin/roles", {
+      // Was never sending a businessId at all -- every new role landed
+      // with businessId: null, which the (now-fixed) visibleRoles filter
+      // treats as "belongs to AN Group", so it showed up under every
+      // business. A role is now always created under whichever business
+      // is currently active (AN Group's own real id if that's selected),
+      // and stays exclusive to it.
+      const res = await fetch("/api/admin/roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -124,21 +358,30 @@ export default function AccessPage() {
           code: newRoleCode,
           color: newRoleColor,
           permissions: [],
+          businessId: activeBusinessId || undefined,
         }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to create role");
+        return;
+      }
+      // Per explicit direction: "let me see the role id once it is saved."
+      toast.success(`Role created — ID ${data.role?.roleNumber || data.role?._id}`);
       await fetchRoles();
       setCreating(false);
       setNewRoleName("");
       setNewRoleCode("");
       setNewRoleColor("#6366f1");
     } catch {
-      // error is swallowed; could add toast here
+      toast.error("Failed to create role");
     }
   }
 
   async function deleteRole(role: Role) {
     try {
-      await fetch(`/api/admin/roles/${role._id}`, { method: "DELETE" });
+      const qs = new URLSearchParams({ businessId: String(role.businessId ?? activeBusinessId) });
+      await fetch(`/api/admin/roles/${role._id}?${qs.toString()}`, { method: "DELETE" });
       const updated = roles.filter((r) => r._id !== role._id);
       setRoles(updated);
       if (selectedRole?._id === role._id) {
@@ -155,77 +398,114 @@ export default function AccessPage() {
     setNewRoleCode(val.toUpperCase().replace(/\s+/g, "_"));
   }
 
-  // Filter the hierarchy by module label / key when searching, so a large
-  // 30-module tree stays navigable instead of requiring endless scrolling.
+  // Filter the (dynamic, admin-editable) hierarchy by module label/key
+  // when searching, and hide only modules this business has EXPLICITLY
+  // disabled from Business > Modules -- see businessDisabledKeys' own
+  // comment for why "not configured" must never mean "hidden" here.
   const filteredHierarchy = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return ACCESS_HIERARCHY;
+    const matchesCat = (m: EffModule) => {
+      if (q && !m.label.toLowerCase().includes(q) && !m.key.includes(q)) return false;
+      if (businessDisabledKeys.has(toSidebarKey(m.key)) || businessDisabledKeys.has(m.key)) return false;
+      return true;
+    };
+    return hierarchy
+      .map((cat) => {
+        const subcategories = cat.subcategories
+          .map((sc) => {
+            const modules = sc.modules.filter(matchesCat);
+            return modules.length || sc.isCustom ? { ...sc, modules } : null;
+          })
+          .filter((sc): sc is NonNullable<typeof sc> => sc !== null);
+        return subcategories.length || cat.isCustom ? { ...cat, subcategories } : null;
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+  }, [search, hierarchy, businessDisabledKeys]);
 
-    return ACCESS_HIERARCHY.map((cat) => {
-      const matchesCat = (m: { key: string; label: string }) =>
-        m.label.toLowerCase().includes(q) || m.key.includes(q);
-
-      if (cat.modules) {
-        const modules = cat.modules.filter(matchesCat);
-        return modules.length ? { ...cat, modules } : null;
-      }
-      const subcategories = (cat.subcategories ?? [])
-        .map((sc) => {
-          const modules = sc.modules.filter(matchesCat);
-          return modules.length ? { ...sc, modules } : null;
-        })
-        .filter((sc): sc is NonNullable<typeof sc> => sc !== null);
-      return subcategories.length ? { ...cat, subcategories } : null;
-    }).filter((c): c is NonNullable<typeof c> => c !== null);
-  }, [search]);
+  // Strict per-business role isolation: a role created under Business A
+  // must never show up (or be selectable/appliable) under Business B or
+  // any other business. AN Group is the one exception, since it's also
+  // where the legacy platform-wide system roles (SUPER_ADMIN, ADMIN,
+  // EMPLOYEE, the CUSTOMER floor roles) still live with businessId: null
+  // in the database -- those are treated as belonging to AN Group, not as
+  // "visible everywhere". Was previously `!r.businessId || r.businessId
+  // === activeBusinessId`, which (combined with createRole never sending a
+  // businessId at all) meant every newly-created role defaulted to
+  // "visible under every business", exactly the leak reported.
+  const visibleRoles = useMemo(() => {
+    if (!activeBusinessId) return roles;
+    if (activeBusinessId === anGroupBusinessId) {
+      return roles.filter((r) => !r.businessId || r.businessId === anGroupBusinessId);
+    }
+    return roles.filter((r) => r.businessId === activeBusinessId);
+  }, [roles, activeBusinessId, anGroupBusinessId]);
 
   const rowCls =
     "flex items-center justify-between gap-4 px-4 py-2.5 border-b border-gray-100 last:border-0";
 
-  function renderModuleRow(moduleKey: string, label: string) {
+  function renderModuleRow(moduleKey: string, label: string, currentParentKey?: string, description?: string) {
     if (!selectedRole) return null;
     const moduleCodes = STANDARD_ACTIONS.map((a) => buildCode(moduleKey, a.key));
     const grantedCount = moduleCodes.filter((c) => selectedRole.permissions.includes(c)).length;
     const allGranted = grantedCount === moduleCodes.length;
 
     return (
-      <div key={moduleKey} className={rowCls}>
-        <div className="flex items-center gap-2 min-w-[220px] shrink-0">
-          <button
-            onClick={() => toggleModule(moduleKey, !allGranted)}
-            title={allGranted ? "Revoke all privileges for this module" : "Grant all privileges for this module"}
-            className={`text-[10px] font-semibold px-2 py-1 rounded ${
-              allGranted
-                ? "bg-emerald-100 text-emerald-700"
-                : grantedCount > 0
-                ? "bg-amber-100 text-amber-700"
-                : "bg-gray-100 text-gray-400"
-            }`}
-          >
-            {grantedCount}/{moduleCodes.length}
-          </button>
-          <span className="text-sm font-medium text-gray-900">{label}</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 justify-end">
-          {STANDARD_ACTIONS.map((action) => {
-            const code = buildCode(moduleKey, action.key);
-            const active = selectedRole.permissions.includes(code);
-            return (
-              <button
-                key={action.key}
-                onClick={() => togglePermission(code)}
-                title={action.description}
-                className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
-                  active
-                    ? "bg-gray-900 text-white"
-                    : "border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600"
-                }`}
+      <div key={moduleKey} className="flex flex-col gap-2 px-4 py-2.5 border-b border-gray-100 last:border-0">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => toggleModule(moduleKey, !allGranted)}
+              title={allGranted ? "Revoke all privileges for this module" : "Grant all privileges for this module"}
+              className={`text-[10px] font-semibold px-2 py-1 rounded shrink-0 ${
+                allGranted
+                  ? "bg-emerald-100 text-emerald-700"
+                  : grantedCount > 0
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {grantedCount}/{moduleCodes.length}
+            </button>
+            <span className="text-sm font-medium text-gray-900">{label}</span>
+            {currentParentKey && (
+              <select
+                value={currentParentKey}
+                onChange={(e) => moveModuleTo(moduleKey, e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                title="Move this module to a different category/subcategory"
+                className="text-[10px] border border-gray-200 rounded px-1.5 py-1 text-gray-500 bg-white outline-none"
               >
-                {action.label}
-              </button>
-            );
-          })}
+                {allSubcategories.map((sc) => (
+                  <option key={sc.key} value={sc.key}>{sc.label}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 justify-end">
+            {STANDARD_ACTIONS.map((action) => {
+              const code = buildCode(moduleKey, action.key);
+              const active = selectedRole.permissions.includes(code);
+              return (
+                <button
+                  key={action.key}
+                  onClick={() => togglePermission(code)}
+                  title={action.description}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors ${
+                    active
+                      ? "bg-gray-900 text-white"
+                      : "border border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  {action.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
+        {/* Always-visible plain-language summary of what this module's
+            access grants -- was previously only in each action button's
+            hover title, easy to miss entirely. */}
+        {description && <p className="text-xs text-gray-400 pl-1">{description}</p>}
       </div>
     );
   }
@@ -234,14 +514,28 @@ export default function AccessPage() {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Left Panel */}
       <aside className="w-72 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">Roles</h2>
-          <button
-            onClick={() => setCreating(true)}
-            className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-md hover:bg-gray-700 transition-colors"
+        <div className="px-4 py-4 border-b border-gray-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900">Roles</h2>
+            <button
+              onClick={() => setCreating(true)}
+              className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-md hover:bg-gray-700 transition-colors"
+            >
+              Create Role
+            </button>
+          </div>
+          {/* Active business context -- filters both the role list below
+              and the module tree on the right to what this business
+              actually has enabled. */}
+          <select
+            value={activeBusinessId}
+            onChange={(e) => setActiveBusinessId(e.target.value)}
+            className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 bg-white outline-none focus:border-gray-400"
           >
-            Create Role
-          </button>
+            {[...businesses].sort((a, b) => (b.isPlatform ? 1 : 0) - (a.isPlatform ? 1 : 0)).map((b) => (
+              <option key={b._id} value={b._id}>{b.isPlatform ? "AN Group" : b.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -249,13 +543,13 @@ export default function AccessPage() {
             <div className="flex items-center justify-center py-12 text-sm text-gray-400">
               Loading...
             </div>
-          ) : roles.length === 0 ? (
+          ) : visibleRoles.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-sm text-gray-400">
-              No roles found
+              No roles found for this business
             </div>
           ) : (
             <ul className="py-1">
-              {roles.map((role) => {
+              {visibleRoles.map((role) => {
                 const isSelected = selectedRole?._id === role._id;
                 return (
                   <li key={role._id}>
@@ -275,6 +569,11 @@ export default function AccessPage() {
                         <span className="text-sm font-medium text-gray-900 truncate">
                           {role.name}
                         </span>
+                        {role.roleNumber && (
+                          <span className="flex-shrink-0 font-mono text-[10px] text-gray-400">
+                            {role.roleNumber}
+                          </span>
+                        )}
                         {role.isSystem && (
                           <span className="flex-shrink-0 px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded">
                             System
@@ -334,6 +633,19 @@ export default function AccessPage() {
                     <p className="text-xs text-gray-500 mt-0.5 truncate">{selectedRole.description}</p>
                   )}
                 </div>
+                <button
+                  onClick={() => {
+                    const name = prompt("Role name", selectedRole.name);
+                    if (!name?.trim()) return;
+                    const description = prompt("Role description (optional)", selectedRole.description || "") ?? selectedRole.description;
+                    setSelectedRole({ ...selectedRole, name: name.trim(), description: description || "" });
+                  }}
+                  title="Edit role name/description"
+                  className="p-1 text-gray-300 hover:text-gray-700 shrink-0"
+                  aria-label="Edit role"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
                 {selectedRole.isSystem && (
                   <span className="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded shrink-0">
                     System
@@ -341,6 +653,17 @@ export default function AccessPage() {
                 )}
               </div>
               <div className="flex items-center gap-3 shrink-0">
+                <select
+                  value={selectedRole.homeRoute || ""}
+                  onChange={(e) => setHomeRoute(e.target.value)}
+                  title="Page a user with this role lands on right after login"
+                  className="w-48 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-gray-400 transition"
+                >
+                  <option value="">Home Page: Default</option>
+                  {STATIC_MODULES.map((m) => (
+                    <option key={m.route} value={m.route}>Home Page: {m.label}</option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   value={search}
@@ -361,58 +684,185 @@ export default function AccessPage() {
 
             {/* Hierarchical Permission Tree: Category > Subcategory > Module > Privilege */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {filteredHierarchy.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-12">No modules match &quot;{search}&quot;</p>
+              {grantedModuleKeys.length > 0 && (
+                <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                  <div className="px-5 py-3 bg-gray-50">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                      Sidebar Order
+                    </span>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Re-arrange the order these modules appear in the sidebar for this role (e.g. CRM Dashboard before Appointments).
+                    </p>
+                  </div>
+                  <div>
+                    {grantedModuleKeys.map((m, i) => (
+                      <div key={m.key} className={rowCls}>
+                        <span className="text-sm text-gray-900">{m.label}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => moveModule(m.key, -1)}
+                            disabled={i === 0}
+                            className="p-1 rounded text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400"
+                            aria-label={`Move ${m.label} up`}
+                          >
+                            <ChevronDown className="w-4 h-4 rotate-180" />
+                          </button>
+                          <button
+                            onClick={() => moveModule(m.key, 1)}
+                            disabled={i === grantedModuleKeys.length - 1}
+                            className="p-1 rounded text-gray-400 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-400"
+                            aria-label={`Move ${m.label} down`}
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                {addingCategory ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus value={newNodeLabel} onChange={(e) => setNewNodeLabel(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addCategory()}
+                      placeholder="New category name…"
+                      className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 outline-none focus:border-gray-400"
+                    />
+                    <button onClick={addCategory} className="text-xs px-2.5 py-1.5 bg-gray-900 text-white rounded-md">Add</button>
+                    <button onClick={() => { setAddingCategory(false); setNewNodeLabel(""); }} className="text-xs px-2.5 py-1.5 text-gray-500">Cancel</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingCategory(true)}
+                    className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Category
+                  </button>
+                )}
+              </div>
+
+              {hierarchyLoading ? (
+                <p className="text-sm text-gray-400 text-center py-12">Loading hierarchy…</p>
+              ) : filteredHierarchy.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-12">
+                  {search ? `No modules match "${search}"` : "No modules enabled for this business yet."}
+                </p>
               ) : (
                 filteredHierarchy.map((cat) => {
                   const catOpen = openCategories[cat.key] !== false;
                   return (
                     <div key={cat.key} className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-                      <button
-                        onClick={() => setOpenCategories((p) => ({ ...p, [cat.key]: !catOpen }))}
-                        className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-                      >
-                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
-                          {cat.label}
-                        </span>
-                        {catOpen ? (
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-gray-400" />
-                        )}
-                      </button>
+                      <div className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors group">
+                        <button
+                          onClick={() => setOpenCategories((p) => ({ ...p, [cat.key]: !catOpen }))}
+                          className="flex items-center gap-2 flex-1 text-left"
+                        >
+                          <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                            {cat.label}
+                          </span>
+                          {cat.isCustom && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">Custom</span>
+                          )}
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {cat.isCustom && (
+                            <>
+                              <button
+                                onClick={() => { const l = prompt("Rename category", cat.label); if (l) renameNode(cat.key, l); }}
+                                className="p-1 text-gray-400 hover:text-gray-700 opacity-0 group-hover:opacity-100"
+                                aria-label={`Rename ${cat.label}`}
+                              ><Pencil className="w-3.5 h-3.5" /></button>
+                              <button
+                                onClick={() => confirm(`Delete category "${cat.label}"? Its modules fall back to Unassigned.`) && deleteNode(cat.key)}
+                                className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                                aria-label={`Delete ${cat.label}`}
+                              ><Trash2 className="w-3.5 h-3.5" /></button>
+                            </>
+                          )}
+                          <button onClick={() => setOpenCategories((p) => ({ ...p, [cat.key]: !catOpen }))}>
+                            {catOpen ? (
+                              <ChevronDown className="w-4 h-4 text-gray-400" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
 
                       {catOpen && (
                         <div>
-                          {cat.modules &&
-                            cat.modules.map((m) => renderModuleRow(m.key, m.label))}
-
-                          {cat.subcategories &&
-                            cat.subcategories.map((sc) => {
-                              const scOpen = openSubcategories[sc.key] !== false;
-                              return (
-                                <div key={sc.key} className="border-t border-gray-100 first:border-0">
+                          {cat.subcategories.map((sc) => {
+                            const scOpen = openSubcategories[sc.key] !== false;
+                            return (
+                              <div key={sc.key} className="border-t border-gray-100 first:border-0">
+                                <div className="w-full flex items-center justify-between px-5 py-2 bg-gray-25 hover:bg-gray-50 transition-colors group">
                                   <button
-                                    onClick={() =>
-                                      setOpenSubcategories((p) => ({ ...p, [sc.key]: !scOpen }))
-                                    }
-                                    className="w-full flex items-center justify-between px-5 py-2 bg-gray-25 hover:bg-gray-50 transition-colors"
+                                    onClick={() => setOpenSubcategories((p) => ({ ...p, [sc.key]: !scOpen }))}
+                                    className="flex items-center gap-2 flex-1 text-left"
                                   >
                                     <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                                       {sc.label}
                                     </span>
-                                    {scOpen ? (
-                                      <ChevronDown className="w-3.5 h-3.5 text-gray-300" />
-                                    ) : (
-                                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                                    {sc.isCustom && (
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">Custom</span>
                                     )}
                                   </button>
-                                  {scOpen && (
-                                    <div>{sc.modules.map((m) => renderModuleRow(m.key, m.label))}</div>
-                                  )}
+                                  <div className="flex items-center gap-1">
+                                    {sc.isCustom && sc.key !== cat.key && (
+                                      <>
+                                        <button
+                                          onClick={() => { const l = prompt("Rename subcategory", sc.label); if (l) renameNode(sc.key, l); }}
+                                          className="p-1 text-gray-300 hover:text-gray-700 opacity-0 group-hover:opacity-100"
+                                          aria-label={`Rename ${sc.label}`}
+                                        ><Pencil className="w-3 h-3" /></button>
+                                        <button
+                                          onClick={() => confirm(`Delete subcategory "${sc.label}"?`) && deleteNode(sc.key)}
+                                          className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                                          aria-label={`Delete ${sc.label}`}
+                                        ><Trash2 className="w-3 h-3" /></button>
+                                      </>
+                                    )}
+                                    <button onClick={() => setOpenSubcategories((p) => ({ ...p, [sc.key]: !scOpen }))}>
+                                      {scOpen ? (
+                                        <ChevronDown className="w-3.5 h-3.5 text-gray-300" />
+                                      ) : (
+                                        <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                                      )}
+                                    </button>
+                                  </div>
                                 </div>
-                              );
-                            })}
+                                {scOpen && (
+                                  <div>{sc.modules.map((m) => renderModuleRow(m.key, m.label, m.parentKey, m.description))}</div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* Add Subcategory */}
+                          <div className="px-5 py-2 border-t border-gray-100">
+                            {addingSubFor === cat.key ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  autoFocus value={newNodeLabel} onChange={(e) => setNewNodeLabel(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && addSubcategory(cat.key)}
+                                  placeholder="New subcategory name…"
+                                  className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 outline-none focus:border-gray-400"
+                                />
+                                <button onClick={() => addSubcategory(cat.key)} className="text-xs px-2.5 py-1.5 bg-gray-900 text-white rounded-md">Add</button>
+                                <button onClick={() => { setAddingSubFor(null); setNewNodeLabel(""); }} className="text-xs px-2.5 py-1.5 text-gray-500">Cancel</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setAddingSubFor(cat.key)}
+                                className="flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-gray-700"
+                              >
+                                <Plus className="w-3 h-3" /> Add Subcategory
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

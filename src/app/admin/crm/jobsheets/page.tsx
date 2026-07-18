@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, ClipboardList, Plus } from 'lucide-react'
+import { formatAgeing } from '@/lib/format/ageing'
 
 interface JobSheet {
   _id: string
@@ -47,7 +48,7 @@ function AgeingBadge({ js }: { js: JobSheet }) {
   const overdue = days >= 7
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${overdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
-      {days}d
+      {formatAgeing(js.createdAt)}
     </span>
   )
 }
@@ -88,7 +89,7 @@ export default function JobSheetsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="px-6 py-10">
         <div className="flex items-center gap-4 mb-8">
           <button onClick={() => router.push('/admin/crm')} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
             <ArrowLeft className="w-4 h-4" />

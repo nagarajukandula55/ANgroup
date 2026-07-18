@@ -1,17 +1,19 @@
 "use client";
 
 /**
- * System-wide ephemeral toast notifications, so an action's success/failure
- * is always visibly confirmed instead of silently updating (or not updating)
- * page state the user has to notice on their own. Complements, not replaces,
- * the persistent notification center (/admin/notifications, backed by
- * src/models/Notification.ts) — a toast is "this just happened," the
- * notification center is "here's what happened while you weren't looking."
+ * System-wide ephemeral notifications, delivered as an ANu prompt rather
+ * than a generic toast or the separate notification-bell dropdown -- per
+ * explicit direction, every approval/update confirmation should come
+ * through ANu, personalized ("Hey Nagaraj, settings applied
+ * successfully"), as a lightweight prompt rather than opening ANu's full
+ * chat window. Every existing toast.success()/error()/etc call site across
+ * the app is unchanged -- this file is the one place that renders them,
+ * so the personalization + ANu branding applies everywhere at once.
  *
  * Usage: const toast = useToast(); toast.success("Saved"); toast.error("...");
  */
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle, XCircle, AlertTriangle, Info, X, Bot } from "lucide-react";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -40,9 +42,30 @@ const TYPE_CONFIG: Record<ToastType, { icon: typeof CheckCircle; className: stri
 
 const AUTO_DISMISS_MS = 5000;
 
+// Lowercases the message's leading letter when it's being appended after
+// a "Hey {name}, " greeting, e.g. "Settings applied successfully" ->
+// "settings applied successfully" so the combined sentence reads
+// naturally instead of a capital letter appearing mid-sentence.
+function lowercaseFirst(message: string): string {
+  return message.length ? message[0].toLowerCase() + message.slice(1) : message;
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const idRef = useRef(0);
+  // First name only, for the "Hey {name}, ..." greeting -- fetched once
+  // and cached for the session rather than re-fetched per toast.
+  const [firstName, setFirstName] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        const full = d?.user?.name as string | undefined;
+        if (full) setFirstName(full.trim().split(/\s+/)[0]);
+      })
+      .catch(() => {});
+  }, []);
 
   const dismiss = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -75,14 +98,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => {
           const cfg = TYPE_CONFIG[t.type];
           const Icon = cfg.icon;
+          const greeting = firstName ? `Hey ${firstName}, ` : "";
           return (
             <div
               key={t.id}
               role="status"
               className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-lg ${cfg.className}`}
             >
-              <Icon size={16} className="shrink-0 mt-0.5" />
-              <p className="flex-1 leading-snug">{t.message}</p>
+              <div className="shrink-0 mt-0.5 relative">
+                <Bot size={16} />
+                <Icon size={10} className="absolute -bottom-1 -right-1 rounded-full bg-white" />
+              </div>
+              <p className="flex-1 leading-snug">
+                <span className="font-medium">{greeting}</span>
+                {greeting ? lowercaseFirst(t.message) : t.message}
+              </p>
               <button
                 onClick={() => dismiss(t.id)}
                 className="shrink-0 opacity-60 hover:opacity-100 transition"

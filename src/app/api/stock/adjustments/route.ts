@@ -6,6 +6,9 @@ import StockAdjustment from "@/models/StockAdjustment";
 import InventoryItem from "@/models/InventoryItem";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 /* =========================================================
  * GET /api/stock/adjustments?businessId=&page=&limit=&inventoryItemId=
@@ -13,12 +16,18 @@ import { logAction } from "@/lib/audit/logAction";
  * =======================================================*/
 export async function GET(req: NextRequest) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("stock_adjustments", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
@@ -85,12 +94,18 @@ export async function GET(req: NextRequest) {
  * =======================================================*/
 export async function POST(req: NextRequest) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("stock_adjustments", "create"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const body = await req.json();
     const { businessId, inventoryItemId, adjustmentType, quantity, reason, notes } =

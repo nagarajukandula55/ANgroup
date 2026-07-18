@@ -12,6 +12,10 @@ export interface DocumentRenderItem {
   unitPrice: number;
   taxRate: number;
   amount: number;
+  /** Fault Phenomenon/Symptom/Solution codes for this line, when the
+   * source line item has them set -- currently only CrmJobSheet line
+   * items carry these (see jobSheetToRenderData). */
+  diagnosis?: string;
 }
 
 export interface DocumentRenderData {
@@ -22,8 +26,15 @@ export interface DocumentRenderData {
   company: {
     name: string;
     address?: string;
+    /** Service center (Warehouse.mobile) when the document was issued from
+     * one -- see businessToCompany's own comment. */
+    phone?: string;
     gstin?: string;
     logoUrl?: string;
+    /** Vendor-wide Terms & Conditions (Business.termsAndConditions, set
+     * from the vendor Owner/Manager's profile page) -- the "terms" block's
+     * fallback text when the document itself has no notes of its own. */
+    termsAndConditions?: string;
   };
   party: {
     name: string;

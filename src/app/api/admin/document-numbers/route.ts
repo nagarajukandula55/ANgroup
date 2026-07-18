@@ -51,7 +51,9 @@ function buildPreview(
         };
         if (key in builtins) return builtins[key];
         if (key in PREVIEW_CONTEXT) return PREVIEW_CONTEXT[key];
-        return `{${key}}`; // unknown token -- shown literally in the preview as a hint
+        // Matches renderTemplate()'s real runtime behavior (numberingService.ts) --
+        // a token nothing supplies a value for renders as "", not literal "{key}".
+        return "";
       });
     } catch {
       return "(invalid template)";

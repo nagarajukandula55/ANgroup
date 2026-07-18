@@ -4,6 +4,9 @@ import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Brand from "@/models/Brand";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // GET /api/brands/[id]
 export async function GET(
@@ -14,6 +17,14 @@ export async function GET(
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { id } = await context.params;
 
@@ -46,6 +57,14 @@ export async function PUT(
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "edit"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+
     const { id } = await context.params;
 
     if (!Types.ObjectId.isValid(id)) {
@@ -53,7 +72,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, description, logoUrl, isActive, businessScope, businessIds, parentId } = body;
+    const { name, description, logoUrl, isActive, businessScope, businessIds, parentId, category } = body;
 
     await connectDB();
 
@@ -74,6 +93,7 @@ export async function PUT(
     if (businessScope !== undefined) updates.businessScope = businessScope;
     if (businessIds !== undefined) updates.businessIds = businessIds;
     if (parentId !== undefined) updates.parentId = parentId || null;
+    if (category !== undefined) updates.category = category || null;
 
     const brand = await Brand.findByIdAndUpdate(
       id,
@@ -115,6 +135,14 @@ export async function DELETE(
     const h = await headers();
     const userId = h.get("x-user-id");
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("brands", "delete"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
 
     const { id } = await context.params;
 

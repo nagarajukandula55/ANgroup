@@ -205,8 +205,12 @@ export async function createPurchaseOrder(payload: any) {
 // Was PurchaseOrder.find() with no filter at all -- every business's
 // purchase orders were returned to every caller, a cross-tenant data leak
 // on top of the route itself having no auth check (fixed in the route).
-export async function getAllPurchaseOrders(businessId: string) {
-  const orders = (await PurchaseOrder.find({ businessId })
+export async function getAllPurchaseOrders(businessId: string, vendorId?: string) {
+  // Vendor-scoped view (see app/vendor/purchase) -- PurchaseOrder already
+  // carries its own vendorId natively.
+  const filter: Record<string, unknown> = { businessId };
+  if (vendorId) filter.vendorId = vendorId;
+  const orders = (await PurchaseOrder.find(filter)
     .populate("vendorId")
     .populate("warehouseId")
     .sort({ createdAt: -1 })

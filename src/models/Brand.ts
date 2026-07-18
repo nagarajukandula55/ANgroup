@@ -1,9 +1,20 @@
 import mongoose, { Schema, Model, Document } from "mongoose";
 import { BUSINESS_SCOPES, type BusinessScope } from "@/core/catalog/businessScope";
+import { DEVICE_CATEGORIES, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 export interface IBrand extends Document {
   name: string;
   description?: string;
+  // Electronics device type this brand belongs to (Mobile, Laptop, TV, ...)
+  // -- optional so every pre-existing Brand doc (created before this field
+  // existed) stays valid; the admin UI shows uncategorized brands as their
+  // own root nodes rather than failing to render. IS part of the uniqueness
+  // below (see that index) -- a true multi-line brand (Samsung sells phones,
+  // TVs, fridges, ACs, ...) genuinely needs one row per category it's
+  // classified under, each with its own category-appropriate DeviceModel
+  // list, rather than one row lumping every product line's models together
+  // under a single arbitrary category.
+  category?: DeviceCategory | null;
   // Optional parent brand -- lets a business branch brands the same way
   // ProductCategory/MaterialCategory already do (e.g. a "Mobile" group
   // with its own set of logo entries under it, a separate "Laptops"
@@ -26,6 +37,7 @@ const BrandSchema = new Schema<IBrand>(
   {
     name: { type: String, required: true },
     description: { type: String },
+    category: { type: String, enum: DEVICE_CATEGORIES, default: null },
     parentId: { type: Schema.Types.ObjectId, ref: "Brand", default: null },
     businessId: { type: Schema.Types.ObjectId, required: true },
     businessScope: { type: String, enum: BUSINESS_SCOPES, default: "SINGLE" },
@@ -37,7 +49,12 @@ const BrandSchema = new Schema<IBrand>(
 );
 
 BrandSchema.index({ businessId: 1, isActive: 1 });
-BrandSchema.index({ businessId: 1, name: 1 }, { unique: true });
+// A brand name is unique per (business, category) rather than per business
+// alone -- lets a genuinely multi-line brand (e.g. Samsung: Mobile, TV,
+// Refrigerator, ...) have one row per category it's classified under. Two
+// uncategorized ("category": null) brands with the same name are still
+// blocked, same as before this field existed.
+BrandSchema.index({ businessId: 1, category: 1, name: 1 }, { unique: true });
 
 const Brand: Model<IBrand> =
   (mongoose.models.Brand as Model<IBrand>) ||

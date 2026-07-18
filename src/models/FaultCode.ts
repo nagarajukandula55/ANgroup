@@ -9,6 +9,7 @@
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
 import { BUSINESS_SCOPES, type BusinessScope } from "@/core/catalog/businessScope";
+import { DEVICE_CATEGORIES, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 export interface IFaultCode extends Document {
   businessId?: Types.ObjectId | null;
@@ -16,6 +17,15 @@ export interface IFaultCode extends Document {
   businessIds: Types.ObjectId[];
   code: string;
   description: string;
+  // Device type this fault code applies to (Mobile, Laptop, TV, ...) -- the
+  // outer level of the "Device Type > Component Category > Fault Code" tree.
+  // Optional so existing/default codes (created before this field existed,
+  // or genuinely cross-device like "General service") fall into an
+  // "Uncategorized" bucket in the UI rather than failing to render.
+  deviceCategory?: DeviceCategory | null;
+  // Component grouping within a device type (e.g. "Screen"/"Battery") --
+  // the middle level of the tree. Pre-existing field, now documented as
+  // this role rather than a generic free-text tag.
   category?: string;
   // Optional parent fault code -- same self-referencing tree pattern as
   // Brand/ProductCategory/MaterialCategory, so fault codes can be grouped
@@ -33,6 +43,7 @@ const FaultCodeSchema = new Schema<IFaultCode>(
     businessIds: [{ type: Schema.Types.ObjectId, ref: "Business" }],
     code: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
+    deviceCategory: { type: String, enum: DEVICE_CATEGORIES, default: null },
     category: { type: String, trim: true },
     parentId: { type: Schema.Types.ObjectId, ref: "FaultCode", default: null },
     isActive: { type: Boolean, default: true },
@@ -42,6 +53,7 @@ const FaultCodeSchema = new Schema<IFaultCode>(
 
 FaultCodeSchema.index({ businessId: 1, isActive: 1 });
 FaultCodeSchema.index({ businessId: 1, code: 1 }, { unique: true });
+FaultCodeSchema.index({ businessId: 1, deviceCategory: 1, category: 1 });
 
 const FaultCode: Model<IFaultCode> =
   (mongoose.models.FaultCode as Model<IFaultCode>) ||

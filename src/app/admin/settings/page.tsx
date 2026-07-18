@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight, Receipt, Globe2, Plus, Trash2 } from 'lucide-react'
+import { Building2, Plug, Sparkles, Save, User, ChevronRight, Receipt, Globe2, Plus, Trash2 } from 'lucide-react'
 
 /**
  * Admin Settings hub — src/app/admin/settings.
@@ -12,10 +12,6 @@ import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight, Receipt, Glo
  * configure business-wide, reusing APIs that ALREADY EXIST and work rather
  * than inventing new backends for all of them:
  *   - Business Profile:      NEW PATCH /api/businesses/[id] (added alongside this page)
- *   - Document Numbers:      EXISTING /api/admin/document-numbers, now covering EVERY document type
- *                            the platform actually generates (was 10 types, now 18 — see
- *                            core/numbering/types.ts's consolidation writeup), with per-type
- *                            active/inactive control added below.
  *   - Integrations:          EXISTING /api/integrations (Telegram/WhatsApp/Slack/Email)
  *   - AI / ANu:              EXISTING /api/ai/providers (AIConfig — same config ANu itself reads)
  *
@@ -25,10 +21,19 @@ import { Building2, Hash, Plug, Sparkles, Save, User, ChevronRight, Receipt, Glo
  * was already fully working. It's moved to src/app/admin/settings/account
  * and linked from the tab bar here so it isn't orphaned, per "don't miss
  * any feature."
+ *
+ * Document Numbering used to be a tab here (a simpler prefix/startFrom/
+ * active-only editor) AND its own separate /admin/document-numbers route
+ * (the full-featured one, with separator/FY/template/token picker) at the
+ * same time -- two independent editors for the same underlying config is
+ * exactly the kind of drift that made it look like it "wasn't updating
+ * properly." Both are gone now; the one canonical place is the Document
+ * Numbering section on each business's own view page (admin/business/[id],
+ * see components/admin/DocumentNumbersPanel.tsx), per explicit direction.
  */
 
 type View = 'business' | 'platform'
-type Tab = 'numbering' | 'integrations' | 'ai' | 'invoicing'
+type Tab = 'integrations' | 'ai' | 'invoicing'
 
 interface SsoMapping {
   _id: string
@@ -45,22 +50,9 @@ interface InvoicingRules {
   defaultSupplyType: 'INTRASTATE' | 'INTERSTATE'
 }
 
-interface DocConfig {
-  documentType: string
-  prefix: string
-  separator: string
-  includeFinancialYear: boolean
-  includeMonth: boolean
-  sequenceLength: number
-  suffix: string
-  startFrom: number
-  isActive: boolean
-  formatPreview: string
-}
-
 export default function AdminSettingsPage() {
   const [view, setView] = useState<View>('business')
-  const [tab, setTab] = useState<Tab>('numbering')
+  const [tab, setTab] = useState<Tab>('integrations')
   const [businessId, setBusinessId] = useState<string | null>(null)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [msg, setMsg] = useState('')
@@ -79,10 +71,6 @@ export default function AdminSettingsPage() {
     defaultSupplyType: 'INTRASTATE',
   })
   const [savingInvoicing, setSavingInvoicing] = useState(false)
-
-  // Document numbering
-  const [docConfigs, setDocConfigs] = useState<DocConfig[]>([])
-  const [loadingDocs, setLoadingDocs] = useState(false)
 
   // Integrations
   const [integrations, setIntegrations] = useState<Record<string, any>>({})
@@ -161,7 +149,6 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     if (!businessId || view !== 'business') return
-    if (tab === 'numbering') loadDocConfigs()
     if (tab === 'integrations') loadIntegrations()
     if (tab === 'ai') loadAiConfig()
     if (tab === 'invoicing') loadInvoicingRules()
@@ -203,34 +190,6 @@ export default function AdminSettingsPage() {
     setSavingInvoicing(false)
   }
 
-  async function loadDocConfigs() {
-    setLoadingDocs(true)
-    try {
-      const res = await fetch(`/api/admin/document-numbers?businessId=${businessId}`, { credentials: 'include' })
-      const d = await res.json()
-      if (d.success) setDocConfigs(d.data)
-    } catch {}
-    setLoadingDocs(false)
-  }
-
-  async function saveDocConfig(cfg: DocConfig) {
-    try {
-      const res = await fetch('/api/admin/document-numbers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ businessId, ...cfg }),
-      })
-      const d = await res.json()
-      if (d.success) {
-        setMsg(`✓ ${cfg.documentType} numbering saved`)
-        loadDocConfigs()
-      }
-    } catch {
-      setMsg('Failed to save numbering config')
-    }
-  }
-
   async function loadIntegrations() {
     setLoadingIntegrations(true)
     try {
@@ -259,7 +218,6 @@ export default function AdminSettingsPage() {
   }
 
   const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'numbering', label: 'Document Numbers', icon: <Hash size={14} /> },
     { key: 'invoicing', label: 'Invoicing Rules', icon: <Receipt size={14} /> },
     { key: 'integrations', label: 'Integrations', icon: <Plug size={14} /> },
     { key: 'ai', label: 'AI / ANu', icon: <Sparkles size={14} /> },
@@ -472,78 +430,6 @@ export default function AdminSettingsPage() {
           </div>
         )}
 
-        {tab === 'numbering' && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Document Numbering</h3>
-            <p className="text-xs text-gray-500 mb-5">
-              Every document type the platform generates — invoices, orders, GRNs, transfers, and more — is listed here. Set a prefix, starting number, and whether numbering is active; every document number is generated from this configuration, nowhere else.
-            </p>
-            {loadingDocs ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : (
-              <div className="space-y-3">
-                {docConfigs.map((cfg: DocConfig, i: number) => (
-                  <div key={cfg.documentType} className="rounded-xl border border-gray-200 p-4 flex items-center gap-3 flex-wrap">
-                    <div className="flex-1 min-w-[140px]">
-                      <p className="text-sm font-medium text-gray-900">{cfg.documentType.replace(/_/g, ' ')}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Preview: {cfg.formatPreview}</p>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-gray-400 block mb-0.5">Prefix</label>
-                      <input
-                        value={cfg.prefix}
-                        onChange={(e) => {
-                          const updated = [...docConfigs]
-                          updated[i] = { ...cfg, prefix: e.target.value }
-                          setDocConfigs(updated)
-                        }}
-                        placeholder="Prefix"
-                        className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-center outline-none focus:border-gray-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-gray-400 block mb-0.5">Start From</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={cfg.startFrom}
-                        onChange={(e) => {
-                          const updated = [...docConfigs]
-                          updated[i] = { ...cfg, startFrom: Number(e.target.value) || 1 }
-                          setDocConfigs(updated)
-                        }}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="Start from"
-                        className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-center outline-none focus:border-gray-400"
-                      />
-                    </div>
-                    <button
-                      onClick={() => {
-                        const updated = [...docConfigs]
-                        updated[i] = { ...cfg, isActive: !cfg.isActive }
-                        setDocConfigs(updated)
-                      }}
-                      className="flex flex-col items-center gap-0.5"
-                      title={cfg.isActive ? 'Numbering active — click to disable' : 'Numbering disabled — click to enable'}
-                    >
-                      <span className="text-[10px] text-gray-400">Active</span>
-                      <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all ${cfg.isActive ? 'bg-emerald-500' : 'bg-gray-200'}`}>
-                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-all ${cfg.isActive ? 'translate-x-5' : 'translate-x-1'}`} />
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => saveDocConfig(docConfigs[i])}
-                      className="rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs font-medium"
-                    >
-                      Save
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {tab === 'integrations' && (
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <h3 className="text-sm font-semibold text-gray-900 mb-5">Notification Integrations</h3>
@@ -574,7 +460,7 @@ export default function AdminSettingsPage() {
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">AI / ANu Configuration</h3>
             <p className="text-xs text-gray-500 mb-5">
-              ANu (the in-house assistant at Admin &gt; AI Workspace) uses whichever provider below is enabled, preferring Anthropic if both are set. Add an API key here to turn ANu on for this business.
+              ANu (the assistant reachable from the graduation-cap/bot icon on every admin page) uses whichever provider below is enabled, preferring Anthropic if both are set. This page is a status summary only — the previous copy here wrongly said "add a key here"; use the button below instead.
             </p>
             {loadingAi ? (
               <p className="text-sm text-gray-500">Loading…</p>
@@ -591,9 +477,12 @@ export default function AdminSettingsPage() {
                     <span className={`h-2.5 w-2.5 rounded-full ${aiConfig.providers[provider]?.isEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`} />
                   </div>
                 ))}
-                <p className="text-xs text-gray-400 pt-2">
-                  Full API-key editing uses the existing /admin/ai-image screen's provider settings (same AIConfig record ANu reads) — this view is a status summary.
-                </p>
+                <a
+                  href="/admin/ai-image"
+                  className="inline-flex items-center gap-1.5 mt-2 px-3 py-2 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition"
+                >
+                  Add / edit API keys in AI Studio
+                </a>
               </div>
             )}
           </div>

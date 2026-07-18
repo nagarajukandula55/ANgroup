@@ -22,6 +22,8 @@ interface EmployeeProfile {
 }
 
 interface VendorProfile {
+  _id?: string;
+  businessId?: string;
   vendorId: string;
   companyName?: string;
   gstNumber?: string;
@@ -98,13 +100,26 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     async function load() {
       setLoading(true);
       try {
-        const [userRes, rolesRes] = await Promise.all([
-          fetch(`/api/admin/users/${id}`),
-          fetch('/api/admin/roles'),
-        ]);
+        const userRes = await fetch(`/api/admin/users/${id}`);
         const userData = await userRes.json();
-        const rolesData = await rolesRes.json();
         if (userData.user) setUser(userData.user);
+
+        // Was fetching "/api/admin/roles" with NO scoping params at all --
+        // every role in the entire system (every business, every vendor)
+        // was offered in the assign-role picker below, regardless of who
+        // this user actually is. Now scoped to this user's own business,
+        // and (when the target is a vendor user) unioned with that
+        // vendor's own structural roles -- /api/admin/roles itself no
+        // longer supports a vendor-only exact-match mode, since that was
+        // the cause of a separate bug: a custom role a Super Admin created
+        // for the business could never be offered for a vendor user at all.
+        const vp = userData.user?.vendorProfile;
+        const businessId = vp?.businessId || userData.user?.businessId;
+        const qs = new URLSearchParams();
+        if (businessId) qs.set('businessId', String(businessId));
+        if (vp?._id) qs.set('vendorId', String(vp._id));
+        const rolesRes = await fetch(`/api/admin/roles${qs.toString() ? `?${qs}` : ''}`);
+        const rolesData = await rolesRes.json();
         if (rolesData.roles) setAvailableRoles(rolesData.roles);
       } catch (e) {
         console.error(e);
@@ -244,7 +259,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const primaryRole = user.roles[0];
   const roleColor = getRoleColor(primaryRole?.code || '');
 
-  const allPermissions = user.roles.flatMap((r) => r.permissions || []);
+  // A UserRole whose roleId points at a since-deleted Role document
+  // populates as null (e.g. an old role removed/renamed during a Role
+  // Sync) -- filter those out before touching .permissions on each entry.
+  const allPermissions = user.roles.filter(Boolean).flatMap((r) => r.permissions || []);
   const uniquePermissions = [...new Set(allPermissions)];
 
   const permissionsByModule: Record<string, string[]> = {};
@@ -431,11 +449,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">Current Roles</h3>
-            {user.roles.length === 0 ? (
+            {user.roles.filter(Boolean).length === 0 ? (
               <p className="text-gray-500 text-sm">No roles assigned yet.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {user.roles.map((role) => {
+                {user.roles.filter(Boolean).map((role) => {
                   const rc = getRoleColor(role.code);
                   return (
                     <div key={role._id} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${rc.bg} ${rc.border}`}>
@@ -465,7 +483,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               >
                 <option value="">Select a role...</option>
                 {availableRoles
-                  .filter((r) => !user.roles.some((ur) => ur._id === r._id))
+                  .filter((r) => !user.roles.filter(Boolean).some((ur) => ur._id === r._id))
                   .map((role) => (
                     <option key={role._id} value={role._id}>{role.name || role.code}</option>
                   ))}

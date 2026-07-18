@@ -40,6 +40,10 @@ export default function CrmInvoiceViewPage() {
   const [template, setTemplate] = useState<{ blocks: any[]; accentColor: string; logoUrl?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // The other invoice(s) generated for the same source order -- "B2B2C" is
+  // this chain's label (vendor -> AN Group -> end customer), not a
+  // separate invoiceType; see dualInvoiceService.ts's getB2B2CChain.
+  const [chain, setChain] = useState<{ isB2B2C: boolean; b2b: InvoiceRaw[]; b2c: InvoiceRaw[] } | null>(null)
 
   useEffect(() => {
     fetch(`/api/sales/invoices/${id}`)
@@ -49,6 +53,11 @@ export default function CrmInvoiceViewPage() {
         setInvoice(d.invoice)
       })
       .catch((err) => setError(err.message || 'Could not load invoice'))
+
+    fetch(`/api/sales/invoices/${id}/chain`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setChain(d) })
+      .catch(() => {})
   }, [id])
 
   useEffect(() => {
@@ -103,6 +112,25 @@ export default function CrmInvoiceViewPage() {
           <Printer className="w-4 h-4" /> Print / Save as PDF
         </button>
       </div>
+
+      {chain?.isB2B2C && (
+        <div className="max-w-3xl mx-auto mb-4 print:hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <span className="font-semibold">Part of a B2B2C chain</span> — this order generated{' '}
+          {chain.b2b.length} vendor-side B2B invoice{chain.b2b.length === 1 ? '' : 's'} and{' '}
+          {chain.b2c.length} customer-side B2C invoice{chain.b2c.length === 1 ? '' : 's'}:
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {[...chain.b2b, ...chain.b2c].filter((inv: any) => inv._id !== invoice._id).map((inv: any) => (
+              <a
+                key={inv._id}
+                href={`/admin/crm/invoices/${inv._id}`}
+                className="rounded-lg bg-white border border-amber-200 px-2 py-1 font-mono hover:border-amber-400"
+              >
+                {inv.invoiceType}: {inv.invoiceNumber}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-2xl p-10 mb-10 print:border-none print:rounded-none print:shadow-none">
         <DocumentRenderer

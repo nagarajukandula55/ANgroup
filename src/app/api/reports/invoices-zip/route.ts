@@ -5,6 +5,9 @@ import mongoose from "mongoose";
 import JSZip from "jszip";
 import SalesInvoice from "@/models/SalesInvoice";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 /* =========================================================
  * GET /api/reports/invoices-zip?from=&to=&businessId=
@@ -21,11 +24,17 @@ import { logAction } from "@/lib/audit/logAction";
  * =======================================================*/
 export async function GET(req: NextRequest) {
   try {
+    const session = await getEnrichedSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+      requirePermission(session as any, buildPermissionCode("finance", "export"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+
     await connectDB();
     const h = await headers();
-    const userId = h.get("x-user-id");
     const bizId = h.get("x-active-business-id") || req.nextUrl.searchParams.get("businessId");
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const from = req.nextUrl.searchParams.get("from");
     const to = req.nextUrl.searchParams.get("to");
@@ -40,7 +49,7 @@ export async function GET(req: NextRequest) {
     if (bizId && mongoose.Types.ObjectId.isValid(bizId)) {
       filter.businessId = new mongoose.Types.ObjectId(bizId);
     } else {
-      filter.createdBy = new mongoose.Types.ObjectId(userId);
+      filter.createdBy = new mongoose.Types.ObjectId(session.user.id);
     }
 
     const invoices = await SalesInvoice.find(filter).sort({ issueDate: 1 }).lean();
@@ -80,7 +89,7 @@ export async function GET(req: NextRequest) {
     logAction({
       action: "READ",
       entity: "InvoiceZipExport",
-      entityId: bizId || userId,
+      entityId: bizId || session.user.id,
       after: { from, to, count: invoices.length },
       req,
     });

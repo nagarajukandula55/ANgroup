@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { getBusinessContext } from "./business-context";
+import { resolveMembershipForUser } from "./business-context";
 import User from "@/models/User";
 import Role from "@/models/Role";
 import UserRole from "@/models/UserRole";
@@ -7,6 +7,7 @@ import RolePermission from "@/models/RolePermission";
 import Permission from "@/models/Permission";
 import Business from "@/models/Business";
 import { expandWithAliases } from "@/core/access/moduleKeyAliases";
+import { getOrCreateANGroupBusinessId } from "@/core/access/anGroupBusiness.service";
 
 /**
  * =========================================================
@@ -55,10 +56,27 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   // Not authenticated — middleware didn't inject headers
   if (!userId || !userEmail) return null;
 
+  // This function runs on nearly every authenticated request, so trimming
+  // its round-trips to MongoDB matters app-wide, not just here. It used to
+  // fetch the User document TWICE (once inside getBusinessContext(), again
+  // a few lines below for the role/permission lookup) and only fetched
+  // anGroupId after the roles/permissions chain was already underway, all
+  // fully sequential. Now fetches user + anGroupId together up front
+  // (independent of each other) and reuses that one `user` for both the
+  // business-context resolution and the role lookup below.
+  const [user, anGroupId] = await Promise.all([
+    User.findOne({ email: userEmail }).lean().catch(() => null),
+    getOrCreateANGroupBusinessId().catch(() => null),
+  ]);
+
+  const activeBusinessIdHeader = headersList.get("x-active-business-id");
+
   // Try to get business context (sets businessId, organizationId, membershipId)
-  let businessContext: Awaited<ReturnType<typeof getBusinessContext>> = null;
+  let businessContext: Awaited<ReturnType<typeof resolveMembershipForUser>> = null;
   try {
-    businessContext = await getBusinessContext();
+    if (user) {
+      businessContext = await resolveMembershipForUser((user as any)._id, activeBusinessIdHeader);
+    }
   } catch {
     // business-context not available in this request (e.g. no cookie)
   }
@@ -73,9 +91,19 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   let roles: string[] = userRole ? [userRole] : [];
   let permissions: string[] = [];
 
-  try {
-    const user = await User.findOne({ email: userEmail }).lean();
+  // Only depends on businessContext (resolved above), not on the role/
+  // permission chain below -- was previously kicked off only AFTER that
+  // whole chain finished (behind a `permissions.length > 0` check that
+  // itself waited on it), adding a full extra sequential round trip to
+  // every single authenticated request for no reason. Runs concurrently
+  // with the role/permission resolution instead; both are awaited before
+  // the module-based permission filter is applied below.
+  const businessModulesPromise =
+    !isSuperAdmin && businessContext?.businessId
+      ? Business.findById(businessContext.businessId).select("modules").lean().catch(() => null)
+      : Promise.resolve(null);
 
+  try {
     if (user) {
       // Was filtering on `isActive: true`, but UserRole has no `isActive`
       // field at all (see models/UserRole.ts) -- every query here matched
@@ -94,20 +122,29 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
       if (roleIds.length > 0) {
         let rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
 
-        // Self-heal: the base MANAGER role used to be seeded with
-        // permissions: [] (see permissionSync.service.ts's syncManagerRole
-        // -- "give me full access to manager roles"). An install created
-        // before that fix has a MANAGER role stuck with zero permissions
-        // until someone happens to re-run the module sync. Since this is
-        // the actual per-request path every Manager's access flows
-        // through, refresh it here the first time it's found empty rather
-        // than requiring a separate manual trigger.
-        const staleManager = rolesDocs.find((r: any) => r.code === "MANAGER" && (!r.permissions || r.permissions.length === 0));
-        if (staleManager) {
-          const { syncManagerRole } = await import("@/core/access/permissionSync.service");
-          await syncManagerRole().catch(() => {});
-          rolesDocs = await Role.find({ _id: { $in: roleIds } }).lean();
-        }
+        // (The old "self-heal the global MANAGER role" block that lived
+        // here is gone: per the final architecture there are NO default
+        // roles -- a global all-permission MANAGER must never be silently
+        // recreated. Every role is created explicitly, per business, by
+        // the Super Admin from Admin > Access.)
+
+        // Cross-business role leak: a Role scoped to Business A (via its
+        // own businessId) was still granting its permissions to a user
+        // even while their ACTIVE session business was Business B -- this
+        // block only ever unioned every UserRole the person holds,
+        // regardless of which one's business context they're currently
+        // in. A role is now only "live" in a session when it's either
+        // platform-wide (businessId null, or AN Group's own real business
+        // id -- see anGroupBusiness.service.ts) or matches the session's
+        // actual active business. Skipped entirely when there's no active
+        // business context at all (e.g. still picking one) -- in that
+        // state only platform-wide roles apply.
+        const activeBizId = businessContext?.businessId ? String(businessContext.businessId) : null;
+        rolesDocs = rolesDocs.filter((r: any) => {
+          const roleBiz = r.businessId ? String(r.businessId) : null;
+          if (!roleBiz || roleBiz === anGroupId) return true; // platform-wide
+          return activeBizId ? roleBiz === activeBizId : false;
+        });
 
         roles = rolesDocs.map((r: any) => r.code);
 
@@ -126,7 +163,7 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
         );
 
         const rolePermissions = await RolePermission.find({
-          roleId: { $in: roleIds },
+          roleId: { $in: rolesDocs.map((r: any) => r._id) },
         }).lean();
 
         const permissionIds = rolePermissions.map((p: any) => p.permissionId);
@@ -156,30 +193,43 @@ export async function getEnrichedSession(): Promise<IEnrichedSession | null> {
   // disabled the Finance module for that specific business -- the module
   // toggle was cosmetic (hid the nav link) rather than a real access
   // boundary. Super admins are exempt (requirePermission already bypasses
-  // them unconditionally; filtering here would just be wasted work). An
-  // empty/unconfigured modules[] means "no restriction yet", same
-  // convention the sidebar route already uses, so a business that's never
-  // touched this setting isn't suddenly locked out of everything.
+  // them unconditionally; filtering here would just be wasted work).
+  //
+  // This used to build an ALLOW-list from whatever keys happened to be
+  // present in businessModules[] once that array was non-empty -- but a
+  // module key ABSENT from the array (never explicitly toggled either way)
+  // then got silently treated as disabled, not "not yet configured". Most
+  // businesses' modules[] predates most of the module keys that exist
+  // today (assets/customers/designs/employees/solutions/crm/settings/
+  // integrations/users/roles/access/gst/... were all added well after
+  // this platform's businesses were first configured), so this was
+  // quietly 403ing real users on every module their business's saved
+  // array had never heard of -- exactly the "many pages missing" reports.
+  // Now builds a DENY-list instead: only a module EXPLICITLY saved with
+  // enabled:false gets stripped; everything else (including keys the
+  // array has no opinion on) stays granted.
   if (!isSuperAdmin && businessContext?.businessId && permissions.length > 0) {
     try {
-      const business = await Business.findById(businessContext.businessId).select("modules").lean();
+      const business = await businessModulesPromise;
       const businessModules = Array.isArray((business as any)?.modules) ? (business as any).modules : [];
       if (businessModules.length > 0) {
-        const rawEnabledKeys = businessModules
-          .filter((m: any) => m?.enabled !== false)
+        const rawDisabledKeys = businessModules
+          .filter((m: any) => m?.enabled === false)
           .map((m: any) => String(m?.key).toLowerCase());
-        // Expand through the sidebar-key <-> real-permission-key alias map
-        // (see moduleKeyAliases.ts) before uppercasing to match
-        // buildPermissionCode's module-key casing -- otherwise a handful
-        // of masters pages toggled "on" never actually matched their real
-        // permission code's module key.
-        const enabledKeys = new Set(
-          Array.from(expandWithAliases(rawEnabledKeys)).map((k) => k.toUpperCase())
-        );
-        permissions = permissions.filter((code) => {
-          const moduleKey = code.split(".")[0];
-          return enabledKeys.has(moduleKey);
-        });
+        if (rawDisabledKeys.length > 0) {
+          // Expand through the sidebar-key <-> real-permission-key alias map
+          // (see moduleKeyAliases.ts) before uppercasing to match
+          // buildPermissionCode's module-key casing -- otherwise disabling
+          // a masters page under its sidebar key wouldn't strip its real
+          // permission code's module key (or vice versa).
+          const disabledKeys = new Set(
+            Array.from(expandWithAliases(rawDisabledKeys)).map((k) => k.toUpperCase())
+          );
+          permissions = permissions.filter((code) => {
+            const moduleKey = code.split(".")[0];
+            return !disabledKeys.has(moduleKey);
+          });
+        }
       }
     } catch {
       // If this lookup fails, fall through with the unfiltered permission

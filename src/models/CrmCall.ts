@@ -18,6 +18,7 @@
  */
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
+import { DEVICE_CATEGORIES, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 export type CrmCallStatus =
   | "NEW"
@@ -78,14 +79,31 @@ export interface ICrmCall extends Document {
   // values on old records.
   source?: string;
   product?: string; // device/category, e.g. "AC", "Washing Machine"
+  // Structured device-type selection from the new Device Category taxonomy
+  // (src/core/catalog/deviceCategory.ts) -- optional, parallel to how
+  // deviceModelId below structures deviceModel. `product` above stays the
+  // free-text legacy field (sourced from the unrelated ProductCategory
+  // collection); deviceCategory is what scopes the Brand/Fault Code/
+  // Symptom Code pickers in the appointment-creation UI to one device type.
+  deviceCategory?: DeviceCategory | null;
   brandId?: Types.ObjectId; // ref Brand
   deviceModel?: string;
+  // Structured model selection -- optional; deviceModel above stays the
+  // display string (also carries a one-off typed value for a model not
+  // in the DeviceModel master yet). deviceModelId is what lets the
+  // workorder's BOM-part picker filter to exactly this model instead of
+  // just the brand.
+  deviceModelId?: Types.ObjectId; // ref DeviceModel
   // Structured fault selection -- optional; the free-text subject field
   // below still carries the actual "Fault in Device" description shown
   // required in the UI, faultCodeId just links it to the Fault Code
   // catalog (same catalog used on JobSheet) so it round-trips into the
   // job sheet at conversion time instead of only living as text.
   faultCodeId?: Types.ObjectId; // ref FaultCode
+  // Same rationale as faultCodeId, but for the observed Symptom Code
+  // catalog -- previously CrmCall had no structured symptom field at all
+  // (SymptomCode existed but was never surfaced on this model).
+  symptomCodeId?: Types.ObjectId; // ref SymptomCode
   subject: string; // the "Fault in Device" text -- kept as the schema's
   // required field name so nothing downstream (job sheet conversion,
   // search, etc.) needs to change; the UI just labels it "Fault in Device".
@@ -169,9 +187,12 @@ const CrmCallSchema = new Schema<ICrmCall>(
 
     source: { type: String, default: "" },
     product: { type: String, trim: true },
+    deviceCategory: { type: String, enum: DEVICE_CATEGORIES, default: null },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
+    deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
+    symptomCodeId: { type: Schema.Types.ObjectId, ref: "SymptomCode" },
     subject: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     priority: {

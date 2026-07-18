@@ -5,6 +5,9 @@ import { Types } from "mongoose";
 import StockTransfer from "@/models/StockTransfer";
 import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
+import { getEnrichedSession } from "@/lib/auth/session-enriched";
+import { requirePermission } from "@/middleware/permission.guard";
+import { buildPermissionCode } from "@/core/access/actions";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,11 +33,17 @@ import { logAction } from "@/lib/audit/logAction";
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    try {
+      requirePermission(session as any, buildPermissionCode("stock_transfers", "view"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+    const h = await headers();
+    const userId = h.get("x-user-id");
 
     await connectDB();
 
@@ -71,6 +80,18 @@ export async function GET(req: NextRequest) {
     if (fromWarehouse) filter.fromWarehouse = fromWarehouse;
     if (toWarehouse) filter.toWarehouse = toWarehouse;
 
+    // Vendor-scoped view (see app/vendor/stock-transfers) -- StockTransfer
+    // has no vendorId of its own (it's warehouse-to-warehouse), so scope by
+    // "either side of the transfer is one of MY warehouses" instead, fed by
+    // this vendor's own /api/vendor/warehouses list.
+    const warehouseIn = searchParams.get("warehouseIn");
+    if (warehouseIn) {
+      const ids = warehouseIn.split(",").filter(Boolean);
+      if (ids.length > 0) {
+        filter.$or = [{ fromWarehouse: { $in: ids } }, { toWarehouse: { $in: ids } }];
+      }
+    }
+
     const [transfers, total] = await Promise.all([
       StockTransfer.find(filter)
         .sort({ createdAt: -1 })
@@ -105,11 +126,17 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) {
+    const session = await getEnrichedSession();
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    try {
+      requirePermission(session as any, buildPermissionCode("stock_transfers", "create"));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.code === "FORBIDDEN" ? 403 : 401 });
+    }
+    const h = await headers();
+    const userId = h.get("x-user-id");
 
     await connectDB();
 
@@ -215,7 +242,7 @@ export async function POST(req: NextRequest) {
       })),
       status,
       notes: notes ?? undefined,
-      requestedBy: new Types.ObjectId(userId),
+      requestedBy: new Types.ObjectId(session.user.id),
       transferredAt: transferredAt ? new Date(transferredAt) : undefined,
       completedAt: status === "COMPLETED" ? new Date() : undefined,
     });

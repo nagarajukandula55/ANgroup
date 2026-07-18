@@ -39,7 +39,7 @@ const StockTransferItemSchema = new Schema<IStockTransferItem>(
 
 const StockTransferSchema = new Schema<IStockTransfer>(
   {
-    transferNumber: { type: String, unique: true },
+    transferNumber: { type: String },
     businessId: { type: Schema.Types.ObjectId, required: true, index: true },
     fromWarehouse: { type: String, required: true },
     toWarehouse: { type: String, required: true },
@@ -57,6 +57,10 @@ const StockTransferSchema = new Schema<IStockTransfer>(
   },
   { timestamps: true }
 );
+
+// transferNumber was GLOBALLY unique -- same cross-business collision risk
+// as PurchaseOrder.poNumber: scoped per-business instead.
+StockTransferSchema.index({ businessId: 1, transferNumber: 1 }, { unique: true });
 
 const StockTransfer: Model<IStockTransfer> =
   (mongoose.models.StockTransfer as Model<IStockTransfer>) ||

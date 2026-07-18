@@ -14,8 +14,11 @@ const GoodsReceiptSchema = new mongoose.Schema(
     },
 
     vendorId: {
+      // Was ref:"Vendor" -- the legacy, superseded vendor model. Every
+      // live vendor system in the app (including PurchaseOrder.vendorId,
+      // which this record is always created from) uses VendorProfile.
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "VendorProfile",
       required: true,
       index: true,
     },
@@ -34,8 +37,6 @@ const GoodsReceiptSchema = new mongoose.Schema(
     grnNumber: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
     },
 
     purchaseOrderId: {
@@ -158,6 +159,10 @@ GoodsReceiptSchema.index({
   businessId: 1,
   status: 1,
 });
+
+// grnNumber was GLOBALLY unique -- same cross-business collision risk as
+// poNumber (see PurchaseOrder.js): scoped per-business instead.
+GoodsReceiptSchema.index({ businessId: 1, grnNumber: 1 }, { unique: true });
 
 export default mongoose.models.GoodsReceipt ||
   mongoose.model("GoodsReceipt", GoodsReceiptSchema);

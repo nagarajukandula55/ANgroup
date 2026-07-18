@@ -14,10 +14,14 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { requireAssignedEngineer } from "@/core/access/crmJobsheetAccess";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/User";
 import "@/models/CrmCall";
 import "@/models/Brand";
+import "@/models/FaultCode";
+import "@/models/SymptomCode";
+import "@/models/Solution";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -49,6 +53,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .populate("assignedTo", "name email")
       .populate("callId", "callNumber status")
       .populate("brandId", "name")
+      // Per-line Fault Phenomenon/Symptom/Solution -- needed both by the
+      // repair page's dropdowns (to show the currently-selected value's
+      // code+description, not just its id) and by the workorder/estimate
+      // print, which was still showing the old flat description-only
+      // format with no per-line diagnosis info at all.
+      .populate("lineItems.faultCodeId", "code description")
+      .populate("lineItems.symptomCodeId", "code description")
+      .populate("lineItems.solutionId", "code description")
       .lean();
 
     if (!jobSheet) {
@@ -87,10 +99,16 @@ const ALLOWED_FIELDS = [
   "product",
   "brandId",
   "deviceModel",
+  "deviceModelId",
   "imeiOrSerialNumber",
   "issueDescription",
   "faultCodeId",
   "remark",
+  "warrantyStatus",
+  "deviceAppearance",
+  "fileBackupDescription",
+  "standardAccessories",
+  "specialDescription",
   "brandJobNoForPartOrder",
   "solutionId",
   "symptomCodeId",
@@ -135,6 +153,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     for (const field of ALLOWED_FIELDS) {
       if (body[field] !== undefined) updates[field] = body[field];
     }
+    // Enum fields -- an unset dropdown sends "" (cleared), which the
+    // schema's enum validator would otherwise reject outright; treat that
+    // as "leave unset" instead of a validation error.
+    if (updates.deviceAppearance === "") delete updates.deviceAppearance;
+    if (updates.fileBackupDescription === "") delete updates.fileBackupDescription;
+    if (updates.warrantyStatus === "") delete updates.warrantyStatus;
 
     if (LOCKED_AFTER_INVOICE.has((existing as any).status) && updates.lineItems) {
       return NextResponse.json(
@@ -144,8 +168,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Fixed Service Charge is Owner/Manager-only, per explicit direction --
-    // enforced here too, not just by disabling the input client-side.
-    if (updates.serviceCharge !== undefined && !session.isSuperAdmin) {
+    // enforced here too, not just by disabling the input client-side. Was
+    // checking `updates.serviceCharge !== undefined`, i.e. merely PRESENT
+    // in the request body -- but the detail page's save always sends the
+    // current serviceCharge value regardless of whether it changed (it's
+    // just part of the same PATCH as line items), so this 403'd every
+    // single save an Engineer made (adding a part, etc.), not just an
+    // actual attempt to change the charge. Now only enforced when the
+    // value is actually different from what's already stored.
+    if (
+      updates.serviceCharge !== undefined &&
+      Number(updates.serviceCharge) !== Number((existing as any).serviceCharge || 0) &&
+      !session.isSuperAdmin
+    ) {
       const roles = (session.roles || []).map((r: string) => r.toUpperCase());
       const allowed = roles.some((r) => r.includes("OWNER") || r.includes("MANAGER"));
       if (!allowed) {
@@ -154,6 +189,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { status: 403 }
         );
       }
+    }
+
+    // The actual repair content -- line items, work performed, symptom/
+    // solution, remark -- must be filled by the assigned engineer only,
+    // per explicit direction, not the CCO. CCO holds CRM_JOBSHEETS.EDIT
+    // too (for viewing, creating, converting calls, assigning engineers),
+    // so the permission check above alone doesn't distinguish this; same
+    // ownership check already enforced for start/resume/pause repair
+    // actions (see requireAssignedEngineer).
+    const ENGINEER_ONLY_FIELDS = ["lineItems", "workPerformed", "remark", "solutionId", "symptomCodeId"];
+    if (ENGINEER_ONLY_FIELDS.some((f) => updates[f] !== undefined)) {
+      const accessError = requireAssignedEngineer(existing, userId, !!session.isSuperAdmin);
+      if (accessError) return accessError;
     }
 
     const jobSheet = await CrmJobSheet.findOneAndUpdate(

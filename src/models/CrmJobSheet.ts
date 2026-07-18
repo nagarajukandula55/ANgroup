@@ -14,6 +14,7 @@
  */
 
 import mongoose, { Schema, Model, Document, Types } from "mongoose";
+import { DEVICE_CATEGORIES, type DeviceCategory } from "@/core/catalog/deviceCategory";
 
 // Milestone stepper, per explicit spec:
 //   CREATED         -- workorder just created (from an appointment or direct)
@@ -50,6 +51,15 @@ export interface ICrmJobSheetLineItem {
   taxRate: number;
   hsnCode?: string; // set when the line was picked from ServiceCenterBOM
   serviceCenterBOMId?: Types.ObjectId; // ref ServiceCenterBOM, if picked from BOM
+  // Per-line diagnosis fields, per explicit direction: each item on the
+  // repair table gets its own Fault Phenomenon/Symptom/Solution rather than
+  // one shared set for the whole job sheet (moved off the job-sheet-level
+  // symptomCodeId/solutionId below, which are still populated -- derived
+  // from the line items at save time -- so the Service Record print page
+  // keeps working unchanged).
+  faultCodeId?: Types.ObjectId; // ref FaultCode
+  symptomCodeId?: Types.ObjectId; // ref SymptomCode
+  solutionId?: Types.ObjectId; // ref Solution
 }
 
 export interface ICrmJobSheet extends Document {
@@ -72,12 +82,32 @@ export interface ICrmJobSheet extends Document {
 
   // Workorder-creation fields (per CRM Appointment -> Workorder spec):
   product?: string; // device/category, e.g. "AC", "Washing Machine"
+  // Structured device-type selection -- see CrmCall.deviceCategory's
+  // matching comment for the full rationale (product above stays the
+  // legacy free-text field).
+  deviceCategory?: DeviceCategory | null;
   brandId?: Types.ObjectId; // ref Brand
   deviceModel?: string;
+  // Structured model selection -- optional; deviceModel above stays the
+  // display string. deviceModelId is what lets the Service Info table's
+  // BOM-part picker filter to exactly this model, not just the brand
+  // (see /api/service-center-bom's deviceModelId filter).
+  deviceModelId?: Types.ObjectId; // ref DeviceModel
   imeiOrSerialNumber?: string;
   issueDescription?: string; // free-text VOC, independent of faultCodeId
   faultCodeId?: Types.ObjectId; // ref FaultCode
   remark?: string;
+  // Intake-time fields, captured when the device is dropped off (at
+  // standalone workorder creation, or when converting an appointment into
+  // one) -- shown on the intake receipt printed before repair starts/
+  // before the call is closed (see api/crm/jobsheets/[id]/intake-receipt).
+  // warrantyStatus also feeds the materials table's "Type of charge" on
+  // the post-close Service Record.
+  warrantyStatus?: "IW" | "OOW";
+  deviceAppearance?: "GOOD" | "USED" | "DENTS" | "BROKEN";
+  fileBackupDescription?: "YES" | "NO"; // did the customer back up their data before drop-off
+  standardAccessories?: string; // e.g. "Card tray, Charger"
+  specialDescription?: string; // additional intake notes distinct from the fault itself
   // Carried over from the originating call/appointment (see CrmCall) so
   // the workorder doesn't have to ask again.
   appointmentType?: "ONSITE" | "WALKIN";
@@ -144,6 +174,9 @@ const CrmJobSheetLineItemSchema = new Schema<ICrmJobSheetLineItem>(
     taxRate: { type: Number, default: 0 },
     hsnCode: { type: String },
     serviceCenterBOMId: { type: Schema.Types.ObjectId, ref: "ServiceCenterBOM" },
+    faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
+    symptomCodeId: { type: Schema.Types.ObjectId, ref: "SymptomCode" },
+    solutionId: { type: Schema.Types.ObjectId, ref: "Solution" },
   },
   { _id: false }
 );
@@ -171,12 +204,19 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     pincode: { type: String, trim: true },
 
     product: { type: String, trim: true },
+    deviceCategory: { type: String, enum: DEVICE_CATEGORIES, default: null },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
+    deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },
     imeiOrSerialNumber: { type: String, trim: true },
     issueDescription: { type: String, default: "" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
     remark: { type: String, default: "" },
+    warrantyStatus: { type: String, enum: ["IW", "OOW"] },
+    deviceAppearance: { type: String, enum: ["GOOD", "USED", "DENTS", "BROKEN"] },
+    fileBackupDescription: { type: String, enum: ["YES", "NO"] },
+    standardAccessories: { type: String, default: "" },
+    specialDescription: { type: String, default: "" },
     appointmentType: { type: String, enum: ["ONSITE", "WALKIN"] },
     requestType: { type: String, enum: ["REPAIR", "INSTALLATION"] },
 
