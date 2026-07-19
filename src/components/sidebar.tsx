@@ -10,7 +10,7 @@ import {
   Key, UserPlus, ChevronDown, Check, LogOut, ShoppingBag,
   Box, Hash, Truck, Activity, FileText, PhoneCall, ClipboardList,
   BarChart3, Ruler, Tags, Layers, Bot, MapPin, FolderOpen, Settings,
-  ArrowLeftRight, SlidersHorizontal, ShieldCheck, Smartphone,
+  ArrowLeftRight, SlidersHorizontal, ShieldCheck, Smartphone, LifeBuoy,
 } from "lucide-react";
 import { useToast } from "@/components/shared/Toast";
 
@@ -60,7 +60,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   Key, UserPlus, ShoppingBag, Box, Hash, Truck, Activity, FileText,
   PhoneCall, ClipboardList, BarChart3, Ruler, Tags, Layers, Bot,
   MapPin, FolderOpen, Settings, ArrowLeftRight, SlidersHorizontal,
-  ShieldCheck, Smartphone,
+  ShieldCheck, Smartphone, LifeBuoy,
 };
 
 // Nav data moved to sidebar-nav.ts (a plain module) because the server-side

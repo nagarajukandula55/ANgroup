@@ -1,0 +1,185 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
+
+interface TicketMessage {
+  from: "CUSTOMER" | "ADMIN";
+  message: string;
+  authorName?: string;
+  createdAt: string;
+}
+
+interface Ticket {
+  _id: string;
+  ticketNumber: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  orderId?: string;
+  subject: string;
+  status: "OPEN" | "IN_PROGRESS" | "CLOSED";
+  messages: TicketMessage[];
+  createdAt: string;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  OPEN: "bg-amber-100 text-amber-700",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  CLOSED: "bg-gray-100 text-gray-500",
+};
+
+export default function SupportTicketsPage() {
+  const { businessId, businessName } = useActiveBusinessId();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selected, setSelected] = useState<Ticket | null>(null);
+  const [reply, setReply] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!businessId) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ businessId });
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await fetch(`/api/support-tickets?${params}`);
+      const data = await res.json();
+      if (data.success) setTickets(data.tickets);
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, statusFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function submitReply(status?: string) {
+    if (!selected) return;
+    if (!reply.trim() && !status) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/support-tickets/${selected._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: reply.trim() || undefined, status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelected(data.ticket);
+        setReply("");
+        load();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Native Tickets</h1>
+        {businessName && <p className="text-xs text-blue-500 mt-1">Editing tickets for: {businessName}</p>}
+        <p className="text-sm text-gray-500 mt-1">Customer support tickets raised on the storefront.</p>
+      </div>
+
+      <div className="flex gap-2">
+        {["", "OPEN", "IN_PROGRESS", "CLOSED"].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+              statusFilter === s ? "bg-gray-900 text-white border-gray-900" : "text-gray-500 border-gray-200"
+            }`}
+          >
+            {s || "All"}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-1 rounded-xl border border-gray-200 divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
+          {loading ? (
+            <p className="p-4 text-sm text-gray-400">Loading…</p>
+          ) : tickets.length === 0 ? (
+            <p className="p-4 text-sm text-gray-400">No tickets.</p>
+          ) : (
+            tickets.map((t) => (
+              <button
+                key={t._id}
+                onClick={() => setSelected(t)}
+                className={`w-full text-left p-3 hover:bg-gray-50 ${selected?._id === t._id ? "bg-gray-50" : ""}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-gray-500">{t.ticketNumber}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_COLORS[t.status]}`}>{t.status}</span>
+                </div>
+                <p className="text-sm font-medium text-gray-900 mt-1 truncate">{t.subject}</p>
+                <p className="text-xs text-gray-400">{t.name}</p>
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="col-span-2 rounded-xl border border-gray-200 p-4">
+          {!selected ? (
+            <p className="text-sm text-gray-400">Select a ticket to view the conversation.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-gray-900">{selected.subject}</p>
+                  <p className="text-xs text-gray-500">
+                    {selected.name} · {selected.email || "—"} · {selected.phone || "—"}
+                    {selected.orderId && <> · Order: {selected.orderId}</>}
+                  </p>
+                  <p className="text-xs text-gray-400 font-mono">{selected.ticketNumber}</p>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[selected.status]}`}>{selected.status}</span>
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto border-t border-b border-gray-100 py-3">
+                {selected.messages.map((m, i) => (
+                  <div key={i} className={`text-sm p-2 rounded-lg max-w-[80%] ${m.from === "ADMIN" ? "bg-blue-50 ml-auto" : "bg-gray-50"}`}>
+                    <p className="text-[10px] text-gray-400">{m.authorName || m.from} · {new Date(m.createdAt).toLocaleString()}</p>
+                    <p className="text-gray-800">{m.message}</p>
+                  </div>
+                ))}
+              </div>
+
+              <textarea
+                className="w-full border rounded-lg p-2 text-sm"
+                rows={3}
+                placeholder="Reply to customer…"
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+              />
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => submitReply()}
+                  disabled={saving || !reply.trim()}
+                  className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm disabled:opacity-50"
+                >
+                  Send Reply
+                </button>
+                {selected.status !== "IN_PROGRESS" && (
+                  <button onClick={() => submitReply("IN_PROGRESS")} disabled={saving} className="px-3 py-2 border rounded-lg text-sm">
+                    Mark In Progress
+                  </button>
+                )}
+                {selected.status !== "CLOSED" && (
+                  <button onClick={() => submitReply("CLOSED")} disabled={saving} className="px-3 py-2 border rounded-lg text-sm text-red-600">
+                    Close Ticket
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

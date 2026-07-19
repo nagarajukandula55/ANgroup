@@ -100,6 +100,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // check lines up with what /api/ui/sidebar actually returns.
       { key: "crm_calls",     label: "Appointments", route: "/admin/crm/calls",     icon: "PhoneCall" },
       { key: "crm_jobsheets", label: "Workorders",   route: "/admin/crm/jobsheets", icon: "ClipboardList" },
+      { key: "support_tickets", label: "Support Tickets", route: "/admin/support-tickets", icon: "LifeBuoy" },
     ]},
   ]},
   { label: "Documents", items: [
