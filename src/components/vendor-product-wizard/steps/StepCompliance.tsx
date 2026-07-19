@@ -29,6 +29,28 @@ function toList(csv: string): string[] {
     .filter(Boolean);
 }
 
+interface BomIngredient {
+  materialName: string;
+  quantity: number;
+  unit: string;
+  percent: number;
+}
+
+// Common allergen keywords -> the label to warn on -- a heuristic first
+// pass matched against ingredient/material NAMES, not a certified allergen
+// database. Always surfaced as a suggestion for the vendor to confirm or
+// remove below, never saved silently.
+const ALLERGEN_KEYWORDS: [RegExp, string][] = [
+  [/milk|dairy|butter|ghee|paneer|curd|yog(h)?urt|cream|cheese/i, "Milk"],
+  [/wheat|maida|atta|gluten|semolina|suji/i, "Gluten"],
+  [/peanut|groundnut/i, "Peanuts"],
+  [/cashew|almond|walnut|pistachio|nuts?\b/i, "Tree nuts"],
+  [/soy(a)?/i, "Soy"],
+  [/egg/i, "Egg"],
+  [/mustard/i, "Mustard"],
+  [/sesame|til\b/i, "Sesame"],
+];
+
 export default function StepCompliance({
   draftId,
   next,
@@ -50,6 +72,8 @@ export default function StepCompliance({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bomIngredients, setBomIngredients] = useState<BomIngredient[]>([]);
+  const [allergenSuggestions, setAllergenSuggestions] = useState<string[]>([]);
 
   // Was never fetched -- resuming an existing draft reset this whole step
   // back to blank even if it was already filled in and saved.
@@ -77,24 +101,51 @@ export default function StepCompliance({
       .catch(() => {});
   }, [draftId]);
 
-  // Suggest ingredients from the BOM's material names, filtering out
-  // obvious packaging (pouch/bottle/carton/label/...) by name -- a rough
-  // first pass, not a substitute for the vendor reviewing/editing it below.
+  // Suggest ingredients + their composition % from the BOM's INGREDIENT-
+  // classified rows (packaging/other rows excluded via materialType, set
+  // in the BOM step) -- percent is quantity-share within the ingredient
+  // rows, which only means something if those quantities share a common
+  // unit (typical for a single recipe); shown as a rough composition
+  // breakdown for the vendor to sanity-check, not a certified figure.
+  // Also suggests allergen warnings from ingredient names against a
+  // common-keyword list -- always just a suggestion, never saved
+  // automatically.
   useEffect(() => {
-    if (form.ingredients) return;
-    const PACKAGING_WORDS = /pouch|bottle|carton|box|label|cap|seal|wrapper|packaging|container|jar|can|sticker|tape|sachet/i;
     fetch(`/api/vendor-products/${draftId}/bom`)
       .then((r) => r.json())
       .then((d) => {
         if (!d.success || !Array.isArray(d.data) || !d.data.length) return;
-        const names = d.data
-          .map((item: any) => item.materialName as string)
-          .filter((name: string) => name && !PACKAGING_WORDS.test(name));
-        if (names.length) setForm((prev) => (prev.ingredients ? prev : { ...prev, ingredients: names.join(", ") }));
+        const ingredientRows = d.data.filter((item: any) => (item.materialType || "INGREDIENT") === "INGREDIENT");
+        const totalQty = ingredientRows.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+        const breakdown: BomIngredient[] = ingredientRows.map((item: any) => ({
+          materialName: item.materialName || "",
+          quantity: item.quantity || 0,
+          unit: item.unit || "",
+          percent: totalQty > 0 ? ((item.quantity || 0) / totalQty) * 100 : 0,
+        }));
+        setBomIngredients(breakdown);
+
+        if (!form.ingredients && breakdown.length) {
+          setForm((prev) => ({ ...prev, ingredients: breakdown.map((b) => b.materialName).filter(Boolean).join(", ") }));
+        }
+
+        const matched = new Set<string>();
+        for (const { materialName } of breakdown) {
+          for (const [re, label] of ALLERGEN_KEYWORDS) {
+            if (re.test(materialName)) matched.add(label);
+          }
+        }
+        setAllergenSuggestions(Array.from(matched));
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId]);
+
+  function applyAllergenSuggestions() {
+    const current = toList(form.allergens);
+    const merged = Array.from(new Set([...current, ...allergenSuggestions]));
+    setForm((prev) => ({ ...prev, allergens: merged.join(", ") }));
+  }
 
   const handleSave = async () => {
     setError(null);
@@ -155,7 +206,7 @@ export default function StepCompliance({
         <label className={labelClass}>
           Ingredients (comma-separated){" "}
           <span className="text-gray-400 font-normal">
-            (suggested from your BOM's materials, minus obvious packaging — review and edit before continuing)
+            (suggested from your BOM's Ingredient-classified materials — review and edit before continuing)
           </span>
         </label>
         <textarea
@@ -166,6 +217,46 @@ export default function StepCompliance({
           onChange={(e) => setForm({ ...form, ingredients: e.target.value })}
         />
       </div>
+
+      {bomIngredients.length > 0 && (
+        <div className="rounded border bg-gray-50 p-3">
+          <p className="text-xs font-semibold text-gray-600 mb-2">
+            Composition breakdown (from BOM quantities)
+          </p>
+          <div className="space-y-1">
+            {bomIngredients
+              .slice()
+              .sort((a, b) => b.percent - a.percent)
+              .map((b) => (
+                <div key={b.materialName} className="flex items-center gap-2 text-sm">
+                  <span className="flex-1 text-gray-700">{b.materialName}</span>
+                  <span className="w-32 h-2 rounded bg-gray-200 overflow-hidden">
+                    <span className="block h-full bg-blue-500" style={{ width: `${Math.min(100, b.percent)}%` }} />
+                  </span>
+                  <span className="w-14 text-right font-mono text-xs text-gray-500">{b.percent.toFixed(1)}%</span>
+                </div>
+              ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Approximate — only accurate if your BOM quantities share a common unit.
+          </p>
+        </div>
+      )}
+
+      {allergenSuggestions.length > 0 && (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm flex items-center justify-between gap-3">
+          <p className="text-amber-800">
+            Possible allergens detected from ingredient names: <strong>{allergenSuggestions.join(", ")}</strong>
+          </p>
+          <button
+            type="button"
+            onClick={applyAllergenSuggestions}
+            className="shrink-0 rounded border border-amber-400 bg-white px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
+          >
+            Add to Allergens
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">

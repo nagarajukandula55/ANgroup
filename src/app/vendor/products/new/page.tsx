@@ -28,10 +28,11 @@ export default function NewVendorProductPage() {
         queryBusinessId || me?.user?.activeBusinessId || undefined;
       setBusinessId(activeBusinessId);
 
+      const cloneFromDraftId = searchParams.get("cloneFromDraftId") || undefined;
       const res = await fetch("/api/vendor-products/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId: activeBusinessId }),
+        body: JSON.stringify({ businessId: activeBusinessId, cloneFromDraftId }),
       });
 
       const data = await res.json().catch(() => ({}));

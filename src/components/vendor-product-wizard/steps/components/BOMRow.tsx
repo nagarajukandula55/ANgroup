@@ -10,6 +10,7 @@ interface BOMRowData {
   quantity: number;
   wastagePercent: number;
   currentRate: number;
+  materialType: "INGREDIENT" | "PACKAGING" | "OTHER";
 }
 
 interface Props {
@@ -37,7 +38,7 @@ export default function BOMRow({
 }: Props) {
   return (
     <div className="border rounded p-3 space-y-2">
-    <div className="grid grid-cols-6 gap-2">
+    <div className="grid grid-cols-7 gap-2">
 
       <MaterialSearchSelect
         value={row.materialId ? { _id: row.materialId, materialName: row.materialName, materialCode: "", unit: row.unit } : null}
@@ -48,6 +49,17 @@ export default function BOMRow({
           updateRow(index, "unit", m.unit);
         }}
       />
+
+      <select
+        className="border rounded p-2"
+        title="Is this material an ingredient, packaging, or something else?"
+        value={row.materialType || "INGREDIENT"}
+        onChange={(e) => updateRow(index, "materialType", e.target.value)}
+      >
+        <option value="INGREDIENT">Ingredient</option>
+        <option value="PACKAGING">Packaging</option>
+        <option value="OTHER">Other</option>
+      </select>
 
       <input
         type="number"

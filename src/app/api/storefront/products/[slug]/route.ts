@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
       isActive: true,
       isDeleted: { $ne: true },
     })
-      .select("name slug description category images basePrice unit stock hsn taxRate sku createdAt metaTitle metaDescription keywords")
+      .select("name slug description category images basePrice mrp unit stock hsn taxRate sku createdAt metaTitle metaDescription keywords variantGroupKey variantValue variantUnit")
       .lean();
 
     if (!product) {
@@ -37,6 +37,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
     }
 
     const p = product as any;
+
+    // Sibling pack-sizes/variants of the same product (see approve route's
+    // variantGroupKey) -- the storefront PDP renders these as a size
+    // selector that swaps price/stock in place, no separate page per
+    // variant. Includes this product itself so the frontend's "variants[0]"
+    // default-selection still lands on the page being viewed.
+    const variants = p.variantGroupKey
+      ? await NativeProduct.find({
+          businessId,
+          variantGroupKey: p.variantGroupKey,
+          isActive: true,
+          isDeleted: { $ne: true },
+        })
+          .select("_id slug basePrice mrp stock variantValue variantUnit")
+          .sort({ variantValue: 1 })
+          .lean()
+      : [];
+
     return NextResponse.json({
       success: true,
       product: {
@@ -47,6 +65,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
         category: p.category,
         images: p.images || [],
         price: p.basePrice || 0,
+        mrp: p.mrp || 0,
         unit: p.unit || "pcs",
         inStock: (p.stock || 0) > 0,
         taxRate: p.taxRate || 0,
@@ -59,6 +78,15 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
         keywords: p.keywords || [],
         canonicalSlug: p.slug,
       },
+      variants: variants.map((v: any) => ({
+        _id: String(v._id),
+        slug: v.slug,
+        value: v.variantValue,
+        unit: v.variantUnit,
+        sellingPrice: v.basePrice || 0,
+        mrp: v.mrp || 0,
+        stock: v.stock ?? null,
+      })),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal Server Error";

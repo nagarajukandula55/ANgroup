@@ -14,6 +14,7 @@ interface BOMItem {
   quantity: number;
   wastagePercent: number;
   currentRate: number;
+  materialType: "INGREDIENT" | "PACKAGING" | "OTHER";
 }
 
 interface CostSummaryType {
@@ -95,6 +96,8 @@ export default function StepBOM({
           item.wastagePercent || 0,
         currentRate:
           item.currentRate || 0,
+        materialType:
+          item.materialType || "INGREDIENT",
       }))
     );
   };
@@ -148,6 +151,7 @@ export default function StepBOM({
         quantity: 1,
         wastagePercent: 0,
         currentRate: 0,
+        materialType: "INGREDIENT",
       },
     ]);
   };
@@ -201,6 +205,7 @@ export default function StepBOM({
             row.wastagePercent,
           currentRate: row.currentRate,
           currentCost,
+          materialType: row.materialType,
           remarks: "",
           businessId,
           createdBy: userId,
@@ -260,8 +265,9 @@ export default function StepBOM({
       )}
 
       {rows.length > 0 && (
-        <div className="hidden sm:grid grid-cols-6 gap-2 px-1 text-xs font-medium text-gray-500">
+        <div className="hidden sm:grid grid-cols-7 gap-2 px-1 text-xs font-medium text-gray-500">
           <span>Material</span>
+          <span>Type</span>
           <span>Qty</span>
           <span>Unit</span>
           <span>Wastage %</span>

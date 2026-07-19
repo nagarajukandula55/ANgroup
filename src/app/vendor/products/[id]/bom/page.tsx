@@ -28,6 +28,7 @@ interface BOMItem {
   quantity: number;
   wastagePercent: number;
   currentRate: number;
+  materialType: "INGREDIENT" | "PACKAGING" | "OTHER";
 }
 
 export default function BOMPage() {
@@ -73,6 +74,7 @@ export default function BOMPage() {
         quantity: item.quantity || 1,
         wastagePercent: item.wastagePercent || 0,
         currentRate: item.currentRate || 0,
+        materialType: item.materialType || "INGREDIENT",
       }))
     );
   }
@@ -99,7 +101,7 @@ export default function BOMPage() {
   }, [rows]);
 
   function addRow() {
-    setRows((prev) => [...prev, { materialId: "", materialName: "", unit: "", quantity: 1, wastagePercent: 0, currentRate: 0 }]);
+    setRows((prev) => [...prev, { materialId: "", materialName: "", unit: "", quantity: 1, wastagePercent: 0, currentRate: 0, materialType: "INGREDIENT" }]);
   }
 
   function updateRow(index: number, field: keyof BOMItem, value: any) {
@@ -125,6 +127,7 @@ export default function BOMPage() {
         wastagePercent: row.wastagePercent,
         currentRate: row.currentRate,
         currentCost,
+        materialType: row.materialType,
         remarks: "",
         businessId,
         createdBy: userId,
@@ -163,8 +166,9 @@ export default function BOMPage() {
       )}
 
       {rows.length > 0 && (
-        <div className="hidden sm:grid grid-cols-6 gap-2 px-1 text-xs font-medium text-gray-500">
+        <div className="hidden sm:grid grid-cols-7 gap-2 px-1 text-xs font-medium text-gray-500">
           <span>Material</span>
+          <span>Type</span>
           <span>Qty</span>
           <span>Unit</span>
           <span>Wastage %</span>

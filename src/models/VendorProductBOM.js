@@ -55,6 +55,17 @@ const VendorProductBOMSchema =
         default: 0,
       },
 
+      // What this BOM line actually IS -- drives the Compliance step's
+      // ingredient/percentage extraction (INGREDIENT rows only) and
+      // packaging-material grouping. Defaults to INGREDIENT since most
+      // existing rows were added before this field existed and are, in
+      // practice, the product's actual composition rather than packaging.
+      materialType: {
+        type: String,
+        enum: ["INGREDIENT", "PACKAGING", "OTHER"],
+        default: "INGREDIENT",
+      },
+
       remarks: {
         type: String,
         default: "",

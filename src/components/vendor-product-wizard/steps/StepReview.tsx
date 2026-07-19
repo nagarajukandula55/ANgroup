@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   suggestSeoTitle,
   suggestSeoDescription,
@@ -35,6 +36,8 @@ export default function StepReview({
   next,
   back,
 }: StepReviewProps) {
+  const router = useRouter();
+  const [creatingVariant, setCreatingVariant] = useState(false);
   const [product, setProduct] = useState<ProductSnapshot | null>(null);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
@@ -137,6 +140,20 @@ export default function StepReview({
     }
   }
 
+  // Starts a second draft that reuses this product's name/category/brand/
+  // images/SEO so it groups with this one as another pack-size/variant of
+  // the same product on the storefront (see approve route's
+  // variantGroupKey) -- everything structure/BOM/commercial-specific is
+  // left blank for the new draft to fill in on its own.
+  async function handleCreateVariant() {
+    setCreatingVariant(true);
+    try {
+      router.push(`/vendor/products/new?cloneFromDraftId=${draftId}`);
+    } finally {
+      setCreatingVariant(false);
+    }
+  }
+
   const inputClass = "w-full border rounded p-2";
   const labelClass = "text-xs font-medium text-gray-500";
 
@@ -163,14 +180,50 @@ export default function StepReview({
         <p><span className="text-gray-500">HSN / GST:</span> {product?.hsnCode || "—"} / {product?.gstRate ?? 0}%</p>
       </div>
 
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm flex items-center justify-between gap-3">
+        <p className="text-blue-800">
+          Selling this product in another pack size too? Create it as a
+          variant of this same product — buyers will see both sizes
+          together on the product page.
+        </p>
+        <button
+          type="button"
+          onClick={handleCreateVariant}
+          disabled={creatingVariant}
+          className="shrink-0 rounded border border-blue-400 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+        >
+          {creatingVariant ? "Starting…" : "+ Create another variant"}
+        </button>
+      </div>
+
       {/* Images */}
       <div>
-        <label className={labelClass}>Product Images</label>
+        <label className={labelClass}>
+          Product Images{" "}
+          <span className="text-gray-400 font-normal">
+            (first image is the featured image shown in listings — click another to make it featured)
+          </span>
+        </label>
         <div className="mt-2 flex flex-wrap gap-3">
           {images.map((url, i) => (
-            <div key={i} className="relative h-20 w-20 overflow-hidden rounded border">
+            <div
+              key={url}
+              className={`relative h-20 w-20 overflow-hidden rounded border-2 ${i === 0 ? "border-blue-500" : "border-transparent"}`}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-full w-full object-cover" />
+              <img
+                src={url}
+                alt=""
+                className="h-full w-full object-cover cursor-pointer"
+                title={i === 0 ? "Featured image" : "Click to make this the featured image"}
+                onClick={() => {
+                  if (i === 0) return;
+                  setImages([url, ...images.filter((_, idx) => idx !== i)]);
+                }}
+              />
+              {i === 0 && (
+                <span className="absolute left-0.5 top-0.5 rounded bg-blue-600 px-1 text-[10px] text-white">Featured</span>
+              )}
               <button
                 onClick={() => setImages(images.filter((_, idx) => idx !== i))}
                 className="absolute right-0.5 top-0.5 rounded-full bg-black/60 px-1 text-xs text-white"

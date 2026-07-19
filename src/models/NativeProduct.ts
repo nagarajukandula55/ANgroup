@@ -53,6 +53,15 @@ export interface INativeProduct extends Document {
   metaDescription?: string;
   keywords?: string[];
   slug?: string;
+  mrp?: number;
+  // Groups this product with its sibling pack-sizes/variants on the
+  // storefront PDP (see api/storefront/products/[slug]/route.ts's variants
+  // lookup) -- shared by every VendorProduct approved under the same
+  // vendor + product name (see approve route). Null/absent means this
+  // product has no variant siblings.
+  variantGroupKey?: string;
+  variantValue?: number;
+  variantUnit?: string;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -92,6 +101,10 @@ const NativeProductSchema = new Schema<INativeProduct>(
     metaDescription: { type: String },
     keywords: { type: [String], default: [] },
     slug: { type: String, unique: true, sparse: true },
+    mrp: { type: Number, default: 0 },
+    variantGroupKey: { type: String },
+    variantValue: { type: Number },
+    variantUnit: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
@@ -100,6 +113,7 @@ const NativeProductSchema = new Schema<INativeProduct>(
 // Indexes for common queries
 NativeProductSchema.index({ businessId: 1, isActive: 1 });
 NativeProductSchema.index({ sku: 1 }, { sparse: true });
+NativeProductSchema.index({ variantGroupKey: 1 });
 
 const NativeProduct: Model<INativeProduct> =
   (mongoose.models.NativeProduct as Model<INativeProduct>) ||

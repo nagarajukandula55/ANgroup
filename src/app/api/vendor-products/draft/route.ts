@@ -74,10 +74,28 @@ export async function POST(req: NextRequest) {
       businessId: body.businessId,
     }).lean();
 
+    // Cloning an existing draft is how "+ Create another variant" (Review
+    // step) starts a new pack-size/size of the SAME product -- carries over
+    // everything that describes the product itself (name, category, brand,
+    // description, images, SEO) but leaves structure/BOM/commercial blank
+    // for the new variant to fill in. Only honored for a draft the caller's
+    // own vendor actually owns.
+    let cloneFrom: any = null;
+    if (body.cloneFromDraftId) {
+      cloneFrom = await VendorProduct.findOne({
+        _id: body.cloneFromDraftId,
+        businessId: body.businessId,
+      }).lean();
+    }
+
     const draft = await VendorProduct.create({
-      productName: "",
+      productName: cloneFrom?.productName || "",
       variantName: "",
-      description: "",
+      description: cloneFrom?.description || "",
+      categoryId: cloneFrom?.categoryId || undefined,
+      brandId: cloneFrom?.brandId || undefined,
+      images: cloneFrom?.images || [],
+      seo: cloneFrom?.seo || undefined,
 
       vendorSku: "",
       vendorCost: 0,
@@ -91,8 +109,8 @@ export async function POST(req: NextRequest) {
       packSize: 1,
       netWeight: 0,
       grossWeight: 0,
-      hsnCode: "",
-      gstRate: 0,
+      hsnCode: cloneFrom?.hsnCode || "",
+      gstRate: cloneFrom?.gstRate || 0,
 
       status: "DRAFT",
       active: true,

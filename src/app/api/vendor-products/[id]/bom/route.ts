@@ -120,6 +120,9 @@ export async function POST(
         currentCost:
           body.currentCost || 0,
 
+        materialType:
+          body.materialType || "INGREDIENT",
+
         remarks:
           body.remarks || "",
 

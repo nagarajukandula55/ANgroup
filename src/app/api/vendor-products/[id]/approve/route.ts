@@ -8,6 +8,7 @@ import ProductVariant from "@/models/ProductVariant";
 import NativeProduct from "@/models/NativeProduct";
 import ProductCategory from "@/models/ProductCategory";
 import { generateSEO } from "@/services/seo.service";
+import { slugify } from "@/lib/slugify";
 import { generateScopedDocumentNumber } from "@/core/numbering/numberingService";
 import DocumentNumberConfig from "@/models/DocumentNumberConfig";
 import { logAction } from "@/lib/audit/logAction";
@@ -221,12 +222,23 @@ export async function POST(req: Request, context: any) {
       vendorId: vendorProduct.vendorId || undefined,
       unit: vendorProduct.unit,
       basePrice: variant.sellingPrice || vendorProduct.suggestedSellingPrice || 0,
+      mrp: vendorProduct.mrp || 0,
       taxRate: vendorProduct.gstRate || 0,
       hsn: vendorProduct.hsnCode,
       images: vendorProduct.images,
       isActive: true,
       isDeleted: false,
       stock: vendorProduct.availableStock || 0,
+      // Same vendor + same product name = the same product family -- every
+      // approved pack-size/variant of it shares this key so the storefront
+      // PDP can offer a size selector (see storefront/products/[slug]
+      // route's sibling lookup). Falls back to the slug base if productName
+      // is somehow empty so approval never fails on this.
+      variantGroupKey: vendorProduct.vendorId
+        ? `${vendorProduct.vendorId}-${slugify(vendorProduct.productName || seo.slug || "")}`
+        : undefined,
+      variantValue: vendorProduct.packSize || undefined,
+      variantUnit: vendorProduct.unit || undefined,
       metaTitle: seo.title,
       metaDescription: seo.description,
       keywords: seo.keywords?.filter((k: unknown) => typeof k === "string"),
