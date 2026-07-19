@@ -51,6 +51,10 @@ export default function BOMRow({
           updateRow(index, "materialName", m.materialName);
           updateRow(index, "unit", m.unit);
           updateRow(index, "rateUnit", m.unit);
+          // Auto-fill from the material's own current price so the vendor
+          // doesn't have to re-type the same rate on every product that
+          // uses this material -- they can still override it below.
+          if (m.currentPrice) updateRow(index, "currentRate", m.currentPrice);
         }}
       />
 

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import Material from "@/models/Material";
+import { resolveVendorContext } from "@/lib/auth/vendorContext";
 
 export async function GET(req: Request) {
   try {
@@ -9,11 +11,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q") || "";
 
-    const materials = await Material.find({
+    // Scoped to the calling vendor's own business -- was previously
+    // global (every business's materials searchable by every vendor),
+    // which both leaks other businesses' ingredient lists and risks
+    // picking up a same-named material's price from the wrong business.
+    const headersList = await headers();
+    const userId = headersList.get("x-user-id");
+    const ctx = userId ? await resolveVendorContext(userId) : null;
+    const businessId = (ctx?.vendor as any)?.businessId;
+
+    const query: Record<string, unknown> = {
       materialName: { $regex: q, $options: "i" },
       active: true,
-    })
-      .select("_id materialName materialCode stockUnit")
+    };
+    if (businessId) query.businessId = businessId;
+
+    const materials = await Material.find(query)
+      .select("_id materialName materialCode stockUnit currentPrice")
       .limit(20)
       .lean();
 
@@ -29,6 +43,7 @@ export async function GET(req: Request) {
       materialName: m.materialName,
       materialCode: m.materialCode,
       unit: m.stockUnit,
+      currentPrice: m.currentPrice || 0,
     }));
 
     return NextResponse.json({

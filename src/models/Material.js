@@ -98,6 +98,17 @@ const MaterialSchema = new mongoose.Schema(
     default: 1,
   },
 
+  // Pricing -- current per-unit (stockUnit) cost, editable by the vendor
+  // from /vendor/materials. Every change is also logged to
+  // MaterialPriceHistory (businessId/materialId/vendorId/price/priceUnit)
+  // so price trends can be tracked across vendors over time, not just the
+  // latest value.
+  currentPrice: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+
   // Tax
 
   hsnCode: String,

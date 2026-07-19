@@ -35,9 +35,12 @@ const MaterialPriceHistorySchema = new mongoose.Schema(
       min: 0,
     },
 
+    // No enum -- the app's real material units go beyond commodity
+    // measures (pcs, pack, box, dozen alongside kg/g/l/ml), so this stores
+    // whatever unit the price was actually quoted in rather than forcing a
+    // lossy remap onto a fixed weight/volume list.
     priceUnit: {
       type: String,
-      enum: ["KG", "GRAM", "LITER", "TON", "METER"],
       default: "KG",
     },
 
@@ -49,6 +52,7 @@ const MaterialPriceHistorySchema = new mongoose.Schema(
     effectiveDate: {
       type: Date,
       required: true,
+      default: Date.now,
       index: true,
     },
 

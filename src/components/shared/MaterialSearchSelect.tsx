@@ -7,6 +7,7 @@ interface Material {
   materialName: string;
   materialCode: string;
   unit: string;
+  currentPrice?: number;
 }
 
 interface MaterialSearchSelectProps {
@@ -135,7 +136,7 @@ export default function MaterialSearchSelect({
               </div>
 
               <div className="text-xs text-gray-500">
-                {m.materialCode} | {m.unit}
+                {m.materialCode} | {m.unit}{m.currentPrice ? ` | ₹${m.currentPrice}/${m.unit}` : ""}
               </div>
             </div>
           ))}

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import Material from "@/models/Material";
 import MaterialCategory from "@/models/MaterialCategory";
+import MaterialPriceHistory from "@/models/MaterialPriceHistory";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
 import { generateScopedDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
@@ -84,6 +85,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const materialName = String(body.materialName || "").trim();
     const unit = String(body.unit || "").trim();
+    const materialType = String(body.materialType || "RAW_MATERIAL");
+    // HSN/GST are deliberately optional here -- they matter for the sales
+    // invoice on the FINISHED product, not for an internal raw-material
+    // cost record, and requiring them would block a vendor from logging a
+    // material (and its price) the moment they know about it, days before
+    // anyone touches GST filing for it.
+    const hsnCode = body.hsnCode ? String(body.hsnCode).trim() : undefined;
+    const gstRate = body.gstRate !== undefined && body.gstRate !== null && body.gstRate !== "" ? Number(body.gstRate) : undefined;
+    const currentPrice = Number(body.currentPrice) || 0;
 
     if (!materialName) {
       return NextResponse.json({ success: false, message: "Material name is required" }, { status: 400 });
@@ -92,22 +102,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Unit is required" }, { status: 400 });
     }
 
-    // A vendor adding a material inline doesn't know (or need to know) the
-    // business's material-category taxonomy -- find-or-create a single
-    // "General" bucket per business rather than blocking creation on a
-    // required field the vendor has no way to fill correctly. An admin can
-    // always re-categorize it later from Admin > Materials.
-    let generalCategory = await MaterialCategory.findOne({
-      businessId: vendor.businessId,
-      name: "General",
-      isDeleted: { $ne: true },
-    });
-    if (!generalCategory) {
-      generalCategory = await MaterialCategory.create({
+    let category = null;
+    if (body.categoryId) {
+      category = await MaterialCategory.findOne({ _id: body.categoryId, businessId: vendor.businessId, isDeleted: { $ne: true } });
+    }
+    if (!category) {
+      // A vendor adding a material without picking a category (or picking
+      // one from another business, rejected above) doesn't know or need to
+      // know the full taxonomy -- find-or-create a single "General" bucket
+      // per business rather than blocking creation. An admin can always
+      // re-categorize it later from Admin > Materials.
+      category = await MaterialCategory.findOne({
         businessId: vendor.businessId,
         name: "General",
-        description: "Default category for vendor-added materials, pending admin review.",
+        isDeleted: { $ne: true },
       });
+      if (!category) {
+        category = await MaterialCategory.create({
+          businessId: vendor.businessId,
+          name: "General",
+          description: "Default category for vendor-added materials, pending admin review.",
+        });
+      }
     }
 
     const { sequence } = await generateScopedDocumentNumber(
@@ -122,12 +138,26 @@ export async function POST(req: NextRequest) {
       businessId: vendor.businessId,
       materialCode,
       materialName,
-      categoryId: generalCategory._id,
+      materialType,
+      categoryId: category._id,
       purchaseUnit: unit,
       stockUnit: unit,
       consumptionUnit: unit,
+      hsnCode,
+      gstRate,
+      currentPrice,
       notes: `Added by vendor ${vendor.vendorId} (${vendor.companyName}) via the product wizard.`,
     });
+
+    if (currentPrice > 0) {
+      await MaterialPriceHistory.create({
+        businessId: vendor.businessId,
+        materialId: material._id,
+        vendorId: vendor._id,
+        price: currentPrice,
+        priceUnit: unit,
+      });
+    }
 
     logAction({
       action: "CREATE",
@@ -145,6 +175,7 @@ export async function POST(req: NextRequest) {
         materialName: material.materialName,
         materialCode: material.materialCode,
         unit: material.stockUnit,
+        currentPrice: material.currentPrice,
       },
     });
   } catch (err: any) {
