@@ -73,6 +73,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "ops-finance", label: "Finance", items: [
       { key: "finance", label: "Finance", route: "/admin/finance", icon: "DollarSign" },
       { key: "vendor-settlements", label: "Vendor Settlements", route: "/admin/vendor-settlements", icon: "DollarSign" },
+      { key: "vendor-billing", label: "Vendor Billing", route: "/admin/vendor-billing", icon: "DollarSign" },
     ]},
   ]},
   { label: "Business", items: [

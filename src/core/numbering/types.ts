@@ -130,6 +130,10 @@ export const DOCUMENT_TYPES = [
   // {seq}" via a seeded global DocumentNumberConfig template -- see
   // scripts/seedRoleNumberConfig.ts.
   "ROLE",
+  // Vendor subscription billing invoices (see models/VendorBillingInvoice.ts)
+  // — a Super Admin sets a vendor's per-module pricing + validity period,
+  // this is the invoice number generated each billing cycle.
+  "VENDOR_BILLING_INVOICE",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -176,6 +180,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   B2B_INVOICE: "BINV",
   PROFORMA_INVOICE: "PI",
   ROLE: "ROLE",
+  VENDOR_BILLING_INVOICE: "VBI",
 };
 
 export interface GeneratedNumber {
