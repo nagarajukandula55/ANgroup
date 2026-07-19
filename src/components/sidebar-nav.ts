@@ -100,15 +100,11 @@ export const NAV_GROUPS: NavGroup[] = [
       // check lines up with what /api/ui/sidebar actually returns.
       { key: "crm_calls",     label: "Appointments", route: "/admin/crm/calls",     icon: "PhoneCall" },
       { key: "crm_jobsheets", label: "Workorders",   route: "/admin/crm/jobsheets", icon: "ClipboardList" },
-      // Same ticket system Native's storefront uses (SupportTicket is
-      // businessId-scoped, so switching the active business here already
-      // shows only that business's own tickets -- no separate page needed
-      // per business). Labeled "CRM Issues" specifically because a
-      // service/repair business like this one has no public storefront a
-      // customer could self-submit from -- CRM staff log the issue
-      // themselves (see the "+ New Ticket" action on that page) on behalf
-      // of whoever called/walked in, same conversation thread either way.
-      { key: "support_tickets", label: "CRM Issues", route: "/admin/support-tickets", icon: "LifeBuoy" },
+      // Shows every business's tickets by default (a filter dropdown on
+      // the page itself narrows it down) rather than depending on the
+      // sidebar's active-business switcher -- per explicit direction,
+      // after that switcher was reported as unreliable.
+      { key: "support_tickets", label: "Support Tickets", route: "/admin/support-tickets", icon: "LifeBuoy" },
     ]},
   ]},
   { label: "Documents", items: [

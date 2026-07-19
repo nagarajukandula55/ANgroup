@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 
 interface TicketMessage {
   from: "CUSTOMER" | "ADMIN";
@@ -21,6 +20,13 @@ interface Ticket {
   status: "OPEN" | "IN_PROGRESS" | "CLOSED";
   messages: TicketMessage[];
   createdAt: string;
+  businessId: string;
+  businessName: string;
+}
+
+interface BusinessOption {
+  _id: string;
+  name: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -30,7 +36,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function SupportTicketsPage() {
-  const { businessId, businessName } = useActiveBusinessId();
+  const [businesses, setBusinesses] = useState<BusinessOption[]>([]);
+  const [businessFilter, setBusinessFilter] = useState(""); // "" = all businesses
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -38,15 +45,30 @@ export default function SupportTicketsPage() {
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
   const [showNewTicket, setShowNewTicket] = useState(false);
+  const [newTicketBusinessId, setNewTicketBusinessId] = useState("");
   const [newTicket, setNewTicket] = useState({ name: "", email: "", phone: "", orderId: "", subject: "", message: "" });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // For the business filter dropdown and the "+ New Ticket" business
+  // picker -- doesn't depend on the sidebar's active-business switcher at
+  // all, so it works regardless of whether that's behaving correctly.
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        const list = d?.businesses || [];
+        setBusinesses(list);
+        if (list.length === 1) setNewTicketBusinessId(list[0]._id);
+      })
+      .catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
-    if (!businessId) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ businessId });
+      const params = new URLSearchParams();
+      if (businessFilter) params.set("businessId", businessFilter);
       if (statusFilter) params.set("status", statusFilter);
       const res = await fetch(`/api/support-tickets?${params}`);
       const data = await res.json();
@@ -54,7 +76,7 @@ export default function SupportTicketsPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessId, statusFilter]);
+  }, [businessFilter, statusFilter]);
 
   useEffect(() => {
     load();
@@ -91,10 +113,13 @@ export default function SupportTicketsPage() {
       setCreateError("Add an email or phone so you can follow up with them.");
       return;
     }
-    if (!businessId) return;
+    if (!newTicketBusinessId) {
+      setCreateError("Select which business this ticket belongs to.");
+      return;
+    }
     setCreating(true);
     try {
-      const res = await fetch(`/api/storefront/support-tickets?businessId=${businessId}`, {
+      const res = await fetch(`/api/storefront/support-tickets?businessId=${newTicketBusinessId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTicket),
@@ -116,11 +141,10 @@ export default function SupportTicketsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">CRM Issues</h1>
-          {businessName && <p className="text-xs text-blue-500 mt-1">Showing tickets for: {businessName}</p>}
+          <h1 className="text-xl font-semibold text-gray-900">Support Tickets</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Customer issues for this business — raised through its storefront (if it has one), or logged here by your
-            team on behalf of whoever called or walked in.
+            Customer issues across every business — raised through a storefront where one exists, or logged here by
+            your team on behalf of whoever called or walked in. Use the business filter below to narrow it down.
           </p>
         </div>
         <button
@@ -136,6 +160,16 @@ export default function SupportTicketsPage() {
           <div className="w-full max-w-md bg-white rounded-xl p-5 space-y-3">
             <h2 className="font-semibold text-gray-900">Log a New Ticket</h2>
             {createError && <p className="text-xs text-red-600">{createError}</p>}
+            <select
+              className="w-full border rounded-lg p-2 text-sm"
+              value={newTicketBusinessId}
+              onChange={(e) => setNewTicketBusinessId(e.target.value)}
+            >
+              <option value="">Select business *</option>
+              {businesses.map((b) => (
+                <option key={b._id} value={b._id}>{b.name}</option>
+              ))}
+            </select>
             <input
               className="w-full border rounded-lg p-2 text-sm"
               placeholder="Customer name *"
@@ -191,7 +225,7 @@ export default function SupportTicketsPage() {
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {["", "OPEN", "IN_PROGRESS", "CLOSED"].map((s) => (
           <button
             key={s}
@@ -200,9 +234,19 @@ export default function SupportTicketsPage() {
               statusFilter === s ? "bg-gray-900 text-white border-gray-900" : "text-gray-500 border-gray-200"
             }`}
           >
-            {s || "All"}
+            {s || "All Statuses"}
           </button>
         ))}
+        <select
+          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 ml-2"
+          value={businessFilter}
+          onChange={(e) => setBusinessFilter(e.target.value)}
+        >
+          <option value="">All Businesses</option>
+          {businesses.map((b) => (
+            <option key={b._id} value={b._id}>{b.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -223,7 +267,7 @@ export default function SupportTicketsPage() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_COLORS[t.status]}`}>{t.status}</span>
                 </div>
                 <p className="text-sm font-medium text-gray-900 mt-1 truncate">{t.subject}</p>
-                <p className="text-xs text-gray-400">{t.name}</p>
+                <p className="text-xs text-gray-400">{t.name} {t.businessName && <>· {t.businessName}</>}</p>
               </button>
             ))
           )}
@@ -241,7 +285,9 @@ export default function SupportTicketsPage() {
                     {selected.name} · {selected.email || "—"} · {selected.phone || "—"}
                     {selected.orderId && <> · Order: {selected.orderId}</>}
                   </p>
-                  <p className="text-xs text-gray-400 font-mono">{selected.ticketNumber}</p>
+                  <p className="text-xs text-gray-400 font-mono">
+                    {selected.ticketNumber} {selected.businessName && <>· {selected.businessName}</>}
+                  </p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[selected.status]}`}>{selected.status}</span>
               </div>
