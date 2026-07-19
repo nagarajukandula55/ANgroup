@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PRICING_TIERS, type PricingTierKey, type ComputedTier } from "@/core/pricing/pricingEngine";
 
 interface StepCommercialProps {
   draftId: string;
@@ -35,6 +36,7 @@ interface CommercialForm {
   manufacturingCost: ManufacturingCost;
   packingCost: PackingCost;
   logisticsOverhead: number;
+  pricingTiers: Partial<Record<PricingTierKey, number | null>>;
 }
 
 interface PricingData {
@@ -49,6 +51,7 @@ interface PricingData {
   marginPercent: number;
   marginAmount: number;
   sellingPrice: number;
+  channelTiers: ComputedTier[];
 }
 
 const EMPTY_MFG: ManufacturingCost = { cleaning: 0, grinding: 0, mixing: 0, labour: 0 };
@@ -79,6 +82,7 @@ export default function StepCommercial({
     manufacturingCost: EMPTY_MFG,
     packingCost: EMPTY_PACKING,
     logisticsOverhead: 0,
+    pricingTiers: {},
   });
 
   const [skuTouched, setSkuTouched] = useState(false);
@@ -153,6 +157,7 @@ export default function StepCommercial({
             manufacturingCost: p.manufacturingCost || prev.manufacturingCost,
             packingCost: p.packingCost || prev.packingCost,
             logisticsOverhead: p.logisticsOverhead ?? prev.logisticsOverhead,
+            pricingTiers: p.pricingTiers || prev.pricingTiers,
           }));
         }
       })
@@ -591,6 +596,49 @@ export default function StepCommercial({
             )}
           </p>
         )}
+      </div>
+
+      {/* ── Channel pricing (Distributor / Retailer / Offline) ─────────── */}
+      <div className="rounded border p-3 space-y-3">
+        <p className="text-xs font-semibold text-gray-600">
+          Channel Pricing <span className="text-gray-400 font-normal">(what to charge a Distributor / Retailer / Offline buyer — separate from the Online selling price above)</span>
+        </p>
+        <p className="text-[11px] text-gray-400 -mt-2">
+          Each margin% is editable — change it any time and the price recalculates. Offline excludes Shipping and
+          Logistics/Overhead from its cost (a walk-in/local sale doesn't incur either).
+        </p>
+
+        {PRICING_TIERS.map((tierDef) => {
+          const computed = pricing?.channelTiers?.find((t) => t.key === tierDef.key);
+          const marginValue = form.pricingTiers[tierDef.key] ?? tierDef.defaultMarginPercent;
+          return (
+            <div key={tierDef.key} className="grid grid-cols-3 gap-3 items-end border-t border-gray-100 pt-3 first:border-t-0 first:pt-0">
+              <div>
+                <p className="text-sm font-medium text-gray-800">{tierDef.label}</p>
+                <p className="text-[11px] text-gray-400">{tierDef.description}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-gray-500">Margin %</label>
+                <input
+                  type="number"
+                  className={inputClass}
+                  onFocus={(e) => e.target.select()}
+                  value={marginValue}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      pricingTiers: { ...form.pricingTiers, [tierDef.key]: Number(e.target.value) },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-500">Price (from cost ₹{(computed?.baseCost ?? 0).toFixed(2)})</p>
+                <p className="text-lg font-semibold text-gray-900">₹{computed?.price ?? 0}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex justify-between pt-4">

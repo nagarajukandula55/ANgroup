@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 import VendorProductBOM from "@/models/VendorProductBOM";
+import { computeAllTiers } from "@/core/pricing/pricingEngine";
 
 interface RouteContext {
   params: Promise<{
@@ -87,6 +88,19 @@ export async function GET(
     const sellingPrice =
       totalBaseCost + marginAmount;
 
+    const channelTiers = computeAllTiers(
+      {
+        materialCost: totalMaterialCost,
+        wastageCost,
+        vendorCost,
+        shippingCost,
+        manufacturingCost,
+        packingCost,
+        logisticsOverhead,
+      },
+      product.pricingTiers
+    );
+
     return NextResponse.json({
       success: true,
       data: {
@@ -101,6 +115,7 @@ export async function GET(
         marginPercent,
         marginAmount,
         sellingPrice,
+        channelTiers,
       },
     });
   } catch (err: any) {

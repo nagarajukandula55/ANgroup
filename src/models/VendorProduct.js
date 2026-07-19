@@ -106,6 +106,17 @@ const VendorProductSchema = new mongoose.Schema(
     default: 0,
   },
 
+  // Channel margins -- only the margin% is stored (source of truth); the
+  // actual ₹ price per channel is always derived live from the current
+  // cost breakdown by core/pricing/pricingEngine.ts, so it never drifts
+  // out of sync if a material price or manufacturing cost changes later.
+  // suggestedSellingPrice above stays the Online/D2C channel, unchanged.
+  pricingTiers: {
+    distributor: { type: Number, default: null },
+    retailer: { type: Number, default: null },
+    offline: { type: Number, default: null },
+  },
+
   vendorShippingCost: {
     type: Number,
     default: 0,
