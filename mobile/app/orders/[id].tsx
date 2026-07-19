@@ -60,6 +60,24 @@ export default function OrderDetailScreen() {
         <>
           <Text style={styles.orderId}>{order.orderId}</Text>
           <Text style={styles.status}>{order.status}</Text>
+          {order.isBulkOrder && (
+            <View style={styles.bulkBanner}>
+              <Text style={styles.bulkBannerTitle}>Bulk order</Text>
+              {order.billingRevision?.status === "SHARED" ? (
+                <Text style={styles.bulkBannerText}>
+                  Revised total: ₹{Number(order.billingRevision.revisedAmount || 0).toLocaleString("en-IN")}
+                  {order.billingRevision.revisedShippingCharges
+                    ? ` + ₹${Number(order.billingRevision.revisedShippingCharges).toLocaleString("en-IN")} shipping`
+                    : ""}
+                  {order.billingRevision.notes ? `\n${order.billingRevision.notes}` : ""}
+                </Text>
+              ) : (
+                <Text style={styles.bulkBannerText}>
+                  Awaiting revised pricing and shipping charges — we'll notify you once ready.
+                </Text>
+              )}
+            </View>
+          )}
           <Text style={styles.sectionTitle}>Items</Text>
         </>
       }
@@ -128,4 +146,7 @@ const styles = StyleSheet.create({
   timelineLabel: { fontSize: 13, fontWeight: "600" },
   timelineMessage: { fontSize: 12, color: "#6b7280", marginTop: 1 },
   timelineDate: { fontSize: 11, color: "#9ca3af", marginTop: 2 },
+  bulkBanner: { backgroundColor: "#fef3c7", borderRadius: 10, padding: 12, marginBottom: 12 },
+  bulkBannerTitle: { fontSize: 13, fontWeight: "700", color: "#92400e" },
+  bulkBannerText: { fontSize: 13, color: "#92400e", lineHeight: 18, marginTop: 4 },
 });

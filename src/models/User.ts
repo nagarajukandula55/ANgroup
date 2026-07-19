@@ -64,6 +64,14 @@ export interface IUser extends Document {
    * admin-editable so new sources can be added without a schema change. */
   registrationSource?: string;
 
+  /** Storefront customer type -- RETAIL is a normal customer paying listed
+   * prices; BUSINESS is a retailer/wholesaler eligible for bulk orders
+   * (>=10kg), which get revised pricing + separate shipping shared after
+   * submission instead of paying at checkout (see Order.isBulkOrder). */
+  accountType?: "RETAIL" | "BUSINESS";
+  businessName?: string;
+  gstNumber?: string;
+
   /* Default Context */
   defaultOrganizationId?: Types.ObjectId;
   defaultBusinessId?: Types.ObjectId;
@@ -172,6 +180,14 @@ const UserSchema = new Schema<IUser>(
       enum: Object.values(UserRoleLegacy),
       default: UserRoleLegacy.CUSTOMER,
     },
+
+    accountType: {
+      type: String,
+      enum: ["RETAIL", "BUSINESS"],
+      default: "RETAIL",
+    },
+    businessName: { type: String },
+    gstNumber: { type: String },
 
     /* ================= Legacy Business Access ================= */
 

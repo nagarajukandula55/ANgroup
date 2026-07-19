@@ -49,6 +49,9 @@ export default function LoginScreen() {
       <Pressable style={styles.button} onPress={handleSubmit} disabled={submitting}>
         {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign In</Text>}
       </Pressable>
+      <Pressable onPress={() => router.push("/signup")}>
+        <Text style={styles.link}>New here? Create an account</Text>
+      </Pressable>
     </View>
   );
 }
@@ -60,4 +63,5 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, padding: 12, fontSize: 15 },
   button: { backgroundColor: "#111827", borderRadius: 10, padding: 14, alignItems: "center", marginTop: 8 },
   buttonText: { color: "#fff", fontWeight: "600" },
+  link: { textAlign: "center", color: "#2563eb", fontSize: 13, marginTop: 12 },
 });

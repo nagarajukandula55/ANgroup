@@ -39,6 +39,10 @@ export interface INativeProduct extends Document {
   businessId?: mongoose.Types.ObjectId;
   vendorId?: mongoose.Types.ObjectId;
   unit?: string;
+  // Per-unit weight in kg — used to detect bulk/wholesale orders (see
+  // Order.isBulkOrder): a BUSINESS-account order qualifies once
+  // sum(qty * weightKg) across its cart reaches 10kg.
+  weightKg?: number;
   basePrice?: number;
   taxRate?: number; // GST %
   hsn?: string; // HSN code for GST compliance
@@ -88,6 +92,7 @@ const NativeProductSchema = new Schema<INativeProduct>(
     // no vendor to attribute.
     vendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", index: true },
     unit: { type: String, default: "pcs" },
+    weightKg: { type: Number, default: 0 },
     basePrice: { type: Number, default: 0 },
     taxRate: { type: Number, default: 18 }, // default GST 18%
     hsn: { type: String },

@@ -1,10 +1,15 @@
 import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
+
+const BULK_MIN_KG = 10;
 
 export default function CartScreen() {
   const router = useRouter();
-  const { items, remove, total } = useCart();
+  const { items, remove, total, totalWeightKg } = useCart();
+  const { user } = useAuth();
+  const isBulkEligible = user?.accountType === "BUSINESS" && totalWeightKg >= BULK_MIN_KG;
 
   if (items.length === 0) {
     return (
@@ -29,12 +34,26 @@ export default function CartScreen() {
           </View>
         )}
       />
+      {user?.accountType === "BUSINESS" && (
+        <Text style={styles.weightNote}>
+          Order weight: {totalWeightKg.toFixed(1)} kg
+          {!isBulkEligible ? ` (bulk pricing applies at ${BULK_MIN_KG}kg+)` : ""}
+        </Text>
+      )}
+      {isBulkEligible && (
+        <View style={styles.bulkBanner}>
+          <Text style={styles.bulkBannerText}>
+            Bulk order ({totalWeightKg.toFixed(1)}kg) — you won't pay now. We'll share revised
+            pricing and separate shipping charges after you submit.
+          </Text>
+        </View>
+      )}
       <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Total</Text>
+        <Text style={styles.totalLabel}>{isBulkEligible ? "Estimated Total" : "Total"}</Text>
         <Text style={styles.totalValue}>₹{total.toLocaleString("en-IN")}</Text>
       </View>
       <Pressable style={styles.checkoutButton} onPress={() => router.push("/checkout")}>
-        <Text style={styles.checkoutText}>Checkout</Text>
+        <Text style={styles.checkoutText}>{isBulkEligible ? "Submit Bulk Order" : "Checkout"}</Text>
       </Pressable>
     </View>
   );
@@ -52,4 +71,7 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 16, fontWeight: "700" },
   checkoutButton: { backgroundColor: "#111827", borderRadius: 10, padding: 14, alignItems: "center", marginTop: 16 },
   checkoutText: { color: "#fff", fontWeight: "600" },
+  weightNote: { fontSize: 12, color: "#6b7280", marginTop: 8 },
+  bulkBanner: { backgroundColor: "#fef3c7", borderRadius: 10, padding: 12, marginTop: 8 },
+  bulkBannerText: { fontSize: 13, color: "#92400e", lineHeight: 18 },
 });

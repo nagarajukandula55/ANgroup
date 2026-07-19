@@ -82,6 +82,7 @@ export async function POST(req: Request) {
         success: true,
         orderId: result.orderId,
         amount: result.amount,
+        isBulkOrder: result.isBulkOrder,
         items: result.items,
         razorpayOrder: result.razorpayOrder,
         subtotal: result.subtotal,

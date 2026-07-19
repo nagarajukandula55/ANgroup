@@ -26,14 +26,17 @@ const emptyForm: AddressForm = {
   name: "", phone: "", email: "", address: "", landmark: "", pincode: "", city: "", state: "", gstNumber: "",
 };
 
+const BULK_MIN_KG = 10;
+
 function validatePhone(phone: string) {
   return /^[6-9]\d{9}$/.test(phone);
 }
 
 export default function CheckoutScreen() {
   const router = useRouter();
-  const { items, total, clear } = useCart();
+  const { items, total, totalWeightKg, clear } = useCart();
   const { user } = useAuth();
+  const isBulkOrder = user?.accountType === "BUSINESS" && totalWeightKg >= BULK_MIN_KG;
   const [form, setForm] = useState<AddressForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +76,7 @@ export default function CheckoutScreen() {
       setError("Your cart is empty");
       return;
     }
-    if (!RAZORPAY_KEY_ID) {
+    if (!isBulkOrder && !RAZORPAY_KEY_ID) {
       setError("Payment isn't configured yet (app.json extra.razorpayKeyId is missing) — contact support.");
       return;
     }
@@ -88,10 +91,24 @@ export default function CheckoutScreen() {
         address: form,
         customer: { name: form.name, phone: form.phone, email: form.email },
         paymentMethod: "RAZORPAY",
+        userId: user?.id,
+        customerType: user?.accountType === "BUSINESS" ? "BUSINESS" : "RETAIL",
       });
 
       if (!data?.success) {
         throw new Error(data?.error || data?.message || "Order creation failed");
+      }
+
+      // Bulk orders skip payment entirely -- there's no razorpayOrder,
+      // the order sits at PENDING_REVIEW until billing is revised.
+      if (data.isBulkOrder) {
+        clear();
+        Alert.alert(
+          "Bulk order submitted",
+          `Your order ${data.orderId} has been submitted. We'll share revised pricing and separate shipping charges shortly.`,
+          [{ text: "View Orders", onPress: () => router.replace("/orders") }]
+        );
+        return;
       }
 
       const rzpOptions = {
@@ -145,15 +162,25 @@ export default function CheckoutScreen() {
       <Field label="State *"><TextInput style={styles.input} value={form.state} onChangeText={(v) => set("state", v)} /></Field>
       <Field label="GST Number (optional, for B2B invoice)"><TextInput style={styles.input} value={form.gstNumber} onChangeText={(v) => set("gstNumber", v.toUpperCase())} autoCapitalize="characters" /></Field>
 
+      {isBulkOrder && (
+        <View style={styles.bulkBanner}>
+          <Text style={styles.bulkBannerText}>
+            Bulk order ({totalWeightKg.toFixed(1)}kg, min {BULK_MIN_KG}kg) — no payment now.
+            After you submit, we'll review and share revised pricing plus separate shipping
+            charges for your approval.
+          </Text>
+        </View>
+      )}
+
       <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Total</Text>
+        <Text style={styles.totalLabel}>{isBulkOrder ? "Estimated Total" : "Total"}</Text>
         <Text style={styles.totalValue}>₹{total.toLocaleString("en-IN")}</Text>
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable style={[styles.submitButton, submitting && styles.submitButtonDisabled]} onPress={handlePlaceOrder} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Place Order & Pay</Text>}
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{isBulkOrder ? "Submit Bulk Order" : "Place Order & Pay"}</Text>}
       </Pressable>
     </ScrollView>
   );
@@ -183,4 +210,6 @@ const styles = StyleSheet.create({
   submitButton: { backgroundColor: "#111827", borderRadius: 10, padding: 14, alignItems: "center" },
   submitButtonDisabled: { opacity: 0.6 },
   submitText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  bulkBanner: { backgroundColor: "#fef3c7", borderRadius: 10, padding: 12, marginBottom: 12 },
+  bulkBannerText: { fontSize: 13, color: "#92400e", lineHeight: 18 },
 });

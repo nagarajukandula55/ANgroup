@@ -14,6 +14,7 @@ const NATIVE_BUSINESS_ID = "6a4abddcf35feedb2392f556";
 
 import { ProductService } from "./product.service";
 import { PricingService } from "./pricing.service";
+import { notifyVendor } from "./notification.service";
 
 // import { validateCoupon } from "@/lib/coupon";
 // Was @/lib/invoice/getFinancialYear — one of 3 duplicate FY calculators
@@ -79,6 +80,8 @@ type CartBaseItem = {
   baseTotal: number;
 
   vendorId?: string;
+
+  weightKg: number;
 };
 
 type CartTaxedItem =
@@ -186,6 +189,10 @@ export class OrderService {
             vendorId:
               product.vendorId ||
               undefined,
+
+            weightKg:
+              Number(product.weightKg || 0) *
+              qty,
           };
         })
       );
@@ -208,7 +215,11 @@ export class OrderService {
         paymentMethod,
         gstType,
         gstMode,
+        userId,
+        customerType,
       } = payload;
+
+      const isBusinessAccount = customerType === "BUSINESS";
 
       console.log(
         "CREATE ORDER PAYLOAD:",
@@ -221,6 +232,16 @@ export class OrderService {
 
       let items: CartBaseItem[] =
         await this.buildCart(cart);
+
+      // Bulk/wholesale threshold: a BUSINESS (retailer) account ordering
+      // 10kg+ skips immediate Razorpay checkout below -- AN Group/the
+      // vendor shares revised (lower) pricing + separate shipping after
+      // reviewing the order (see Order.billingRevision).
+      const totalWeightKg = items.reduce(
+        (sum, item) => sum + Number(item.weightKg || 0),
+        0
+      );
+      const isBulkOrder = isBusinessAccount && totalWeightKg >= 10;
 
       /* =====================================================
          STEP 2: SUBTOTAL
@@ -435,10 +456,14 @@ export class OrderService {
 
       /* =====================================================
          STEP 9: CREATE RAZORPAY ORDER
+         Skipped for bulk orders -- there's no final price to collect
+         yet, the retailer waits for billingRevision instead of paying
+         at checkout.
       ===================================================== */
 
-      const razorpayOrder =
-        await getRazorpay().orders.create(
+      const razorpayOrder = isBulkOrder
+        ? null
+        : await getRazorpay().orders.create(
           {
             amount: Math.round(
               amount * 100
@@ -461,10 +486,12 @@ export class OrderService {
           }
         );
 
-      console.log(
-        "RAZORPAY ORDER CREATED:",
-        razorpayOrder.id
-      );
+      if (razorpayOrder) {
+        console.log(
+          "RAZORPAY ORDER CREATED:",
+          razorpayOrder.id
+        );
+      }
 
       /* =====================================================
          STEP 10: CREATE ORDER
@@ -473,6 +500,16 @@ export class OrderService {
       const order =
         await Order.create({
           orderId,
+
+          userId: userId || undefined,
+
+          customerType: isBusinessAccount ? "BUSINESS" : "RETAIL",
+
+          isBulkOrder,
+
+          billingRevision: isBulkOrder
+            ? { status: "PENDING" }
+            : undefined,
 
           // Was hardcoded to NATIVE_BUSINESS_ID -- a stale id that no
           // longer resolves to any Business after the E-commerce/Native
@@ -512,21 +549,23 @@ export class OrderService {
       
           gstMode,
       
-          status: "CREATED",
-      
+          status: isBulkOrder ? "PENDING_REVIEW" : "CREATED",
+
           paymentVerified: false,
-      
-          payment: {
-            method:
-              paymentMethod || "RAZORPAY",
-      
-            status: "PENDING",
-      
-            gateway: "RAZORPAY",
-      
-            gatewayOrderId:
-              razorpayOrder.id,
-          },
+
+          payment: isBulkOrder
+            ? { method: paymentMethod || "RAZORPAY", status: "PENDING", gateway: "RAZORPAY" }
+            : {
+              method:
+                paymentMethod || "RAZORPAY",
+
+              status: "PENDING",
+
+              gateway: "RAZORPAY",
+
+              gatewayOrderId:
+                razorpayOrder!.id,
+            },
       
           invoice: {
             invoiceType:
@@ -547,18 +586,45 @@ export class OrderService {
               amount,
             }),
       
-          expiresAt: new Date(
-            Date.now() +
-              15 *
-                60 *
-                1000
-          ),
+          // Bulk orders aren't an abandoned-checkout risk (no payment is
+          // pending) -- they wait on a human to revise billing, so they
+          // shouldn't auto-expire in 15 minutes like a real checkout.
+          expiresAt: isBulkOrder
+            ? undefined
+            : new Date(
+              Date.now() +
+                15 *
+                  60 *
+                  1000
+            ),
         });
 
       console.log(
         "ORDER CREATED SUCCESSFULLY:",
         orderId
       );
+
+      /* =====================================================
+         STEP 10.5: NOTIFY VENDORS
+         Best-effort, per distinct vendor supplying a line item, so the
+         vendor can process the order further (confirm stock, prepare a
+         bulk quote, etc.) -- must never block or fail order creation.
+      ===================================================== */
+
+      const vendorIds = Array.from(
+        new Set(taxedItems.map((item) => item.vendorId).filter(Boolean))
+      ) as string[];
+
+      vendorIds.forEach((vendorId) => {
+        const vendorItems = taxedItems.filter((item) => item.vendorId === vendorId);
+        const productNames = vendorItems.map((item) => item.name).join(", ");
+        notifyVendor({
+          vendorId,
+          title: isBulkOrder ? "New bulk order for your product" : "New order for your product",
+          message: `${productNames} — order ${orderId}${isBulkOrder ? " (bulk order, awaiting your revised pricing)" : ""}.`,
+          link: `/vendor/orders/${orderId}`,
+        }).catch(() => {});
+      });
 
       /* =====================================================
          STEP 11: RETURN
@@ -570,6 +636,8 @@ export class OrderService {
         orderId,
 
         amount,
+
+        isBulkOrder,
 
         items: taxedItems,
 
@@ -587,15 +655,17 @@ export class OrderService {
 
         igst,
 
-        razorpayOrder: {
-          id: razorpayOrder.id,
+        razorpayOrder: razorpayOrder
+          ? {
+            id: razorpayOrder.id,
 
-          amount:
-            razorpayOrder.amount,
+            amount:
+              razorpayOrder.amount,
 
-          currency:
-            razorpayOrder.currency,
-        },
+            currency:
+              razorpayOrder.currency,
+          }
+          : null,
 
         order,
       };
