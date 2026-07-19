@@ -37,6 +37,10 @@ export default function SupportTicketsPage() {
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showNewTicket, setShowNewTicket] = useState(false);
+  const [newTicket, setNewTicket] = useState({ name: "", email: "", phone: "", orderId: "", subject: "", message: "" });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -77,13 +81,115 @@ export default function SupportTicketsPage() {
     }
   }
 
+  async function createTicket() {
+    setCreateError(null);
+    if (!newTicket.name.trim() || !newTicket.subject.trim() || !newTicket.message.trim()) {
+      setCreateError("Name, subject, and message are required.");
+      return;
+    }
+    if (!newTicket.email.trim() && !newTicket.phone.trim()) {
+      setCreateError("Add an email or phone so you can follow up with them.");
+      return;
+    }
+    if (!businessId) return;
+    setCreating(true);
+    try {
+      const res = await fetch(`/api/storefront/support-tickets?businessId=${businessId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTicket),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setCreateError(data.message || "Failed to create ticket");
+        return;
+      }
+      setShowNewTicket(false);
+      setNewTicket({ name: "", email: "", phone: "", orderId: "", subject: "", message: "" });
+      load();
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Native Tickets</h1>
-        {businessName && <p className="text-xs text-blue-500 mt-1">Editing tickets for: {businessName}</p>}
-        <p className="text-sm text-gray-500 mt-1">Customer support tickets raised on the storefront.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">CRM Issues</h1>
+          {businessName && <p className="text-xs text-blue-500 mt-1">Showing tickets for: {businessName}</p>}
+          <p className="text-sm text-gray-500 mt-1">
+            Customer issues for this business — raised through its storefront (if it has one), or logged here by your
+            team on behalf of whoever called or walked in.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowNewTicket(true)}
+          className="shrink-0 px-3 py-2 bg-gray-900 text-white rounded-lg text-sm"
+        >
+          + New Ticket
+        </button>
       </div>
+
+      {showNewTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-md bg-white rounded-xl p-5 space-y-3">
+            <h2 className="font-semibold text-gray-900">Log a New Ticket</h2>
+            {createError && <p className="text-xs text-red-600">{createError}</p>}
+            <input
+              className="w-full border rounded-lg p-2 text-sm"
+              placeholder="Customer name *"
+              value={newTicket.name}
+              onChange={(e) => setNewTicket((p) => ({ ...p, name: e.target.value }))}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                className="w-full border rounded-lg p-2 text-sm"
+                placeholder="Email"
+                value={newTicket.email}
+                onChange={(e) => setNewTicket((p) => ({ ...p, email: e.target.value }))}
+              />
+              <input
+                className="w-full border rounded-lg p-2 text-sm"
+                placeholder="Phone"
+                value={newTicket.phone}
+                onChange={(e) => setNewTicket((p) => ({ ...p, phone: e.target.value }))}
+              />
+            </div>
+            <input
+              className="w-full border rounded-lg p-2 text-sm"
+              placeholder="Order / Job Sheet ID (optional)"
+              value={newTicket.orderId}
+              onChange={(e) => setNewTicket((p) => ({ ...p, orderId: e.target.value }))}
+            />
+            <input
+              className="w-full border rounded-lg p-2 text-sm"
+              placeholder="Subject *"
+              value={newTicket.subject}
+              onChange={(e) => setNewTicket((p) => ({ ...p, subject: e.target.value }))}
+            />
+            <textarea
+              className="w-full border rounded-lg p-2 text-sm"
+              rows={3}
+              placeholder="What's the issue? *"
+              value={newTicket.message}
+              onChange={(e) => setNewTicket((p) => ({ ...p, message: e.target.value }))}
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setShowNewTicket(false)} className="px-3 py-2 border rounded-lg text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={createTicket}
+                disabled={creating}
+                className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm disabled:opacity-50"
+              >
+                {creating ? "Creating…" : "Create Ticket"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2">
         {["", "OPEN", "IN_PROGRESS", "CLOSED"].map((s) => (
