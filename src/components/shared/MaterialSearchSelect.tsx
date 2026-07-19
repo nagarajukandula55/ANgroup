@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Material {
   _id: string;
@@ -42,9 +42,20 @@ export default function MaterialSearchSelect({
   const [createError, setCreateError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Only reopens the dropdown for input the user actually typed -- BOMRow
+  // (and other callers) pass a brand-new `value` object literal on every
+  // parent re-render even when the underlying selection hasn't changed, so
+  // syncing `query` off `value` by reference re-ran the search effect below
+  // on every unrelated re-render (e.g. right after saving a row), which set
+  // open=true again and popped the dropdown back open with no user action.
+  // Keyed on the primitive fields, and userTyped stays false for this kind
+  // of sync, so a saved/settled row never reopens on its own.
+  const userTyped = useRef(false);
+
   useEffect(() => {
+    userTyped.current = false;
     setQuery(value?.materialName || "");
-  }, [value]);
+  }, [value?._id, value?.materialName]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -65,7 +76,7 @@ export default function MaterialSearchSelect({
         if (data.success) {
           setItems(data.data);
           setSearched(true);
-          setOpen(true);
+          if (userTyped.current) setOpen(true);
         }
       } catch (err) {
         console.error(err);
@@ -76,6 +87,7 @@ export default function MaterialSearchSelect({
   }, [query]);
 
   const selectMaterial = (material: Material) => {
+    userTyped.current = false;
     setQuery(material.materialName);
     setOpen(false);
     setCreating(false);
@@ -117,6 +129,7 @@ export default function MaterialSearchSelect({
         placeholder="Search material..."
         value={query}
         onChange={(e) => {
+          userTyped.current = true;
           setQuery(e.target.value);
           setOpen(true);
           setCreating(false);
