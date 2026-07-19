@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { estimateNutritionFromBOM, type NutritionEstimate } from "@/lib/nutritionReference";
 
 interface StepComplianceProps {
   draftId: string;
@@ -74,6 +75,11 @@ export default function StepCompliance({
   const [error, setError] = useState<string | null>(null);
   const [bomIngredients, setBomIngredients] = useState<BomIngredient[]>([]);
   const [allergenSuggestions, setAllergenSuggestions] = useState<string[]>([]);
+  const [nutritionEstimate, setNutritionEstimate] = useState<NutritionEstimate | null>(null);
+  const [nutritionApplied, setNutritionApplied] = useState(false);
+  const [productLabel, setProductLabel] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const labelRef = useRef<HTMLDivElement>(null);
 
   // Was never fetched -- resuming an existing draft reset this whole step
   // back to blank even if it was already filled in and saved.
@@ -81,8 +87,10 @@ export default function StepCompliance({
     fetch(`/api/vendor-products/${draftId}`)
       .then((r) => r.json())
       .then((d) => {
+        setProductLabel([d?.data?.productName, d?.data?.variantName].filter(Boolean).join(" — "));
         const c = d?.data?.compliance;
         const n = d?.data?.nutrition;
+        if (n?.energy) setNutritionApplied(true);
         if (!c && !n) return;
         setForm({
           ingredients: (c?.ingredients || []).join(", "),
@@ -129,6 +137,8 @@ export default function StepCompliance({
           setForm((prev) => ({ ...prev, ingredients: breakdown.map((b) => b.materialName).filter(Boolean).join(", ") }));
         }
 
+        setNutritionEstimate(estimateNutritionFromBOM(breakdown));
+
         const matched = new Set<string>();
         for (const { materialName } of breakdown) {
           for (const [re, label] of ALLERGEN_KEYWORDS) {
@@ -145,6 +155,46 @@ export default function StepCompliance({
     const current = toList(form.allergens);
     const merged = Array.from(new Set([...current, ...allergenSuggestions]));
     setForm((prev) => ({ ...prev, allergens: merged.join(", ") }));
+  }
+
+  // Scales the per-100g estimate to whatever Serving Size the vendor has
+  // set (defaults to 100g if unset) and fills the nutrition fields --
+  // never overwrites a value the vendor already has, only fills gaps.
+  function applyNutritionEstimate() {
+    if (!nutritionEstimate) return;
+    const servingSize = form.servingSize || 100;
+    const factor = servingSize / 100;
+    setForm((prev) => ({
+      ...prev,
+      servingSize,
+      energy: prev.energy || Math.round(nutritionEstimate.per100g.energy * factor),
+      protein: prev.protein || Math.round(nutritionEstimate.per100g.protein * factor * 10) / 10,
+      carbs: prev.carbs || Math.round(nutritionEstimate.per100g.carbs * factor * 10) / 10,
+      sugars: prev.sugars || Math.round(nutritionEstimate.per100g.sugars * factor * 10) / 10,
+      fat: prev.fat || Math.round(nutritionEstimate.per100g.fat * factor * 10) / 10,
+      sodium: prev.sodium || Math.round(nutritionEstimate.per100g.sodium * factor),
+    }));
+    setNutritionApplied(true);
+  }
+
+  async function downloadNutritionLabel() {
+    if (!labelRef.current) return;
+    setDownloading(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(labelRef.current, { scale: 3, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ unit: "pt", format: [canvas.width / 3, canvas.height / 3] });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 3, canvas.height / 3);
+      pdf.save(`${(productLabel || "product").replace(/[^a-z0-9]+/gi, "-")}-nutrition-label.pdf`);
+    } catch {
+      setError("Failed to generate the label PDF — please try again");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   const handleSave = async () => {
@@ -296,6 +346,25 @@ export default function StepCompliance({
         Nutrition (per serving)
       </h3>
 
+      {nutritionEstimate && nutritionEstimate.totalGrams > 0 && !nutritionApplied && (
+        <div className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm flex items-center justify-between gap-3">
+          <p className="text-emerald-800">
+            Nutrition estimated from {nutritionEstimate.matched.length} matched BOM ingredient
+            {nutritionEstimate.matched.length !== 1 ? "s" : ""} against standard food-composition
+            reference values{nutritionEstimate.unmatched.length > 0 && (
+              <> ({nutritionEstimate.unmatched.length} unmatched: {nutritionEstimate.unmatched.join(", ")} — enter those manually)</>
+            )}.
+          </p>
+          <button
+            type="button"
+            onClick={applyNutritionEstimate}
+            className="shrink-0 rounded border border-emerald-400 bg-white px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+          >
+            Fill In Estimate
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-4">
         {(
           [
@@ -322,6 +391,61 @@ export default function StepCompliance({
           </div>
         ))}
       </div>
+
+      {form.energy > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={downloadNutritionLabel}
+            disabled={downloading}
+            className="rounded border border-gray-400 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            {downloading ? "Generating…" : "Download Nutrition Label (PDF)"}
+          </button>
+          <p className="text-xs text-gray-400 mt-1">
+            Generates a print-ready Nutrition Facts panel for your product's back label, from the values above.
+          </p>
+
+          {/* Off-screen, rendered only for the PDF capture above -- not part of the visible form. */}
+          <div className="fixed -left-[9999px] top-0" aria-hidden="true">
+            <div ref={labelRef} className="w-[320px] border-2 border-black bg-white p-3 font-sans text-black">
+              <p className="text-lg font-extrabold border-b-4 border-black pb-1">Nutrition Facts</p>
+              {productLabel && <p className="text-xs font-semibold pb-1 border-b border-gray-400">{productLabel}</p>}
+              <p className="text-xs py-1 border-b border-gray-400">Serving Size: {form.servingSize || 100} g</p>
+              <div className="py-1 border-b-8 border-black">
+                <p className="text-sm font-bold">Amount Per Serving</p>
+                <div className="flex justify-between text-xl font-extrabold">
+                  <span>Calories</span>
+                  <span>{Math.round(form.energy)}</span>
+                </div>
+              </div>
+              {(
+                [
+                  ["Total Fat", form.fat, "g"],
+                  ["Sodium", form.sodium, "mg"],
+                  ["Total Carbohydrate", form.carbs, "g"],
+                  ["  Sugars", form.sugars, "g"],
+                  ["Protein", form.protein, "g"],
+                ] as [string, number, string][]
+              ).map(([label, value, unit]) => (
+                <div key={label} className="flex justify-between text-sm py-0.5 border-b border-gray-300">
+                  <span className={label.startsWith("  ") ? "pl-3 text-gray-700" : "font-semibold"}>{label.trim()}</span>
+                  <span className="font-semibold">{value}{unit}</span>
+                </div>
+              ))}
+              {toList(form.allergens).length > 0 && (
+                <p className="text-xs pt-2 font-semibold">Allergens: {toList(form.allergens).join(", ")}</p>
+              )}
+              {toList(form.ingredients).length > 0 && (
+                <p className="text-[10px] pt-2 text-gray-700">Ingredients: {toList(form.ingredients).join(", ")}</p>
+              )}
+              <p className="text-[9px] pt-2 text-gray-400">
+                Values are estimates based on standard ingredient composition — verify against lab-tested data before regulatory submission.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between pt-4">
         <button onClick={back} className="rounded border px-4 py-2">
