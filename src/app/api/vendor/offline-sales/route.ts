@@ -26,9 +26,11 @@ interface OfflineSaleLine {
 async function requireVendor() {
   const headersList = await headers();
   const userId = headersList.get("x-user-id");
-  const userRole = headersList.get("x-user-role");
   if (!userId) return { error: NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 }) };
-  if (userRole !== "VENDOR") return { error: NextResponse.json({ success: false, message: "Vendor access required" }, { status: 403 }) };
+  // resolveVendorContext covers both the vendor Owner (User.role ===
+  // "VENDOR") AND vendor-team staff/Managers (whose User.role is never
+  // actually "VENDOR") -- a blunt x-user-role check here used to reject
+  // every staff member outright before this even ran.
   const ctx = await resolveVendorContext(userId);
   if (!ctx) return { error: NextResponse.json({ success: false, message: "Vendor profile not found" }, { status: 404 }) };
   return { userId, vendor: ctx.vendor as any };

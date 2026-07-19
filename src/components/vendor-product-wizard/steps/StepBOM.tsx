@@ -156,19 +156,24 @@ export default function StepBOM({
     ]);
   };
 
+  // Functional update -- BOMRow's material-select handler fires this three
+  // times in a row synchronously (materialId, then materialName, then
+  // unit) to set all three fields from one picked material. Cloning from
+  // the `rows` closure instead of the updater's own `prev` meant each call
+  // read the SAME pre-selection snapshot, so only the last of the three
+  // calls actually stuck -- materialId and materialName silently reverted,
+  // leaving the row's Save button permanently disabled ("Select a material
+  // above first") even right after picking one.
   const updateRow = (
     index: number,
     field: keyof BOMItem,
     value: string | number
   ) => {
-    const updated = [...rows];
-
-    updated[index] = {
-      ...updated[index],
-      [field]: value,
-    };
-
-    setRows(updated);
+    setRows((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   /* ================= SAVE ================= */

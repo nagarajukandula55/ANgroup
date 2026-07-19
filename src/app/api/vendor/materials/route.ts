@@ -25,17 +25,19 @@ export async function POST(req: NextRequest) {
   try {
     const headersList = await headers();
     const userId = headersList.get("x-user-id");
-    const userRole = headersList.get("x-user-role");
 
     if (!userId) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
-    if (userRole !== "VENDOR") {
-      return NextResponse.json({ success: false, message: "Vendor access required" }, { status: 403 });
-    }
 
     await connectDB();
 
+    // resolveVendorContext already covers both the vendor Owner
+    // (User.role === "VENDOR") AND vendor-team staff/Managers (added via
+    // BusinessMember, whose User.role is never actually "VENDOR") -- a
+    // blunt `x-user-role !== "VENDOR"` check here used to reject every
+    // Manager/staff member outright before this even ran, so only the
+    // literal account owner could ever add a material inline.
     const ctx = await resolveVendorContext(userId);
     if (!ctx) {
       return NextResponse.json({ success: false, message: "Vendor profile not found" }, { status: 404 });

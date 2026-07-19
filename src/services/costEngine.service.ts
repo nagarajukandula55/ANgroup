@@ -52,8 +52,14 @@ export async function recalcVendorProductCost(
         finalCost: currentCost,
       },
 
-      // optional sync to main cost field
-      vendorCost: currentCost,
+      // vendorCost is intentionally NOT synced here -- it's the vendor's
+      // own manually-entered "Additional Cost, anything not already
+      // covered by the BOM" field (StepCommercial.tsx), and Business's
+      // vendorCostBasis: "VENDOR_DECLARED" option depends on it staying a
+      // real, vendor-typed value. Overwriting it with the BOM total on
+      // every BOM save silently discarded whatever the vendor had entered,
+      // AND caused pricing/route.ts to double-count the BOM cost (once as
+      // materialCost, again as this synced-to-equal-it vendorCost).
     }
   );
 

@@ -38,15 +38,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
     await connectDB();
     const h = await headers();
     const userId = h.get("x-user-id");
-    const userRole = h.get("x-user-role");
-
     if (!userId) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
-    if (userRole !== "VENDOR") {
-      return NextResponse.json({ success: false, message: "Vendor access required" }, { status: 403 });
-    }
 
+    // resolveOwnerOrManagerVendor already covers both the vendor Owner
+    // (User.role === "VENDOR") AND a granted Manager (whose User.role is
+    // never actually "VENDOR") -- a blunt x-user-role check here used to
+    // reject every Manager outright before this even ran.
     const vendor = await resolveOwnerOrManagerVendor(userId);
     if (!vendor) {
       return NextResponse.json({ success: false, message: "Vendor profile not found" }, { status: 404 });
