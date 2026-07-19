@@ -8,6 +8,20 @@ interface StepCommercialProps {
   back: () => void;
 }
 
+interface ManufacturingCost {
+  cleaning: number;
+  grinding: number;
+  mixing: number;
+  labour: number;
+}
+
+interface PackingCost {
+  pouchOrContainer: number;
+  labelAndBatchSticker: number;
+  outerCartonAndConsumable: number;
+  packingLabour: number;
+}
+
 interface CommercialForm {
   vendorSku: string;
   vendorCost: number;
@@ -18,6 +32,9 @@ interface CommercialForm {
   availableStock: number;
   mrp: number;
   suggestedSellingPrice: number;
+  manufacturingCost: ManufacturingCost;
+  packingCost: PackingCost;
+  logisticsOverhead: number;
 }
 
 interface PricingData {
@@ -25,11 +42,22 @@ interface PricingData {
   wastageCost: number;
   vendorCost: number;
   shippingCost: number;
+  manufacturingCost: number;
+  packingCost: number;
+  logisticsOverhead: number;
   totalBaseCost: number;
   marginPercent: number;
   marginAmount: number;
   sellingPrice: number;
 }
+
+const EMPTY_MFG: ManufacturingCost = { cleaning: 0, grinding: 0, mixing: 0, labour: 0 };
+const EMPTY_PACKING: PackingCost = {
+  pouchOrContainer: 0,
+  labelAndBatchSticker: 0,
+  outerCartonAndConsumable: 0,
+  packingLabour: 0,
+};
 
 const MARGIN_PRESETS = [20, 30, 40];
 
@@ -48,6 +76,9 @@ export default function StepCommercial({
     availableStock: 0,
     mrp: 0,
     suggestedSellingPrice: 0,
+    manufacturingCost: EMPTY_MFG,
+    packingCost: EMPTY_PACKING,
+    logisticsOverhead: 0,
   });
 
   const [skuTouched, setSkuTouched] = useState(false);
@@ -119,6 +150,9 @@ export default function StepCommercial({
             availableStock: p.availableStock ?? prev.availableStock,
             mrp: p.mrp ?? prev.mrp,
             suggestedSellingPrice: p.suggestedSellingPrice || prev.suggestedSellingPrice,
+            manufacturingCost: p.manufacturingCost || prev.manufacturingCost,
+            packingCost: p.packingCost || prev.packingCost,
+            logisticsOverhead: p.logisticsOverhead ?? prev.logisticsOverhead,
           }));
         }
       })
@@ -223,6 +257,18 @@ export default function StepCommercial({
               <span className="text-right font-mono">
                 ₹{(pricing?.shippingCost ?? 0).toFixed(2)}
               </span>
+              <span className="text-gray-500">Manufacturing</span>
+              <span className="text-right font-mono">
+                ₹{(pricing?.manufacturingCost ?? 0).toFixed(2)}
+              </span>
+              <span className="text-gray-500">Packing</span>
+              <span className="text-right font-mono">
+                ₹{(pricing?.packingCost ?? 0).toFixed(2)}
+              </span>
+              <span className="text-gray-500">Logistics/Overhead</span>
+              <span className="text-right font-mono">
+                ₹{(pricing?.logisticsOverhead ?? 0).toFixed(2)}
+              </span>
               <span className="font-semibold text-gray-700">
                 Total base cost
               </span>
@@ -277,6 +323,98 @@ export default function StepCommercial({
               vendorCost: Number(e.target.value),
             })
           }
+        />
+      </div>
+
+      <div className="rounded border p-3 space-y-2">
+        <p className="text-xs font-semibold text-gray-600">
+          Manufacturing Cost <span className="text-gray-400 font-normal">(per pack of this variant — cleaning/processing labour, not the raw material itself)</span>
+        </p>
+        <div className="grid grid-cols-4 gap-2">
+          {(["cleaning", "grinding", "mixing", "labour"] as const).map((key) => (
+            <div key={key} className="flex flex-col gap-1">
+              <label className="text-[11px] text-gray-500 capitalize">{key}</label>
+              <input
+                type="number"
+                className={inputClass}
+                onFocus={(e) => e.target.select()}
+                placeholder="0"
+                value={form.manufacturingCost[key]}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    manufacturingCost: { ...form.manufacturingCost, [key]: Number(e.target.value) },
+                  })
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded border p-3 space-y-2">
+        <p className="text-xs font-semibold text-gray-600">
+          Packing Cost <span className="text-gray-400 font-normal">(per pack — leave 0 for anything already priced as a material in the BOM step, e.g. a pouch or label added there)</span>
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-gray-500">Pouch / Container</label>
+            <input
+              type="number"
+              className={inputClass}
+              onFocus={(e) => e.target.select()}
+              placeholder="0"
+              value={form.packingCost.pouchOrContainer}
+              onChange={(e) => setForm({ ...form, packingCost: { ...form.packingCost, pouchOrContainer: Number(e.target.value) } })}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-gray-500">Label &amp; Batch Sticker</label>
+            <input
+              type="number"
+              className={inputClass}
+              onFocus={(e) => e.target.select()}
+              placeholder="0"
+              value={form.packingCost.labelAndBatchSticker}
+              onChange={(e) => setForm({ ...form, packingCost: { ...form.packingCost, labelAndBatchSticker: Number(e.target.value) } })}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-gray-500">Outer Carton &amp; Consumables</label>
+            <input
+              type="number"
+              className={inputClass}
+              onFocus={(e) => e.target.select()}
+              placeholder="0"
+              value={form.packingCost.outerCartonAndConsumable}
+              onChange={(e) => setForm({ ...form, packingCost: { ...form.packingCost, outerCartonAndConsumable: Number(e.target.value) } })}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-gray-500">Packing Labour</label>
+            <input
+              type="number"
+              className={inputClass}
+              onFocus={(e) => e.target.select()}
+              placeholder="0"
+              value={form.packingCost.packingLabour}
+              onChange={(e) => setForm({ ...form, packingCost: { ...form.packingCost, packingLabour: Number(e.target.value) } })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className={labelClass}>
+          Logistics / Overhead <span className="text-gray-400 font-normal">(per pack, ₹ — freight/warehousing/general overhead not already covered by Shipping Cost below)</span>
+        </label>
+        <input
+          type="number"
+          className={inputClass}
+          onFocus={(e) => e.target.select()}
+          placeholder="0"
+          value={form.logisticsOverhead}
+          onChange={(e) => setForm({ ...form, logisticsOverhead: Number(e.target.value) })}
         />
       </div>
 

@@ -53,11 +53,30 @@ export async function GET(
       product.vendorShippingCost || 0
     );
 
+    const mfg = product.manufacturingCost || {};
+    const manufacturingCost =
+      Number(mfg.cleaning || 0) +
+      Number(mfg.grinding || 0) +
+      Number(mfg.mixing || 0) +
+      Number(mfg.labour || 0);
+
+    const pkg = product.packingCost || {};
+    const packingCost =
+      Number(pkg.pouchOrContainer || 0) +
+      Number(pkg.labelAndBatchSticker || 0) +
+      Number(pkg.outerCartonAndConsumable || 0) +
+      Number(pkg.packingLabour || 0);
+
+    const logisticsOverhead = Number(product.logisticsOverhead || 0);
+
     const totalBaseCost =
       totalMaterialCost +
       wastageCost +
       vendorCost +
-      shippingCost;
+      shippingCost +
+      manufacturingCost +
+      packingCost +
+      logisticsOverhead;
 
     // Default margin (later this will come from vendor/business agreement)
     const marginPercent = 25;
@@ -75,6 +94,9 @@ export async function GET(
         wastageCost,
         vendorCost,
         shippingCost,
+        manufacturingCost,
+        packingCost,
+        logisticsOverhead,
         totalBaseCost,
         marginPercent,
         marginAmount,

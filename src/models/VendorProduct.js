@@ -50,6 +50,17 @@ const VendorProductSchema = new mongoose.Schema(
     trim: true,
   },
 
+  // Set when this draft was started via "+ Create another variant" on an
+  // existing product's Review step (see draft/route.ts's cloneFromDraftId
+  // handling). Lets the BOM step offer to copy & scale that source
+  // variant's ingredient quantities once this variant's own pack size is
+  // known, instead of the vendor re-entering every ingredient from scratch.
+  clonedFromDraftId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "VendorProduct",
+    default: null,
+  },
+
   description: String,
 
   slug: {
@@ -96,6 +107,36 @@ const VendorProductSchema = new mongoose.Schema(
   },
 
   vendorShippingCost: {
+    type: Number,
+    default: 0,
+  },
+
+  // Manufacturing cost -- processing/labour to turn raw materials (BOM)
+  // into the finished product, per pack of THIS variant. Not covered by
+  // the BOM's own material cost, which only prices the ingredients
+  // themselves.
+  manufacturingCost: {
+    cleaning: { type: Number, default: 0 },
+    grinding: { type: Number, default: 0 },
+    mixing: { type: Number, default: 0 },
+    labour: { type: Number, default: 0 },
+  },
+
+  // Packing cost -- each sub-field defaults to 0 and is meant to stay 0
+  // whenever that packaging item is already priced as a BOM line (a pouch/
+  // label/carton added as a PACKAGING material there already flows into
+  // materialCost; duplicating it here would double-count it).
+  packingCost: {
+    pouchOrContainer: { type: Number, default: 0 },
+    labelAndBatchSticker: { type: Number, default: 0 },
+    outerCartonAndConsumable: { type: Number, default: 0 },
+    packingLabour: { type: Number, default: 0 },
+  },
+
+  // Logistics/overhead per pack -- freight-adjacent and general overhead
+  // not already captured by vendorShippingCost (which is the per-order
+  // shipping leg charged/passed on at checkout).
+  logisticsOverhead: {
     type: Number,
     default: 0,
   },

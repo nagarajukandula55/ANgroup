@@ -35,15 +35,31 @@ export function suggestSeoDescription(description?: string, productName?: string
 }
 
 /** Builds a starting-point product description from what's already known at
- * Basic Info time (name, category, brand) -- a generic template the vendor
- * is expected to edit/personalize, not a finished description. Ingredients
- * aren't known yet at this step (BOM comes later in the wizard), so this
- * intentionally stays generic rather than guessing at composition. */
+ * Basic Info time (name, category, brand) -- follows the big-marketplace
+ * shape (headline line, scannable highlight bullets, a "perfect for" line)
+ * so it reads as real ecommerce copy and gives search/AI-answer engines
+ * (SEO + GEO) concrete, quotable claims to latch onto, instead of one dense
+ * paragraph. Ingredients aren't known yet at this step (BOM comes later in
+ * the wizard), so specifics stay as bracketed prompts the vendor fills in --
+ * this is a strong starting draft, not a finished description. */
 export function suggestDescription(productName?: string, categoryName?: string, brandName?: string): string {
   if (!productName) return "";
-  const brandPart = brandName ? `by ${brandName}` : "";
-  const categoryPart = categoryName ? categoryName.toLowerCase() : "product";
-  return `${productName} ${brandPart} — a quality ${categoryPart} made with care. [Add what makes this specific to your recipe: key ingredients, taste, texture, or how it's made.]`.replace(/\s+/g, " ").trim();
+  const category = categoryName ? categoryName.toLowerCase() : "product";
+  const brandLine = brandName ? `Brought to you by ${brandName}, ` : "";
+
+  return [
+    `${productName}${brandName ? ` by ${brandName}` : ""} — ${category} made the traditional way, with pure ingredients and no shortcuts.`,
+    "",
+    "Why you'll love it:",
+    `• [Key ingredients — what goes into it]`,
+    `• [Taste & texture — what makes it distinct]`,
+    `• Made in small batches for consistent quality`,
+    `• Carefully packed to lock in freshness`,
+    "",
+    "Perfect for: [everyday cooking / gifting / snacking — edit to fit]",
+    "",
+    `${brandLine}committed to quality and authenticity in every pack. Store in a cool, dry place.`,
+  ].join("\n");
 }
 
 /** Builds SEO keyword suggestions from product name/category/brand. */

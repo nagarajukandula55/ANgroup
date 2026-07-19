@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
       brandId: cloneFrom?.brandId || undefined,
       images: cloneFrom?.images || [],
       seo: cloneFrom?.seo || undefined,
+      clonedFromDraftId: cloneFrom?._id || null,
 
       vendorSku: "",
       vendorCost: 0,

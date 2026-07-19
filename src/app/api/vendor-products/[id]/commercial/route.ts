@@ -73,6 +73,9 @@ export async function PATCH(
       "availableStock",
       "mrp",
       "suggestedSellingPrice",
+      "manufacturingCost",
+      "packingCost",
+      "logisticsOverhead",
     ];
 
     const update: Record<string, unknown> = {};

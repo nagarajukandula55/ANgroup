@@ -63,6 +63,9 @@ export default function StepBOM({
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
   const [savedFlash, setSavedFlash] = useState<number | null>(null);
   const [productPack, setProductPack] = useState<{ netWeight: number; unit: string } | null>(null);
+  const [clonedFromDraftId, setClonedFromDraftId] = useState<string | null>(null);
+  const [copyingIngredients, setCopyingIngredients] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   const [costSummary, setCostSummary] =
     useState<CostSummaryType>({
@@ -156,6 +159,9 @@ export default function StepBOM({
       .then((d) => {
         if (d.success && d.data?.netWeight && d.data?.unit) {
           setProductPack({ netWeight: d.data.netWeight, unit: d.data.unit });
+        }
+        if (d.success && d.data?.clonedFromDraftId) {
+          setClonedFromDraftId(d.data.clonedFromDraftId);
         }
       })
       .catch(() => {});
@@ -288,6 +294,86 @@ export default function StepBOM({
     await fetchBOM();
   };
 
+  /* ================= COPY & SCALE FROM SOURCE VARIANT ================= */
+
+  // This draft was started via "+ Create another variant" -- e.g. a 1 kg
+  // product's Review step spun up a fresh 500 g draft. Only INGREDIENT rows
+  // are scaled by the pack-size ratio (the actual recipe genuinely halves);
+  // PACKAGING rows are deliberately skipped -- a 500 g pouch/label/carton is
+  // a different physical item, not "half" of the 1 kg one, so those still
+  // need to be picked fresh for this pack size.
+  const copyScaledIngredients = async () => {
+    if (!clonedFromDraftId || !productPack) return;
+    setCopyingIngredients(true);
+    setCopyError(null);
+    try {
+      const [sourceProductRes, sourceBomRes] = await Promise.all([
+        fetch(`/api/vendor-products/${clonedFromDraftId}`),
+        fetch(`/api/vendor-products/${clonedFromDraftId}/bom`),
+      ]);
+      const sourceProduct = await sourceProductRes.json();
+      const sourceBom = await sourceBomRes.json();
+
+      if (!sourceProduct.success || !sourceProduct.data?.netWeight || !sourceProduct.data?.unit) {
+        setCopyError("Source variant has no pack size set — nothing to scale from.");
+        return;
+      }
+      if (!sourceBom.success || !sourceBom.data?.length) {
+        setCopyError("Source variant has no BOM ingredients yet.");
+        return;
+      }
+
+      const sourceGrams = toGrams(sourceProduct.data.netWeight, sourceProduct.data.unit);
+      const targetGrams = toGrams(productPack.netWeight, productPack.unit);
+      if (sourceGrams === null || targetGrams === null || sourceGrams <= 0) {
+        setCopyError("Couldn't work out a scale ratio between the two pack sizes/units.");
+        return;
+      }
+      const ratio = targetGrams / sourceGrams;
+
+      const ingredientRows = sourceBom.data.filter((item: any) => (item.materialType || "INGREDIENT") === "INGREDIENT");
+      if (!ingredientRows.length) {
+        setCopyError("Source variant has no Ingredient-type rows to scale (only Packaging/Other).");
+        return;
+      }
+
+      for (const item of ingredientRows) {
+        const quantity = Number(item.quantity || 0) * ratio;
+        const currentCost = computeCurrentCost({
+          quantity,
+          unit: item.unit,
+          wastagePercent: item.wastagePercent || 0,
+          currentRate: item.currentRate || 0,
+          rateUnit: item.rateUnit || item.unit,
+        } as BOMItem);
+
+        await fetch(`/api/vendor-products/${draftId}/bom`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            materialId: item.materialId?._id || item.materialId,
+            quantity,
+            unit: item.unit,
+            wastagePercent: item.wastagePercent || 0,
+            currentRate: item.currentRate || 0,
+            currentCost,
+            materialType: "INGREDIENT",
+            rateUnit: item.rateUnit || item.unit,
+            remarks: `Scaled ${Math.round(ratio * 100)}% from ${sourceProduct.data.netWeight}${sourceProduct.data.unit} variant`,
+            businessId,
+            createdBy: userId,
+          }),
+        });
+      }
+
+      await fetchBOM();
+    } catch {
+      setCopyError("Failed to copy ingredients — please try again.");
+    } finally {
+      setCopyingIngredients(false);
+    }
+  };
+
   /* ================= DELETE ================= */
 
   const deleteRow = async (id: string) => {
@@ -323,6 +409,27 @@ export default function StepBOM({
         <p className="text-xs text-gray-400 -mt-2">
           This product/variant is {productPack.netWeight} {productPack.unit} net weight — Ingredient rows below should roughly add up to that, not exceed it.
         </p>
+      )}
+
+      {clonedFromDraftId && !rows.some((r) => r.bomId) && productPack && (
+        <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 flex items-center justify-between gap-3">
+          <span>
+            This is a variant of an existing product — copy its ingredients, scaled to this{" "}
+            {productPack.netWeight}{productPack.unit} pack size. (Packaging like pouch/label is skipped — pick that
+            fresh for this size.)
+          </span>
+          <button
+            type="button"
+            onClick={copyScaledIngredients}
+            disabled={copyingIngredients}
+            className="shrink-0 rounded bg-blue-600 px-3 py-1.5 text-white text-xs disabled:opacity-50"
+          >
+            {copyingIngredients ? "Copying…" : "Copy & Scale Ingredients"}
+          </button>
+        </div>
+      )}
+      {copyError && (
+        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{copyError}</div>
       )}
 
       {packOverageWarning && (
