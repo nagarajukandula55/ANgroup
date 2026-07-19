@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function VendorProductDetail({
   params,
@@ -80,6 +81,9 @@ export default function VendorProductDetail({
 
   return (
     <div className="space-y-6 pb-10">
+      <Link href="/admin/vendor-products/pending" className="text-sm text-blue-600 hover:underline inline-block">
+        ← Back to Pending Approvals
+      </Link>
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">
@@ -90,7 +94,7 @@ export default function VendorProductDetail({
             <span className="font-medium">{data.approvalStatus}</span>
           </p>
         </div>
-        {data.approvalStatus === "PENDING" && (
+        {["PENDING", "UNDER_REVIEW"].includes(data.approvalStatus) && (
           <div className="flex gap-2 shrink-0">
             <button
               onClick={approve}

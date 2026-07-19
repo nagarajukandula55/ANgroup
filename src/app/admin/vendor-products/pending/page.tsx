@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type VendorProduct = {
   _id: string;
@@ -19,6 +20,7 @@ export default function PendingVendorProductsPage() {
 
   const [items, setItems] = useState<VendorProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -37,10 +39,16 @@ export default function PendingVendorProductsPage() {
   }, []);
 
   async function approve(id: string) {
-    await fetch(
+    setError(null);
+    const res = await fetch(
       `/api/vendor-products/${id}/approve`,
       { method: "POST" }
     );
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || d.success === false) {
+      setError(d.message || "Failed to approve — please try again");
+      return;
+    }
     load();
   }
 
@@ -51,7 +59,8 @@ export default function PendingVendorProductsPage() {
 
     if (!reason) return;
 
-    await fetch(
+    setError(null);
+    const res = await fetch(
       `/api/vendor-products/${id}/reject`,
       {
         method: "POST",
@@ -62,12 +71,20 @@ export default function PendingVendorProductsPage() {
         body: JSON.stringify({ reason }),
       }
     );
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || d.success === false) {
+      setError(d.message || "Failed to reject — please try again");
+      return;
+    }
 
     load();
   }
 
   return (
     <div className="space-y-6">
+      <Link href="/admin/products" className="text-sm text-blue-600 hover:underline inline-block">
+        ← Back to Products
+      </Link>
       <div>
         <h1 className="text-2xl font-bold">
           Pending Approvals
@@ -76,6 +93,10 @@ export default function PendingVendorProductsPage() {
           Review vendor submitted products
         </p>
       </div>
+
+      {error && (
+        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+      )}
 
       <div className="border rounded">
         <table className="w-full">
