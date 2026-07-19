@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, X, Printer, Trash2, Loader2 } from "lucide-react";
+import { validateGSTIN } from "@/lib/validation/gst";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 import { useToast } from "@/components/shared/Toast";
 
@@ -100,6 +101,13 @@ export default function SalesDocumentManager({
     if (validItems.length === 0) {
       toast.error("Add at least one line item");
       return;
+    }
+    if (party.gstin?.trim()) {
+      const result = validateGSTIN(party.gstin);
+      if (!result.valid) {
+        toast.error(`Party GSTIN: ${result.reason}`);
+        return;
+      }
     }
     setSaving(true);
     try {

@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Coupon from "@/models/Coupon";
 
-// POST /api/coupons/validate
+// POST /api/coupons/validate — PUBLIC, unauthenticated. Was requiring
+// x-user-id, which 401'd every guest checkout attempt to apply a coupon --
+// the storefront's own checkout is deliberately guest-friendly (see
+// checkout page's own comment: "Guest checkout: no login required"), so
+// gating the one thing a guest would actually use a coupon for defeated
+// that entirely. This route is read-only (no mutation, no usage-count
+// increment here) and businessId-scoped, same public-safety shape as
+// api/storefront/products/route.ts.
 // Body: { businessId, code, orderValue }
 // Returns: { valid, discount, finalAmount, coupon } or { valid: false, reason }
 export async function POST(req: NextRequest) {
   try {
-    const h = await headers();
-    const userId = h.get("x-user-id");
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const body = await req.json();
     const { businessId, code, orderValue } = body;
 

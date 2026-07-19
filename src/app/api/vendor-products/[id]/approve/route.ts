@@ -14,10 +14,6 @@ import DocumentNumberConfig from "@/models/DocumentNumberConfig";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 
-function generateSKU(productCode: string, variantCode: string) {
-  return `${productCode}-${variantCode}`.toUpperCase();
-}
-
 export async function POST(req: Request, context: any) {
   try {
     const session = await getEnrichedSession();
@@ -168,7 +164,14 @@ export async function POST(req: Request, context: any) {
 
       vendorSku: vendorProduct.vendorSku,
 
-      sku: generateSKU(productCode, variantCode),
+      // variantCode already IS the intended SKU shape
+      // ("BIZ-0001-VND-0001-PRD-0001-V1") -- was being re-concatenated
+      // with productCode again here, doubling it into
+      // "...PRD-0001-BIZ-0001-VND-0001-PRD-0001-V1" and breaking every
+      // downstream SKU lookup (confirmed live: checkout's
+      // POST /api/orders/create 500'd with "Product not found: <that
+      // doubled string>", since NativeProduct.sku never matched it).
+      sku: variantCode,
 
       unit: vendorProduct.unit,
       packSize: vendorProduct.packSize,

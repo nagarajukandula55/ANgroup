@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { Plus, X, Loader2, ShoppingBag } from "lucide-react";
 import ExportCsvButton from "@/components/shared/ExportCsvButton";
+import { validateGSTIN } from "@/lib/validation/gst";
 
 interface Product {
   _id: string;
@@ -94,6 +95,13 @@ export default function VendorOfflineSalesPage() {
 
   async function submit() {
     setError(null);
+    if (customer.gstin?.trim()) {
+      const result = validateGSTIN(customer.gstin);
+      if (!result.valid) {
+        setError(`Customer GSTIN: ${result.reason}`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload = {

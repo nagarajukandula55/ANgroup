@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { validateGSTIN } from '@/lib/validation/gst'
 import {
   Loader2, ArrowLeft, Plus, X, Search, Eye, Trash2,
   FileText, ShoppingCart, IndianRupee, CheckCircle, Clock, Download,
@@ -205,6 +206,10 @@ export default function SalesPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!customer.name.trim()) { setFormError('Customer name is required'); return }
+    if (customer.gstin?.trim()) {
+      const result = validateGSTIN(customer.gstin)
+      if (!result.valid) { setFormError(`Customer GSTIN: ${result.reason}`); return }
+    }
     setSubmitting(true); setFormError(null)
     try {
       const payload: Record<string, unknown> = {

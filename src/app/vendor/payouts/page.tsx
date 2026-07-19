@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
+import { validateGSTIN } from "@/lib/validation/gst";
 
 interface PayoutAccount {
   _id: string;
@@ -39,6 +40,7 @@ export default function VendorPayoutsPage() {
   const [account, setAccount] = useState<PayoutAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [gstError, setGstError] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -144,7 +146,18 @@ export default function VendorPayoutsPage() {
             </div>
             <div>
               <label className={labelCls}>GST Number</label>
-              <input className={inputCls} value={form.gstNumber} onChange={(e) => setForm((f) => ({ ...f, gstNumber: e.target.value.toUpperCase() }))} placeholder="Optional" />
+              <input
+                className={inputCls}
+                value={form.gstNumber}
+                onChange={(e) => { setForm((f) => ({ ...f, gstNumber: e.target.value.toUpperCase() })); setGstError(""); }}
+                onBlur={() => {
+                  if (!form.gstNumber.trim()) { setGstError(""); return; }
+                  const result = validateGSTIN(form.gstNumber);
+                  setGstError(result.valid ? "" : result.reason || "Invalid GSTIN");
+                }}
+                placeholder="Optional"
+              />
+              {gstError && <p className="text-xs text-red-600 mt-1">{gstError}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

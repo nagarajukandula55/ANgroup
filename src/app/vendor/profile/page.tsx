@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Clock,
 } from 'lucide-react'
+import { validateGSTIN } from '@/lib/validation/gst'
 
 interface VendorProfileData {
   _id: string
@@ -63,6 +64,8 @@ function FormField({
   label,
   value,
   onChange,
+  onBlur,
+  error,
   placeholder,
   readOnly,
   type = 'text',
@@ -70,6 +73,8 @@ function FormField({
   label: string
   value: string
   onChange?: (v: string) => void
+  onBlur?: () => void
+  error?: string
   placeholder?: string
   readOnly?: boolean
   type?: string
@@ -81,6 +86,7 @@ function FormField({
         type={type}
         value={value}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        onBlur={onBlur}
         placeholder={placeholder}
         readOnly={readOnly}
         className={`w-full bg-white border rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-colors ${
@@ -89,6 +95,7 @@ function FormField({
             : 'border-gray-200 focus:border-violet-500/50'
         }`}
       />
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   )
 }
@@ -97,6 +104,7 @@ export default function VendorProfilePage() {
   const [profile, setProfile] = useState<VendorProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [gstError, setGstError] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -541,7 +549,13 @@ export default function VendorProfilePage() {
           <FormField
             label="GST Number"
             value={form.gstNumber}
-            onChange={(v) => setForm((f) => ({ ...f, gstNumber: v }))}
+            onChange={(v) => { setForm((f) => ({ ...f, gstNumber: v })); setGstError('') }}
+            onBlur={() => {
+              if (!form.gstNumber.trim()) { setGstError(''); return }
+              const result = validateGSTIN(form.gstNumber)
+              setGstError(result.valid ? '' : result.reason || 'Invalid GSTIN')
+            }}
+            error={gstError}
             placeholder="22AAAAA0000A1Z5"
           />
           <FormField

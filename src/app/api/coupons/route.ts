@@ -6,6 +6,7 @@ import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
+import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
 
 // GET /api/coupons?businessId=...&status=...&search=...
 export async function GET(req: NextRequest) {
@@ -57,20 +58,15 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/coupons
-// Coupons can only be created by a Super Admin -- discounting is a
-// company-wide financial decision, not something an individual business
-// or vendor session should be able to self-grant.
+// Per explicit direction: a coupon's creator must be a Super Admin OR the
+// Owner/Manager of the vendor the coupon belongs to -- not an arbitrary
+// business-level admin, and never scoped to a business the caller isn't
+// actually the Owner/Manager of.
 export async function POST(req: NextRequest) {
   try {
     const session = await getEnrichedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!session.isSuperAdmin) {
-      return NextResponse.json(
-        { error: "Only Super Admin can create coupons" },
-        { status: 403 }
-      );
     }
 
     const body = await req.json();
@@ -97,6 +93,16 @@ export async function POST(req: NextRequest) {
         { error: "businessId, code, discountType, and discountValue are required" },
         { status: 400 }
       );
+    }
+
+    if (!session.isSuperAdmin) {
+      const vendor = await resolveOwnerOrManagerVendor(session.user.id);
+      if (!vendor || String((vendor as any).businessId) !== String(businessId)) {
+        return NextResponse.json(
+          { error: "Only a Super Admin or that business's vendor Owner/Manager can create a coupon for it" },
+          { status: 403 }
+        );
+      }
     }
 
     if (!["PERCENTAGE", "FIXED"].includes(discountType)) {
