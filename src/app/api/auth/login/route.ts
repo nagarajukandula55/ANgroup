@@ -93,12 +93,17 @@ export async function POST(req: Request) {
       status: "ACTIVE",
     })
       .select("businessId isDefaultBusiness memberType vendorId")
+      .sort({ createdAt: -1 })
       .lean()
       .exec() as any[];
 
     const businessIds: string[] = memberships.map((m) => m.businessId.toString());
 
-    // Pick active business: prefer isDefaultBusiness, then legacy defaultBusinessId, then first
+    // Pick active business: prefer isDefaultBusiness, then legacy defaultBusinessId,
+    // then the most recently joined membership (memberships sorted newest-first
+    // above) -- was un-sorted "first", i.e. whatever Mongo's natural order
+    // happened to return, which could silently land a vendor-team member on a
+    // stale/leftover membership ahead of the one they actually just joined.
     let activeBusinessId: string | undefined;
     const defaultMembership = memberships.find((m) => m.isDefaultBusiness);
     if (defaultMembership) {

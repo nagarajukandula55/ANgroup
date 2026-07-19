@@ -33,12 +33,18 @@ export async function resolveVendorContext(
   if (owned) {
     result = { vendor: owned, role: "OWNER", vendorRole: null };
   } else {
+    // Most-recently-joined wins when a user has staff memberships under more
+    // than one vendor (e.g. stale test data left behind alongside a real,
+    // later assignment) -- unsorted .findOne() returns whatever Mongo's
+    // natural order happens to give, which can silently pick the wrong one.
     const membership = await BusinessMember.findOne({
       userId,
       vendorId: { $ne: null },
       isDeleted: { $ne: true },
       status: "ACTIVE",
-    }).lean();
+    })
+      .sort({ createdAt: -1 })
+      .lean();
     if (membership?.vendorId) {
       const vendor = await VendorProfile.findOne({
         _id: membership.vendorId,
