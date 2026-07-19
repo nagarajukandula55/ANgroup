@@ -66,6 +66,16 @@ const VendorProductBOMSchema =
         default: "INGREDIENT",
       },
 
+      // The unit currentRate is quoted per (e.g. "kg") -- may differ from
+      // `unit` above, which is how much of the material this specific
+      // product/variant actually uses (e.g. "g" for 250g used out of a
+      // material priced per kg). currentCost is computed client-side from
+      // the conversion between the two; this field is stored purely so the
+      // rate-unit selector shows the right thing when the BOM is reopened.
+      rateUnit: {
+        type: String,
+      },
+
       remarks: {
         type: String,
         default: "",

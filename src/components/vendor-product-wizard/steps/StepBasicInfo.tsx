@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { suggestSlug } from "@/lib/slugify";
+import { suggestSlug, suggestDescription } from "@/lib/slugify";
 
 interface StepBasicInfoProps {
   draftId: string;
@@ -311,9 +311,29 @@ export default function StepBasicInfo({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className={labelClass}>
-          Description <span className="text-gray-400 font-normal">(shown on the product page — what makes it worth buying?)</span>
-        </label>
+        <div className="flex items-center justify-between">
+          <label className={labelClass}>
+            Description <span className="text-gray-400 font-normal">(shown on the product page — what makes it worth buying?)</span>
+          </label>
+          {form.productName && (
+            <button
+              type="button"
+              onClick={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  description: suggestDescription(
+                    prev.productName,
+                    categories.find((c) => c._id === prev.categoryId)?.name,
+                    brands.find((b) => b._id === prev.brandId)?.name
+                  ),
+                }))
+              }
+              className="text-xs text-blue-600 hover:underline"
+            >
+              + Suggest a starting point
+            </button>
+          )}
+        </div>
         <textarea
           className={inputClass}
           rows={5}

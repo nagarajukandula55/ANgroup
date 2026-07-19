@@ -19,6 +19,7 @@ import { useParams } from "next/navigation";
 import BOMRow from "@/components/vendor-product-wizard/steps/components/BOMRow";
 import CostSummary from "@/components/vendor-product-wizard/steps/components/CostSummary";
 import PricingPreview from "@/components/vendor-product-wizard/steps/components/PricingPreview";
+import { toGrams } from "@/lib/nutritionReference";
 
 interface BOMItem {
   bomId?: string;
@@ -29,6 +30,17 @@ interface BOMItem {
   wastagePercent: number;
   currentRate: number;
   materialType: "INGREDIENT" | "PACKAGING" | "OTHER";
+  rateUnit: string;
+}
+
+function computeCurrentCost(row: BOMItem): number {
+  const qtyGrams = toGrams(row.quantity, row.unit);
+  const rateUnitGrams = toGrams(1, row.rateUnit || row.unit);
+  const grossCost =
+    qtyGrams !== null && rateUnitGrams !== null && rateUnitGrams > 0
+      ? (qtyGrams / rateUnitGrams) * row.currentRate
+      : row.quantity * row.currentRate;
+  return grossCost + (grossCost * row.wastagePercent) / 100;
 }
 
 export default function BOMPage() {
@@ -75,6 +87,7 @@ export default function BOMPage() {
         wastagePercent: item.wastagePercent || 0,
         currentRate: item.currentRate || 0,
         materialType: item.materialType || "INGREDIENT",
+        rateUnit: item.rateUnit || item.unit || "",
       }))
     );
   }
@@ -101,7 +114,7 @@ export default function BOMPage() {
   }, [rows]);
 
   function addRow() {
-    setRows((prev) => [...prev, { materialId: "", materialName: "", unit: "", quantity: 1, wastagePercent: 0, currentRate: 0, materialType: "INGREDIENT" }]);
+    setRows((prev) => [...prev, { materialId: "", materialName: "", unit: "", quantity: 1, wastagePercent: 0, currentRate: 0, materialType: "INGREDIENT", rateUnit: "" }]);
   }
 
   function updateRow(index: number, field: keyof BOMItem, value: any) {
@@ -114,8 +127,7 @@ export default function BOMPage() {
       setRowErrors((prev) => ({ ...prev, [index]: "Select a material first — search above by name." }));
       return;
     }
-    const grossCost = row.quantity * row.currentRate;
-    const currentCost = grossCost + (grossCost * row.wastagePercent) / 100;
+    const currentCost = computeCurrentCost(row);
 
     const res = await fetch(`/api/vendor-products/${draftId}/bom`, {
       method: "POST",
@@ -128,6 +140,7 @@ export default function BOMPage() {
         currentRate: row.currentRate,
         currentCost,
         materialType: row.materialType,
+        rateUnit: row.rateUnit || row.unit,
         remarks: "",
         businessId,
         createdBy: userId,

@@ -34,6 +34,18 @@ export function suggestSeoDescription(description?: string, productName?: string
   return base.slice(0, 160);
 }
 
+/** Builds a starting-point product description from what's already known at
+ * Basic Info time (name, category, brand) -- a generic template the vendor
+ * is expected to edit/personalize, not a finished description. Ingredients
+ * aren't known yet at this step (BOM comes later in the wizard), so this
+ * intentionally stays generic rather than guessing at composition. */
+export function suggestDescription(productName?: string, categoryName?: string, brandName?: string): string {
+  if (!productName) return "";
+  const brandPart = brandName ? `by ${brandName}` : "";
+  const categoryPart = categoryName ? categoryName.toLowerCase() : "product";
+  return `${productName} ${brandPart} — a quality ${categoryPart} made with care. [Add what makes this specific to your recipe: key ingredients, taste, texture, or how it's made.]`.replace(/\s+/g, " ").trim();
+}
+
 /** Builds SEO keyword suggestions from product name/category/brand. */
 export function suggestSeoKeywords(
   productName?: string,

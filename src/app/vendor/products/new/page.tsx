@@ -12,6 +12,17 @@ export default function NewVendorProductPage() {
 
   useEffect(() => {
     async function init() {
+      // Reset so the "Creating product draft..." loading state shows again
+      // and WizardContainer (keyed on draftId below) fully remounts -- was
+      // an empty-deps effect that only ever ran once per page LOAD, so
+      // "+ Create another variant" on Review (router.push to this same
+      // route with a different ?cloneFromDraftId=) changed the URL but
+      // never actually created or loaded the new draft: Next.js keeps this
+      // component instance alive across a same-route navigation, and the
+      // effect below simply never re-ran to notice the new query param.
+      setDraftId(null);
+      setError(null);
+
       // Super admins have no personal activeBusinessId (they aren't a member
       // of any single business) -- honor an explicit ?businessId= passed in
       // from the calling page (e.g. admin/products, which already knows
@@ -49,7 +60,7 @@ export default function NewVendorProductPage() {
     }
 
     init();
-  }, []);
+  }, [searchParams]);
 
   if (error) {
     return (
@@ -69,5 +80,8 @@ export default function NewVendorProductPage() {
     );
   }
 
-  return <WizardContainer draftId={draftId} businessId={businessId} />;
+  // Keyed on draftId so WizardContainer fully remounts (step resets to 1,
+  // no leftover state from whatever draft was being edited before) when a
+  // new draft is created under this same route -- see the effect above.
+  return <WizardContainer key={draftId} draftId={draftId} businessId={businessId} />;
 }

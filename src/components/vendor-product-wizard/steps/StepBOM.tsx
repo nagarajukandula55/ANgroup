@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import BOMRow from "./components/BOMRow";
 import CostSummary from "./components/CostSummary";
 import PricingPreview from "./components/PricingPreview";
+import { toGrams } from "@/lib/nutritionReference";
 
 interface BOMItem {
   bomId?: string;
@@ -15,6 +16,21 @@ interface BOMItem {
   wastagePercent: number;
   currentRate: number;
   materialType: "INGREDIENT" | "PACKAGING" | "OTHER";
+  rateUnit: string;
+}
+
+// quantity/unit is how much of the material THIS product uses; rateUnit is
+// what the price is quoted per (e.g. rate ₹150 per kg, 250 g used) -- these
+// commonly differ (buy by the kg, use by the gram), so cost must convert
+// between them rather than assuming quantity and rate share a unit.
+function computeCurrentCost(row: BOMItem): number {
+  const qtyGrams = toGrams(row.quantity, row.unit);
+  const rateUnitGrams = toGrams(1, row.rateUnit || row.unit);
+  const grossCost =
+    qtyGrams !== null && rateUnitGrams !== null && rateUnitGrams > 0
+      ? (qtyGrams / rateUnitGrams) * row.currentRate
+      : row.quantity * row.currentRate; // pcs/pack/etc. -- no unit conversion possible, assume same unit
+  return grossCost + (grossCost * row.wastagePercent) / 100;
 }
 
 interface CostSummaryType {
@@ -46,6 +62,7 @@ export default function StepBOM({
   const [userId, setUserId] = useState<string>("");
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
   const [savedFlash, setSavedFlash] = useState<number | null>(null);
+  const [productPack, setProductPack] = useState<{ netWeight: number; unit: string } | null>(null);
 
   const [costSummary, setCostSummary] =
     useState<CostSummaryType>({
@@ -98,6 +115,8 @@ export default function StepBOM({
           item.currentRate || 0,
         materialType:
           item.materialType || "INGREDIENT",
+        rateUnit:
+          item.rateUnit || item.unit || "",
       }))
     );
   };
@@ -132,7 +151,35 @@ export default function StepBOM({
 
   useEffect(() => {
     fetchBOM();
+    fetch(`/api/vendor-products/${draftId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data?.netWeight && d.data?.unit) {
+          setProductPack({ netWeight: d.data.netWeight, unit: d.data.unit });
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sanity check: the total weight/volume of Ingredient-classified BOM rows
+  // shouldn't grossly exceed what this specific product/variant actually
+  // holds (e.g. a 250 g product's BOM listing 1 kg of an ingredient is
+  // almost certainly a unit mix-up, not a real recipe) -- only meaningful
+  // when both sides convert to a common mass/volume unit.
+  const packOverageWarning = (() => {
+    if (!productPack) return null;
+    const packGrams = toGrams(productPack.netWeight, productPack.unit);
+    if (packGrams === null || packGrams <= 0) return null;
+    const ingredientGrams = rows
+      .filter((r) => r.materialType === "INGREDIENT")
+      .reduce((sum, r) => {
+        const g = toGrams(r.quantity, r.unit);
+        return g !== null ? sum + g : sum;
+      }, 0);
+    if (ingredientGrams <= packGrams * 1.15) return null; // 15% slack for process loss/rounding
+    return { ingredientGrams, packGrams };
+  })();
 
   useEffect(() => {
     fetchCost();
@@ -152,6 +199,7 @@ export default function StepBOM({
         wastagePercent: 0,
         currentRate: 0,
         materialType: "INGREDIENT",
+        rateUnit: "",
       },
     ]);
   };
@@ -188,11 +236,12 @@ export default function StepBOM({
 
     // currentCost is what the cost/pricing engine downstream actually
     // reads (previously always hardcoded to 0 here, since there was no
-    // rate input at all) -- compute it from qty * rate, inflated by
-    // wastage%, so product pricing derived from this BOM is meaningful.
-    const grossCost = row.quantity * row.currentRate;
-    const currentCost =
-      grossCost + (grossCost * row.wastagePercent) / 100;
+    // rate input at all) -- compute it from qty * rate (converted between
+    // the quantity-used unit and the rate-quoted unit, since a material is
+    // typically priced per kg/L but used in smaller amounts per product),
+    // inflated by wastage%, so product pricing derived from this BOM is
+    // meaningful.
+    const currentCost = computeCurrentCost(row);
 
     const res = await fetch(
       `/api/vendor-products/${draftId}/bom`,
@@ -211,6 +260,7 @@ export default function StepBOM({
           currentRate: row.currentRate,
           currentCost,
           materialType: row.materialType,
+          rateUnit: row.rateUnit || row.unit,
           remarks: "",
           businessId,
           createdBy: userId,
@@ -269,6 +319,18 @@ export default function StepBOM({
         </div>
       )}
 
+      {productPack && (
+        <p className="text-xs text-gray-400 -mt-2">
+          This product/variant is {productPack.netWeight} {productPack.unit} net weight — Ingredient rows below should roughly add up to that, not exceed it.
+        </p>
+      )}
+
+      {packOverageWarning && (
+        <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          Your Ingredient rows total {packOverageWarning.ingredientGrams >= 1000 ? `${(packOverageWarning.ingredientGrams / 1000).toFixed(2)} kg` : `${packOverageWarning.ingredientGrams.toFixed(0)} g`}, more than this {productPack!.netWeight} {productPack!.unit} product actually holds — check the Qty and Unit on each row (a common mistake: pricing quoted per kg but Qty accidentally entered as if it were in kg too, e.g. "1" instead of "0.25" for 250 g used).
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div className="hidden sm:grid grid-cols-7 gap-2 px-1 text-xs font-medium text-gray-500">
           <span>Material</span>
@@ -276,7 +338,7 @@ export default function StepBOM({
           <span>Qty</span>
           <span>Unit</span>
           <span>Wastage %</span>
-          <span>Rate (₹/unit)</span>
+          <span>Rate (₹ per…)</span>
           <span>Actions</span>
         </div>
       )}
@@ -327,8 +389,8 @@ export default function StepBOM({
 
         <button
           onClick={next}
-          disabled={rows.length === 0}
-          title={rows.length === 0 ? "Add at least one material first" : undefined}
+          disabled={!rows.some((r) => r.bomId)}
+          title={!rows.some((r) => r.bomId) ? "Save at least one material first" : undefined}
           className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
         >
           Save & Continue

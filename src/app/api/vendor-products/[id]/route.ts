@@ -18,6 +18,23 @@ export async function GET(
   context: any
 ) {
   try {
+    // Was completely unauthenticated -- any caller, logged in or not,
+    // could fetch full vendor product data (pricing, vendor cost, images,
+    // ingredients, etc.) for any product by guessing/enumerating its id.
+    // Same view-permission gate PUT/DELETE below already use.
+    const session = await getEnrichedSession();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      requirePermission(session as any, buildPermissionCode("vendor_products", "view"));
+    } catch (err: any) {
+      return NextResponse.json(
+        { success: false, message: err.message },
+        { status: err.code === "FORBIDDEN" ? 403 : 401 }
+      );
+    }
+
     await connectDB();
 
     const product =

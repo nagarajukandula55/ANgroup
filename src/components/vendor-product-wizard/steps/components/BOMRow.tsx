@@ -2,6 +2,8 @@
 
 import MaterialSearchSelect from "@/components/shared/MaterialSearchSelect";
 
+const RATE_UNITS = ["kg", "g", "l", "ml", "pcs"];
+
 interface BOMRowData {
   bomId?: string;
   materialId: string;
@@ -11,6 +13,7 @@ interface BOMRowData {
   wastagePercent: number;
   currentRate: number;
   materialType: "INGREDIENT" | "PACKAGING" | "OTHER";
+  rateUnit: string;
 }
 
 interface Props {
@@ -47,6 +50,7 @@ export default function BOMRow({
           updateRow(index, "materialId", m._id);
           updateRow(index, "materialName", m.materialName);
           updateRow(index, "unit", m.unit);
+          updateRow(index, "rateUnit", m.unit);
         }}
       />
 
@@ -99,21 +103,33 @@ export default function BOMRow({
         }
       />
 
-      <input
-        type="number"
-        className="border rounded p-2"
-        placeholder="Rate"
-        title="Rate per unit, used to compute BOM cost and drives product pricing"
-        value={row.currentRate}
-        onFocus={(e) => e.target.select()}
-        onChange={(e) =>
-          updateRow(
-            index,
-            "currentRate",
-            Number(e.target.value)
-          )
-        }
-      />
+      <div className="flex gap-1">
+        <input
+          type="number"
+          className="border rounded p-2 min-w-0 flex-1"
+          placeholder="Rate"
+          title="Rate quoted per the unit selected to the right (e.g. price per kg) — quantity above can be in a smaller unit (e.g. 250 g used), converted automatically"
+          value={row.currentRate}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) =>
+            updateRow(
+              index,
+              "currentRate",
+              Number(e.target.value)
+            )
+          }
+        />
+        <select
+          className="border rounded p-1 text-xs w-16"
+          title="Unit the rate above is quoted per (e.g. ₹/kg)"
+          value={row.rateUnit || row.unit}
+          onChange={(e) => updateRow(index, "rateUnit", e.target.value)}
+        >
+          {RATE_UNITS.map((u) => (
+            <option key={u} value={u}>/{u}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="flex gap-1">
         <button

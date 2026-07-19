@@ -123,6 +123,9 @@ export async function POST(
         materialType:
           body.materialType || "INGREDIENT",
 
+        rateUnit:
+          body.rateUnit || body.unit,
+
         remarks:
           body.remarks || "",
 

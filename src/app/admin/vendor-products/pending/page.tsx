@@ -11,6 +11,7 @@ type VendorProduct = {
   mrp: number;
   approvalStatus: string;
   vendorId?: any;
+  calculatedCost?: { finalCost?: number };
 };
 
 export default function PendingVendorProductsPage() {
@@ -135,12 +136,12 @@ export default function PendingVendorProductsPage() {
                   </td>
 
                   <td className="p-3 text-center">
-                    {p.vendorId?.vendorName ||
+                    {p.vendorId?.companyName ||
                       "Vendor"}
                   </td>
 
                   <td className="p-3 text-center">
-                    ₹{p.vendorCost}
+                    ₹{Number(p.calculatedCost?.finalCost || 0).toFixed(2)}
                   </td>
 
                   <td className="p-3 text-center">
