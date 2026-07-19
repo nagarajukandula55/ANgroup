@@ -9,6 +9,7 @@ import { generateDocumentNumber, generateScopedDocumentNumber } from "@/core/num
 import { toGrams } from "@/lib/nutritionReference";
 import { suggestSlug } from "@/lib/slugify";
 import { getProductCostAndTiers } from "@/core/pricing/productCost";
+import { recalcVendorProductCost } from "@/services/costEngine.service";
 
 /**
  * POST /api/vendor-products/:id/generate-variants — from one fully-built
@@ -149,6 +150,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           });
         }
 
+        // The BOM rows above were created directly (VendorProductBOM.create),
+        // bypassing the normal POST /bom route -- which is what actually
+        // keeps VendorProduct.calculatedCost.finalCost in sync (see
+        // costEngine.service.ts). /approve checks THAT field, not the BOM
+        // rows directly, so skipping this left every auto-generated variant
+        // stuck at finalCost=0 and rejected on approval ("BOM / Cost not
+        // completed properly") even though its BOM was fully populated.
+        await recalcVendorProductCost(String(variant._id));
+        const recalced = await VendorProduct.findById(variant._id).select("calculatedCost");
+
         // Compute MRP/selling price from the now-real cost, same formula
         // the Commercial step's own auto-suggestion uses.
         const result = await getProductCostAndTiers(String(variant._id));
@@ -171,10 +182,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         variant.submittedAt = new Date();
         variant.priceFrozen = true;
         variant.priceSnapshot = {
-          totalCost: variant.suggestedSellingPrice || 0,
-          baseCost: 0,
+          totalCost: recalced?.calculatedCost?.finalCost || 0,
+          baseCost: recalced?.calculatedCost?.baseCost || 0,
           shippingCost: variant.vendorShippingCost || 0,
-          wastageCost: 0,
+          wastageCost: recalced?.calculatedCost?.wastageCost || 0,
         };
         await variant.save();
 
