@@ -129,6 +129,14 @@ const PUBLIC_PREFIXES = [
   // and the public contact-form submission endpoint.
   "/api/blog/list",
   "/api/contact",
+  // B2B partner ordering portal (Distributor/Retailer self-signup, login,
+  // catalog, checkout) -- authenticated by its own b2b_token cookie (see
+  // lib/auth/b2bSession.ts), completely separate from this middleware's
+  // an_token session. Every route under here does its own auth check
+  // internally; this just lets requests through to reach that check
+  // instead of bouncing to /login for a session type this portal doesn't use.
+  "/b2b/",
+  "/api/b2b/",
   "/_next",
   "/public",
 ];

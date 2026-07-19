@@ -134,6 +134,8 @@ export const DOCUMENT_TYPES = [
   // — a Super Admin sets a vendor's per-module pricing + validity period,
   // this is the invoice number generated each billing cycle.
   "VENDOR_BILLING_INVOICE",
+  // Orders placed through the B2B partner ordering portal (models/B2BOrder.ts).
+  "B2B_ORDER",
 ] as const;
 
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -181,6 +183,7 @@ export const DEFAULT_PREFIXES: Record<DocumentType, string> = {
   PROFORMA_INVOICE: "PI",
   ROLE: "ROLE",
   VENDOR_BILLING_INVOICE: "VBI",
+  B2B_ORDER: "B2BO",
 };
 
 export interface GeneratedNumber {

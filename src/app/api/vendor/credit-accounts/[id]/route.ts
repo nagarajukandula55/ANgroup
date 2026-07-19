@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import CreditAccount from "@/models/CreditAccount";
 import CreditTransaction from "@/models/CreditTransaction";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
+import { getDaysOverdue } from "@/core/credit/creditLedger";
 
 // GET /api/vendor/credit-accounts/:id — account detail + its ledger.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +23,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!account) return NextResponse.json({ success: false, message: "Account not found" }, { status: 404 });
 
     const transactions = await CreditTransaction.find({ accountId: id }).sort({ createdAt: -1 }).lean();
-    return NextResponse.json({ success: true, account, transactions });
+    const daysOverdue = await getDaysOverdue(id);
+    return NextResponse.json({ success: true, account: { ...account, daysOverdue }, transactions });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }

@@ -164,6 +164,7 @@ export interface IVendorProfile extends Document {
    * HELPER/PACKER/SCM — see BusinessMember.ts).
    */
   enableStoreFront?:    boolean;
+  enableB2BOrdering?:   boolean;
   enableServiceCenter?: boolean;
   enableWarehouse?:     boolean;
   /**
@@ -280,6 +281,14 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     isApproved: { type: Boolean, default: false },
     isDeleted:  { type: Boolean, default: false },
     enableStoreFront:    { type: Boolean, default: false },
+    // Gates the public B2B partner ordering portal (/b2b/[vendorId]) --
+    // self-signup, catalog, and order placement all check this. Kept
+    // per-vendor rather than on the shared Business document: the same
+    // Business can have several vendors, and this session already hit
+    // real bugs from treating a Business-wide setting as if it were
+    // vendor-specific (see the active-business-switcher issues fixed
+    // earlier) -- a vendor toggling this only affects their own catalog.
+    enableB2BOrdering:   { type: Boolean, default: false },
     enableServiceCenter: { type: Boolean, default: false },
     enableWarehouse:     { type: Boolean, default: false },
     storeFrontId:        { type: String, default: null },

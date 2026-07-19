@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import CreditAccount from "@/models/CreditAccount";
-import CreditTransaction from "@/models/CreditTransaction";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
+import { recordInvoice, recordPaymentOrAdjustment, CreditLimitError } from "@/core/credit/creditLedger";
 
 /**
  * POST /api/vendor/credit-accounts/:id/transactions — record a credit
- * sale (INVOICE, raises outstanding) or a payment received (PAYMENT,
- * lowers it) against this account. The only writer of
- * CreditAccount.outstandingBalance -- keeps it and each entry's
- * balanceAfter snapshot in sync in one place.
+ * sale (INVOICE, raises outstanding) or a payment received (PAYMENT/
+ * ADJUSTMENT, lowers it, FIFO against the oldest open invoices) against
+ * this account. See core/credit/creditLedger.ts for the shared logic --
+ * the B2B ordering portal's checkout uses the same recordInvoice() when a
+ * partner pays on credit.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -33,37 +34,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!type) return NextResponse.json({ success: false, message: "type must be INVOICE, PAYMENT, or ADJUSTMENT" }, { status: 400 });
     if (!amount || amount <= 0) return NextResponse.json({ success: false, message: "amount must be greater than 0" }, { status: 400 });
 
-    if (type === "INVOICE" && account.creditLimit > 0 && account.outstandingBalance + amount > account.creditLimit) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `This would put ${account.name} at ₹${(account.outstandingBalance + amount).toFixed(2)}, over their ₹${account.creditLimit} credit limit.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    const delta = type === "INVOICE" ? amount : -amount;
-    account.outstandingBalance = Math.round((account.outstandingBalance + delta) * 100) / 100;
-    await account.save();
-
-    const dueDate = type === "INVOICE" && account.creditDays ? new Date(Date.now() + account.creditDays * 24 * 60 * 60 * 1000) : null;
-
-    const transaction = await CreditTransaction.create({
-      businessId: vendor.businessId,
-      vendorId: vendor._id,
-      accountId: account._id,
-      type,
-      amount,
-      balanceAfter: account.outstandingBalance,
-      referenceOrderId: body.referenceOrderId || undefined,
-      dueDate,
-      notes: body.notes || undefined,
-      createdBy: userId,
-    });
+    const transaction =
+      type === "INVOICE"
+        ? await recordInvoice(account, amount, { notes: body.notes, createdBy: userId })
+        : await recordPaymentOrAdjustment(account, amount, type, { notes: body.notes, createdBy: userId });
 
     return NextResponse.json({ success: true, transaction, account });
   } catch (err: any) {
+    if (err instanceof CreditLimitError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 400 });
+    }
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

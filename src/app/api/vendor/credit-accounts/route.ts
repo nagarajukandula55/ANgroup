@@ -3,9 +3,11 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import CreditAccount from "@/models/CreditAccount";
 import { resolveVendorContext } from "@/lib/auth/vendorContext";
+import { getDaysOverdue } from "@/core/credit/creditLedger";
 
 // GET /api/vendor/credit-accounts — this vendor's Distributor/Retailer
-// credit accounts, for the /vendor/credits page.
+// credit accounts (including PENDING self-signups awaiting approval), for
+// the /vendor/credits page.
 export async function GET() {
   try {
     const headersList = await headers();
@@ -18,14 +20,18 @@ export async function GET() {
     const vendor = ctx.vendor as any;
 
     const accounts = await CreditAccount.find({ vendorId: vendor._id }).sort({ name: 1 }).lean();
-    return NextResponse.json({ success: true, data: accounts });
+    const withAging = await Promise.all(
+      accounts.map(async (a: any) => ({ ...a, daysOverdue: await getDaysOverdue(String(a._id)) }))
+    );
+    return NextResponse.json({ success: true, data: withAging });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
 
 // POST /api/vendor/credit-accounts — create a new Distributor/Retailer
-// credit account for this vendor.
+// credit account directly (starts ACTIVE -- the vendor already knows and
+// trusts them, unlike a public self-signup which starts PENDING).
 export async function POST(req: NextRequest) {
   try {
     const headersList = await headers();
@@ -49,11 +55,12 @@ export async function POST(req: NextRequest) {
       vendorId: vendor._id,
       name,
       type,
+      status: "ACTIVE",
       contactPerson: body.contactPerson || undefined,
       phone: body.phone || undefined,
       email: body.email || undefined,
       creditLimit: Number(body.creditLimit) || 0,
-      creditDays: body.creditDays !== undefined ? Number(body.creditDays) : 30,
+      creditDays: body.creditDays !== undefined ? Number(body.creditDays) : 15,
       notes: body.notes || undefined,
     });
 

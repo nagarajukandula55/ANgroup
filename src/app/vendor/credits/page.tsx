@@ -8,9 +8,12 @@ interface Account {
   type: "DISTRIBUTOR" | "RETAILER";
   contactPerson?: string;
   phone?: string;
+  email?: string;
+  status: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
   creditLimit: number;
   creditDays: number;
   outstandingBalance: number;
+  daysOverdue: number;
   isActive: boolean;
 }
 
@@ -24,7 +27,7 @@ interface Transaction {
   createdAt: string;
 }
 
-const EMPTY_NEW = { name: "", type: "RETAILER" as const, contactPerson: "", phone: "", creditLimit: "", creditDays: "30" };
+const EMPTY_NEW = { name: "", type: "RETAILER" as const, contactPerson: "", phone: "", creditLimit: "", creditDays: "15" };
 
 export default function VendorCreditsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -33,6 +36,10 @@ export default function VendorCreditsPage() {
   const [newForm, setNewForm] = useState(EMPTY_NEW);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [vendorCode, setVendorCode] = useState("");
+  const [b2bEnabled, setB2bEnabled] = useState(false);
+  const [togglingB2b, setTogglingB2b] = useState(false);
 
   const [selected, setSelected] = useState<Account | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -51,9 +58,34 @@ export default function VendorCreditsPage() {
     }
   }
 
+  async function loadProfile() {
+    const res = await fetch("/api/vendor/profile");
+    const data = await res.json();
+    if (data.success) {
+      setVendorCode(data.data.vendorId || "");
+      setB2bEnabled(!!data.data.enableB2BOrdering);
+    }
+  }
+
   useEffect(() => {
     loadAccounts();
+    loadProfile();
   }, []);
+
+  async function toggleB2b() {
+    setTogglingB2b(true);
+    try {
+      const res = await fetch("/api/vendor/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enableB2BOrdering: !b2bEnabled }),
+      });
+      const data = await res.json();
+      if (data.success) setB2bEnabled(!b2bEnabled);
+    } finally {
+      setTogglingB2b(false);
+    }
+  }
 
   async function openAccount(acc: Account) {
     setSelected(acc);
@@ -77,7 +109,7 @@ export default function VendorCreditsPage() {
         body: JSON.stringify({
           ...newForm,
           creditLimit: Number(newForm.creditLimit) || 0,
-          creditDays: Number(newForm.creditDays) || 30,
+          creditDays: Number(newForm.creditDays) || 15,
         }),
       });
       const data = await res.json();
@@ -121,7 +153,19 @@ export default function VendorCreditsPage() {
     }
   }
 
-  const totalOutstanding = accounts.reduce((s, a) => s + (a.outstandingBalance || 0), 0);
+  async function decidePending(id: string, action: "APPROVE" | "REJECT") {
+    await fetch(`/api/vendor/credit-accounts/${id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    loadAccounts();
+  }
+
+  const pending = accounts.filter((a) => a.status === "PENDING");
+  const active = accounts.filter((a) => a.status !== "PENDING");
+  const totalOutstanding = active.reduce((s, a) => s + (a.outstandingBalance || 0), 0);
+  const signupUrl = vendorCode ? `${typeof window !== "undefined" ? window.location.origin : ""}/b2b/${vendorCode}/signup` : "";
 
   return (
     <div className="p-6 space-y-4">
@@ -129,7 +173,8 @@ export default function VendorCreditsPage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Credit Accounts</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Distributors and retailers you extend credit to — sales made now, collected later.
+            Distributors and retailers you extend credit to — sales made now, collected within {" "}
+            {newForm.creditDays} days by default.
           </p>
         </div>
         <button onClick={() => setShowNew(true)} className="shrink-0 px-3 py-2 bg-gray-900 text-white rounded-lg text-sm">
@@ -137,10 +182,51 @@ export default function VendorCreditsPage() {
         </button>
       </div>
 
+      <div className="rounded-xl border border-gray-200 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800">B2B Ordering Portal</p>
+            <p className="text-xs text-gray-500">
+              Let distributors/retailers sign up and order directly at their channel price.
+            </p>
+          </div>
+          <button
+            onClick={toggleB2b}
+            disabled={togglingB2b}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${b2bEnabled ? "bg-emerald-600 text-white" : "bg-gray-200 text-gray-600"}`}
+          >
+            {b2bEnabled ? "Enabled" : "Disabled — click to enable"}
+          </button>
+        </div>
+        {b2bEnabled && signupUrl && (
+          <p className="text-xs text-gray-500">
+            Share this signup link: <span className="font-mono text-violet-600">{signupUrl}</span>
+          </p>
+        )}
+      </div>
+
       <div className="rounded-xl border border-gray-200 p-3 text-sm text-gray-600">
-        Total outstanding across {accounts.length} account{accounts.length === 1 ? "" : "s"}:{" "}
+        Total outstanding across {active.length} account{active.length === 1 ? "" : "s"}:{" "}
         <b className="text-gray-900">₹{totalOutstanding.toLocaleString("en-IN")}</b>
       </div>
+
+      {pending.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+          <p className="text-sm font-semibold text-amber-900">Pending Approval ({pending.length})</p>
+          {pending.map((a) => (
+            <div key={a._id} className="flex items-center justify-between text-sm bg-white rounded-lg p-2">
+              <div>
+                <p className="font-medium text-gray-900">{a.name} <span className="text-xs text-gray-400">({a.type})</span></p>
+                <p className="text-xs text-gray-500">{a.email} · {a.phone}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => decidePending(a._id, "APPROVE")} className="px-2 py-1 bg-emerald-600 text-white rounded text-xs">Approve</button>
+                <button onClick={() => decidePending(a._id, "REJECT")} className="px-2 py-1 border rounded text-xs text-red-600">Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -179,10 +265,14 @@ export default function VendorCreditsPage() {
               <button onClick={() => setSelected(null)} className="text-gray-400 text-sm">✕</button>
             </div>
 
-            <div className="rounded-lg bg-gray-50 p-3 text-sm">
-              Outstanding: <b>₹{selected.outstandingBalance.toLocaleString("en-IN")}</b>
-              {selected.creditLimit > 0 && selected.outstandingBalance >= selected.creditLimit && (
-                <span className="text-red-600 ml-2">— at/over credit limit</span>
+            <div className="rounded-lg bg-gray-50 p-3 text-sm space-y-1">
+              <p>Outstanding: <b>₹{selected.outstandingBalance.toLocaleString("en-IN")}</b>
+                {selected.creditLimit > 0 && selected.outstandingBalance >= selected.creditLimit && (
+                  <span className="text-red-600 ml-2">— at/over credit limit</span>
+                )}
+              </p>
+              {selected.daysOverdue > 0 && (
+                <p className="text-red-600">{selected.daysOverdue} days overdue on oldest unpaid invoice</p>
               )}
             </div>
 
@@ -241,6 +331,7 @@ export default function VendorCreditsPage() {
               <th className="p-3">Name</th>
               <th className="p-3">Type</th>
               <th className="p-3">Outstanding</th>
+              <th className="p-3">Overdue</th>
               <th className="p-3">Limit</th>
               <th className="p-3">Terms</th>
               <th className="p-3" />
@@ -248,16 +339,19 @@ export default function VendorCreditsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="p-4 text-gray-400" colSpan={6}>Loading…</td></tr>
-            ) : accounts.length === 0 ? (
-              <tr><td className="p-4 text-gray-400" colSpan={6}>No credit accounts yet.</td></tr>
+              <tr><td className="p-4 text-gray-400" colSpan={7}>Loading…</td></tr>
+            ) : active.length === 0 ? (
+              <tr><td className="p-4 text-gray-400" colSpan={7}>No credit accounts yet.</td></tr>
             ) : (
-              accounts.map((a) => (
+              active.map((a) => (
                 <tr key={a._id} className="border-b border-gray-50">
                   <td className="p-3 text-gray-900">{a.name}</td>
                   <td className="p-3 text-gray-500">{a.type}</td>
                   <td className={`p-3 ${a.creditLimit > 0 && a.outstandingBalance >= a.creditLimit ? "text-red-600 font-medium" : "text-gray-700"}`}>
                     ₹{a.outstandingBalance.toLocaleString("en-IN")}
+                  </td>
+                  <td className="p-3">
+                    {a.daysOverdue > 0 ? <span className="text-red-600 font-medium">{a.daysOverdue}d</span> : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="p-3 text-gray-500">{a.creditLimit ? `₹${a.creditLimit}` : "—"}</td>
                   <td className="p-3 text-gray-500">{a.creditDays} days</td>

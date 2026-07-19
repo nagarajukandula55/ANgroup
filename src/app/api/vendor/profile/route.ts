@@ -73,6 +73,10 @@ export async function PUT(req: NextRequest) {
     if (body.category !== undefined) allowedUpdate.category = body.category
     if (body.termsAndConditions !== undefined)
       allowedUpdate.termsAndConditions = String(body.termsAndConditions).slice(0, 5000)
+    if (body.enableB2BOrdering !== undefined)
+      allowedUpdate.enableB2BOrdering = !!body.enableB2BOrdering
+    if (body.marketplaceCommissionPercent !== undefined)
+      allowedUpdate.marketplaceCommissionPercent = Number(body.marketplaceCommissionPercent) || 0
     if (Array.isArray(body.servicePincodes))
       allowedUpdate.servicePincodes = body.servicePincodes
         .map((p: unknown) => String(p).trim())
