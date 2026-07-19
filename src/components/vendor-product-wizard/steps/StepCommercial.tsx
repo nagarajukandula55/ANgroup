@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PRICING_TIERS, type PricingTierKey, type ComputedTier } from "@/core/pricing/pricingEngine";
+import { PRICING_TIERS, type PricingTierKey, type ComputedTier, type PricingTierMargins, type MarginSlab } from "@/core/pricing/pricingEngine";
 
 interface StepCommercialProps {
   draftId: string;
@@ -36,7 +36,8 @@ interface CommercialForm {
   manufacturingCost: ManufacturingCost;
   packingCost: PackingCost;
   logisticsOverhead: number;
-  pricingTiers: Partial<Record<PricingTierKey, number | null>>;
+  returnsProvisionPercent: number;
+  pricingTiers: PricingTierMargins;
 }
 
 interface PricingData {
@@ -47,6 +48,7 @@ interface PricingData {
   manufacturingCost: number;
   packingCost: number;
   logisticsOverhead: number;
+  returnsProvisionCost: number;
   totalBaseCost: number;
   marginPercent: number;
   marginAmount: number;
@@ -82,6 +84,7 @@ export default function StepCommercial({
     manufacturingCost: EMPTY_MFG,
     packingCost: EMPTY_PACKING,
     logisticsOverhead: 0,
+    returnsProvisionPercent: 0,
     pricingTiers: {},
   });
 
@@ -157,6 +160,7 @@ export default function StepCommercial({
             manufacturingCost: p.manufacturingCost || prev.manufacturingCost,
             packingCost: p.packingCost || prev.packingCost,
             logisticsOverhead: p.logisticsOverhead ?? prev.logisticsOverhead,
+            returnsProvisionPercent: p.returnsProvisionPercent ?? prev.returnsProvisionPercent,
             pricingTiers: p.pricingTiers || prev.pricingTiers,
           }));
         }
@@ -273,6 +277,10 @@ export default function StepCommercial({
               <span className="text-gray-500">Logistics/Overhead</span>
               <span className="text-right font-mono">
                 ₹{(pricing?.logisticsOverhead ?? 0).toFixed(2)}
+              </span>
+              <span className="text-gray-500">Returns/Damage provision</span>
+              <span className="text-right font-mono">
+                ₹{(pricing?.returnsProvisionCost ?? 0).toFixed(2)}
               </span>
               <span className="font-semibold text-gray-700">
                 Total base cost
@@ -420,6 +428,20 @@ export default function StepCommercial({
           placeholder="0"
           value={form.logisticsOverhead}
           onChange={(e) => setForm({ ...form, logisticsOverhead: Number(e.target.value) })}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className={labelClass}>
+          Returns / Damage Provision % <span className="text-gray-400 font-normal">(buffer over landed cost for post-sale returns/damage — applies to every channel below)</span>
+        </label>
+        <input
+          type="number"
+          className={inputClass}
+          onFocus={(e) => e.target.select()}
+          placeholder="0"
+          value={form.returnsProvisionPercent}
+          onChange={(e) => setForm({ ...form, returnsProvisionPercent: Number(e.target.value) })}
         />
       </div>
 
@@ -598,43 +620,93 @@ export default function StepCommercial({
         )}
       </div>
 
-      {/* ── Channel pricing (Distributor / Retailer / Offline) ─────────── */}
-      <div className="rounded border p-3 space-y-3">
+      {/* ── Channel pricing (Distributor / Retailer / Offline / Marketplace) ── */}
+      <div className="rounded border p-3 space-y-4">
         <p className="text-xs font-semibold text-gray-600">
-          Channel Pricing <span className="text-gray-400 font-normal">(what to charge a Distributor / Retailer / Offline buyer — separate from the Online selling price above)</span>
+          Channel Pricing <span className="text-gray-400 font-normal">(what to charge a Distributor / Retailer / Offline / Marketplace buyer — separate from the Online selling price above)</span>
         </p>
-        <p className="text-[11px] text-gray-400 -mt-2">
+        <p className="text-[11px] text-gray-400 -mt-3">
           Each margin% is editable — change it any time and the price recalculates. Offline excludes Shipping and
-          Logistics/Overhead from its cost (a walk-in/local sale doesn't incur either).
+          Logistics/Overhead (a walk-in/local sale doesn't incur either). Add MOQ slabs on Distributor/Retailer to
+          offer a better margin at higher order quantities — leave slabs empty to just use the flat margin.
         </p>
 
         {PRICING_TIERS.map((tierDef) => {
           const computed = pricing?.channelTiers?.find((t) => t.key === tierDef.key);
-          const marginValue = form.pricingTiers[tierDef.key] ?? tierDef.defaultMarginPercent;
+          const setting = form.pricingTiers[tierDef.key] || {};
+          const marginValue = setting.marginPercent ?? tierDef.defaultMarginPercent;
+          const slabs: MarginSlab[] = setting.slabs || [];
+
+          const updateTier = (patch: Partial<typeof setting>) =>
+            setForm({ ...form, pricingTiers: { ...form.pricingTiers, [tierDef.key]: { ...setting, ...patch } } });
+
           return (
-            <div key={tierDef.key} className="grid grid-cols-3 gap-3 items-end border-t border-gray-100 pt-3 first:border-t-0 first:pt-0">
-              <div>
-                <p className="text-sm font-medium text-gray-800">{tierDef.label}</p>
-                <p className="text-[11px] text-gray-400">{tierDef.description}</p>
+            <div key={tierDef.key} className="border-t border-gray-100 pt-3 first:border-t-0 first:pt-0 space-y-2">
+              <div className="grid grid-cols-3 gap-3 items-end">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{tierDef.label}</p>
+                  <p className="text-[11px] text-gray-400">{tierDef.description}</p>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[11px] text-gray-500">
+                    Base Margin % {slabs.length > 0 && <span className="text-gray-400">(qty below lowest slab)</span>}
+                  </label>
+                  <input
+                    type="number"
+                    className={inputClass}
+                    onFocus={(e) => e.target.select()}
+                    value={marginValue}
+                    onChange={(e) => updateTier({ marginPercent: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-500">Price (from cost ₹{(computed?.baseCost ?? 0).toFixed(2)})</p>
+                  <p className="text-lg font-semibold text-gray-900">₹{computed?.price ?? 0}</p>
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-gray-500">Margin %</label>
-                <input
-                  type="number"
-                  className={inputClass}
-                  onFocus={(e) => e.target.select()}
-                  value={marginValue}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      pricingTiers: { ...form.pricingTiers, [tierDef.key]: Number(e.target.value) },
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-500">Price (from cost ₹{(computed?.baseCost ?? 0).toFixed(2)})</p>
-                <p className="text-lg font-semibold text-gray-900">₹{computed?.price ?? 0}</p>
+
+              <div className="pl-1 space-y-1">
+                {slabs.map((slab, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className="text-gray-400">Qty ≥</span>
+                    <input
+                      type="number"
+                      className="w-20 border rounded p-1"
+                      value={slab.minQty}
+                      onChange={(e) => {
+                        const next = [...slabs];
+                        next[i] = { ...next[i], minQty: Number(e.target.value) };
+                        updateTier({ slabs: next });
+                      }}
+                    />
+                    <span className="text-gray-400">→ margin</span>
+                    <input
+                      type="number"
+                      className="w-20 border rounded p-1"
+                      value={slab.marginPercent}
+                      onChange={(e) => {
+                        const next = [...slabs];
+                        next[i] = { ...next[i], marginPercent: Number(e.target.value) };
+                        updateTier({ slabs: next });
+                      }}
+                    />
+                    <span className="text-gray-400">%</span>
+                    <button
+                      type="button"
+                      onClick={() => updateTier({ slabs: slabs.filter((_, si) => si !== i) })}
+                      className="text-red-500 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => updateTier({ slabs: [...slabs, { minQty: 10, marginPercent: marginValue }] })}
+                  className="text-blue-600 text-xs"
+                >
+                  + Add MOQ slab
+                </button>
               </div>
             </div>
           );

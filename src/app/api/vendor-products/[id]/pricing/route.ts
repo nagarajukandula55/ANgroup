@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import VendorProduct from "@/models/VendorProduct";
 import VendorProductBOM from "@/models/VendorProductBOM";
+import VendorProfile from "@/models/VendorProfile";
 import { computeAllTiers } from "@/core/pricing/pricingEngine";
 
 interface RouteContext {
@@ -70,13 +71,19 @@ export async function GET(
 
     const logisticsOverhead = Number(product.logisticsOverhead || 0);
 
+    // Returns/damage provision -- a % buffer over the landed cost so far
+    // (before shipping/logistics, which a written-off unit may or may not
+    // have incurred depending on channel -- tierBaseCost below always
+    // includes it regardless, since the material/manufacturing/packing
+    // investment is lost either way).
+    const returnsProvisionPercent = Number(product.returnsProvisionPercent || 0);
+    const preProvisionCost = totalMaterialCost + wastageCost + vendorCost + manufacturingCost + packingCost;
+    const returnsProvisionCost = (preProvisionCost * returnsProvisionPercent) / 100;
+
     const totalBaseCost =
-      totalMaterialCost +
-      wastageCost +
-      vendorCost +
+      preProvisionCost +
+      returnsProvisionCost +
       shippingCost +
-      manufacturingCost +
-      packingCost +
       logisticsOverhead;
 
     // Default margin (later this will come from vendor/business agreement)
@@ -88,6 +95,18 @@ export async function GET(
     const sellingPrice =
       totalBaseCost + marginAmount;
 
+    // Marketplace tier's default commission comes from this vendor's own
+    // setting (VendorProfile.marketplaceCommissionPercent), not a fixed
+    // platform constant -- every other tier still falls back to its
+    // built-in default in pricingEngine.ts.
+    let marketplaceDefault: number | undefined;
+    if (product.vendorId) {
+      const vendorProfile = await VendorProfile.findById(product.vendorId).select("marketplaceCommissionPercent").lean();
+      marketplaceDefault = (vendorProfile as any)?.marketplaceCommissionPercent;
+    }
+
+    const qty = Number(new URL(request.url).searchParams.get("qty") || 1);
+
     const channelTiers = computeAllTiers(
       {
         materialCost: totalMaterialCost,
@@ -97,8 +116,10 @@ export async function GET(
         manufacturingCost,
         packingCost,
         logisticsOverhead,
+        returnsProvisionCost,
       },
-      product.pricingTiers
+      product.pricingTiers,
+      { qty, tierDefaultOverrides: marketplaceDefault !== undefined ? { marketplace: marketplaceDefault } : undefined }
     );
 
     return NextResponse.json({
@@ -111,6 +132,7 @@ export async function GET(
         manufacturingCost,
         packingCost,
         logisticsOverhead,
+        returnsProvisionCost,
         totalBaseCost,
         marginPercent,
         marginAmount,

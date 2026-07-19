@@ -26,6 +26,7 @@ import {
   Wrench,
   Layers,
   CreditCard,
+  HandCoins,
 } from 'lucide-react'
 
 // NOTE: Product Bill of Materials is intentionally NOT a top-level nav
@@ -66,6 +67,7 @@ const navItems: { href: string; label: string; icon: any; modules: string[] | nu
   { href: '/vendor/stock-transfers', label: 'Stock Transfers', icon: ArrowLeftRight, modules: ['stock_transfers'] },
   { href: '/vendor/staff', label: 'Staff', icon: Users, modules: ['staff'], managerOnly: true },
   { href: '/vendor/invoices', label: 'Invoices & Payments', icon: FileText, modules: ['finance'] },
+  { href: '/vendor/credits', label: 'Credit Accounts', icon: HandCoins, modules: ['finance'] },
   { href: '/vendor/payouts', label: 'Payout Settings', icon: Wallet, modules: ['finance'], managerOnly: true },
   // Was labeled only "My Profile" -- this IS the vendor's settings page
   // (backed by /api/vendor/settings), already fully accessible to every

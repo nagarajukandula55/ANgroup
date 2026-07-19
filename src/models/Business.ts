@@ -385,6 +385,20 @@ const MarketplaceSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    // Readiness flag for a future customer-facing web ordering portal where
+    // a vendor's registered Distributor/Retailer credit accounts (see
+    // models/CreditAccount.ts) log in and place bulk orders at their own
+    // channel pricing (core/pricing/pricingEngine.ts's distributor/retailer
+    // tiers + MOQ slabs). The pricing engine and credit-account backend are
+    // built and usable today; the ordering UI itself (login, catalog, cart,
+    // checkout for these accounts) is NOT built yet. Off by default —
+    // switch on only once that portal exists and this business is ready to
+    // use it, not before.
+    enableB2BPartnerOrdering: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     _id: false,

@@ -139,6 +139,7 @@ export interface IVendorProfile extends Document {
   };
   creditLimit: number;
   paymentTerms: string;
+  marketplaceCommissionPercent: number;
   category?: string;
   businessType?: string;
   /**
@@ -253,6 +254,12 @@ const VendorProfileSchema = new Schema<IVendorProfile>(
     },
     creditLimit:  { type: Number, default: 0 },
     paymentTerms: { type: String, default: '30 days' },
+    // Default Marketplace channel commission % for this vendor's own
+    // product pricing (core/pricing/pricingEngine.ts's "marketplace" tier)
+    // -- e.g. what Amazon/Blinkit/a listing marketplace would take, so the
+    // vendor can see what they'd net there. Typical range 5-25%; each
+    // product can still override it via VendorProduct.pricingTiers.
+    marketplaceCommissionPercent: { type: Number, default: 20, min: 0, max: 100 },
     category:     { type: String },
     businessType: { type: String },
     productCategories: [{ type: String, enum: DEVICE_CATEGORIES }],

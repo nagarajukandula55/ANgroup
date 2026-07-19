@@ -106,15 +106,27 @@ const VendorProductSchema = new mongoose.Schema(
     default: 0,
   },
 
-  // Channel margins -- only the margin% is stored (source of truth); the
-  // actual ₹ price per channel is always derived live from the current
-  // cost breakdown by core/pricing/pricingEngine.ts, so it never drifts
-  // out of sync if a material price or manufacturing cost changes later.
+  // Channel margins -- only the margin%/slabs are stored (source of truth);
+  // the actual ₹ price per channel is always derived live from the current
+  // cost breakdown by core/pricing/pricingEngine.ts, so it never drifts out
+  // of sync if a material price or manufacturing cost changes later.
   // suggestedSellingPrice above stays the Online/D2C channel, unchanged.
+  // `slabs` are optional MOQ break points (e.g. 100+ units -> a lower
+  // margin) -- a tier with no slabs just uses its flat marginPercent.
   pricingTiers: {
-    distributor: { type: Number, default: null },
-    retailer: { type: Number, default: null },
-    offline: { type: Number, default: null },
+    distributor: { marginPercent: { type: Number, default: null }, slabs: [{ minQty: Number, marginPercent: Number, _id: false }] },
+    retailer: { marginPercent: { type: Number, default: null }, slabs: [{ minQty: Number, marginPercent: Number, _id: false }] },
+    offline: { marginPercent: { type: Number, default: null }, slabs: [{ minQty: Number, marginPercent: Number, _id: false }] },
+    marketplace: { marginPercent: { type: Number, default: null }, slabs: [{ minQty: Number, marginPercent: Number, _id: false }] },
+  },
+
+  // Buffer % added to landed cost to cover post-sale returns/damage --
+  // separate from BOM-line wastage (which covers processing loss before
+  // the pack is sealed). Applied uniformly across every pricing channel.
+  returnsProvisionPercent: {
+    type: Number,
+    default: 0,
+    min: 0,
   },
 
   vendorShippingCost: {
