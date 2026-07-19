@@ -24,6 +24,7 @@ import {
   PackageCheck,
   ArrowLeftRight,
   Wrench,
+  Layers,
 } from 'lucide-react'
 
 // NOTE: Product Bill of Materials is intentionally NOT a top-level nav
@@ -43,6 +44,7 @@ const navItems: { href: string; label: string; icon: any; modules: string[] | nu
   { href: '/vendor', label: 'Dashboard', icon: LayoutDashboard, modules: null },
   { href: '/vendor/products', label: 'My Products', icon: Package, modules: ['vendor_products', 'products'] },
   { href: '/vendor/inventory', label: 'Inventory', icon: Boxes, modules: ['inventory'] },
+  { href: '/vendor/materials', label: 'Materials', icon: Layers, modules: ['materials'] },
   { href: '/vendor/orders', label: 'My Orders', icon: ShoppingCart, modules: ['sales'] },
   { href: '/vendor/offline-sales', label: 'Offline Sales', icon: ShoppingBag, modules: ['sales'] },
   { href: '/vendor/warehouses', label: 'Warehouses', icon: Warehouse, modules: ['warehouses'] },

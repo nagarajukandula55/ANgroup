@@ -8,6 +8,40 @@ import { generateScopedDocumentNumber } from "@/core/numbering/numberingService"
 import { logAction } from "@/lib/audit/logAction";
 
 /**
+ * GET /api/vendor/materials — lists materials belonging to the logged-in
+ * vendor's own business, for the vendor Materials page (so they can see
+ * their full BOM ingredient list, not just add one at a time buried in the
+ * product wizard).
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const headersList = await headers();
+    const userId = headersList.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
+    await connectDB();
+    const ctx = await resolveVendorContext(userId);
+    if (!ctx) {
+      return NextResponse.json({ success: false, message: "Vendor profile not found" }, { status: 404 });
+    }
+    const vendor = ctx.vendor as any;
+    if (!vendor.businessId) {
+      return NextResponse.json({ success: false, message: "Vendor has no business assigned" }, { status: 400 });
+    }
+
+    const materials = await Material.find({ businessId: vendor.businessId })
+      .populate("categoryId")
+      .sort({ materialName: 1 });
+
+    return NextResponse.json({ success: true, data: materials });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/vendor/materials — lets a vendor add a new material directly
  * from the product wizard's BOM step, instead of being stuck waiting on a
  * Super Admin to add it via Admin > Materials first (materials:create is
