@@ -25,9 +25,18 @@ function permissionErrorResponse(err: any) {
 }
 
 async function ensureSeeded() {
-  const count = await HsnTaxRate.countDocuments({});
-  if (count === 0) {
-    await HsnTaxRate.insertMany(DEFAULT_HSN_TAX_RATES.map((r) => ({ ...r, businessId: null })));
+  // Per-code upsert rather than "insert all if the collection is empty" --
+  // that all-or-nothing check meant a business created before food HSN
+  // codes were added to DEFAULT_HSN_TAX_RATES would never receive them
+  // (the collection was already non-empty from the electronics-only set),
+  // permanently stuck showing "no matching HSN rate found" for anything
+  // added to the default list afterward.
+  const existingCodes = new Set(
+    (await HsnTaxRate.find({ businessId: null }).select("hsnCode").lean()).map((r: any) => r.hsnCode)
+  );
+  const missing = DEFAULT_HSN_TAX_RATES.filter((r) => !existingCodes.has(r.hsnCode));
+  if (missing.length) {
+    await HsnTaxRate.insertMany(missing.map((r) => ({ ...r, businessId: null })));
   }
 }
 

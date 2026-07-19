@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import HsnSearchSelect from "@/components/shared/HsnSearchSelect";
 
 interface StepStructureProps {
   draftId: string;
@@ -45,6 +46,7 @@ export default function StepStructure({
   // size-based one.
   const [variantName, setVariantName] = useState("");
   const [variantTouched, setVariantTouched] = useState(false);
+  const [grossWeightTouched, setGrossWeightTouched] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [gstLookupStatus, setGstLookupStatus] = useState<
@@ -68,6 +70,9 @@ export default function StepStructure({
             setVariantName(d.data.variantName);
             setVariantTouched(true);
           }
+          if (d.data.grossWeight && d.data.grossWeight !== d.data.netWeight) {
+            setGrossWeightTouched(true);
+          }
         }
       })
       .catch(() => {});
@@ -82,31 +87,6 @@ export default function StepStructure({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.unit, form.packSize]);
 
-  // Auto-lookup GST rate from the HSN code via the same HsnTaxRate model
-  // this session's CRM module built (models/HsnTaxRate.ts, GET
-  // /api/hsn-tax-rates) — fired when the vendor finishes typing an HSN
-  // code, so GST rate isn't left as a manual guess.
-  const lookupGst = async (hsnCode: string) => {
-    if (!hsnCode.trim()) return;
-    setGstLookupStatus("loading");
-    try {
-      const params = new URLSearchParams({ hsnCode: hsnCode.trim() });
-      if (businessId) params.set("businessId", businessId);
-      const res = await fetch(`/api/hsn-tax-rates?${params.toString()}`);
-      const data = await res.json().catch(() => ({}));
-      if (data.success && data.rate) {
-        setForm((prev) => ({
-          ...prev,
-          gstRate: data.rate.gstRate ?? data.rate.taxRate ?? prev.gstRate,
-        }));
-        setGstLookupStatus("found");
-      } else {
-        setGstLookupStatus("not-found");
-      }
-    } catch {
-      setGstLookupStatus("not-found");
-    }
-  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -196,7 +176,7 @@ export default function StepStructure({
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
           <label className={labelClass}>
-            Net Weight <span className="text-gray-400 font-normal">(product only, in kg)</span>
+            Net Weight <span className="text-gray-400 font-normal">(product only, in {form.unit || "the unit selected above"})</span>
           </label>
           <input
             type="number"
@@ -204,18 +184,26 @@ export default function StepStructure({
             placeholder="e.g. 0.5"
             value={form.netWeight}
             onFocus={(e) => e.target.select()}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                netWeight: Number(e.target.value),
-              })
-            }
+            onChange={(e) => {
+              const netWeight = Number(e.target.value);
+              setForm((prev) => ({
+                ...prev,
+                netWeight,
+                // Starting default for gross weight -- refine once
+                // packaging is picked in a later step. Only auto-follows
+                // net weight until the vendor edits gross weight directly.
+                grossWeight: grossWeightTouched ? prev.grossWeight : netWeight,
+              }));
+            }}
           />
         </div>
 
         <div className="flex flex-col gap-1">
           <label className={labelClass}>
-            Gross Weight <span className="text-gray-400 font-normal">(product + packaging, in kg — used for shipping)</span>
+            Gross Weight{" "}
+            <span className="text-gray-400 font-normal">
+              (product + packaging, in {form.unit || "the unit selected above"} — used for shipping; defaults to net weight until you refine it)
+            </span>
           </label>
           <input
             type="number"
@@ -223,12 +211,13 @@ export default function StepStructure({
             placeholder="e.g. 0.6"
             value={form.grossWeight}
             onFocus={(e) => e.target.select()}
-            onChange={(e) =>
+            onChange={(e) => {
+              setGrossWeightTouched(true);
               setForm({
                 ...form,
                 grossWeight: Number(e.target.value),
-              })
-            }
+              });
+            }}
           />
         </div>
       </div>
@@ -237,20 +226,17 @@ export default function StepStructure({
         <label className={labelClass}>
           HSN Code{" "}
           <span className="text-gray-400 font-normal">
-            (Harmonized System code for GST — the correct GST rate is looked up automatically once you enter it)
+            (search by code or description — the GST rate fills in automatically once you pick one)
           </span>
         </label>
-        <input
-          className={inputClass}
-          placeholder="e.g. 1905"
+        <HsnSearchSelect
           value={form.hsnCode}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              hsnCode: e.target.value,
-            })
-          }
-          onBlur={(e) => lookupGst(e.target.value)}
+          businessId={businessId}
+          onChange={(hsnCode) => setForm((prev) => ({ ...prev, hsnCode }))}
+          onSelect={(rate) => {
+            setForm((prev) => ({ ...prev, hsnCode: rate.hsnCode, gstRate: rate.gstRate }));
+            setGstLookupStatus("found");
+          }}
         />
         {gstLookupStatus === "loading" && (
           <p className="text-xs text-gray-400">Looking up GST rate…</p>

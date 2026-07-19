@@ -17,6 +17,18 @@ interface PackagingForm {
   bestBefore: string;
 }
 
+const PACKAGING_TYPES = ["Pouch", "Bottle", "Carton", "Jar", "Can", "Box", "Sachet"];
+
+// A starting-point default the vendor edits, not a final answer -- keyed by
+// storefront category name (case-insensitive substring match), since that's
+// the only "what kind of product is this" signal already flowing into the
+// wizard by this step.
+const STORAGE_DEFAULTS_BY_CATEGORY: [RegExp, string][] = [
+  [/oil/i, "Store in a cool, dry place away from direct sunlight. Keep the container tightly sealed after opening."],
+  [/mix|dosa|ragi|instant/i, "Store in a cool, dry place in an airtight container. Consume before the best-before date once opened."],
+  [/edible/i, "Store in a cool, dry place away from direct sunlight and moisture."],
+];
+
 export default function StepPackaging({
   draftId,
   next,
@@ -42,12 +54,20 @@ export default function StepPackaging({
       .then((r) => r.json())
       .then((d) => {
         const c = d?.data?.compliance;
-        if (!c) return;
+        const categoryName: string | undefined =
+          typeof d?.data?.categoryId === "object" ? d.data.categoryId?.name : undefined;
+        const suggestedStorage = !c?.storageInstructions
+          ? STORAGE_DEFAULTS_BY_CATEGORY.find(([re]) => categoryName && re.test(categoryName))?.[1] || ""
+          : "";
+        if (!c) {
+          if (suggestedStorage) setForm((prev) => ({ ...prev, storageInstructions: suggestedStorage }));
+          return;
+        }
         setForm({
           packagingType: c.packagingType || "",
           isFragile: !!c.isFragile,
           temperatureSensitive: !!c.temperatureSensitive,
-          storageInstructions: c.storageInstructions || "",
+          storageInstructions: c.storageInstructions || suggestedStorage,
           shelfLifeDays: c.shelfLifeDays || 0,
           bestBefore: c.bestBefore || "",
         });
@@ -107,13 +127,28 @@ export default function StepPackaging({
       )}
 
       <div className="flex flex-col gap-1">
-        <label className={labelClass}>Packaging Type</label>
-        <input
+        <label className={labelClass}>
+          Packaging Type <span className="text-gray-400 font-normal">(container this product ships in)</span>
+        </label>
+        <select
           className={inputClass}
-          placeholder="e.g. Pouch, Bottle, Carton"
-          value={form.packagingType}
-          onChange={(e) => setForm({ ...form, packagingType: e.target.value })}
-        />
+          value={form.packagingType && !PACKAGING_TYPES.includes(form.packagingType) ? "Other" : form.packagingType}
+          onChange={(e) => setForm({ ...form, packagingType: e.target.value === "Other" ? " " : e.target.value })}
+        >
+          <option value="">Select packaging type…</option>
+          {PACKAGING_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+          <option value="Other">Other</option>
+        </select>
+        {form.packagingType && !PACKAGING_TYPES.includes(form.packagingType) && (
+          <input
+            className={`${inputClass} mt-1`}
+            placeholder="Describe the packaging type"
+            value={form.packagingType.trim()}
+            onChange={(e) => setForm({ ...form, packagingType: e.target.value })}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -158,6 +193,7 @@ export default function StepPackaging({
             type="number"
             className={inputClass}
             value={form.shelfLifeDays}
+            onFocus={(e) => e.target.select()}
             onChange={(e) =>
               setForm({ ...form, shelfLifeDays: Number(e.target.value) })
             }

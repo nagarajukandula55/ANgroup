@@ -54,4 +54,22 @@ export const DEFAULT_HSN_TAX_RATES: Array<Pick<IHsnTaxRate, "hsnCode" | "gstRate
   { hsnCode: "8471", gstRate: 18, description: "Computer / laptop parts" },
   { hsnCode: "8518", gstRate: 18, description: "Speakers, microphones, headphones" },
   { hsnCode: "9999", gstRate: 18, description: "Generic service / labour charge" },
+  // Food/grocery starter set — placeholders too, same disclaimer as above.
+  // Real HSN classification for packaged food depends on branding/packaging
+  // specifics under current GST rules; confirm with an accountant before
+  // invoicing off these.
+  { hsnCode: "1508", gstRate: 5, description: "Groundnut oil, crude and refined" },
+  { hsnCode: "1509", gstRate: 5, description: "Olive oil" },
+  { hsnCode: "1512", gstRate: 5, description: "Sunflower / safflower / cottonseed oil" },
+  { hsnCode: "1515", gstRate: 5, description: "Other fixed vegetable/cold-pressed oils" },
+  { hsnCode: "1101", gstRate: 5, description: "Wheat or meslin flour" },
+  { hsnCode: "1102", gstRate: 5, description: "Cereal flours other than wheat (ragi, etc.)" },
+  { hsnCode: "1106", gstRate: 5, description: "Flour/meal of dried legumes, sago, roots" },
+  { hsnCode: "1904", gstRate: 18, description: "Prepared foods from cereal flakes/flour (instant mixes, etc.)" },
+  { hsnCode: "2106", gstRate: 18, description: "Food preparations not elsewhere specified (ready-to-cook mixes)" },
+  { hsnCode: "2103", gstRate: 12, description: "Sauces, condiments, mixed seasonings" },
+  { hsnCode: "0713", gstRate: 5, description: "Dried leguminous vegetables (pulses)" },
+  { hsnCode: "3923", gstRate: 18, description: "Plastic packaging: pouches, containers, caps" },
+  { hsnCode: "4819", gstRate: 18, description: "Cartons, boxes, cases of paper/paperboard" },
+  { hsnCode: "7010", gstRate: 18, description: "Glass jars/bottles for packing" },
 ];

@@ -268,6 +268,7 @@ export default function StepCommercial({
         <input
           type="number"
           className={inputClass}
+          onFocus={(e) => e.target.select()}
           placeholder="0"
           value={form.vendorCost}
           onChange={(e) =>
@@ -287,6 +288,7 @@ export default function StepCommercial({
           <input
             type="number"
             className={inputClass}
+            onFocus={(e) => e.target.select()}
             placeholder="0"
             value={form.vendorShippingCost}
             onChange={(e) =>
@@ -330,6 +332,7 @@ export default function StepCommercial({
           <input
             type="number"
             className={inputClass}
+            onFocus={(e) => e.target.select()}
             placeholder="1"
             value={form.minimumOrderQty}
             onChange={(e) =>
@@ -348,6 +351,7 @@ export default function StepCommercial({
           <input
             type="number"
             className={inputClass}
+            onFocus={(e) => e.target.select()}
             placeholder="0"
             value={form.leadTimeDays}
             onChange={(e) =>
@@ -366,6 +370,7 @@ export default function StepCommercial({
           <input
             type="number"
             className={inputClass}
+            onFocus={(e) => e.target.select()}
             placeholder="0"
             value={form.availableStock}
             onChange={(e) =>
@@ -389,6 +394,7 @@ export default function StepCommercial({
           <input
             type="number"
             className={inputClass}
+            onFocus={(e) => e.target.select()}
             value={form.mrp}
             onChange={(e) =>
               setForm({ ...form, mrp: Number(e.target.value) })
@@ -415,6 +421,7 @@ export default function StepCommercial({
           <input
             type="number"
             className={inputClass}
+            onFocus={(e) => e.target.select()}
             value={form.suggestedSellingPrice}
             onChange={(e) => {
               setPriceTouched(true);

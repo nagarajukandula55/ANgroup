@@ -77,6 +77,25 @@ export default function StepCompliance({
       .catch(() => {});
   }, [draftId]);
 
+  // Suggest ingredients from the BOM's material names, filtering out
+  // obvious packaging (pouch/bottle/carton/label/...) by name -- a rough
+  // first pass, not a substitute for the vendor reviewing/editing it below.
+  useEffect(() => {
+    if (form.ingredients) return;
+    const PACKAGING_WORDS = /pouch|bottle|carton|box|label|cap|seal|wrapper|packaging|container|jar|can|sticker|tape|sachet/i;
+    fetch(`/api/vendor-products/${draftId}/bom`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success || !Array.isArray(d.data) || !d.data.length) return;
+        const names = d.data
+          .map((item: any) => item.materialName as string)
+          .filter((name: string) => name && !PACKAGING_WORDS.test(name));
+        if (names.length) setForm((prev) => (prev.ingredients ? prev : { ...prev, ingredients: names.join(", ") }));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId]);
+
   const handleSave = async () => {
     setError(null);
     try {
@@ -133,7 +152,12 @@ export default function StepCompliance({
       )}
 
       <div className="flex flex-col gap-1">
-        <label className={labelClass}>Ingredients (comma-separated)</label>
+        <label className={labelClass}>
+          Ingredients (comma-separated){" "}
+          <span className="text-gray-400 font-normal">
+            (suggested from your BOM's materials, minus obvious packaging — review and edit before continuing)
+          </span>
+        </label>
         <textarea
           className={inputClass}
           rows={2}
@@ -199,6 +223,7 @@ export default function StepCompliance({
               type="number"
               className={inputClass}
               value={form[key] as number}
+              onFocus={(e) => e.target.select()}
               onChange={(e) =>
                 setForm({ ...form, [key]: Number(e.target.value) })
               }
