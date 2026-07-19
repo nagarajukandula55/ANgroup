@@ -164,6 +164,16 @@ export async function POST(req: NextRequest, context: RouteContext) {
       // despite holding the right role.
       const hasAnyMembership = await BusinessMember.exists({ userId: targetUser._id, isDeleted: { $ne: true } });
 
+      // A user is on exactly one vendor's team at a time -- deactivating any
+      // OTHER vendor-team membership here (not just leaving it and hoping
+      // nothing reads it) is what actually prevents the class of bug where a
+      // stale/earlier membership silently wins resolution over the one just
+      // assigned (see resolveVendorContext / login's activeBusinessId pick).
+      await BusinessMember.updateMany(
+        { userId: targetUser._id, vendorId: { $ne: null, $nin: [vendorId] }, isDeleted: { $ne: true } },
+        { $set: { status: 'INACTIVE', isDeleted: true } }
+      );
+
       // Additive: attach the user to this vendor's team so they become
       // visible on the vendor's own team-management screen.
       await BusinessMember.updateOne(

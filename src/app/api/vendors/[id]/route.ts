@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import VendorProfile from "@/models/VendorProfile";
 import Warehouse from "@/models/Warehouse";
 import User from "@/models/User";
+import BusinessMember from "@/models/BusinessMember";
 import { logAction } from "@/lib/audit/logAction";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
@@ -85,6 +86,15 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       if (!targetUser) {
         return NextResponse.json({ success: false, error: "That user account was not found" }, { status: 400 });
       }
+      // Same rule as the VENDOR_TEAM promote track: a user is on exactly one
+      // vendor at a time, so becoming this vendor's Owner deactivates any
+      // OTHER vendor-team membership they were still carrying (stale test
+      // data, a prior assignment, etc.) rather than leaving it to silently
+      // outrank this one in resolveVendorContext.
+      await BusinessMember.updateMany(
+        { userId: body.userId, vendorId: { $ne: null, $nin: [id] }, isDeleted: { $ne: true } },
+        { $set: { status: "INACTIVE", isDeleted: true } }
+      );
     }
 
     // For every facility toggle flipping false -> true in this update,

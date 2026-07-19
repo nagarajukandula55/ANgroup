@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
 import Brand from "@/models/Brand";
+import ProductCategory from "@/models/ProductCategory";
 import { logAction } from "@/lib/audit/logAction";
 import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
     const businessId = searchParams.get("businessId");
     const search = searchParams.get("search");
     const isActive = searchParams.get("isActive");
+    const includeInactive = searchParams.get("includeInactive") === "true";
     const category = searchParams.get("category");
     const productCategoryId = searchParams.get("productCategoryId");
 
@@ -44,8 +46,14 @@ export async function GET(req: NextRequest) {
     const scopeQuery = buildBusinessScopeQuery(businessId);
     const query: Record<string, unknown> = { ...scopeQuery };
 
+    // Defaults to active-only, same as /api/product-categories -- pass an
+    // explicit isActive=true/false to filter one way, or includeInactive=true
+    // (used by the admin Brands masters page, which manages both) to see
+    // everything.
     if (isActive !== null) {
       query.isActive = isActive === "true";
+    } else if (!includeInactive) {
+      query.isActive = true;
     }
 
     if (category) {
@@ -53,7 +61,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (productCategoryId) {
-      query.productCategoryId = productCategoryId;
+      // A brand tagged to a PARENT category (e.g. one "Native" brand tagged
+      // to "Edible") should still show when a CHILD category under it is
+      // selected ("Instant Mix", "Cold Pressed Oil", ...) -- otherwise every
+      // subcategory would need its own separately-tagged brand row.
+      const cat = await ProductCategory.findById(productCategoryId).select("parentId").lean<any>();
+      const categoryIds = [productCategoryId, ...(cat?.parentId ? [String(cat.parentId)] : [])];
+      query.productCategoryId = { $in: categoryIds };
     }
 
     if (search) {

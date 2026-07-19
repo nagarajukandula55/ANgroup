@@ -40,20 +40,15 @@ export default function StepBasicInfo({
   const [brands, setBrands] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [canManageCatalog, setCanManageCatalog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
   const [newBrandName, setNewBrandName] = useState<string | null>(null);
 
-  // Category/Brand creation is normally a Super Admin-only action (vendors
-  // just pick from what's already tagged) -- but a Super Admin using this
-  // same wizard themselves shouldn't have to leave it to add a missing one,
-  // so the "+ Add new" affordance only shows for them.
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => setCanManageCatalog(!!(d?.user?.isSuperAdmin || d?.user?.isPlatformStaff)))
-      .catch(() => {});
-  }, []);
+  // "+ Add new" is shown to everyone reaching this wizard (Super Admin,
+  // vendor Owner, vendor Manager); the actual permission check happens
+  // server-side (product-categories/brands POST both require a granted
+  // "create" permission), so an account without it just sees the real
+  // error message inline instead of the button silently not existing.
+  const canManageCatalog = true;
 
   const fetchCategories = () => {
     if (!businessId) return;

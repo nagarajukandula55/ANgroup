@@ -79,7 +79,7 @@ export default function BrandsPage() {
     if (!businessId) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ businessId });
+      const params = new URLSearchParams({ businessId, includeInactive: "true" });
       if (search) params.set("search", search);
       if (categoryFilter) params.set("category", categoryFilter);
       const res = await fetch(`/api/brands?${params}`);
