@@ -15,6 +15,15 @@ import ProductCategory from "@/models/ProductCategory";
  * fields.
  *
  * Query params: businessId (required), category, search, page, limit.
+ *
+ * Grouped by variantGroupKey (see models/NativeProduct.ts) so a product
+ * sold in several pack sizes shows as ONE card here -- was returning one
+ * raw document per size, so a 250g/500g/1kg product listed as three
+ * separate cards in every category/search grid even though its own detail
+ * page (storefront/products/[slug]/route.ts) already groups them into a
+ * single page with a size selector. Grouping has to happen in the DB
+ * query (via aggregation), not by dedup-ing after the fact -- deduping
+ * post-pagination would silently shrink some pages below `limit`.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -27,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     const filter: Record<string, unknown> = {
-      businessId,
+      businessId: new mongoose.Types.ObjectId(businessId),
       isActive: true,
       isDeleted: { $ne: true },
     };
@@ -59,36 +68,57 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const limit = Math.min(60, parseInt(searchParams.get("limit") || "24"));
 
-    const [products, total] = await Promise.all([
-      NativeProduct.find(filter)
-        .select("name slug description category images basePrice unit stock sku createdAt metaTitle metaDescription keywords")
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      NativeProduct.countDocuments(filter),
+    const [result] = await NativeProduct.aggregate([
+      { $match: filter },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          // Ungrouped products (no variantGroupKey) fall back to their own
+          // _id, so they behave exactly as one-off, un-grouped cards.
+          _id: { $ifNull: ["$variantGroupKey", "$_id"] },
+          doc: { $first: "$$ROOT" },
+          minPrice: { $min: "$basePrice" },
+          maxPrice: { $max: "$basePrice" },
+          variantCount: { $sum: 1 },
+        },
+      },
+      { $sort: { "doc.createdAt": -1 } },
+      {
+        $facet: {
+          data: [{ $skip: (page - 1) * limit }, { $limit: limit }],
+          totalCount: [{ $count: "count" }],
+        },
+      },
     ]);
+
+    const rows = result?.data || [];
+    const total = result?.totalCount?.[0]?.count || 0;
 
     return NextResponse.json({
       success: true,
-      products: products.map((p: any) => ({
-        id: String(p._id),
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        category: p.category,
-        images: p.images || [],
-        price: p.basePrice || 0,
-        unit: p.unit || "pcs",
-        inStock: (p.stock || 0) > 0,
-        sku: p.sku || "",
-        // SEO — so the storefront can render <title>/meta description and
-        // structured data without a second round-trip to
-        // /api/storefront/products/[slug].
-        metaTitle: p.metaTitle || p.name,
-        metaDescription: p.metaDescription || p.description || "",
-        keywords: p.keywords || [],
-      })),
+      products: rows.map((row: any) => {
+        const p = row.doc;
+        return {
+          id: String(p._id),
+          name: p.name,
+          slug: p.slug,
+          description: p.description,
+          category: p.category,
+          images: p.images || [],
+          price: row.minPrice ?? p.basePrice ?? 0,
+          priceMax: row.maxPrice ?? p.basePrice ?? 0,
+          variantCount: row.variantCount || 1,
+          unit: p.unit || "pcs",
+          inStock: (p.stock || 0) > 0,
+          sku: p.sku || "",
+          // SEO — so the storefront can render <title>/meta description and
+          // structured data without a second round-trip to
+          // /api/storefront/products/[slug].
+          metaTitle: p.metaTitle || p.name,
+          metaDescription: p.metaDescription || p.description || "",
+          keywords: p.keywords || [],
+        };
+      }),
       total,
       page,
       totalPages: Math.ceil(total / limit),

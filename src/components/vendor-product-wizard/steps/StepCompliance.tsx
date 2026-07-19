@@ -145,7 +145,16 @@ export default function StepCompliance({
             if (re.test(materialName)) matched.add(label);
           }
         }
-        setAllergenSuggestions(Array.from(matched));
+        const suggestions = Array.from(matched);
+        setAllergenSuggestions(suggestions);
+
+        // Auto-fill directly (same as ingredients above) instead of only
+        // showing a banner that required a separate "Apply" click -- the
+        // field is still fully editable free text after this, just no
+        // longer starts empty when a real match was found.
+        if (!form.allergens && suggestions.length) {
+          setForm((prev) => ({ ...prev, allergens: suggestions.join(", ") }));
+        }
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

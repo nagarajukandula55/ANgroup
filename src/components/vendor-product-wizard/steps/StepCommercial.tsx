@@ -92,6 +92,7 @@ export default function StepCommercial({
   const [pricing, setPricing] = useState<PricingData | null>(null);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [priceTouched, setPriceTouched] = useState(false);
+  const [mrpTouched, setMrpTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [vendorCode, setVendorCode] = useState<string>("");
@@ -111,6 +112,17 @@ export default function StepCommercial({
             setForm((prev) => ({
               ...prev,
               suggestedSellingPrice: Math.round(d.data.sellingPrice),
+            }));
+          }
+          // MRP had no suggestion at all before -- default it a bit above
+          // the selling price (10%, rounded up to the nearest ₹10) so
+          // there's headroom to run a discount down to the actual selling
+          // price, the usual MRP-vs-selling-price relationship. Still just
+          // a starting point -- edit freely.
+          if (!mrpTouched && d.data?.sellingPrice) {
+            setForm((prev) => ({
+              ...prev,
+              mrp: Math.ceil((d.data.sellingPrice * 1.1) / 10) * 10,
             }));
           }
         }
@@ -146,6 +158,7 @@ export default function StepCommercial({
           const p = d.data;
           if (p.vendorSku) setSkuTouched(true);
           if (p.suggestedSellingPrice) setPriceTouched(true);
+          if (p.mrp) setMrpTouched(true);
           setForm((prev) => ({
             ...prev,
             vendorSku: p.vendorSku || prev.vendorSku,
@@ -555,15 +568,18 @@ export default function StepCommercial({
         </p>
 
         <div className="flex flex-col gap-1">
-          <label className={labelClass}>MRP</label>
+          <label className={labelClass}>
+            MRP <span className="text-gray-400 font-normal">(suggested — edit if needed)</span>
+          </label>
           <input
             type="number"
             className={inputClass}
             onFocus={(e) => e.target.select()}
             value={form.mrp}
-            onChange={(e) =>
-              setForm({ ...form, mrp: Number(e.target.value) })
-            }
+            onChange={(e) => {
+              setMrpTouched(true);
+              setForm({ ...form, mrp: Number(e.target.value) });
+            }}
           />
         </div>
 

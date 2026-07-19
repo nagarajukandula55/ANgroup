@@ -4,6 +4,21 @@ import MaterialSearchSelect from "@/components/shared/MaterialSearchSelect";
 
 const RATE_UNITS = ["kg", "g", "l", "ml", "pcs"];
 
+// A row silently started as "Ingredient" by default (the initial state in
+// StepBOM's addRow()) unless the vendor manually flipped the Type dropdown
+// -- in practice, packaging materials (pouch, label, carton) very often got
+// left as Ingredient, which leaked them into the Compliance step's
+// ingredients list/nutrition/allergen estimate (that step only reads
+// INGREDIENT-classified rows, correctly, but the classification itself was
+// wrong at the source). Auto-correct the obvious cases from the material's
+// own name when it's picked, so the default is right without relying on the
+// vendor remembering to change it every time -- still fully editable after.
+const PACKAGING_NAME_HINT = /pouch|box|carton|label|sticker|container|wrapper|\bbag\b|bottle|\bcap\b|\blid\b|tape|jar/i;
+
+function guessMaterialType(materialName: string): BOMRowData["materialType"] {
+  return PACKAGING_NAME_HINT.test(materialName || "") ? "PACKAGING" : "INGREDIENT";
+}
+
 interface BOMRowData {
   bomId?: string;
   materialId: string;
@@ -55,6 +70,9 @@ export default function BOMRow({
           // doesn't have to re-type the same rate on every product that
           // uses this material -- they can still override it below.
           if (m.currentPrice) updateRow(index, "currentRate", m.currentPrice);
+          // Only guess on a fresh row (no material picked yet) -- never
+          // override a Type the vendor already deliberately set.
+          if (!row.materialId) updateRow(index, "materialType", guessMaterialType(m.materialName));
         }}
       />
 

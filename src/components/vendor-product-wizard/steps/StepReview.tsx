@@ -26,6 +26,7 @@ interface ProductSnapshot {
   vendorCost?: number;
   unit?: string;
   packSize?: number;
+  netWeight?: number;
   hsnCode?: string;
   gstRate?: number;
   seo?: { customTitle?: string; customDescription?: string; keywords?: string[] };
@@ -38,6 +39,10 @@ export default function StepReview({
 }: StepReviewProps) {
   const router = useRouter();
   const [creatingVariant, setCreatingVariant] = useState(false);
+  const [variantSizesInput, setVariantSizesInput] = useState("");
+  const [generatingVariants, setGeneratingVariants] = useState(false);
+  const [variantResult, setVariantResult] = useState<{ created: any[]; failed: any[] } | null>(null);
+  const [variantError, setVariantError] = useState<string | null>(null);
   const [product, setProduct] = useState<ProductSnapshot | null>(null);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
@@ -85,22 +90,30 @@ export default function StepReview({
     load();
   }, [draftId]);
 
-  async function handleImageUpload(file: File) {
+  async function uploadOne(file: File): Promise<string | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/assets/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || data.message || `Failed to upload ${file.name}`);
+    }
+    return data.asset?.fileUrl || null;
+  }
+
+  // Uploads every selected file, one at a time (the upload endpoint takes a
+  // single file per request) -- was only ever reading e.target.files[0], so
+  // picking several images at once silently kept just the first.
+  async function handleImagesUpload(files: File[]) {
     setUploading(true);
     setError(null);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/assets/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || data.message || "Image upload failed");
+      const urls: string[] = [];
+      for (const file of files) {
+        const url = await uploadOne(file);
+        if (url) urls.push(url);
       }
-      const url = data.asset?.fileUrl;
-      if (url) setImages((prev) => [...prev, url]);
+      if (urls.length) setImages((prev) => [...prev, ...urls]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Image upload failed");
     } finally {
@@ -154,6 +167,49 @@ export default function StepReview({
     }
   }
 
+  // Parses "500, 250" (numbers only, reusing this product's own unit) into
+  // the sizes the generate-variants endpoint expects.
+  function parseSizes(): { netWeight: number; unit: string }[] {
+    const unit = product?.unit || "";
+    return variantSizesInput
+      .split(",")
+      .map((s) => Number(s.trim()))
+      .filter((n) => n > 0)
+      .map((netWeight) => ({ netWeight, unit }));
+  }
+
+  // Generates every requested pack size end-to-end -- scaled ingredients,
+  // scaled manufacturing cost, copied packing/commercial/compliance,
+  // computed MRP/price, submitted for approval -- with no further wizard
+  // steps to click through per size (see generate-variants/route.ts for
+  // exactly what scales vs. what's copied as-is).
+  async function handleGenerateVariants() {
+    setVariantError(null);
+    setVariantResult(null);
+    const sizes = parseSizes();
+    if (!sizes.length) {
+      setVariantError(`Enter one or more sizes in ${product?.unit || "this product's unit"}, comma-separated (e.g. "500, 250").`);
+      return;
+    }
+    setGeneratingVariants(true);
+    try {
+      const res = await fetch(`/api/vendor-products/${draftId}/generate-variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sizes }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setVariantError(data.message || "Failed to generate variants");
+        return;
+      }
+      setVariantResult({ created: data.created || [], failed: data.failed || [] });
+      setVariantSizesInput("");
+    } finally {
+      setGeneratingVariants(false);
+    }
+  }
+
   const inputClass = "w-full border rounded p-2";
   const labelClass = "text-xs font-medium text-gray-500";
 
@@ -180,21 +236,60 @@ export default function StepReview({
         <p><span className="text-gray-500">HSN / GST:</span> {product?.hsnCode || "—"} / {product?.gstRate ?? 0}%</p>
       </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm flex items-center justify-between gap-3">
-        <p className="text-blue-800">
-          Selling this product in another pack size too? Create it as a
-          variant of this same product — buyers will see both sizes
-          together on the product page.
-        </p>
-        <button
-          type="button"
-          onClick={handleCreateVariant}
-          disabled={creatingVariant}
-          className="shrink-0 rounded border border-blue-400 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-        >
-          {creatingVariant ? "Starting…" : "+ Create another variant"}
-        </button>
-      </div>
+      {product?.netWeight && product?.unit ? (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm space-y-2">
+          <p className="text-blue-800">
+            Selling this in other pack sizes too? Enter them below ({product.unit}, comma-separated) — ingredients and
+            manufacturing cost scale automatically from this {product.netWeight}{product.unit} version, packing/images/SEO
+            carry over as-is, and each one is generated, priced, and submitted for approval immediately — no extra steps.
+          </p>
+          {variantError && <p className="text-red-600">{variantError}</p>}
+          <div className="flex gap-2">
+            <input
+              className="flex-1 border rounded p-2 text-sm"
+              placeholder={`e.g. 500, 250 (${product.unit})`}
+              value={variantSizesInput}
+              onChange={(e) => setVariantSizesInput(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleGenerateVariants}
+              disabled={generatingVariants}
+              className="shrink-0 rounded border border-blue-400 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              {generatingVariants ? "Generating…" : "Generate Variants"}
+            </button>
+          </div>
+          {variantResult && (
+            <div className="text-xs space-y-1 pt-1">
+              {variantResult.created.map((v: any) => (
+                <p key={v.id} className="text-emerald-700">
+                  ✓ {v.label} created — SKU {v.vendorSku}, MRP ₹{v.mrp}, selling price ₹{v.suggestedSellingPrice}, submitted for approval.
+                </p>
+              ))}
+              {variantResult.failed.map((f: any, i: number) => (
+                <p key={i} className="text-red-600">✕ {f.size}: {f.message}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm flex items-center justify-between gap-3">
+          <p className="text-blue-800">
+            Selling this product in another pack size too? Create it as a
+            variant of this same product — buyers will see both sizes
+            together on the product page.
+          </p>
+          <button
+            type="button"
+            onClick={handleCreateVariant}
+            disabled={creatingVariant}
+            className="shrink-0 rounded border border-blue-400 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+          >
+            {creatingVariant ? "Starting…" : "+ Create another variant"}
+          </button>
+        </div>
+      )}
 
       {/* Images */}
       <div>
@@ -238,11 +333,12 @@ export default function StepReview({
             <input
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               disabled={uploading}
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageUpload(file);
+                const files = Array.from(e.target.files || []);
+                if (files.length) handleImagesUpload(files);
                 e.target.value = "";
               }}
             />
