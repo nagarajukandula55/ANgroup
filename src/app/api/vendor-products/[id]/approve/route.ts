@@ -63,6 +63,21 @@ export async function POST(req: Request, context: any) {
       );
     }
 
+    // Was only checking BOM cost, never that the vendor actually set a
+    // selling price -- a product with valid BOM cost but an untouched
+    // Commercial step (suggestedSellingPrice still 0) sailed through
+    // approval and went live on the storefront at ₹0. Confirmed live on
+    // shopnative.in as several free-looking product cards.
+    if (!vendorProduct.suggestedSellingPrice || vendorProduct.suggestedSellingPrice <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "No selling price set — complete the Commercial step before approving.",
+        },
+        { status: 400 }
+      );
+    }
+
     /* =========================================================
        🔒 PREVENT DOUBLE APPROVAL
     ========================================================= */

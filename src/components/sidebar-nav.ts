@@ -60,6 +60,11 @@ export const NAV_GROUPS: NavGroup[] = [
       // before this. Reuses the "grn" permission key, already in
       // moduleHierarchy.ts from an earlier pass.
       { key: "goods-receipts",  label: "Goods Receipts",  route: "/admin/goods-receipts",   icon: "ShoppingCart" },
+      // No admin view of NativeProduct (the storefront-facing collection
+      // approval actually writes to) existed at all before this -- a stray
+      // ₹0 or leftover test listing there had no way to be found/removed
+      // short of raw DB access. Read-only list + deactivate/soft-delete.
+      { key: "native-products", label: "Storefront Products", route: "/admin/native-products", icon: "ShoppingBag" },
       // Was its own sidebar entry ("Vendor Products") pointing at a dead
       // stub page — consolidated into the single "Products" entry above;
       // the pending-approvals queue is now reached via a button inside that
