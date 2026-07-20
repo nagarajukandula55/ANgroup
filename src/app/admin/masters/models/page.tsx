@@ -85,7 +85,27 @@ export default function ModelsPage() {
     }
     const res = await fetch(`/api/series?businessId=${businessId}&brandId=${selectedBrandId}`);
     const d = await res.json();
-    const list: SeriesRow[] = d.series || [];
+    let list: SeriesRow[] = d.series || [];
+
+    // Every brand is supposed to have at least one Series -- brands
+    // created before Series existed (or created via the Brands page,
+    // which doesn't ask for one) land here with zero. Rather than forcing
+    // an admin to manually type "General" for every single pre-existing
+    // brand, auto-create it the first time its Series list comes back
+    // empty, exactly like the bulk-BOM-upload auto-create-if-missing
+    // logic already does per row.
+    if (list.length === 0) {
+      const createRes = await fetch("/api/series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "General", brandId: selectedBrandId, businessId }),
+      });
+      const createData = await createRes.json();
+      if (createRes.ok && createData.series) {
+        list = [createData.series];
+      }
+    }
+
     setSeriesList(list);
     // If the brand has exactly one series ("General" for brands with no
     // real product line), auto-select it so single-series brands don't

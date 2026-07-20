@@ -111,6 +111,7 @@ export default function BrandsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -275,6 +276,34 @@ export default function BrandsPage() {
     }
     showToast("Model deleted.");
     refreshSeriesAndModels();
+  };
+
+  // One-click fix for catalog data that predates the Series level (brands
+  // with zero Series, models with no seriesId) -- see
+  // /api/series/backfill's own header comment for why this exists instead
+  // of just re-running the seed script.
+  const runBackfill = async () => {
+    if (!businessId) return;
+    setBackfilling(true);
+    try {
+      const res = await fetch(`/api/series/backfill?businessId=${businessId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Backfill failed.", false);
+        return;
+      }
+      const { seriesCreated, modelsBackfilled } = data.summary;
+      showToast(
+        seriesCreated === 0 && modelsBackfilled === 0
+          ? "Everything already has a Series -- nothing to fix."
+          : `Created ${seriesCreated} Series, linked ${modelsBackfilled} models.`
+      );
+      refreshSeriesAndModels();
+    } catch {
+      showToast("Network error.", false);
+    } finally {
+      setBackfilling(false);
+    }
   };
 
   const openAdd = () => {
@@ -520,6 +549,16 @@ export default function BrandsPage() {
             className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
           />
         </div>
+        {view === "tree" && (
+          <button
+            onClick={runBackfill}
+            disabled={backfilling}
+            title="Create a 'General' Series for any brand that has none, and link any pre-existing model to it -- fixes brands/models that predate the Series level"
+            className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 disabled:opacity-50 shrink-0"
+          >
+            {backfilling ? "Fixing…" : "Fix Missing Series"}
+          </button>
+        )}
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1 shrink-0">
           <button
             onClick={() => setView("grid")}
