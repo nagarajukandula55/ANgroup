@@ -32,13 +32,22 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, brandId, isActive, businessScope, businessIds } = body;
+    const { name, brandId, seriesId, isActive, businessScope, businessIds } = body;
+
+    if (seriesId !== undefined && seriesId !== null && !Types.ObjectId.isValid(seriesId)) {
+      return NextResponse.json({ error: "Invalid seriesId" }, { status: 400 });
+    }
 
     await connectDB();
 
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
     if (brandId !== undefined && Types.ObjectId.isValid(brandId)) updates.brandId = brandId;
+    // seriesId: omit to leave unchanged, pass null to move to "no series"
+    // (direct under brand), pass a valid ObjectId to move to another series.
+    if (seriesId !== undefined) {
+      updates.seriesId = seriesId === null ? null : new Types.ObjectId(seriesId);
+    }
     if (isActive !== undefined) updates.isActive = isActive;
     if (businessScope !== undefined) updates.businessScope = businessScope;
     if (businessIds !== undefined) updates.businessIds = businessIds;

@@ -81,8 +81,11 @@ export async function POST(req: NextRequest) {
     if (!Types.ObjectId.isValid(brandId)) {
       return NextResponse.json({ error: "Invalid brandId" }, { status: 400 });
     }
-    if (!seriesId || !Types.ObjectId.isValid(seriesId)) {
-      return NextResponse.json({ error: "A valid seriesId is required" }, { status: 400 });
+    // seriesId is optional: a model may attach directly to the Brand with no
+    // Series (e.g. a brand with no meaningful product line). If provided, it
+    // must be a valid ObjectId.
+    if (seriesId != null && !Types.ObjectId.isValid(seriesId)) {
+      return NextResponse.json({ error: "Invalid seriesId" }, { status: 400 });
     }
 
     await connectDB();
@@ -90,7 +93,7 @@ export async function POST(req: NextRequest) {
     const model = await DeviceModel.create({
       name: name.trim(),
       brandId: new Types.ObjectId(brandId),
-      seriesId: new Types.ObjectId(seriesId),
+      seriesId: seriesId ? new Types.ObjectId(seriesId) : null,
       businessId: new Types.ObjectId(businessId),
       businessScope: businessScope || "SINGLE",
       businessIds: Array.isArray(businessIds) ? businessIds : [],

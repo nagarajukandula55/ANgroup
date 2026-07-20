@@ -36,8 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // time but had no sidebar entry at all — same class of bug as the
       // Invoice Branding / GST entries documented further below.
       { key: "masters-units",    label: "Units",              route: "/admin/masters/units",              icon: "Ruler" },
-      { key: "masters-brands",   label: "Brands",             route: "/admin/masters/brands",              icon: "Tags" },
-      { key: "masters-models",  label: "Device Models",      route: "/admin/masters/models",              icon: "Smartphone" },
+      { key: "masters-brands",   label: "Brands & Models",    route: "/admin/masters/brands",              icon: "Tags" },
       { key: "masters-prod-cat", label: "Product Categories", route: "/admin/masters/product-categories",  icon: "Layers" },
       { key: "masters-mat-cat",  label: "Material Categories",route: "/admin/masters/material-categories", icon: "Layers" },
       // Same bug again — these 2 also had complete, working pages with no

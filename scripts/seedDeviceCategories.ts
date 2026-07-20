@@ -105,7 +105,7 @@ function deriveSeriesName(brandName: string, modelName: string): string {
 
 type BrandSeed = { brand: string; models: string[] };
 
-const CATEGORY_DATA: Record<DeviceCategory, BrandSeed[]> = {
+const CATEGORY_DATA: Partial<Record<DeviceCategory, BrandSeed[]>> = {
   MOBILE: [
     {
       brand: "Apple",
@@ -228,7 +228,7 @@ const CATEGORY_DATA: Record<DeviceCategory, BrandSeed[]> = {
     { brand: "Titan", models: ["Titan Smart 3", "Titan Talk"] },
     { brand: "Amazfit", models: ["Amazfit GTS 4", "Amazfit Bip 5"] },
   ],
-  AUDIO: [
+  HEADPHONE_EARBUD: [
     { brand: "boAt", models: ["boAt Airdopes 141", "boAt Rockerz 450", "boAt Stone 1200"] },
     { brand: "JBL", models: ["JBL Flip 6", "JBL Tune 510BT", "JBL Go 3"] },
     { brand: "Sony", models: ["Sony WH-1000XM5", "Sony WF-1000XM4", "Sony SRS-XB13"] },
@@ -237,7 +237,7 @@ const CATEGORY_DATA: Record<DeviceCategory, BrandSeed[]> = {
     { brand: "Noise", models: ["Noise Buds VS104", "Noise Shots X5"] },
     { brand: "Bose", models: ["Bose QuietComfort 45", "Bose SoundLink Flex"] },
   ],
-  PRINTER: [
+  PRINTER_SCANNER: [
     { brand: "HP", models: ["HP DeskJet 2331", "HP LaserJet Pro M15w", "HP Smart Tank 580"] },
     { brand: "Canon", models: ["Canon PIXMA E477", "Canon PIXMA G3010", "Canon imageCLASS MF3010"] },
     { brand: "Epson", models: ["Epson L3250", "Epson EcoTank L3210", "Epson L120"] },
