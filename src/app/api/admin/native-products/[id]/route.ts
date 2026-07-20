@@ -23,6 +23,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const update: Record<string, unknown> = {};
     if (body.isActive !== undefined) update.isActive = !!body.isActive;
     if (body.isDeleted !== undefined) update.isDeleted = !!body.isDeleted;
+    // Per-unit weight (kg) -- feeds the mobile app's bulk/wholesale order
+    // detection (a BUSINESS-account order qualifies at 10kg+ total).
+    if (body.weightKg !== undefined) update.weightKg = Math.max(0, Number(body.weightKg) || 0);
 
     const product = await NativeProduct.findByIdAndUpdate(id, update, { new: true });
     if (!product) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
