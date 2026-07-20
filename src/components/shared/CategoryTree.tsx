@@ -23,11 +23,25 @@ export function CategoryTree<T extends TreeItem>({
   onEdit,
   onDelete,
   renderExtra,
+  renderIcon,
+  renderActions,
+  defaultOpenDepth = 0,
 }: {
   items: T[];
   onEdit: (item: T) => void;
   onDelete: (item: T) => void;
   renderExtra?: (item: T) => React.ReactNode;
+  // Per-row leading icon (e.g. to visually distinguish Category/Brand/
+  // Series/Model rows in a mixed-kind tree). Falls back to the default
+  // expand/collapse chevron + dot when omitted.
+  renderIcon?: (item: T) => React.ReactNode;
+  // Overrides the default fixed Edit/Delete icon buttons -- needed once a
+  // tree mixes multiple document kinds (e.g. Brand/Series/Model) where
+  // each kind edits/deletes through a different API and some kinds (e.g.
+  // a synthetic Category row) have no actions at all.
+  renderActions?: (item: T) => React.ReactNode;
+  // How many levels deep start expanded (0 = only roots expanded).
+  defaultOpenDepth?: number;
 }) {
   const byParent = new Map<string, T[]>();
   const ids = new Set(items.map((i) => i._id));
@@ -51,6 +65,9 @@ export function CategoryTree<T extends TreeItem>({
           onEdit={onEdit}
           onDelete={onDelete}
           renderExtra={renderExtra}
+          renderIcon={renderIcon}
+          renderActions={renderActions}
+          defaultOpenDepth={defaultOpenDepth}
         />
       ))}
     </div>
@@ -64,6 +81,9 @@ function TreeNode<T extends TreeItem>({
   onEdit,
   onDelete,
   renderExtra,
+  renderIcon,
+  renderActions,
+  defaultOpenDepth,
 }: {
   item: T;
   depth: number;
@@ -71,9 +91,12 @@ function TreeNode<T extends TreeItem>({
   onEdit: (item: T) => void;
   onDelete: (item: T) => void;
   renderExtra?: (item: T) => React.ReactNode;
+  renderIcon?: (item: T) => React.ReactNode;
+  renderActions?: (item: T) => React.ReactNode;
+  defaultOpenDepth: number;
 }) {
   const children = byParent.get(item._id) || [];
-  const [open, setOpen] = useState(depth === 0);
+  const [open, setOpen] = useState(depth <= defaultOpenDepth);
 
   return (
     <div>
@@ -88,6 +111,7 @@ function TreeNode<T extends TreeItem>({
         ) : (
           <Circle className="w-1.5 h-1.5 text-gray-300 shrink-0 mx-1.5" fill="currentColor" />
         )}
+        {renderIcon?.(item)}
         <span className={`text-sm flex-1 ${item.isActive === false ? "text-gray-400 line-through" : "text-gray-800"}`}>
           {item.name}
         </span>
@@ -95,12 +119,18 @@ function TreeNode<T extends TreeItem>({
           <span className="text-[11px] text-gray-400">{children.length}</span>
         )}
         {renderExtra?.(item)}
-        <button onClick={() => onEdit(item)} className="text-gray-400 hover:text-gray-700 shrink-0">
-          <Edit2 className="w-3.5 h-3.5" />
-        </button>
-        <button onClick={() => onDelete(item)} className="text-gray-400 hover:text-red-500 shrink-0">
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        {renderActions ? (
+          renderActions(item)
+        ) : (
+          <>
+            <button onClick={() => onEdit(item)} className="text-gray-400 hover:text-gray-700 shrink-0">
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => onDelete(item)} className="text-gray-400 hover:text-red-500 shrink-0">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
       </div>
       {open &&
         children.map((child) => (
@@ -112,6 +142,9 @@ function TreeNode<T extends TreeItem>({
             onEdit={onEdit}
             onDelete={onDelete}
             renderExtra={renderExtra}
+            renderIcon={renderIcon}
+            renderActions={renderActions}
+            defaultOpenDepth={defaultOpenDepth}
           />
         ))}
     </div>
