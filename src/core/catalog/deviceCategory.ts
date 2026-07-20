@@ -6,7 +6,7 @@
  * (which categories a vendor services). Same const-array-plus-type pattern
  * as businessScope.ts.
  *
- * Covers 42 categories spanning every electronics/appliance category
+ * Covers 45 categories spanning every electronics/appliance category
  * commonly launched/sold in the Indian consumer electronics market.
  */
 export const DEVICE_CATEGORIES = [

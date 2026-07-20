@@ -7,7 +7,12 @@
  * SCOPE, agreed with the user up front: this is NOT an exhaustive catalog of
  * every SKU ever sold in India (thousands of real models across ~40 brands
  * is not something to fabricate from memory -- that risk was explicitly
- * flagged and the user chose the reduced scope below). Apple gets its full,
+ * flagged and the user chose the reduced scope below). CATEGORY_DATA now has
+ * an entry for every one of the 45 categories in deviceCategory.ts (mobile
+ * through e-readers), each with a handful of real, well-known Indian-market
+ * brands and models -- some categories intentionally get fewer brands than
+ * others where a wider confident list wasn't available; that's expected,
+ * not a gap to fill blindly. Apple gets its full,
  * verified lineup (iPhone/iPad/MacBook/iMac/Watch/AirPods -- compact enough
  * to state with high confidence). Every other brand gets 10-20 well-known
  * flagship/mainstream models as a real, accurate starting point --
@@ -92,12 +97,38 @@ function deriveSeriesName(brandName: string, modelName: string): string {
     case "Sony":
       if (/^Sony Bravia/.test(m)) return "Bravia";
       if (/^Sony (WH|WF|SRS)/.test(m)) return "Audio";
+      if (/^PlayStation/.test(m)) return "PlayStation";
       return "General";
     case "LG":
       if (/^LG Gram/.test(m)) return "Gram";
       return "General";
     case "POCO":
       return "Poco";
+    case "DJI":
+      if (/^DJI Mini/.test(m)) return "Mini";
+      if (/^DJI Air/.test(m)) return "Air";
+      if (/^DJI Mavic/.test(m)) return "Mavic";
+      if (/^DJI Avata/.test(m)) return "Avata";
+      return "General";
+    case "Microsoft":
+      if (/^Xbox/.test(m)) return "Xbox";
+      if (/^Surface/.test(m)) return "Surface";
+      return "General";
+    case "Nintendo":
+      if (/^Nintendo Switch/.test(m)) return "Switch";
+      return "General";
+    case "Mi":
+      if (/^Mi Smart Band/.test(m)) return "Mi Smart Band";
+      return "General";
+    case "Meta":
+      if (/^Meta Quest/.test(m)) return "Quest";
+      return "General";
+    case "Amazon":
+      if (/^Kindle/.test(m)) return "Kindle";
+      if (/^Fire HD/.test(m)) return "Fire HD";
+      if (/^Fire TV/.test(m)) return "Fire TV";
+      if (/^Echo/.test(m)) return "Echo";
+      return "General";
     default:
       return "General";
   }
@@ -243,6 +274,228 @@ const CATEGORY_DATA: Partial<Record<DeviceCategory, BrandSeed[]>> = {
     { brand: "Epson", models: ["Epson L3250", "Epson EcoTank L3210", "Epson L120"] },
     { brand: "Brother", models: ["Brother DCP-T420W", "Brother HL-L2321D"] },
     { brand: "Ricoh", models: ["Ricoh SP 210", "Ricoh MP 2014"] },
+  ],
+
+  // --- Categories added when the taxonomy was expanded from 12 to 42 ---
+  FEATURE_PHONE: [
+    { brand: "Nokia", models: ["Nokia 105", "Nokia 106", "Nokia 110", "Nokia 125", "Nokia 5310", "Nokia 6300 4G", "Nokia 8210 4G"] },
+    { brand: "itel", models: ["itel it2163", "itel Magic 2", "itel it5626", "itel Muzik 100"] },
+    { brand: "Lava", models: ["Lava A5", "Lava Star 2", "Lava Spark"] },
+    { brand: "Jio", models: ["JioPhone", "JioPhone 2", "JioPhone Prima"] },
+    { brand: "Samsung", models: ["Samsung Guru Music 2", "Samsung Metro 313"] },
+  ],
+  MONITOR: [
+    { brand: "Samsung", models: ["Samsung Odyssey G5", "Samsung Odyssey G7", "Samsung M5 Smart Monitor", "Samsung S24R350", "Samsung ViewFinity S8"] },
+    { brand: "LG", models: ["LG UltraGear 24GN60R", "LG UltraGear 27GP850", "LG 24MK430H", "LG UltraWide 29WN600", "LG UltraFine 27UN850"] },
+    { brand: "Dell", models: ["Dell S2421HN", "Dell P2422H", "Dell UltraSharp U2723QE", "Dell Alienware AW2523HF"] },
+    { brand: "BenQ", models: ["BenQ GW2480", "BenQ EX2510", "BenQ PD2705Q", "BenQ Mobiuz EX2710"] },
+    { brand: "ASUS", models: ["ASUS VP228HE", "ASUS TUF Gaming VG249Q", "ASUS ProArt PA278QV"] },
+    { brand: "Acer", models: ["Acer EK220Q", "Acer Nitro VG240Y", "Acer Predator XB273"] },
+    { brand: "ViewSonic", models: ["ViewSonic VA2246-MHD", "ViewSonic VX2276-SMHD", "ViewSonic Elite XG270"] },
+    { brand: "HP", models: ["HP 24mh", "HP M24fw", "HP X24ih Gaming"] },
+  ],
+  COMPUTER_ACCESSORY: [
+    { brand: "Logitech", models: ["Logitech MK270 Combo", "Logitech M235 Mouse", "Logitech K380 Keyboard", "Logitech B170 Mouse", "Logitech C270 Webcam"] },
+    { brand: "HP", models: ["HP Wireless Mouse X3000", "HP KM100 Keyboard-Mouse Combo"] },
+    { brand: "Dell", models: ["Dell KM3322W Keyboard-Mouse Combo", "Dell WM126 Wireless Mouse"] },
+    { brand: "Zebronics", models: ["Zebronics Zeb-Companion 107", "Zebronics Zeb-Transformer-K Keyboard", "Zebronics Zeb-Fame Webcam"] },
+    { brand: "Ant Esports", models: ["Ant Esports MK1400 Keyboard", "Ant Esports GM320 Mouse"] },
+    { brand: "Amkette", models: ["Amkette EvoFox Elite Mouse", "Amkette Xcite Neo Keyboard"] },
+  ],
+  PROJECTOR: [
+    { brand: "Epson", models: ["Epson EB-X51", "Epson EB-S41", "Epson EH-TW650"] },
+    { brand: "BenQ", models: ["BenQ MH535A", "BenQ TH585", "BenQ MW560"] },
+    { brand: "ViewSonic", models: ["ViewSonic PA503S", "ViewSonic PX701HD"] },
+    { brand: "Xgimi", models: ["Xgimi Halo+", "Xgimi Horizon Pro", "Xgimi Mogo 2"] },
+    { brand: "Sony", models: ["Sony VPL-EX455", "Sony VPL-DX241"] },
+  ],
+  SET_TOP_BOX: [
+    { brand: "Tata Play", models: ["Tata Play HD Set-Top Box", "Tata Play Binge+ 4K"] },
+    { brand: "Airtel Digital TV", models: ["Airtel Digital TV HD Set-Top Box", "Airtel Xstream Box"] },
+    { brand: "Dish TV", models: ["Dish TV HD Set-Top Box", "Dish TV SMRT Hub"] },
+    { brand: "Amazon", models: ["Fire TV Stick", "Fire TV Stick 4K", "Fire TV Stick 4K Max", "Fire TV Stick Lite"] },
+    { brand: "Google", models: ["Chromecast with Google TV", "Chromecast with Google TV (4K)"] },
+  ],
+  SOUNDBAR: [
+    { brand: "JBL", models: ["JBL Bar 2.0 All-in-One", "JBL Bar 300", "JBL Bar 800"] },
+    { brand: "Sony", models: ["Sony HT-S20R", "Sony HT-S400", "Sony HT-A3000"] },
+    { brand: "boAt", models: ["boAt Aavante Bar 1160", "boAt Aavante Bar 1700D"] },
+    { brand: "Zebronics", models: ["Zebronics Juke Bar 3700", "Zebronics Juke Bar 9000"] },
+    { brand: "Samsung", models: ["Samsung HW-A450", "Samsung HW-Q600C"] },
+  ],
+  SPEAKER: [
+    { brand: "JBL", models: ["JBL Flip 6", "JBL Go 3", "JBL Charge 5", "JBL Xtreme 3"] },
+    { brand: "boAt", models: ["boAt Stone 350", "boAt Stone 1000", "boAt Party Pal 200"] },
+    { brand: "Sony", models: ["Sony SRS-XB13", "Sony SRS-XB23", "Sony SRS-XG300"] },
+    { brand: "Marshall", models: ["Marshall Emberton II", "Marshall Willen", "Marshall Stanmore II"] },
+    { brand: "Zebronics", models: ["Zebronics Zeb-County", "Zebronics Zeb-Roll"] },
+  ],
+  FITNESS_BAND: [
+    { brand: "Xiaomi", models: ["Mi Smart Band 6", "Mi Smart Band 7", "Xiaomi Smart Band 8"] },
+    { brand: "boAt", models: ["boAt Wave Beat", "boAt Xtend Band"] },
+    { brand: "Noise", models: ["Noise ColorFit Pulse", "Noise ColorFit Pro 2"] },
+    { brand: "Fire-Boltt", models: ["Fire-Boltt Terra", "Fire-Boltt Visionary"] },
+    { brand: "Honor", models: ["Honor Band 6", "Honor Band 7"] },
+  ],
+  CAMERA: [
+    { brand: "Canon", models: ["Canon EOS 1500D", "Canon EOS 850D", "Canon EOS R10", "Canon PowerShot G7 X Mark III"] },
+    { brand: "Nikon", models: ["Nikon D3500", "Nikon D5600", "Nikon Z50", "Nikon Coolpix B500"] },
+    { brand: "Sony", models: ["Sony Alpha a6400", "Sony Alpha a7 III", "Sony ZV-1"] },
+    { brand: "Fujifilm", models: ["Fujifilm X-T30", "Fujifilm X100V", "Fujifilm Instax Mini 12"] },
+    { brand: "GoPro", models: ["GoPro Hero 11", "GoPro Hero 12", "GoPro Hero 10 Black"] },
+  ],
+  CAMCORDER: [
+    { brand: "Sony", models: ["Sony Handycam FDR-AX43", "Sony Handycam HDR-CX405"] },
+    { brand: "Canon", models: ["Canon Vixia HF R800", "Canon Legria HF R806"] },
+    { brand: "Panasonic", models: ["Panasonic HC-V180", "Panasonic HC-WXF991"] },
+  ],
+  DRONE: [
+    { brand: "DJI", models: ["DJI Mini 3", "DJI Mini 4 Pro", "DJI Air 3", "DJI Mavic 3", "DJI Avata"] },
+    { brand: "Syma", models: ["Syma X5C", "Syma X8W"] },
+  ],
+  GAMING_CONSOLE: [
+    { brand: "Sony", models: ["PlayStation 4", "PlayStation 4 Pro", "PlayStation 5", "PlayStation 5 Slim", "PlayStation 5 Pro"] },
+    { brand: "Microsoft", models: ["Xbox One S", "Xbox Series S", "Xbox Series X"] },
+    { brand: "Nintendo", models: ["Nintendo Switch", "Nintendo Switch Lite", "Nintendo Switch OLED"] },
+  ],
+  ROUTER_NETWORKING: [
+    { brand: "TP-Link", models: ["TP-Link Archer C6", "TP-Link Archer AX10", "TP-Link TL-WR840N", "TP-Link Deco M4"] },
+    { brand: "D-Link", models: ["D-Link DIR-825", "D-Link DIR-615"] },
+    { brand: "Netgear", models: ["Netgear Nighthawk R6700", "Netgear R6120"] },
+    { brand: "Tenda", models: ["Tenda F3", "Tenda AC10"] },
+    { brand: "Mercusys", models: ["Mercusys MW305R", "Mercusys AC12"] },
+  ],
+  POWER_BANK: [
+    { brand: "Mi", models: ["Mi Power Bank 3i 20000mAh", "Mi Power Bank 3i 10000mAh"] },
+    { brand: "boAt", models: ["boAt EnergyBank 500", "boAt EnergyBank 1200"] },
+    { brand: "Ambrane", models: ["Ambrane 10000mAh PowerBank", "Ambrane 20000mAh PowerBank"] },
+    { brand: "Realme", models: ["Realme 10000mAh Power Bank", "Realme 20000mAh Power Bank"] },
+    { brand: "Anker", models: ["Anker PowerCore 10000", "Anker PowerCore Slim 10000"] },
+  ],
+  UPS_INVERTER: [
+    { brand: "APC", models: ["APC Back-UPS BX600C-IN", "APC Back-UPS BX1100C-IN"] },
+    { brand: "Luminous", models: ["Luminous Zolt 1100", "Luminous Eco Volt Neo 1250"] },
+    { brand: "Microtek", models: ["Microtek UPS SEBz 900", "Microtek Inverter EB 1600+"] },
+    { brand: "V-Guard", models: ["V-Guard Prime 1150", "V-Guard Smart Pro 1100"] },
+  ],
+  CCTV_SECURITY: [
+    { brand: "CP Plus", models: ["CP Plus Cosmic 2MP Dome Camera", "CP Plus 4-Channel DVR Kit"] },
+    { brand: "Hikvision", models: ["Hikvision DS-2CE1AC0T-IRP", "Hikvision 4-Channel Turbo HD Kit"] },
+    { brand: "Dahua", models: ["Dahua DH-HAC-HDW1200RP", "Dahua 4-Channel DVR Kit"] },
+    { brand: "TP-Link", models: ["TP-Link Tapo C200", "TP-Link Tapo C310"] },
+  ],
+  SMART_HOME: [
+    { brand: "Xiaomi", models: ["Mi Smart Plug", "Mi Smart Bulb Essential", "Xiaomi Smart Camera C300"] },
+    { brand: "TP-Link", models: ["TP-Link Tapo Smart Plug P100", "TP-Link Tapo Smart Bulb L510E"] },
+    { brand: "Wipro", models: ["Wipro Smart Bulb", "Wipro Smart Plug"] },
+    { brand: "Syska", models: ["Syska Smart Bulb", "Syska Smart Plug"] },
+    { brand: "Amazon", models: ["Echo Dot (5th Gen)", "Echo Show 5", "Echo Dot (4th Gen)"] },
+    { brand: "Google", models: ["Google Nest Mini", "Google Nest Hub"] },
+  ],
+  OTG_OVEN: [
+    { brand: "Bajaj", models: ["Bajaj Majesty 1603 T OTG", "Bajaj 2200 TMSS OTG"] },
+    { brand: "Prestige", models: ["Prestige POTG 19 PCR", "Prestige POTG 36L"] },
+    { brand: "Morphy Richards", models: ["Morphy Richards 52-Litre OTG", "Morphy Richards 24 RSS OTG"] },
+    { brand: "Wonderchef", models: ["Wonderchef Oven Toaster Griller 60L", "Wonderchef 19L OTG"] },
+    { brand: "Philips", models: ["Philips HD6975 OTG", "Philips HD6198 OTG"] },
+  ],
+  DISHWASHER: [
+    { brand: "Bosch", models: ["Bosch Serie 2 SMS2ITI01I", "Bosch Serie 4 SMS4HVI01I"] },
+    { brand: "IFB", models: ["IFB Neptune VX", "IFB Neptune SX1"] },
+    { brand: "Faber", models: ["Faber FFSD 8PR", "Faber FFSD 6PR"] },
+    { brand: "LG", models: ["LG DFB424FP", "LG DFB512FP"] },
+    { brand: "Whirlpool", models: ["Whirlpool Powerclean 13PS", "Whirlpool Wdisc 5B"] },
+  ],
+  WATER_PURIFIER: [
+    { brand: "Kent", models: ["Kent Grand Plus", "Kent Ace Mineral RO", "Kent Supreme"] },
+    { brand: "Aquaguard", models: ["Aquaguard Marvel RO+UV", "Aquaguard Enhance"] },
+    { brand: "Livpure", models: ["Livpure Glo RO+UV", "Livpure Envy RO+UV+UF"] },
+    { brand: "Pureit", models: ["Pureit Classic RO+UV", "Pureit Ultima RO+UV"] },
+    { brand: "AO Smith", models: ["AO Smith Z8 RO", "AO Smith X5 RO+UV"] },
+  ],
+  AIR_PURIFIER: [
+    { brand: "Xiaomi", models: ["Mi Air Purifier 3", "Mi Air Purifier 3C"] },
+    { brand: "Philips", models: ["Philips AC1215", "Philips AC2887"] },
+    { brand: "Honeywell", models: ["Honeywell Air Touch V5", "Honeywell Air Touch I8"] },
+    { brand: "Dyson", models: ["Dyson Purifier Cool TP07", "Dyson Purifier Hot+Cool HP07"] },
+    { brand: "Sharp", models: ["Sharp FP-J30M", "Sharp FP-J40M"] },
+  ],
+  VACUUM_CLEANER: [
+    { brand: "Eureka Forbes", models: ["Eureka Forbes Trendy Steel", "Eureka Forbes Quick Clean DX"] },
+    { brand: "Kent", models: ["Kent Compact Vacuum Cleaner", "Kent Force Cyclonic"] },
+    { brand: "Xiaomi", models: ["Mi Robot Vacuum-Mop P", "Mi Handheld Vacuum Cleaner Light"] },
+    { brand: "Dyson", models: ["Dyson V8", "Dyson V11", "Dyson V15 Detect"] },
+    { brand: "Philips", models: ["Philips PowerPro Compact", "Philips PowerGo"] },
+  ],
+  CHIMNEY: [
+    { brand: "Faber", models: ["Faber Hood Primus Plus", "Faber Crown 3D T2S2"] },
+    { brand: "Elica", models: ["Elica WD HAC Touch BF", "Elica 60 NERO EDS"] },
+    { brand: "Hindware", models: ["Hindware Nadia Plus", "Hindware Cleo Plus"] },
+    { brand: "Kaff", models: ["Kaff Vetro 60cm", "Kaff Melissa DHC 60"] },
+    { brand: "Sunflame", models: ["Sunflame Zenith 60cm", "Sunflame Optima DX"] },
+  ],
+  INDUCTION_COOKTOP: [
+    { brand: "Prestige", models: ["Prestige PIC 3.1 V3", "Prestige PIC 6.0"] },
+    { brand: "Philips", models: ["Philips HD4928", "Philips HD4938"] },
+    { brand: "Bajaj", models: ["Bajaj Majesty ICX 7", "Bajaj Popular Induction Cooktop"] },
+    { brand: "Pigeon", models: ["Pigeon Favourite Induction Cooktop", "Pigeon Cruise"] },
+    { brand: "Havells", models: ["Havells Insta Cook Ceramic ECO", "Havells Insta Cook OT"] },
+  ],
+  MIXER_GRINDER: [
+    { brand: "Preethi", models: ["Preethi Blue Leaf Diamond", "Preethi Zodiac", "Preethi Eco Twin Gold"] },
+    { brand: "Bajaj", models: ["Bajaj Rex 500W", "Bajaj GX8 750W"] },
+    { brand: "Philips", models: ["Philips HL7756", "Philips HL7707"] },
+    { brand: "Prestige", models: ["Prestige Iris 750W", "Prestige Delight Electric"] },
+    { brand: "Sujata", models: ["Sujata Dynamix DX", "Sujata Powermatic Plus"] },
+  ],
+  WATER_HEATER: [
+    { brand: "AO Smith", models: ["AO Smith HSE-SDS Storage Water Heater", "AO Smith Z1 Instant Water Heater"] },
+    { brand: "Bajaj", models: ["Bajaj Majesty Duraflow", "Bajaj New Shakti Storage Water Heater"] },
+    { brand: "Havells", models: ["Havells Instanio Instant Water Heater", "Havells Monza Storage Water Heater"] },
+    { brand: "V-Guard", models: ["V-Guard Victo Plus Storage Water Heater", "V-Guard Zio Instant Water Heater"] },
+    { brand: "Racold", models: ["Racold Eterno Pro Storage Water Heater", "Racold Alpha Instant Water Heater"] },
+  ],
+  IRON: [
+    { brand: "Philips", models: ["Philips GC1905 Dry Iron", "Philips GC2990 Steam Iron"] },
+    { brand: "Bajaj", models: ["Bajaj Majesty DX-6", "Bajaj Majesty DX-11"] },
+    { brand: "Havells", models: ["Havells Perfecto Dry Iron", "Havells Rush Steam Iron"] },
+    { brand: "Crompton", models: ["Crompton Inglis Dry Iron", "Crompton InstaCharge Steam Iron"] },
+    { brand: "Usha", models: ["Usha EI 1602 Dry Iron", "Usha Steam Pro"] },
+  ],
+  PERSONAL_GROOMING: [
+    { brand: "Philips", models: ["Philips BT3211 Beard Trimmer", "Philips HP8100 Hair Dryer"] },
+    { brand: "Havells", models: ["Havells BT5103 Trimmer", "Havells HD3151 Hair Dryer"] },
+    { brand: "Syska", models: ["Syska HT200 Trimmer", "Syska HD1610 Hair Dryer"] },
+    { brand: "VEGA", models: ["VEGA T3 Trimmer", "VEGA Insta Glam VHDH-20 Hair Dryer"] },
+    { brand: "Panasonic", models: ["Panasonic ER-GB40 Trimmer", "Panasonic EH-ND21 Hair Dryer"] },
+  ],
+  FAN: [
+    { brand: "Havells", models: ["Havells Stealth Air Ceiling Fan", "Havells Velocity Table Fan"] },
+    { brand: "Crompton", models: ["Crompton Aura Prime Ceiling Fan", "Crompton HS Plus Table Fan"] },
+    { brand: "Orient", models: ["Orient Aeroquiet Ceiling Fan", "Orient Wendy Table Fan"] },
+    { brand: "Usha", models: ["Usha Striker Ceiling Fan", "Usha Maxx Air Table Fan"] },
+    { brand: "Bajaj", models: ["Bajaj Frore Ceiling Fan", "Bajaj Esteem Table Fan"] },
+    { brand: "Atomberg", models: ["Atomberg Renesa Ceiling Fan", "Atomberg Efficio Ceiling Fan"] },
+  ],
+  AIR_COOLER: [
+    { brand: "Symphony", models: ["Symphony Diet 3D 55i", "Symphony Ninja", "Symphony Touch 35"] },
+    { brand: "Bajaj", models: ["Bajaj PMH 25 DLX", "Bajaj Coolest DC 2016"] },
+    { brand: "Crompton", models: ["Crompton Ozone 75", "Crompton Marvel Neo"] },
+    { brand: "Voltas", models: ["Voltas Grand 72", "Voltas Alfa 55"] },
+  ],
+  CALCULATOR: [
+    { brand: "Casio", models: ["Casio FX-991EX", "Casio MJ-120D", "Casio HL-820V"] },
+    { brand: "Citizen", models: ["Citizen SDC-444S", "Citizen CT-512"] },
+    { brand: "Orpat", models: ["Orpat OT-512", "Orpat OT-414"] },
+  ],
+  VR_HEADSET: [
+    { brand: "Meta", models: ["Meta Quest 2", "Meta Quest 3", "Meta Quest Pro"] },
+    { brand: "Sony", models: ["PlayStation VR", "PlayStation VR2"] },
+    { brand: "Samsung", models: ["Samsung Gear VR"] },
+  ],
+  E_READER: [
+    { brand: "Amazon", models: ["Kindle (11th Gen)", "Kindle Paperwhite", "Kindle Paperwhite Signature Edition", "Kindle Oasis"] },
+    { brand: "Kobo", models: ["Kobo Clara 2E", "Kobo Libra 2", "Kobo Nia"] },
   ],
 };
 
