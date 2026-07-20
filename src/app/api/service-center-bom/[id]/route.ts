@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import mongoose from "mongoose";
 import ServiceCenterBOM from "@/models/ServiceCenterBOM";
+import DeviceModel from "@/models/DeviceModel";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { logAction } from "@/lib/audit/logAction";
 import { resolveOwnerOrManagerVendor } from "@/core/access/vendorAccess.service";
@@ -29,8 +30,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const body = await req.json();
     const updates: Record<string, unknown> = {};
-    for (const field of ["partName", "hsnCode", "rate", "isActive", "brandId", "description", "partType", "unit", "gstRate", "warrantyDays", "materialId"]) {
+    for (const field of ["partName", "hsnCode", "rate", "isActive", "brandId", "deviceModelId", "description", "partType", "unit", "gstRate", "warrantyDays", "materialId"]) {
       if (body[field] !== undefined) updates[field] = body[field];
+    }
+
+    // Keep seriesId in sync whenever deviceModelId changes (including being
+    // cleared) -- see the seriesId field comment on ServiceCenterBOM.
+    if (updates.deviceModelId !== undefined) {
+      if (updates.deviceModelId && mongoose.Types.ObjectId.isValid(updates.deviceModelId as string)) {
+        const modelDoc = await DeviceModel.findById(updates.deviceModelId).select("seriesId").lean<any>();
+        updates.seriesId = modelDoc?.seriesId || null;
+      } else {
+        updates.seriesId = null;
+      }
     }
 
     const part = await ServiceCenterBOM.findOneAndUpdate(

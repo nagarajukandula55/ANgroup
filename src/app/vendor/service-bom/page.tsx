@@ -13,8 +13,11 @@
  * brand), or scoped to one exact model.
  */
 
-import { useState, useEffect, useCallback } from 'react'
-import { ChevronRight, ChevronDown, Download } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { ChevronRight, ChevronDown, Download, Upload } from 'lucide-react'
+
+interface UploadRowResult { row: number; status: 'created' | 'error'; partCode?: string; error?: string }
+interface UploadSummary { total: number; created: number; failed: number }
 
 interface Brand { _id: string; name: string; logoUrl?: string }
 interface DeviceModelOption { _id: string; name: string }
@@ -126,6 +129,10 @@ export default function ServiceCenterBOMPage() {
   // to mistake for "the Brand dropdown doesn't work" when it's actually
   // the whole form being submitted by someone who was never allowed to.
   const [canManage, setCanManage] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResults, setUploadResults] = useState<UploadRowResult[] | null>(null)
+  const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -217,6 +224,46 @@ export default function ServiceCenterBOMPage() {
     URL.revokeObjectURL(url)
   }
 
+  // Client-side download of the CSV column headers + example rows a vendor
+  // can fill in and hand to Bulk Upload -- same Blob+anchor pattern as
+  // exportCsv() above.
+  function downloadTemplate() {
+    const header = ['partName', 'brandName', 'seriesName', 'modelName', 'partType', 'unit', 'hsnCode', 'gstRate', 'rate', 'warrantyDays', 'description']
+    const examples = [
+      ['Battery', 'Samsung', 'Galaxy S', 'Galaxy S21', 'SPARE_PART', 'pcs', '85076000', '18', '1200', '180', 'Original battery'],
+      ['Screen Guard', 'Samsung', 'Galaxy S', '', 'CONSUMABLE', 'pcs', '39199090', '18', '150', '', 'Fits any Galaxy S model'],
+    ]
+    const csv = [header, ...examples].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'service-center-bom-template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleBulkUpload(file: File) {
+    setUploading(true)
+    setUploadResults(null)
+    setUploadSummary(null)
+    setError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/service-center-bom/upload', { method: 'POST', body: fd })
+      const d = await res.json()
+      if (!res.ok || !d.success) throw new Error(d.error || 'Bulk upload failed')
+      setUploadResults(d.results || [])
+      setUploadSummary(d.summary || null)
+      load()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900'
   const labelCls = 'block text-xs text-gray-500 mb-1'
 
@@ -242,14 +289,77 @@ export default function ServiceCenterBOMPage() {
             {!canManage && ' You can view and export this list; only an Owner or Manager can add or deactivate parts.'}
           </p>
         </div>
-        <button
-          onClick={exportCsv}
-          disabled={parts.length === 0}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50 shrink-0"
-        >
-          <Download className="w-4 h-4" /> Export CSV
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={downloadTemplate}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition"
+          >
+            <Download className="w-4 h-4" /> Download Template
+          </button>
+          {canManage && (
+            <>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50"
+              >
+                <Upload className="w-4 h-4" /> {uploading ? 'Uploading…' : 'Bulk Upload'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleBulkUpload(file)
+                  e.target.value = ''
+                }}
+              />
+            </>
+          )}
+          <button
+            onClick={exportCsv}
+            disabled={parts.length === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-100 transition disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        </div>
       </div>
+
+      {uploadSummary && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-700">
+              Bulk upload: <span className="font-medium text-emerald-600">{uploadSummary.created} created</span>
+              {uploadSummary.failed > 0 && <span className="text-red-600"> · {uploadSummary.failed} failed</span>}
+              {' '}of {uploadSummary.total} rows.
+            </p>
+            <button onClick={() => { setUploadSummary(null); setUploadResults(null) }} className="text-xs text-gray-400 hover:text-gray-700">Dismiss</button>
+          </div>
+          {uploadResults && uploadResults.some((r) => r.status === 'error') && (
+            <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50 text-left text-gray-500">
+                    <th className="px-3 py-1.5">Row</th>
+                    <th className="px-3 py-1.5">Error</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {uploadResults.filter((r) => r.status === 'error').map((r) => (
+                    <tr key={r.row}>
+                      <td className="px-3 py-1.5">{r.row}</td>
+                      <td className="px-3 py-1.5 text-red-600">{r.error}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {canManage && (
       <form onSubmit={addPart} className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white border border-gray-200 rounded-xl p-4">

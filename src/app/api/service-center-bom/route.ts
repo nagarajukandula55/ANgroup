@@ -28,7 +28,10 @@ import { buildPermissionCode } from "@/core/access/actions";
 import { logAction } from "@/lib/audit/logAction";
 import { resolveOwnerOrManagerVendor, resolveVendorTeamMembership } from "@/core/access/vendorAccess.service";
 // Required for .populate("deviceModelId", ...) below -- model must be registered before populate can resolve it.
-import "@/models/DeviceModel";
+// Also used directly in GET to resolve a deviceModelId's own seriesId for the
+// series-tier inclusive filter, and in POST to keep seriesId denormalized in
+// sync with deviceModelId.
+import DeviceModelModel from "@/models/DeviceModel";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -122,8 +125,22 @@ export async function GET(req: NextRequest) {
     }
     // Same inclusive pattern one level down -- a model-agnostic part under
     // that brand ("fits every model") still shows when browsing one model.
+    // A THIRD tier sits between brand and model: a part scoped to a whole
+    // Series (no specific deviceModelId) should also show for every model
+    // in that series. When filtering by deviceModelId we resolve its own
+    // seriesId and OR that in alongside the plain model-match/model-agnostic
+    // clauses.
     if (deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId)) {
-      const modelOr = { $or: [{ deviceModelId }, { deviceModelId: null }, { deviceModelId: { $exists: false } }] };
+      const modelDoc = await DeviceModelModel.findById(deviceModelId).select("seriesId").lean<any>();
+      const modelOrClauses: Record<string, unknown>[] = [
+        { deviceModelId },
+        { deviceModelId: null },
+        { deviceModelId: { $exists: false } },
+      ];
+      if (modelDoc?.seriesId) {
+        modelOrClauses.push({ seriesId: modelDoc.seriesId, deviceModelId: { $in: [null, undefined] } });
+      }
+      const modelOr = { $or: modelOrClauses };
       query.$and = query.$and ? [...(query.$and as any[]), modelOr] : [modelOr];
     }
 
@@ -175,10 +192,20 @@ export async function POST(req: NextRequest) {
     });
     const partCode = `PART-${String(existingCount + 1).padStart(4, "0")}`;
 
+    // Whenever deviceModelId is set, seriesId is auto-populated from that
+    // model's own seriesId so the two denormalized fields never disagree
+    // (see the seriesId field comment on ServiceCenterBOM).
+    let resolvedSeriesId: mongoose.Types.ObjectId | undefined;
+    if (deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId)) {
+      const modelDoc = await DeviceModelModel.findById(deviceModelId).select("seriesId").lean<any>();
+      if (modelDoc?.seriesId) resolvedSeriesId = modelDoc.seriesId;
+    }
+
     const part = await ServiceCenterBOM.create({
       businessId: resolved.businessId,
       vendorId: resolved.vendorId,
       brandId: brandId && mongoose.Types.ObjectId.isValid(brandId) ? brandId : undefined,
+      seriesId: resolvedSeriesId,
       deviceModelId: deviceModelId && mongoose.Types.ObjectId.isValid(deviceModelId) ? deviceModelId : undefined,
       partName: partName.trim(),
       partCode,

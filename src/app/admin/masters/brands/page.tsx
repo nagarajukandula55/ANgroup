@@ -40,6 +40,37 @@ interface ProductCategoryOption {
   parentId?: { _id: string; name: string } | null;
 }
 
+interface SeriesOption {
+  _id: string;
+  name: string;
+  brandId: string;
+  isActive: boolean;
+}
+
+interface ModelOption {
+  _id: string;
+  name: string;
+  brandId: string;
+  seriesId?: string;
+  isActive: boolean;
+}
+
+// Synthetic tree row used only for the Tree view -- Series and Model don't
+// natively have a "parentId" pointing at a Brand's own tree slot, so these
+// are given prefixed synthetic ids/parentIds ("series:"/"model:") purely so
+// CategoryTree (which only understands one flat parentId-linked list) can
+// render Category -> Brand -> Series -> Model without being rewritten.
+interface TreeRow {
+  _id: string;
+  name: string;
+  parentId?: string | null;
+  isActive?: boolean;
+  kind: "category" | "brand" | "series" | "model";
+}
+
+const SERIES_NODE_PREFIX = "series:";
+const MODEL_NODE_PREFIX = "model:";
+
 interface ModalState {
   type: "add" | "edit" | "delete" | null;
   brand?: Brand;
@@ -54,6 +85,8 @@ export default function BrandsPage() {
   const [view, setView] = useState<"grid" | "tree">("tree");
   const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | "">("");
   const [productCategories, setProductCategories] = useState<ProductCategoryOption[]>([]);
+  const [seriesOptions, setSeriesOptions] = useState<SeriesOption[]>([]);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [modal, setModal] = useState<ModalState>({ type: null });
   const [formData, setFormData] = useState({
     name: "",
@@ -104,6 +137,44 @@ export default function BrandsPage() {
       .then((d) => d.success && setProductCategories(d.categories || []))
       .catch(() => {});
   }, [businessId]);
+
+  // Tree view goes Category -> Brand -> Series -> Model, so it needs the
+  // full Series and DeviceModel lists too (not just Brands) -- fetched once
+  // per business, unfiltered by brand, and nested client-side below.
+  useEffect(() => {
+    if (!businessId || view !== "tree") return;
+    fetch(`/api/series?businessId=${businessId}&includeInactive=true`)
+      .then((r) => r.json())
+      .then((d) => d.success && setSeriesOptions(d.series || []))
+      .catch(() => {});
+    fetch(`/api/device-models?businessId=${businessId}`)
+      .then((r) => r.json())
+      .then((d) => d.success && setModelOptions(d.models || []))
+      .catch(() => {});
+  }, [businessId, view]);
+
+  // Merges Brands (with their existing Category-branch synthetic parentId
+  // handling already baked into CategoryTree via brand.parentId/category)
+  // with Series nested under their Brand, and Models nested under their
+  // Series -- same synthetic-id trick buildBrandTreeItems on the Models
+  // page uses for the Category level.
+  const treeRows: TreeRow[] = [
+    ...brands.map((b): TreeRow => ({ _id: b._id, name: b.name, parentId: b.parentId || null, isActive: b.isActive, kind: "brand" })),
+    ...seriesOptions.map((s): TreeRow => ({
+      _id: `${SERIES_NODE_PREFIX}${s._id}`,
+      name: s.name,
+      parentId: s.brandId,
+      isActive: s.isActive,
+      kind: "series",
+    })),
+    ...modelOptions.map((m): TreeRow => ({
+      _id: `${MODEL_NODE_PREFIX}${m._id}`,
+      name: m.name,
+      parentId: m.seriesId ? `${SERIES_NODE_PREFIX}${m.seriesId}` : null,
+      isActive: m.isActive,
+      kind: "model",
+    })).filter((m) => m.parentId), // models without a seriesId aren't shown in this tree yet (pre-migration data)
+  ];
 
   const openAdd = () => {
     setFormData({ name: "", description: "", logoUrl: "", parentId: "", category: "", productCategoryId: "", businessScope: "SINGLE", businessIds: [] });
@@ -364,9 +435,22 @@ export default function BrandsPage() {
         </div>
       </div>
 
-      {/* Tree view -- collapsible/expandable, multi-root */}
+      {/* Tree view -- collapsible/expandable, multi-root. Now goes
+          Brand -> Series -> Model (Series/Model rows use synthetic
+          prefixed ids so edit/delete only apply to real Brand rows --
+          Series/Model management stays on their own masters pages). */}
       {!loading && brands.length > 0 && view === "tree" && (
-        <CategoryTree items={brands} onEdit={openEdit} onDelete={openDelete} />
+        <CategoryTree
+          items={treeRows}
+          onEdit={(item) => {
+            const brand = brands.find((b) => b._id === item._id);
+            if (brand) openEdit(brand);
+          }}
+          onDelete={(item) => {
+            const brand = brands.find((b) => b._id === item._id);
+            if (brand) openDelete(brand);
+          }}
+        />
       )}
 
       {/* Grid */}

@@ -20,6 +20,13 @@ export interface IServiceCenterBOM extends Document {
   businessId: Types.ObjectId;
   vendorId: Types.ObjectId;
   brandId?: Types.ObjectId; // ref Brand -- which device brand this part fits, if any
+  // Which Series this part fits, if any -- lets a part be scoped to a whole
+  // product line (e.g. "any Galaxy S phone") without pinning it to one
+  // exact deviceModelId. Denormalized here (rather than requiring a join
+  // through DeviceModel) purely so GET /api/service-center-bom can filter
+  // on it directly; auto-set from deviceModelId's own seriesId whenever a
+  // deviceModelId is chosen, so the two never disagree.
+  seriesId?: Types.ObjectId; // ref Series
   // Which specific device model this part fits, if any -- optional and
   // nested under brandId (a part can be brand-wide/"Any Model" with this
   // unset, or scoped to one exact model). Together with brandId this is
@@ -52,6 +59,7 @@ const ServiceCenterBOMSchema = new Schema<IServiceCenterBOM>(
     businessId: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
     vendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", required: true, index: true },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand", index: true },
+    seriesId: { type: Schema.Types.ObjectId, ref: "Series", index: true },
     deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel", index: true },
     partName: { type: String, required: true, trim: true },
     partCode: { type: String, required: true, trim: true },
