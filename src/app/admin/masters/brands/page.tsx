@@ -129,6 +129,7 @@ export default function BrandsPage() {
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -326,6 +327,38 @@ export default function BrandsPage() {
       showToast("Network error.", false);
     } finally {
       setBackfilling(false);
+    }
+  };
+
+  // Populates the curated Indian-market starter catalog (all categories --
+  // see src/core/catalog/seedCatalogData.ts) for the active business, from
+  // the browser, using the server's own DB connection -- no local script /
+  // .env.local access needed. Idempotent: safe to click more than once.
+  const runSeedCatalog = async () => {
+    if (!businessId) return;
+    if (!window.confirm("Add the curated starter catalog (brands, series, models across all categories) for this business? This only adds what's missing -- existing data is never overwritten or removed.")) {
+      return;
+    }
+    setSeeding(true);
+    try {
+      const res = await fetch(`/api/admin/seed-catalog?businessId=${businessId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Seeding failed.", false);
+        return;
+      }
+      const { brandsCreated, brandsBackfilled, seriesCreated, modelsCreated } = data.summary;
+      showToast(
+        brandsCreated === 0 && brandsBackfilled === 0 && seriesCreated === 0 && modelsCreated === 0
+          ? "Already seeded -- nothing new to add."
+          : `Added ${brandsCreated} brands, ${seriesCreated} series, ${modelsCreated} models.`
+      );
+      fetchBrands();
+      refreshSeriesAndModels();
+    } catch {
+      showToast("Network error.", false);
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -627,6 +660,14 @@ export default function BrandsPage() {
             className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
           />
         </div>
+        <button
+          onClick={runSeedCatalog}
+          disabled={seeding}
+          title="Add the curated Indian-market starter catalog (brands, series, models across all categories) -- only adds what's missing, never overwrites existing data"
+          className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 disabled:opacity-50 shrink-0"
+        >
+          {seeding ? "Seeding…" : "Seed Standard Catalog"}
+        </button>
         {view === "tree" && (
           <button
             onClick={runBackfill}
