@@ -15,6 +15,7 @@ interface CrmOption { _id: string; code: string; label: string }
 interface Warehouse { _id: string; warehouseName: string }
 interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
 interface DeviceModelOption { _id: string; name: string }
+interface VariantOption { _id: string; name: string }
 
 export default function NewJobSheetPage() {
   const router = useRouter()
@@ -27,13 +28,14 @@ export default function NewJobSheetPage() {
   const [appointmentTypes, setAppointmentTypes] = useState<CrmOption[]>([])
   const [requestTypes, setRequestTypes] = useState<CrmOption[]>([])
   const [models, setModels] = useState<DeviceModelOption[]>([])
+  const [variants, setVariants] = useState<VariantOption[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     customerName: '', company: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', imeiOrSerialNumber: '',
+    product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '', imeiOrSerialNumber: '',
     faultCodeId: '', symptomCodeId: '', remark: '',
     appointmentType: '', requestType: '',
     warehouseId: '', title: '',
@@ -61,6 +63,14 @@ export default function NewJobSheetPage() {
       .then(d => setModels(d.models || []))
       .catch(() => setModels([]))
   }, [form.brandId, businessId])
+
+  useEffect(() => {
+    if (!form.deviceModelId || !businessId) { setVariants([]); return }
+    fetch(`/api/variants?businessId=${businessId}&modelId=${form.deviceModelId}`)
+      .then(r => r.json())
+      .then(d => setVariants(d.variants || []))
+      .catch(() => setVariants([]))
+  }, [form.deviceModelId, businessId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -184,7 +194,7 @@ export default function NewJobSheetPage() {
               <select
                 required
                 value={form.deviceCategory}
-                onChange={e => setForm(p => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '', symptomCodeId: '' }))}
+                onChange={e => setForm(p => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '', faultCodeId: '', symptomCodeId: '' }))}
                 className={inputCls}
               >
                 <option value="">Select device type…</option>
@@ -199,7 +209,7 @@ export default function NewJobSheetPage() {
                 <TreeSelect
                   items={brands}
                   value={form.brandId}
-                  onChange={(id) => setForm(p => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
+                  onChange={(id) => setForm(p => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '', variantId: '' }))}
                   placeholder={!form.deviceCategory ? 'Select a device type first' : 'Select brand…'}
                   className={`${inputCls} ${!form.deviceCategory ? 'opacity-50 pointer-events-none' : ''}`}
                 />
@@ -211,7 +221,7 @@ export default function NewJobSheetPage() {
                   value={form.deviceModelId}
                   onChange={(e) => {
                     const m = models.find((mm) => mm._id === e.target.value)
-                    setForm(p => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                    setForm(p => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '', variantId: '' }))
                   }}
                   disabled={!form.brandId}
                   title="Select model"
@@ -219,6 +229,19 @@ export default function NewJobSheetPage() {
                 >
                   <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
                   {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Variant</label>
+                <select
+                  value={form.variantId}
+                  onChange={(e) => setForm(p => ({ ...p, variantId: e.target.value }))}
+                  disabled={!form.deviceModelId || variants.length === 0}
+                  title="Select variant"
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">No specific variant</option>
+                  {variants.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
                 </select>
               </div>
             </div>

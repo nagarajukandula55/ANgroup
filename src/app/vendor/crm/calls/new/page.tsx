@@ -14,6 +14,7 @@ interface SymptomCode { _id: string; code: string; description: string }
 interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
 interface StaffMember { _id: string; userId: { _id: string; name: string; email: string } | string }
 interface DeviceModelOption { _id: string; name: string }
+interface VariantOption { _id: string; name: string }
 
 // Vendor's own equivalent of /admin/crm/calls/new -- a real page, not the
 // inline right-hand modal this used to be (which was also missing Email,
@@ -31,6 +32,7 @@ export default function NewVendorAppointmentPage() {
   const [symptomCodes, setSymptomCodes] = useState<SymptomCode[]>([])
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [models, setModels] = useState<DeviceModelOption[]>([])
+  const [variants, setVariants] = useState<VariantOption[]>([])
   const [vendorCategories, setVendorCategories] = useState<DeviceCategory[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -38,7 +40,7 @@ export default function NewVendorAppointmentPage() {
   const [form, setForm] = useState({
     customerName: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    source: 'User Contact', product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '',
+    source: 'User Contact', product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '',
     faultCodeId: '', symptomCodeId: '', subject: '',
     appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '',
   })
@@ -72,6 +74,14 @@ export default function NewVendorAppointmentPage() {
       .then(d => setModels(d.models || []))
       .catch(() => setModels([]))
   }, [form.brandId, businessId])
+
+  useEffect(() => {
+    if (!form.deviceModelId || !businessId) { setVariants([]); return }
+    fetch(`/api/variants?businessId=${businessId}&modelId=${form.deviceModelId}`)
+      .then(r => r.json())
+      .then(d => setVariants(d.variants || []))
+      .catch(() => setVariants([]))
+  }, [form.deviceModelId, businessId])
 
   useEffect(() => {
     fetch('/api/vendor/staff')
@@ -195,7 +205,7 @@ export default function NewVendorAppointmentPage() {
               <select
                 required
                 value={form.deviceCategory}
-                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '', symptomCodeId: '' }))}
+                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '', faultCodeId: '', symptomCodeId: '' }))}
                 className={inputCls}
               >
                 <option value="">Select device type…</option>
@@ -210,7 +220,7 @@ export default function NewVendorAppointmentPage() {
                 <TreeSelect
                   items={brands}
                   value={form.brandId}
-                  onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
+                  onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '', variantId: '' }))}
                   placeholder={!form.deviceCategory ? 'Select a device type first' : 'Select brand…'}
                   className={`${inputCls} ${!form.deviceCategory ? 'opacity-50 pointer-events-none' : ''}`}
                 />
@@ -222,7 +232,7 @@ export default function NewVendorAppointmentPage() {
                   value={form.deviceModelId}
                   onChange={(e) => {
                     const m = models.find((mm) => mm._id === e.target.value)
-                    setForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                    setForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '', variantId: '' }))
                   }}
                   disabled={!form.brandId}
                   title="Select model"
@@ -230,6 +240,19 @@ export default function NewVendorAppointmentPage() {
                 >
                   <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
                   {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Variant</label>
+                <select
+                  value={form.variantId}
+                  onChange={(e) => setForm((p) => ({ ...p, variantId: e.target.value }))}
+                  disabled={!form.deviceModelId || variants.length === 0}
+                  title="Select variant"
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">No specific variant</option>
+                  {variants.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
                 </select>
               </div>
             </div>

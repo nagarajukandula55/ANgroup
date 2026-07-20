@@ -13,8 +13,11 @@ import {
   CheckCircle,
   AlertCircle,
   Layers,
+  Layers3,
   FolderTree,
   Smartphone,
+  Download,
+  Upload,
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 import BusinessScopeControl, { type BusinessScopeValue } from "@/components/catalog/BusinessScopeControl";
@@ -57,6 +60,13 @@ interface ModelOption {
   isActive: boolean;
 }
 
+interface VariantOption {
+  _id: string;
+  name: string;
+  modelId: string;
+  isActive: boolean;
+}
+
 // Synthetic tree row used only for the Tree view -- Category, Series and
 // Model don't natively have a "parentId" pointing at a Brand's own tree
 // slot, so these are given prefixed synthetic ids/parentIds
@@ -73,12 +83,13 @@ interface TreeRow {
   name: string;
   parentId?: string | null;
   isActive?: boolean;
-  kind: "category" | "brand" | "series" | "model";
+  kind: "category" | "brand" | "series" | "model" | "variant";
 }
 
 const CATEGORY_NODE_PREFIX = "cat:";
 const SERIES_NODE_PREFIX = "series:";
 const MODEL_NODE_PREFIX = "model:";
+const VARIANT_NODE_PREFIX = "variant:";
 
 interface ModalState {
   type: "add" | "edit" | "delete" | null;
@@ -100,6 +111,14 @@ interface ModelModalState {
   model?: ModelOption;
 }
 
+interface VariantModalState {
+  open: boolean;
+  mode: "add" | "edit";
+  modelId: string;
+  modelName: string;
+  variant?: VariantOption;
+}
+
 export default function BrandsPage() {
   const { businessId } = useActiveBusinessId();
 
@@ -111,9 +130,11 @@ export default function BrandsPage() {
   const [productCategories, setProductCategories] = useState<ProductCategoryOption[]>([]);
   const [seriesOptions, setSeriesOptions] = useState<SeriesOption[]>([]);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const [variantOptions, setVariantOptions] = useState<VariantOption[]>([]);
   const [modal, setModal] = useState<ModalState>({ type: null });
   const [seriesModal, setSeriesModal] = useState<SeriesModalState | null>(null);
   const [modelModal, setModelModal] = useState<ModelModalState | null>(null);
+  const [variantModal, setVariantModal] = useState<VariantModalState | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -130,6 +151,10 @@ export default function BrandsPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [deduping, setDeduping] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResults, setUploadResults] = useState<Array<{ row: number; status: string; error?: string }> | null>(null);
+  const [uploadSummary, setUploadSummary] = useState<{ total: number; created: number; skipped: number; failed: number } | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -179,6 +204,10 @@ export default function BrandsPage() {
       .then((r) => r.json())
       .then((d) => d.success && setModelOptions(d.models || []))
       .catch(() => {});
+    fetch(`/api/variants?businessId=${businessId}&includeInactive=true`)
+      .then((r) => r.json())
+      .then((d) => d.success && setVariantOptions(d.variants || []))
+      .catch(() => {});
   }, [businessId]);
 
   // Only device types that actually have a top-level (non-sub-branded)
@@ -226,6 +255,13 @@ export default function BrandsPage() {
       isActive: m.isActive,
       kind: "model",
     })),
+    ...variantOptions.map((v): TreeRow => ({
+      _id: `${VARIANT_NODE_PREFIX}${v._id}`,
+      name: v.name,
+      parentId: `${MODEL_NODE_PREFIX}${v.modelId}`,
+      isActive: v.isActive,
+      kind: "variant",
+    })),
   ];
 
   const refreshSeriesAndModels = useCallback(() => {
@@ -237,6 +273,10 @@ export default function BrandsPage() {
     fetch(`/api/device-models?businessId=${businessId}`)
       .then((r) => r.json())
       .then((d) => d.success && setModelOptions(d.models || []))
+      .catch(() => {});
+    fetch(`/api/variants?businessId=${businessId}&includeInactive=true`)
+      .then((r) => r.json())
+      .then((d) => d.success && setVariantOptions(d.variants || []))
       .catch(() => {});
   }, [businessId]);
 
@@ -302,6 +342,37 @@ export default function BrandsPage() {
     refreshSeriesAndModels();
   };
 
+  const renameVariant = async (row: TreeRow | VariantOption) => {
+    const id = "kind" in row ? row._id.slice(VARIANT_NODE_PREFIX.length) : row._id;
+    const name = window.prompt("Rename variant", row.name);
+    if (!name || !name.trim() || name.trim() === row.name) return;
+    const res = await fetch(`/api/variants/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to rename variant.", false);
+      return;
+    }
+    showToast("Variant renamed.");
+    refreshSeriesAndModels();
+  };
+
+  const deleteVariant = async (row: TreeRow | VariantOption) => {
+    const id = "kind" in row ? row._id.slice(VARIANT_NODE_PREFIX.length) : row._id;
+    if (!window.confirm(`Delete variant "${row.name}"?`)) return;
+    const res = await fetch(`/api/variants/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to delete variant.", false);
+      return;
+    }
+    showToast("Variant deleted.");
+    refreshSeriesAndModels();
+  };
+
   // One-click fix for catalog data that predates the Series level (models
   // with no seriesId that an admin would rather see grouped under a named
   // Series) -- see /api/series/backfill's own header comment. Series is no
@@ -360,6 +431,105 @@ export default function BrandsPage() {
     } finally {
       setSeeding(false);
     }
+  };
+
+  // Removes duplicate Brand/Series/DeviceModel docs (same name within the
+  // same scope), keeping the oldest as survivor and reassigning children --
+  // see /api/admin/catalog/dedupe's own header comment for the merge logic.
+  const runDedupe = async () => {
+    if (!businessId) return;
+    if (!window.confirm("Merge duplicate Brands/Series/Models for this business? Duplicates (same name, case-insensitive) will be combined into the oldest entry, and everything under them reassigned. This cannot be undone.")) {
+      return;
+    }
+    setDeduping(true);
+    try {
+      const res = await fetch(`/api/admin/catalog/dedupe?businessId=${businessId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Dedupe failed.", false);
+        return;
+      }
+      const { brandsMerged, seriesMerged, modelsMerged } = data.summary;
+      showToast(
+        brandsMerged === 0 && seriesMerged === 0 && modelsMerged === 0
+          ? "No duplicates found."
+          : `Merged ${brandsMerged} brands, ${seriesMerged} series, ${modelsMerged} models.`
+      );
+      fetchBrands();
+      refreshSeriesAndModels();
+    } catch {
+      showToast("Network error.", false);
+    } finally {
+      setDeduping(false);
+    }
+  };
+
+  // Client-side download of the CSV column headers + example rows an admin
+  // can fill in and hand to Bulk Upload -- same Blob+anchor pattern used by
+  // src/app/vendor/service-bom/page.tsx's downloadTemplate().
+  const downloadTemplate = () => {
+    const header = ["category", "brand", "series", "model", "variant"];
+    const examples = [
+      ["Mobile Phones", "Samsung", "Galaxy S", "Galaxy S21", "8GB RAM + 128GB Storage, Phantom Black"],
+      ["Mobile Phones", "Nokia", "", "Nokia 3310", ""],
+      ["Television", "LG", "", "43 Inch 4K Smart TV", "43UQ7500"],
+    ];
+    const csv = [header, ...examples].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "catalog-bulk-upload-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkUpload = async (file: File) => {
+    if (!businessId) return;
+    setUploading(true);
+    setUploadResults(null);
+    setUploadSummary(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/admin/catalog/bulk-upload?businessId=${businessId}`, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Bulk upload failed.", false);
+        return;
+      }
+      setUploadResults(data.results || []);
+      setUploadSummary(data.summary || null);
+      fetchBrands();
+      refreshSeriesAndModels();
+    } catch {
+      showToast("Network error.", false);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ---- Variant modal (create only -- rename/delete reuse the existing
+  // prompt/confirm flows above, wired into both Table and Tree views) ----
+  const openAddVariant = (model: { _id: string; name: string }) => {
+    setVariantModal({ open: true, mode: "add", modelId: model._id, modelName: model.name });
+  };
+  const closeVariantModal = () => setVariantModal(null);
+  const submitVariantModal = async (name: string) => {
+    if (!variantModal || !name.trim() || !businessId) return;
+    const res = await fetch("/api/variants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), modelId: variantModal.modelId, businessId }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to create variant.", false);
+      return;
+    }
+    showToast("Variant created.");
+    closeVariantModal();
+    refreshSeriesAndModels();
   };
 
   const openAdd = (category?: DeviceCategory) => {
@@ -668,6 +838,38 @@ export default function BrandsPage() {
         >
           {seeding ? "Seeding…" : "Seed Standard Catalog"}
         </button>
+        <button
+          onClick={runDedupe}
+          disabled={deduping}
+          title="Merge duplicate Brands/Series/Models (same name) for this business -- keeps the oldest entry and reassigns everything under the duplicates"
+          className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 disabled:opacity-50 shrink-0"
+        >
+          {deduping ? "Merging…" : "Remove Duplicates"}
+        </button>
+        <button
+          onClick={downloadTemplate}
+          title="Download a CSV template for bulk-uploading the catalog (category,brand,series,model,variant)"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 shrink-0"
+        >
+          <Download size={12} /> Download Template
+        </button>
+        <label
+          title="Bulk upload a catalog CSV (category,brand,series,model,variant) -- auto-creates whatever doesn't already exist"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 shrink-0 cursor-pointer ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          <Upload size={12} /> {uploading ? "Uploading…" : "Bulk Upload"}
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleBulkUpload(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
         {view === "tree" && (
           <button
             onClick={runBackfill}
@@ -694,6 +896,44 @@ export default function BrandsPage() {
         </div>
       </div>
 
+      {/* Bulk upload results summary */}
+      {uploadSummary && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-700">
+              Bulk upload: <span className="font-medium text-emerald-600">{uploadSummary.created} created</span>
+              {" · "}
+              <span className="text-gray-500">{uploadSummary.skipped} already existed</span>
+              {uploadSummary.failed > 0 && <span className="text-red-600"> · {uploadSummary.failed} failed</span>}
+              {" "}of {uploadSummary.total} rows.
+            </p>
+            <button onClick={() => { setUploadSummary(null); setUploadResults(null); }} className="text-xs text-gray-400 hover:text-gray-700">
+              Dismiss
+            </button>
+          </div>
+          {uploadResults && uploadResults.some((r) => r.status === "failed") && (
+            <div className="max-h-48 overflow-y-auto border border-gray-100 rounded-lg">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50 text-left text-gray-500">
+                    <th className="px-3 py-1.5">Row</th>
+                    <th className="px-3 py-1.5">Error</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {uploadResults.filter((r) => r.status === "failed").map((r) => (
+                    <tr key={r.row}>
+                      <td className="px-3 py-1.5">{r.row}</td>
+                      <td className="px-3 py-1.5 text-red-600">{r.error}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Table view -- one row per leaf Model, grouped by Category > Brand >
           Series, with every category (even empty ones) always shown as its
           own section so admins can add the first Brand anywhere without
@@ -703,6 +943,7 @@ export default function BrandsPage() {
           brands={brands}
           seriesOptions={seriesOptions}
           modelOptions={modelOptions}
+          variantOptions={variantOptions}
           categoryFilter={categoryFilter}
           search={search}
           loading={loading}
@@ -715,6 +956,9 @@ export default function BrandsPage() {
           onAddModel={openAddModel}
           onEditModel={openEditModel}
           onDeleteModel={deleteModel}
+          onAddVariant={openAddVariant}
+          onRenameVariant={renameVariant}
+          onDeleteVariant={deleteVariant}
         />
       )}
 
@@ -747,6 +991,8 @@ export default function BrandsPage() {
                 return <Layers className={`${cls} text-indigo-400`} />;
               case "model":
                 return <Smartphone className={`${cls} text-emerald-500`} />;
+              case "variant":
+                return <Layers3 className={`${cls} text-amber-500`} />;
               default:
                 return null;
             }
@@ -786,13 +1032,31 @@ export default function BrandsPage() {
                 </>
               );
             }
-            // model
+            if (item.kind === "model") {
+              const model = modelOptions.find((m) => `${MODEL_NODE_PREFIX}${m._id}` === item._id);
+              return (
+                <>
+                  {model && (
+                    <button onClick={() => openAddVariant(model)} className="text-gray-400 hover:text-gray-700 shrink-0" title="Add variant">
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button onClick={() => renameModel(item)} className="text-gray-400 hover:text-gray-700 shrink-0" title="Rename model">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => deleteModel(item)} className="text-gray-400 hover:text-red-500 shrink-0" title="Delete model">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              );
+            }
+            // variant
             return (
               <>
-                <button onClick={() => renameModel(item)} className="text-gray-400 hover:text-gray-700 shrink-0" title="Rename model">
+                <button onClick={() => renameVariant(item)} className="text-gray-400 hover:text-gray-700 shrink-0" title="Rename variant">
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => deleteModel(item)} className="text-gray-400 hover:text-red-500 shrink-0" title="Delete model">
+                <button onClick={() => deleteVariant(item)} className="text-gray-400 hover:text-red-500 shrink-0" title="Delete variant">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </>
@@ -890,6 +1154,15 @@ export default function BrandsPage() {
           onSubmit={submitModelModal}
         />
       )}
+
+      {/* Variant create modal */}
+      {variantModal?.open && (
+        <VariantModal
+          modelName={variantModal.modelName}
+          onClose={closeVariantModal}
+          onSubmit={submitVariantModal}
+        />
+      )}
     </div>
   );
 }
@@ -911,6 +1184,7 @@ function CatalogTable({
   brands,
   seriesOptions,
   modelOptions,
+  variantOptions,
   categoryFilter,
   search,
   loading,
@@ -923,10 +1197,14 @@ function CatalogTable({
   onAddModel,
   onEditModel,
   onDeleteModel,
+  onAddVariant,
+  onRenameVariant,
+  onDeleteVariant,
 }: {
   brands: Brand[];
   seriesOptions: SeriesOption[];
   modelOptions: ModelOption[];
+  variantOptions: VariantOption[];
   categoryFilter: DeviceCategory | "";
   search: string;
   loading: boolean;
@@ -939,6 +1217,9 @@ function CatalogTable({
   onAddModel: (b: { _id: string; name: string }, seriesId?: string) => void;
   onEditModel: (b: { _id: string; name: string }, m: ModelOption) => void;
   onDeleteModel: (m: ModelOption) => void;
+  onAddVariant: (m: { _id: string; name: string }) => void;
+  onRenameVariant: (v: VariantOption) => void;
+  onDeleteVariant: (v: VariantOption) => void;
 }) {
   const q = search.trim().toLowerCase();
 
@@ -980,13 +1261,24 @@ function CatalogTable({
     return map;
   }, [modelOptions]);
 
-  function matchesSearch(categoryLabel: string, brandName: string, seriesName: string | null, modelName: string | null) {
+  const variantsByModel = useMemo(() => {
+    const map = new Map<string, VariantOption[]>();
+    for (const v of variantOptions) {
+      if (!map.has(v.modelId)) map.set(v.modelId, []);
+      map.get(v.modelId)!.push(v);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [variantOptions]);
+
+  function matchesSearch(categoryLabel: string, brandName: string, seriesName: string | null, modelName: string | null, variantName: string | null = null) {
     if (!q) return true;
     return (
       categoryLabel.toLowerCase().includes(q) ||
       brandName.toLowerCase().includes(q) ||
       (seriesName ? seriesName.toLowerCase().includes(q) : false) ||
-      (modelName ? modelName.toLowerCase().includes(q) : false)
+      (modelName ? modelName.toLowerCase().includes(q) : false) ||
+      (variantName ? variantName.toLowerCase().includes(q) : false)
     );
   }
 
@@ -1127,9 +1419,13 @@ function CatalogTable({
                               brandName={brand.name}
                               seriesLabel={null}
                               model={m}
+                              variants={(variantsByModel.get(m._id) || []).filter((v) => matchesSearch(categoryLabel, brand.name, null, m.name, v.name))}
                               muted={idx > 0}
                               onEdit={() => onEditModel(brand, m)}
                               onDelete={() => onDeleteModel(m)}
+                              onAddVariant={() => onAddVariant(m)}
+                              onRenameVariant={onRenameVariant}
+                              onDeleteVariant={onDeleteVariant}
                             />
                           );
                         });
@@ -1209,9 +1505,13 @@ function CatalogTable({
                                 brandName={brand.name}
                                 seriesLabel={series.name}
                                 model={m}
+                                variants={(variantsByModel.get(m._id) || []).filter((v) => matchesSearch(categoryLabel, brand.name, series.name, m.name, v.name))}
                                 muted={idx > 0}
                                 onEdit={() => onEditModel(brand, m)}
                                 onDelete={() => onDeleteModel(m)}
+                                onAddVariant={() => onAddVariant(m)}
+                                onRenameVariant={onRenameVariant}
+                                onDeleteVariant={onDeleteVariant}
                               />
                             );
                           });
@@ -1235,42 +1535,110 @@ function ModelDataRow({
   brandName,
   seriesLabel,
   model,
+  variants,
   muted,
   onEdit,
   onDelete,
+  onAddVariant,
+  onRenameVariant,
+  onDeleteVariant,
 }: {
   categoryLabel: string;
   brandName: string;
   seriesLabel: string | null;
   model: ModelOption;
+  variants: VariantOption[];
   muted: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onAddVariant: () => void;
+  onRenameVariant: (v: VariantOption) => void;
+  onDeleteVariant: (v: VariantOption) => void;
 }) {
   // Full values always stay in the DOM (for search/accessibility) -- only
   // visually muted on repeats within a contiguous Category+Brand+Series run.
   const dim = muted ? "text-gray-300" : "text-gray-600";
+
+  // Models with zero variants render exactly as before -- one row, model
+  // name only, plus a new "+ Add Variant" action alongside edit/delete.
+  if (variants.length === 0) {
+    return (
+      <tr className="border-t border-gray-50 hover:bg-gray-50/50">
+        <td className={`px-4 py-2 text-xs ${dim}`}>{categoryLabel}</td>
+        <td className={`px-4 py-2 text-xs ${dim}`}>{brandName}</td>
+        <td className={`px-4 py-2 text-xs ${dim}`}>
+          {seriesLabel || <span className="text-gray-400 italic">Direct</span>}
+        </td>
+        <td className={`px-4 py-2 text-xs ${model.isActive ? "text-gray-900" : "text-gray-400 line-through"} font-medium`}>
+          {model.name}
+        </td>
+        <td className="px-4 py-2">
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={onAddVariant}
+              className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[11px] font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+            >
+              <Plus size={11} /> Variant
+            </button>
+            <button onClick={onEdit} className="text-gray-400 hover:text-gray-700" title="Rename model">
+              <Edit2 size={13} />
+            </button>
+            <button onClick={onDelete} className="text-gray-400 hover:text-red-500" title="Delete model">
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  // Models with one or more variants render one row per variant -- model
+  // name and variant name stay in separate DOM elements (independently
+  // visible/searchable), not concatenated into a single unparseable string.
   return (
-    <tr className="border-t border-gray-50 hover:bg-gray-50/50">
-      <td className={`px-4 py-2 text-xs ${dim}`}>{categoryLabel}</td>
-      <td className={`px-4 py-2 text-xs ${dim}`}>{brandName}</td>
-      <td className={`px-4 py-2 text-xs ${dim}`}>
-        {seriesLabel || <span className="text-gray-400 italic">Direct</span>}
-      </td>
-      <td className={`px-4 py-2 text-xs ${model.isActive ? "text-gray-900" : "text-gray-400 line-through"} font-medium`}>
-        {model.name}
-      </td>
-      <td className="px-4 py-2">
-        <div className="flex items-center justify-end gap-2">
-          <button onClick={onEdit} className="text-gray-400 hover:text-gray-700" title="Rename model">
-            <Edit2 size={13} />
-          </button>
-          <button onClick={onDelete} className="text-gray-400 hover:text-red-500" title="Delete model">
-            <Trash2 size={13} />
-          </button>
-        </div>
-      </td>
-    </tr>
+    <>
+      {variants.map((v, idx) => (
+        <tr key={`variant-${v._id}`} className="border-t border-gray-50 hover:bg-gray-50/50">
+          <td className={`px-4 py-2 text-xs ${dim}`}>{idx === 0 ? categoryLabel : ""}</td>
+          <td className={`px-4 py-2 text-xs ${dim}`}>{idx === 0 ? brandName : ""}</td>
+          <td className={`px-4 py-2 text-xs ${dim}`}>
+            {idx === 0 ? seriesLabel || <span className="text-gray-400 italic">Direct</span> : ""}
+          </td>
+          <td className={`px-4 py-2 text-xs ${model.isActive ? "text-gray-900" : "text-gray-400 line-through"} font-medium`}>
+            <span>{model.name}</span>
+            <span className="text-gray-400 font-normal"> — </span>
+            <span className={v.isActive ? "text-gray-700 font-normal" : "text-gray-400 line-through font-normal"}>{v.name}</span>
+          </td>
+          <td className="px-4 py-2">
+            <div className="flex items-center justify-end gap-2">
+              {idx === 0 && (
+                <>
+                  <button
+                    onClick={onAddVariant}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[11px] font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+                  >
+                    <Plus size={11} /> Variant
+                  </button>
+                  <button onClick={onEdit} className="text-gray-400 hover:text-gray-700" title="Rename model">
+                    <Edit2 size={13} />
+                  </button>
+                  <button onClick={onDelete} className="text-gray-400 hover:text-red-500" title="Delete model">
+                    <Trash2 size={13} />
+                  </button>
+                  <span className="w-px h-4 bg-gray-200 mx-1" />
+                </>
+              )}
+              <button onClick={() => onRenameVariant(v)} className="text-gray-400 hover:text-gray-700" title="Rename variant">
+                <Edit2 size={13} />
+              </button>
+              <button onClick={() => onDeleteVariant(v)} className="text-gray-400 hover:text-red-500" title="Delete variant">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
   );
 }
 
@@ -1702,6 +2070,81 @@ function ModelModal({
             className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? "Saving…" : state.mode === "edit" ? "Save Changes" : "Add Model"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Variant create modal (matches SeriesModal's visual style)
+// ---------------------------------------------------------------------------
+
+function VariantModal({
+  modelName,
+  onClose,
+  onSubmit,
+}: {
+  modelName: string;
+  onClose: () => void;
+  onSubmit: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(name);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h2 className="text-base font-semibold text-gray-900">Add Variant</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Model</label>
+            <input
+              value={modelName}
+              disabled
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">
+              Variant Name <span className="text-red-400">*</span>
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              placeholder="e.g. 8GB RAM + 128GB Storage, Awesome Navy"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400">
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !name.trim()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Saving…" : "Add Variant"}
           </button>
         </div>
       </div>

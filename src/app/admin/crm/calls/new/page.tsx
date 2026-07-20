@@ -13,6 +13,7 @@ interface FaultCode { _id: string; code: string; description: string }
 interface SymptomCode { _id: string; code: string; description: string }
 interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
 interface DeviceModelOption { _id: string; name: string }
+interface VariantOption { _id: string; name: string }
 
 export default function NewAppointmentPage() {
   const router = useRouter()
@@ -22,13 +23,14 @@ export default function NewAppointmentPage() {
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
   const [symptomCodes, setSymptomCodes] = useState<SymptomCode[]>([])
   const [models, setModels] = useState<DeviceModelOption[]>([])
+  const [variants, setVariants] = useState<VariantOption[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     customerName: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    source: 'User Contact', product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '',
+    source: 'User Contact', product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '',
     faultCodeId: '', symptomCodeId: '', subject: '',
   })
 
@@ -54,6 +56,14 @@ export default function NewAppointmentPage() {
       .then(d => setModels(d.models || []))
       .catch(() => setModels([]))
   }, [form.brandId, businessId])
+
+  useEffect(() => {
+    if (!form.deviceModelId || !businessId) { setVariants([]); return }
+    fetch(`/api/variants?businessId=${businessId}&modelId=${form.deviceModelId}`)
+      .then(r => r.json())
+      .then(d => setVariants(d.variants || []))
+      .catch(() => setVariants([]))
+  }, [form.deviceModelId, businessId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -177,7 +187,7 @@ export default function NewAppointmentPage() {
               <select
                 required
                 value={form.deviceCategory}
-                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', faultCodeId: '', symptomCodeId: '' }))}
+                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '', faultCodeId: '', symptomCodeId: '' }))}
                 className={inputCls}
               >
                 <option value="">Select device type…</option>
@@ -192,7 +202,7 @@ export default function NewAppointmentPage() {
                 <TreeSelect
                   items={brands}
                   value={form.brandId}
-                  onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '' }))}
+                  onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '', variantId: '' }))}
                   placeholder={!form.deviceCategory ? 'Select a device type first' : 'Select brand…'}
                   className={`${inputCls} ${!form.deviceCategory ? 'opacity-50 pointer-events-none' : ''}`}
                 />
@@ -204,7 +214,7 @@ export default function NewAppointmentPage() {
                   value={form.deviceModelId}
                   onChange={(e) => {
                     const m = models.find((mm) => mm._id === e.target.value)
-                    setForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '' }))
+                    setForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '', variantId: '' }))
                   }}
                   disabled={!form.brandId}
                   title="Select model"
@@ -212,6 +222,19 @@ export default function NewAppointmentPage() {
                 >
                   <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
                   {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Variant</label>
+                <select
+                  value={form.variantId}
+                  onChange={(e) => setForm((p) => ({ ...p, variantId: e.target.value }))}
+                  disabled={!form.deviceModelId || variants.length === 0}
+                  title="Select variant"
+                  className={`${inputCls} disabled:opacity-50`}
+                >
+                  <option value="">No specific variant</option>
+                  {variants.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
                 </select>
               </div>
             </div>

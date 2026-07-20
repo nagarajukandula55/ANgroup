@@ -80,6 +80,7 @@ interface JobSheet {
   imeiOrSerialNumber?: string
   brandId?: { _id?: string; name?: string } | string
   deviceModelId?: { _id?: string; name?: string } | string
+  variantId?: { _id?: string; name?: string } | string
   faultCodeId?: { _id?: string } | string
   status: string
   createdAt: string
@@ -603,7 +604,7 @@ export default function JobSheetDetailPage() {
   const days = ageingDays(job.createdAt)
   const isOpen = job.status !== 'CLOSED' && job.status !== 'CANCELLED'
   const overdue = isOpen && days >= 7
-  const deviceLine = [job.product, typeof job.brandId === 'object' ? job.brandId?.name : undefined, job.deviceModel].filter(Boolean).join(' · ')
+  const deviceLine = [job.product, typeof job.brandId === 'object' ? job.brandId?.name : undefined, job.deviceModel, typeof job.variantId === 'object' ? job.variantId?.name : undefined].filter(Boolean).join(' · ')
 
   // Shared cell width classes for the Line Items table -- a flex row
   // instead of Tailwind's grid-cols-N (capped at 12 by default) since this

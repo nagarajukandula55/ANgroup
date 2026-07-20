@@ -94,6 +94,11 @@ export interface ICrmCall extends Document {
   // workorder's BOM-part picker filter to exactly this model instead of
   // just the brand.
   deviceModelId?: Types.ObjectId; // ref DeviceModel
+  // Structured variant selection -- optional, only meaningful once a
+  // deviceModelId is picked; same optional-ObjectId-ref pattern as
+  // DeviceModel.seriesId. Lets a specific RAM/Storage/Colour variant round
+  // -trip into the job sheet at conversion time.
+  variantId?: Types.ObjectId; // ref Variant
   // Structured fault selection -- optional; the free-text subject field
   // below still carries the actual "Fault in Device" description shown
   // required in the UI, faultCodeId just links it to the Fault Code
@@ -191,6 +196,7 @@ const CrmCallSchema = new Schema<ICrmCall>(
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
     deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },
+    variantId: { type: Schema.Types.ObjectId, ref: "Variant" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
     symptomCodeId: { type: Schema.Types.ObjectId, ref: "SymptomCode" },
     subject: { type: String, required: true, trim: true },

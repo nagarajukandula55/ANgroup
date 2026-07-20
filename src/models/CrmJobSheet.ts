@@ -93,6 +93,10 @@ export interface ICrmJobSheet extends Document {
   // BOM-part picker filter to exactly this model, not just the brand
   // (see /api/service-center-bom's deviceModelId filter).
   deviceModelId?: Types.ObjectId; // ref DeviceModel
+  // Structured variant selection -- optional, same pattern as
+  // CrmCall.variantId; carried over from the originating call at
+  // conversion time when set there.
+  variantId?: Types.ObjectId; // ref Variant
   imeiOrSerialNumber?: string;
   issueDescription?: string; // free-text VOC, independent of faultCodeId
   faultCodeId?: Types.ObjectId; // ref FaultCode
@@ -208,6 +212,7 @@ const CrmJobSheetSchema = new Schema<ICrmJobSheet>(
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
     deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },
+    variantId: { type: Schema.Types.ObjectId, ref: "Variant" },
     imeiOrSerialNumber: { type: String, trim: true },
     issueDescription: { type: String, default: "" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },

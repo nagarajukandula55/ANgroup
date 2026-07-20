@@ -22,6 +22,7 @@ import "@/models/Brand";
 import "@/models/FaultCode";
 import "@/models/SymptomCode";
 import "@/models/Solution";
+import "@/models/Variant";
 
 function permissionErrorResponse(err: any) {
   return NextResponse.json(
@@ -53,6 +54,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .populate("assignedTo", "name email")
       .populate("callId", "callNumber status")
       .populate("brandId", "name")
+      .populate("variantId", "name")
       // Per-line Fault Phenomenon/Symptom/Solution -- needed both by the
       // repair page's dropdowns (to show the currently-selected value's
       // code+description, not just its id) and by the workorder/estimate
@@ -100,6 +102,7 @@ const ALLOWED_FIELDS = [
   "brandId",
   "deviceModel",
   "deviceModelId",
+  "variantId",
   "imeiOrSerialNumber",
   "issueDescription",
   "faultCodeId",
