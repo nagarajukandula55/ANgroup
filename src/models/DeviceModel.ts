@@ -12,6 +12,12 @@ import { BUSINESS_SCOPES, type BusinessScope } from "@/core/catalog/businessScop
 export interface IDeviceModel extends Document {
   name: string;
   brandId: mongoose.Types.ObjectId;
+  // Which Series (product line) under brandId this model belongs to.
+  // Mandatory going forward -- enforced in the /api/device-models POST
+  // handler, not at the schema level, so pre-migration docs (and the
+  // migration script itself, which reads/writes docs before they're
+  // backfilled) never fail Mongoose validation.
+  seriesId?: mongoose.Types.ObjectId | null;
   businessId: mongoose.Types.ObjectId;
   businessScope: BusinessScope;
   businessIds: mongoose.Types.ObjectId[];
@@ -24,6 +30,7 @@ const DeviceModelSchema = new Schema<IDeviceModel>(
   {
     name: { type: String, required: true },
     brandId: { type: Schema.Types.ObjectId, ref: "Brand", required: true },
+    seriesId: { type: Schema.Types.ObjectId, ref: "Series", default: null },
     businessId: { type: Schema.Types.ObjectId, required: true },
     businessScope: { type: String, enum: BUSINESS_SCOPES, default: "SINGLE" },
     businessIds: [{ type: Schema.Types.ObjectId, ref: "Business" }],
@@ -31,6 +38,8 @@ const DeviceModelSchema = new Schema<IDeviceModel>(
   },
   { timestamps: true }
 );
+
+DeviceModelSchema.index({ businessId: 1, brandId: 1, seriesId: 1, isActive: 1 });
 
 DeviceModelSchema.index({ businessId: 1, brandId: 1, isActive: 1 });
 DeviceModelSchema.index({ businessId: 1, brandId: 1, name: 1 }, { unique: true });

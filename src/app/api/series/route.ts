@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { connectDB } from "@/lib/mongodb";
 import { Types } from "mongoose";
-import DeviceModel from "@/models/DeviceModel";
+import Series from "@/models/Series";
 import { logAction } from "@/lib/audit/logAction";
 import { buildBusinessScopeQuery } from "@/core/catalog/businessScopeFilter";
 import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 
-// GET /api/device-models?businessId=...&brandId=...&search=...
+// GET /api/series?businessId=...&brandId=...&search=...&isActive=...
 export async function GET(req: NextRequest) {
   try {
     const h = await headers();
@@ -27,8 +27,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const businessId = searchParams.get("businessId");
     const brandId = searchParams.get("brandId");
-    const seriesId = searchParams.get("seriesId");
     const search = searchParams.get("search");
+    const isActive = searchParams.get("isActive");
+    const includeInactive = searchParams.get("includeInactive") === "true";
 
     if (!businessId) {
       return NextResponse.json({ error: "businessId is required" }, { status: 400 });
@@ -37,27 +38,36 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const scopeQuery = buildBusinessScopeQuery(businessId);
-    const query: Record<string, unknown> = { ...scopeQuery, isActive: true };
+    const query: Record<string, unknown> = { ...scopeQuery };
+
+    if (isActive !== null) {
+      query.isActive = isActive === "true";
+    } else if (!includeInactive) {
+      query.isActive = true;
+    }
+
     if (brandId && Types.ObjectId.isValid(brandId)) {
       query.brandId = brandId;
     }
-    if (seriesId && Types.ObjectId.isValid(seriesId)) {
-      query.seriesId = seriesId;
-    }
+
     if (search) {
-      query.$and = [{ $or: scopeQuery.$or }, { name: { $regex: search, $options: "i" } }];
+      query.$and = [
+        { $or: scopeQuery.$or },
+        { name: { $regex: search, $options: "i" } },
+      ];
       delete query.$or;
     }
 
-    const models = await DeviceModel.find(query).sort({ name: 1 }).lean();
-    return NextResponse.json({ success: true, models });
+    const series = await Series.find(query).sort({ name: 1 }).lean();
+
+    return NextResponse.json({ success: true, series });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
-// POST /api/device-models
+// POST /api/series
 export async function POST(req: NextRequest) {
   try {
     const h = await headers();
@@ -73,7 +83,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, brandId, seriesId, businessId, businessScope, businessIds } = body;
+    const { name, brandId, businessId, businessScope, businessIds } = body;
 
     if (!name?.trim() || !brandId || !businessId) {
       return NextResponse.json({ error: "name, brandId and businessId are required" }, { status: 400 });
@@ -81,16 +91,12 @@ export async function POST(req: NextRequest) {
     if (!Types.ObjectId.isValid(brandId)) {
       return NextResponse.json({ error: "Invalid brandId" }, { status: 400 });
     }
-    if (!seriesId || !Types.ObjectId.isValid(seriesId)) {
-      return NextResponse.json({ error: "A valid seriesId is required" }, { status: 400 });
-    }
 
     await connectDB();
 
-    const model = await DeviceModel.create({
+    const series = await Series.create({
       name: name.trim(),
       brandId: new Types.ObjectId(brandId),
-      seriesId: new Types.ObjectId(seriesId),
       businessId: new Types.ObjectId(businessId),
       businessScope: businessScope || "SINGLE",
       businessIds: Array.isArray(businessIds) ? businessIds : [],
@@ -98,17 +104,17 @@ export async function POST(req: NextRequest) {
 
     logAction({
       action: "CREATE",
-      entity: "DeviceModel",
-      entityId: model?._id?.toString(),
+      entity: "Series",
+      entityId: series?._id?.toString(),
       after: body,
       req,
     });
 
-    return NextResponse.json({ success: true, model }, { status: 201 });
+    return NextResponse.json({ success: true, series }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     if (message.includes("duplicate key") || message.includes("E11000")) {
-      return NextResponse.json({ success: false, error: "This model already exists for this brand" }, { status: 409 });
+      return NextResponse.json({ success: false, error: "A series with this name already exists for this brand" }, { status: 409 });
     }
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
