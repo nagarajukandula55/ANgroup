@@ -6,6 +6,9 @@ export interface CartItem {
   price: number;
   image?: string;
   quantity: number;
+  // Per-unit weight (kg), used to detect bulk/wholesale eligibility (see
+  // totalWeightKg below) -- 0 if the product doesn't carry one.
+  weightKg?: number;
 }
 
 interface CartContextValue {
@@ -15,6 +18,7 @@ interface CartContextValue {
   setQuantity: (id: string, qty: number) => void;
   clear: () => void;
   total: number;
+  totalWeightKg: number;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -50,9 +54,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const totalWeightKg = items.reduce((sum, i) => sum + (i.weightKg || 0) * i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, add, remove, setQuantity, clear, total }}>
+    <CartContext.Provider value={{ items, add, remove, setQuantity, clear, total, totalWeightKg }}>
       {children}
     </CartContext.Provider>
   );

@@ -19,6 +19,9 @@ export async function signup(payload: {
   phone?: string;
   password: string;
   businessId?: string;
+  accountType?: "RETAIL" | "BUSINESS";
+  businessName?: string;
+  gstNumber?: string;
 }) {
   const body = { businessId: AN_BUSINESS_ID, ...payload };
   const data = await anPost("/api/auth/register", body);

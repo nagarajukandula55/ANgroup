@@ -46,7 +46,7 @@ async function resolveRegistrationSource(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, email, password, phone, username, businessId } = body
+    const { name, email, password, phone, username, businessId, accountType, businessName, gstNumber } = body
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -150,6 +150,9 @@ export async function POST(req: NextRequest) {
       password: hashedPassword,
       phone: phone?.trim() || undefined,
       role: 'CUSTOMER',
+      accountType: accountType === 'BUSINESS' ? 'BUSINESS' : 'RETAIL',
+      businessName: accountType === 'BUSINESS' ? businessName?.trim() || undefined : undefined,
+      gstNumber: accountType === 'BUSINESS' ? gstNumber?.trim() || undefined : undefined,
       registrationSource: sourceLabel,
       isActive: true,
       isEmailVerified: false,

@@ -45,7 +45,15 @@ export default function ProductDetailScreen() {
       {product.description && <Text style={styles.description}>{product.description}</Text>}
       <Pressable
         style={styles.button}
-        onPress={() => cart.add({ id: product.id, name: product.name, price, image: product.images?.[0] })}
+        onPress={() =>
+          cart.add({
+            id: product.id,
+            name: product.name,
+            price,
+            image: product.images?.[0],
+            weightKg: Number(product.weightKg || 0),
+          })
+        }
       >
         <Text style={styles.buttonText}>Add to Cart</Text>
       </Pressable>

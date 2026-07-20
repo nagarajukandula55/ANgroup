@@ -1,5 +1,6 @@
 import Notification from "@/models/Notification";
 import User from "@/models/User";
+import VendorProfile from "@/models/VendorProfile";
 import { sendPushToUser, sendPushToUsers } from "@/services/push.service";
 
 /**
@@ -35,6 +36,36 @@ export async function notifyUser({
     console.error("[notification] failed to create notification:", err);
   }
   sendPushToUser(userId, { title, body: message, data: { link } }).catch(() => {});
+}
+
+/**
+ * Notify the vendor who supplies a product when a customer/retailer
+ * places an order for it, so the vendor can process it further (confirm
+ * stock, prepare a bulk quote, dispatch, etc.) — mirrors notifyUser's
+ * best-effort contract, just resolving VendorProfile -> userId first.
+ * Silently no-ops if the vendor has no linked userId (e.g. a
+ * super-admin-created product with no vendor account attached yet).
+ */
+export async function notifyVendor({
+  vendorId,
+  title,
+  message,
+  type = "info",
+  link,
+}: {
+  vendorId: string;
+  title: string;
+  message: string;
+  type?: "info" | "success" | "warning" | "error";
+  link?: string;
+}) {
+  try {
+    const vendor = await VendorProfile.findById(vendorId).select("userId").lean<any>();
+    if (!vendor?.userId) return;
+    await notifyUser({ userId: String(vendor.userId), title, message, type, link });
+  } catch (err) {
+    console.error("[notification] failed to notify vendor:", err);
+  }
 }
 
 /**

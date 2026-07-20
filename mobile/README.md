@@ -114,17 +114,55 @@ Fill in `eas.json`'s `submit.production` block (Apple ID, ASC app ID,
 Apple Team ID, and the Google Play service account JSON path) before the
 first `eas submit`.
 
+## Retailer / bulk order accounts
+
+Sign-up (`app/signup.tsx`) offers two account types:
+
+- **Customer (RETAIL)** — normal storefront checkout, pays in-app via
+  Razorpay as before.
+- **Retailer / Business (BUSINESS)** — once cart weight reaches 10kg
+  (`weightKg` summed across cart lines, see `CartContext.totalWeightKg`),
+  checkout skips Razorpay entirely and submits the order at
+  `PENDING_REVIEW`. AN Group/the vendor later calls
+  `PATCH /api/orders/[orderId]/billing-revision` with the revised (lower)
+  price and separate shipping charge; the retailer is notified and sees it
+  on the order detail screen (`app/orders/[id].tsx`) once shared.
+
+Backend additions: `User.accountType`/`businessName`/`gstNumber`,
+`Order.customerType`/`isBulkOrder`/`billingRevision`,
+`NativeProduct.weightKg` (per-unit weight, needs backfilling on real
+products for bulk detection to work), `OrderService.createOrder`'s bulk
+branch.
+
+## Vendor notifications
+
+`OrderService.createOrder` now notifies every vendor with a line item in
+the order (`notifyVendor` in `src/services/notification.service.ts`,
+resolving `VendorProfile.userId`) so they can process it further —
+in-app `Notification` row + Expo push if they have a registered device.
+
+## Push notifications
+
+Implemented: the app requests notification permission and registers its
+Expo push token against the existing `POST /api/devices/register` route
+right after sign-in (`AuthContext.refresh` → `registerPushToken`).
+Requires `expo-notifications`/`expo-device` (added to `package.json` —
+run `npm install`) and `app.json`'s `extra.eas.projectId` to be a real
+EAS project id (falls back to the classic/no-projectId call otherwise,
+which still works in a dev client but is deprecated by Expo).
+
 ## What's NOT built yet (next phases)
 
 - Change password / saved addresses (beyond the one-off checkout address
   form)
-- Push notifications: needs a `POST /api/notifications/register-device`
-  route added to ANgroup (doesn't exist yet) + Expo Notifications setup
+- Admin/vendor-side UI for reviewing bulk orders and calling
+  `billing-revision` — the API route exists, but there's no screen for it
+  yet in the main web admin
 - Real branded icon/splash artwork (current assets are placeholders) and
   store screenshots
-- Server-side COD support doesn't exist on ANgroup at all — if you want a
-  cash-on-delivery option in the app, that has to be added to
-  `order.service.ts`/`orders/create` first, not just the client
+- Server-side COD support doesn't exist on ANgroup at all and is
+  intentionally out of scope — this app only supports online payment
+  (retail) or revised-billing-after-submission (bulk)
 
 ## Reused from Native
 

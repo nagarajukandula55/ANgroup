@@ -11,6 +11,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerTitleAlign: "center" }}>
           <Stack.Screen name="index" options={{ title: "AN Group" }} />
           <Stack.Screen name="login" options={{ title: "Sign In" }} />
+          <Stack.Screen name="signup" options={{ title: "Create Account" }} />
           <Stack.Screen name="product/[slug]" options={{ title: "Product" }} />
           <Stack.Screen name="cart" options={{ title: "Cart" }} />
           <Stack.Screen name="checkout" options={{ title: "Checkout" }} />

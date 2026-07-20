@@ -41,6 +41,14 @@ const OrderItemSchema = new mongoose.Schema(
       min: 1,
     },
 
+    // Per-unit weight (kg), copied from the product at order time — used
+    // to detect bulk/wholesale orders (see Order.isBulkOrder) without
+    // re-resolving the product later.
+    weightKg: {
+      type: Number,
+      default: 0,
+    },
+
     /* ================= PRICING ================= */
 
     price: {
@@ -412,6 +420,39 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
+    // RETAIL is a normal storefront customer paying the listed price
+    // in-app. BUSINESS is a retailer/wholesaler account placing a bulk
+    // order (>=10kg) — those orders skip immediate Razorpay checkout and
+    // wait for AN Group/the vendor to share revised (lower) pricing +
+    // separate shipping via billingRevision below.
+    customerType: {
+      type: String,
+      enum: ["RETAIL", "BUSINESS"],
+      default: "RETAIL",
+      index: true,
+    },
+
+    isBulkOrder: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    // Filled in by an admin/vendor after reviewing a bulk order, then
+    // shared with the retailer (notifyUser fires when status flips to
+    // SHARED). Left undefined entirely for normal retail orders.
+    billingRevision: {
+      status: {
+        type: String,
+        enum: ["PENDING", "SHARED"],
+      },
+      revisedAmount: Number,
+      revisedShippingCharges: Number,
+      notes: String,
+      revisedBy: String,
+      revisedAt: Date,
+    },
+
    customerId: {
      type: String,
      index: true,
@@ -543,6 +584,11 @@ const OrderSchema = new mongoose.Schema(
       enum: [
         "CREATED",
         "PENDING_PAYMENT",
+        // Bulk (BUSINESS/retailer) orders land here instead of
+        // PENDING_PAYMENT — there's no final price to charge yet, it's
+        // waiting on billingRevision to be shared.
+        "PENDING_REVIEW",
+        "BILLING_REVISED",
         "PAID",
         "PROCESSING",
         "PACKED",
