@@ -13,6 +13,8 @@ import {
   CheckCircle,
   AlertCircle,
   Layers,
+  FolderTree,
+  Smartphone,
 } from "lucide-react";
 import { useActiveBusinessId } from "@/hooks/useActiveBusinessId";
 import BusinessScopeControl, { type BusinessScopeValue } from "@/components/catalog/BusinessScopeControl";
@@ -55,11 +57,17 @@ interface ModelOption {
   isActive: boolean;
 }
 
-// Synthetic tree row used only for the Tree view -- Series and Model don't
-// natively have a "parentId" pointing at a Brand's own tree slot, so these
-// are given prefixed synthetic ids/parentIds ("series:"/"model:") purely so
-// CategoryTree (which only understands one flat parentId-linked list) can
-// render Category -> Brand -> Series -> Model without being rewritten.
+// Synthetic tree row used only for the Tree view -- Category, Series and
+// Model don't natively have a "parentId" pointing at a Brand's own tree
+// slot, so these are given prefixed synthetic ids/parentIds
+// ("cat:"/"series:"/"model:") purely so CategoryTree (which only
+// understands one flat parentId-linked list) can render the full
+// Category -> Brand -> Series -> Model hierarchy without being rewritten.
+// "kind" drives which icon/actions render for each row (see renderIcon/
+// renderActions below) -- a Category row is a device-type grouping only
+// (no edit/delete), a Brand row keeps the existing modal-based edit/
+// delete, Series/Model rows get their own inline rename+delete against
+// their own APIs.
 interface TreeRow {
   _id: string;
   name: string;
@@ -68,6 +76,7 @@ interface TreeRow {
   kind: "category" | "brand" | "series" | "model";
 }
 
+const CATEGORY_NODE_PREFIX = "cat:";
 const SERIES_NODE_PREFIX = "series:";
 const MODEL_NODE_PREFIX = "model:";
 
@@ -153,13 +162,31 @@ export default function BrandsPage() {
       .catch(() => {});
   }, [businessId, view]);
 
-  // Merges Brands (with their existing Category-branch synthetic parentId
-  // handling already baked into CategoryTree via brand.parentId/category)
-  // with Series nested under their Brand, and Models nested under their
-  // Series -- same synthetic-id trick buildBrandTreeItems on the Models
-  // page uses for the Category level.
+  // Only device types that actually have a top-level (non-sub-branded)
+  // brand under them get a Category row -- otherwise every one of the 12
+  // device types would show up as a permanently-empty folder, which is
+  // just noise for a business that only sells a handful of them.
+  const usedCategories = new Set(brands.filter((b) => !b.parentId && b.category).map((b) => b.category as DeviceCategory));
+
+  // Category -> Brand -> Series -> Model, all in one flat parentId-linked
+  // list CategoryTree can nest: Category rows are synthetic (device-type
+  // grouping only, no underlying document), Brand rows nest under their
+  // Category (or their parent Brand, for sub-branded lines), Series rows
+  // nest under their Brand, Model rows nest under their Series.
   const treeRows: TreeRow[] = [
-    ...brands.map((b): TreeRow => ({ _id: b._id, name: b.name, parentId: b.parentId || null, isActive: b.isActive, kind: "brand" })),
+    ...DEVICE_CATEGORIES.filter((c) => usedCategories.has(c)).map((c): TreeRow => ({
+      _id: `${CATEGORY_NODE_PREFIX}${c}`,
+      name: DEVICE_CATEGORY_LABELS[c],
+      parentId: null,
+      kind: "category",
+    })),
+    ...brands.map((b): TreeRow => ({
+      _id: b._id,
+      name: b.name,
+      parentId: b.parentId || (b.category ? `${CATEGORY_NODE_PREFIX}${b.category}` : null),
+      isActive: b.isActive,
+      kind: "brand",
+    })),
     ...seriesOptions.map((s): TreeRow => ({
       _id: `${SERIES_NODE_PREFIX}${s._id}`,
       name: s.name,
@@ -175,6 +202,80 @@ export default function BrandsPage() {
       kind: "model",
     })).filter((m) => m.parentId), // models without a seriesId aren't shown in this tree yet (pre-migration data)
   ];
+
+  const refreshSeriesAndModels = useCallback(() => {
+    if (!businessId) return;
+    fetch(`/api/series?businessId=${businessId}&includeInactive=true`)
+      .then((r) => r.json())
+      .then((d) => d.success && setSeriesOptions(d.series || []))
+      .catch(() => {});
+    fetch(`/api/device-models?businessId=${businessId}`)
+      .then((r) => r.json())
+      .then((d) => d.success && setModelOptions(d.models || []))
+      .catch(() => {});
+  }, [businessId]);
+
+  const renameSeries = async (row: TreeRow) => {
+    const id = row._id.slice(SERIES_NODE_PREFIX.length);
+    const name = window.prompt("Rename series", row.name);
+    if (!name || !name.trim() || name.trim() === row.name) return;
+    const res = await fetch(`/api/series/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to rename series.", false);
+      return;
+    }
+    showToast("Series renamed.");
+    refreshSeriesAndModels();
+  };
+
+  const deleteSeries = async (row: TreeRow) => {
+    if (!window.confirm(`Delete series "${row.name}"? Models under it will need to be reassigned.`)) return;
+    const id = row._id.slice(SERIES_NODE_PREFIX.length);
+    const res = await fetch(`/api/series/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to delete series.", false);
+      return;
+    }
+    showToast("Series deleted.");
+    refreshSeriesAndModels();
+  };
+
+  const renameModel = async (row: TreeRow) => {
+    const id = row._id.slice(MODEL_NODE_PREFIX.length);
+    const name = window.prompt("Rename model", row.name);
+    if (!name || !name.trim() || name.trim() === row.name) return;
+    const res = await fetch(`/api/device-models/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to rename model.", false);
+      return;
+    }
+    showToast("Model renamed.");
+    refreshSeriesAndModels();
+  };
+
+  const deleteModel = async (row: TreeRow) => {
+    if (!window.confirm(`Delete model "${row.name}"?`)) return;
+    const id = row._id.slice(MODEL_NODE_PREFIX.length);
+    const res = await fetch(`/api/device-models/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to delete model.", false);
+      return;
+    }
+    showToast("Model deleted.");
+    refreshSeriesAndModels();
+  };
 
   const openAdd = () => {
     setFormData({ name: "", description: "", logoUrl: "", parentId: "", category: "", productCategoryId: "", businessScope: "SINGLE", businessIds: [] });
@@ -435,13 +536,16 @@ export default function BrandsPage() {
         </div>
       </div>
 
-      {/* Tree view -- collapsible/expandable, multi-root. Now goes
-          Brand -> Series -> Model (Series/Model rows use synthetic
-          prefixed ids so edit/delete only apply to real Brand rows --
-          Series/Model management stays on their own masters pages). */}
+      {/* Tree view -- collapsible/expandable, multi-root, full
+          Category -> Brand -> Series -> Model hierarchy. Each row kind
+          gets its own icon and its own actions: Category rows are a
+          grouping only (no actions), Brand rows keep the existing
+          modal-based edit/delete, Series/Model rows rename/delete inline
+          against their own APIs. */}
       {!loading && brands.length > 0 && view === "tree" && (
         <CategoryTree
           items={treeRows}
+          defaultOpenDepth={1}
           onEdit={(item) => {
             const brand = brands.find((b) => b._id === item._id);
             if (brand) openEdit(brand);
@@ -450,7 +554,76 @@ export default function BrandsPage() {
             const brand = brands.find((b) => b._id === item._id);
             if (brand) openDelete(brand);
           }}
+          renderIcon={(item) => {
+            const cls = "w-3.5 h-3.5 shrink-0";
+            switch (item.kind) {
+              case "category":
+                return <FolderTree className={`${cls} text-gray-400`} />;
+              case "brand":
+                return <Tag className={`${cls} text-gray-500`} />;
+              case "series":
+                return <Layers className={`${cls} text-indigo-400`} />;
+              case "model":
+                return <Smartphone className={`${cls} text-emerald-500`} />;
+              default:
+                return null;
+            }
+          }}
+          renderActions={(item) => {
+            if (item.kind === "category") return null;
+            if (item.kind === "brand") {
+              const brand = brands.find((b) => b._id === item._id);
+              return (
+                <>
+                  <button
+                    onClick={() => brand && openEdit(brand)}
+                    className="text-gray-400 hover:text-gray-700 shrink-0"
+                    title="Edit brand"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => brand && openDelete(brand)}
+                    className="text-gray-400 hover:text-red-500 shrink-0"
+                    title="Delete brand"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              );
+            }
+            if (item.kind === "series") {
+              return (
+                <>
+                  <button onClick={() => renameSeries(item)} className="text-gray-400 hover:text-gray-700 shrink-0" title="Rename series">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => deleteSeries(item)} className="text-gray-400 hover:text-red-500 shrink-0" title="Delete series">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              );
+            }
+            // model
+            return (
+              <>
+                <button onClick={() => renameModel(item)} className="text-gray-400 hover:text-gray-700 shrink-0" title="Rename model">
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => deleteModel(item)} className="text-gray-400 hover:text-red-500 shrink-0" title="Delete model">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </>
+            );
+          }}
         />
+      )}
+      {!loading && view === "tree" && brands.length > 0 && seriesOptions.length === 0 && modelOptions.length === 0 && (
+        <p className="text-xs text-gray-400 -mt-2">
+          Loading series &amp; models… if a brand has none yet, add them from{" "}
+          <a href="/admin/masters/series" className="underline hover:text-gray-600">Series</a> or{" "}
+          <a href="/admin/masters/models" className="underline hover:text-gray-600">Models</a>.
+        </p>
       )}
 
       {/* Grid */}
