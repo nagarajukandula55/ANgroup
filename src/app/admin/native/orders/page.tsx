@@ -23,16 +23,27 @@ interface OrderRow {
   payment?: { status?: string; method?: string }
   shipping?: { awbNumber?: string; trackingStatus?: string; courierPartner?: string }
   invoice?: { invoiceNumber?: string }
+  customerType?: 'RETAIL' | 'BUSINESS'
+  isBulkOrder?: boolean
+  billingRevision?: {
+    status?: 'PENDING' | 'SHARED'
+    revisedAmount?: number
+    revisedShippingCharges?: number
+    notes?: string
+    revisedAt?: string
+  }
 }
 
 const STATUS_OPTIONS = [
-  'CREATED', 'PENDING_PAYMENT', 'PAID', 'PROCESSING', 'PACKED',
+  'CREATED', 'PENDING_PAYMENT', 'PENDING_REVIEW', 'BILLING_REVISED', 'PAID', 'PROCESSING', 'PACKED',
   'DISPATCHED', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'RETURNED', 'REFUNDED',
 ]
 
 const statusColors: Record<string, string> = {
   CREATED: 'bg-gray-100 text-gray-500',
   PENDING_PAYMENT: 'bg-yellow-500/20 text-yellow-600',
+  PENDING_REVIEW: 'bg-amber-500/20 text-amber-700',
+  BILLING_REVISED: 'bg-teal-500/20 text-teal-700',
   PAID: 'bg-blue-500/20 text-blue-600',
   PROCESSING: 'bg-indigo-500/20 text-indigo-600',
   PACKED: 'bg-purple-500/20 text-purple-600',
@@ -62,6 +73,10 @@ export default function NativeOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selected, setSelected] = useState<OrderRow | null>(null)
+  const [revisedAmount, setRevisedAmount] = useState('')
+  const [revisedShipping, setRevisedShipping] = useState('')
+  const [revisionNotes, setRevisionNotes] = useState('')
+  const [revisionSubmitting, setRevisionSubmitting] = useState(false)
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
@@ -84,6 +99,12 @@ export default function NativeOrdersPage() {
   useEffect(() => {
     fetchOrders()
   }, [fetchOrders])
+
+  useEffect(() => {
+    setRevisedAmount(selected?.billingRevision?.revisedAmount != null ? String(selected.billingRevision.revisedAmount) : '')
+    setRevisedShipping(selected?.billingRevision?.revisedShippingCharges != null ? String(selected.billingRevision.revisedShippingCharges) : '')
+    setRevisionNotes(selected?.billingRevision?.notes || '')
+  }, [selected])
 
   async function updateStatus(orderId: string, status: string) {
     setBusyId(orderId)
@@ -123,6 +144,36 @@ export default function NativeOrdersPage() {
       alert('Failed to connect')
     } finally {
       setBusyId(null)
+    }
+  }
+
+  async function submitBillingRevision(orderId: string) {
+    if (!revisedAmount || isNaN(Number(revisedAmount))) {
+      alert('Enter a valid revised amount')
+      return
+    }
+    setRevisionSubmitting(true)
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/billing-revision`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          revisedAmount: Number(revisedAmount),
+          revisedShippingCharges: Number(revisedShipping || 0),
+          notes: revisionNotes,
+        }),
+      })
+      const d = await res.json()
+      if (!d.success) {
+        alert(d.message || 'Failed to share revised billing')
+        return
+      }
+      setSelected(null)
+      fetchOrders()
+    } catch {
+      alert('Failed to connect')
+    } finally {
+      setRevisionSubmitting(false)
     }
   }
 
@@ -240,6 +291,11 @@ export default function NativeOrdersPage() {
                   <tr key={o._id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-3 font-mono text-xs text-gray-900">
                       <button onClick={() => setSelected(o)} className="hover:underline">{o.orderId}</button>
+                      {o.isBulkOrder && (
+                        <span className="ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-500/20 text-amber-700">
+                          BULK
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-3 text-gray-700">
                       {o.address?.name || '—'}
@@ -319,6 +375,53 @@ export default function NativeOrdersPage() {
               <div className="flex justify-between"><span className="text-gray-500">AWB</span><span>{selected.shipping?.awbNumber || '—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Tracking</span><span>{selected.shipping?.trackingStatus || '—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Placed</span><span>{fmtDate(selected.createdAt)}</span></div>
+
+              {selected.isBulkOrder && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-semibold mb-1">Bulk order — revise billing</h3>
+                  <p className="text-xs text-gray-500 mb-3">
+                    This retailer/business order ({selected.customerType || 'BUSINESS'}) is awaiting
+                    revised pricing and separate shipping charges before they'll be shared and the
+                    retailer notified.
+                    {selected.billingRevision?.status === 'SHARED' && (
+                      <span className="block mt-1 text-teal-700 font-medium">
+                        Already shared{selected.billingRevision.revisedAt ? ` on ${fmtDate(selected.billingRevision.revisedAt)}` : ''} — resubmitting will update it.
+                      </span>
+                    )}
+                  </p>
+                  <div className="space-y-2">
+                    <label className="block text-xs text-gray-500">Revised amount (₹)</label>
+                    <input
+                      type="number"
+                      value={revisedAmount}
+                      onChange={(e) => setRevisedAmount(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                    />
+                    <label className="block text-xs text-gray-500">Shipping charges (₹, separate)</label>
+                    <input
+                      type="number"
+                      value={revisedShipping}
+                      onChange={(e) => setRevisedShipping(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                    />
+                    <label className="block text-xs text-gray-500">Notes (optional, shown to retailer)</label>
+                    <textarea
+                      value={revisionNotes}
+                      onChange={(e) => setRevisionNotes(e.target.value)}
+                      rows={2}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                    />
+                    <button
+                      onClick={() => submitBillingRevision(selected.orderId)}
+                      disabled={revisionSubmitting}
+                      className="w-full mt-1 rounded-lg bg-gray-900 text-white text-sm font-medium py-2 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {revisionSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {selected.billingRevision?.status === 'SHARED' ? 'Update & re-share billing' : 'Share revised billing'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ interface NativeProductRow {
   sku?: string;
   basePrice: number;
   mrp?: number;
+  weightKg?: number;
   isActive: boolean;
   images?: string[];
   variantGroupKey?: string;
@@ -54,6 +55,20 @@ export default function NativeProductsAdminPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
+
+  async function saveWeight(p: NativeProductRow, weightKg: number) {
+    setBusyId(p._id);
+    try {
+      await fetch(`/api/admin/native-products/${p._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weightKg }),
+      });
+      load();
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function toggleActive(p: NativeProductRow) {
     setBusyId(p._id);
@@ -119,6 +134,7 @@ export default function NativeProductsAdminPage() {
               <th className="p-3">Name</th>
               <th className="p-3">SKU</th>
               <th className="p-3">Price</th>
+              <th className="p-3">Weight (kg)</th>
               <th className="p-3">Status</th>
               <th className="p-3">Created</th>
               <th className="p-3"></th>
@@ -126,9 +142,9 @@ export default function NativeProductsAdminPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="p-4 text-gray-400" colSpan={7}>Loading…</td></tr>
+              <tr><td className="p-4 text-gray-400" colSpan={8}>Loading…</td></tr>
             ) : products.length === 0 ? (
-              <tr><td className="p-4 text-gray-400" colSpan={7}>No products found.</td></tr>
+              <tr><td className="p-4 text-gray-400" colSpan={8}>No products found.</td></tr>
             ) : (
               products.map((p) => (
                 <tr key={p._id} className="border-b border-gray-50">
@@ -140,6 +156,21 @@ export default function NativeProductsAdminPage() {
                   <td className="p-3 font-mono text-xs text-gray-500">{p.sku || "—"}</td>
                   <td className={`p-3 ${!p.basePrice ? "text-red-600 font-medium" : "text-gray-700"}`}>
                     ₹{p.basePrice || 0}
+                  </td>
+                  <td className="p-3">
+                    <input
+                      key={p._id + (p.weightKg ?? "")}
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      defaultValue={p.weightKg ?? 0}
+                      disabled={busyId === p._id}
+                      onBlur={(e) => {
+                        const next = Number(e.target.value) || 0;
+                        if (next !== (p.weightKg ?? 0)) saveWeight(p, next);
+                      }}
+                      className="w-20 border rounded-lg p-1.5 text-sm"
+                    />
                   </td>
                   <td className="p-3">
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${p.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
