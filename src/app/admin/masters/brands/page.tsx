@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search,
   Plus,
@@ -53,7 +53,7 @@ interface ModelOption {
   _id: string;
   name: string;
   brandId: string;
-  seriesId?: string;
+  seriesId?: string | null;
   isActive: boolean;
 }
 
@@ -85,18 +85,35 @@ interface ModalState {
   brand?: Brand;
 }
 
+interface SeriesModalState {
+  open: boolean;
+  brandId: string;
+  brandName: string;
+}
+
+interface ModelModalState {
+  open: boolean;
+  mode: "add" | "edit";
+  brandId: string;
+  brandName: string;
+  seriesId: string; // "" = no series (direct under brand)
+  model?: ModelOption;
+}
+
 export default function BrandsPage() {
   const { businessId } = useActiveBusinessId();
 
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"grid" | "tree">("tree");
+  const [view, setView] = useState<"table" | "tree">("table");
   const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | "">("");
   const [productCategories, setProductCategories] = useState<ProductCategoryOption[]>([]);
   const [seriesOptions, setSeriesOptions] = useState<SeriesOption[]>([]);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [modal, setModal] = useState<ModalState>({ type: null });
+  const [seriesModal, setSeriesModal] = useState<SeriesModalState | null>(null);
+  const [modelModal, setModelModal] = useState<ModelModalState | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -148,11 +165,11 @@ export default function BrandsPage() {
       .catch(() => {});
   }, [businessId]);
 
-  // Tree view goes Category -> Brand -> Series -> Model, so it needs the
-  // full Series and DeviceModel lists too (not just Brands) -- fetched once
-  // per business, unfiltered by brand, and nested client-side below.
+  // Both Table and Tree views need the full Series and DeviceModel lists
+  // (not just Brands), fetched once per business, unfiltered by brand, and
+  // nested/grouped client-side below.
   useEffect(() => {
-    if (!businessId || view !== "tree") return;
+    if (!businessId) return;
     fetch(`/api/series?businessId=${businessId}&includeInactive=true`)
       .then((r) => r.json())
       .then((d) => d.success && setSeriesOptions(d.series || []))
@@ -161,19 +178,23 @@ export default function BrandsPage() {
       .then((r) => r.json())
       .then((d) => d.success && setModelOptions(d.models || []))
       .catch(() => {});
-  }, [businessId, view]);
+  }, [businessId]);
 
   // Only device types that actually have a top-level (non-sub-branded)
-  // brand under them get a Category row -- otherwise every one of the 12
-  // device types would show up as a permanently-empty folder, which is
-  // just noise for a business that only sells a handful of them.
+  // brand under them get a Category row in the Tree view -- otherwise
+  // every one of the 47 device types would show up as a permanently-empty
+  // folder there, which is just noise for a business that only sells a
+  // handful of them. The Table view below intentionally does the opposite
+  // (always shows every category) so admins can add the very first brand
+  // into any category without hunting.
   const usedCategories = new Set(brands.filter((b) => !b.parentId && b.category).map((b) => b.category as DeviceCategory));
 
   // Category -> Brand -> Series -> Model, all in one flat parentId-linked
   // list CategoryTree can nest: Category rows are synthetic (device-type
   // grouping only, no underlying document), Brand rows nest under their
   // Category (or their parent Brand, for sub-branded lines), Series rows
-  // nest under their Brand, Model rows nest under their Series.
+  // nest under their Brand, Model rows nest under their Series (or, if the
+  // model has no seriesId, directly under its Brand).
   const treeRows: TreeRow[] = [
     ...DEVICE_CATEGORIES.filter((c) => usedCategories.has(c)).map((c): TreeRow => ({
       _id: `${CATEGORY_NODE_PREFIX}${c}`,
@@ -198,10 +219,12 @@ export default function BrandsPage() {
     ...modelOptions.map((m): TreeRow => ({
       _id: `${MODEL_NODE_PREFIX}${m._id}`,
       name: m.name,
-      parentId: m.seriesId ? `${SERIES_NODE_PREFIX}${m.seriesId}` : null,
+      // Series is optional now -- a model with no seriesId attaches
+      // directly under its Brand instead of a Series node.
+      parentId: m.seriesId ? `${SERIES_NODE_PREFIX}${m.seriesId}` : m.brandId,
       isActive: m.isActive,
       kind: "model",
-    })).filter((m) => m.parentId), // models without a seriesId aren't shown in this tree yet (pre-migration data)
+    })),
   ];
 
   const refreshSeriesAndModels = useCallback(() => {
@@ -216,8 +239,8 @@ export default function BrandsPage() {
       .catch(() => {});
   }, [businessId]);
 
-  const renameSeries = async (row: TreeRow) => {
-    const id = row._id.slice(SERIES_NODE_PREFIX.length);
+  const renameSeries = async (row: TreeRow | SeriesOption) => {
+    const id = "kind" in row ? row._id.slice(SERIES_NODE_PREFIX.length) : row._id;
     const name = window.prompt("Rename series", row.name);
     if (!name || !name.trim() || name.trim() === row.name) return;
     const res = await fetch(`/api/series/${id}`, {
@@ -234,9 +257,9 @@ export default function BrandsPage() {
     refreshSeriesAndModels();
   };
 
-  const deleteSeries = async (row: TreeRow) => {
+  const deleteSeries = async (row: TreeRow | SeriesOption) => {
+    const id = "kind" in row ? row._id.slice(SERIES_NODE_PREFIX.length) : row._id;
     if (!window.confirm(`Delete series "${row.name}"? Models under it will need to be reassigned.`)) return;
-    const id = row._id.slice(SERIES_NODE_PREFIX.length);
     const res = await fetch(`/api/series/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (!res.ok || !data.success) {
@@ -247,8 +270,8 @@ export default function BrandsPage() {
     refreshSeriesAndModels();
   };
 
-  const renameModel = async (row: TreeRow) => {
-    const id = row._id.slice(MODEL_NODE_PREFIX.length);
+  const renameModel = async (row: TreeRow | ModelOption) => {
+    const id = "kind" in row ? row._id.slice(MODEL_NODE_PREFIX.length) : row._id;
     const name = window.prompt("Rename model", row.name);
     if (!name || !name.trim() || name.trim() === row.name) return;
     const res = await fetch(`/api/device-models/${id}`, {
@@ -265,9 +288,9 @@ export default function BrandsPage() {
     refreshSeriesAndModels();
   };
 
-  const deleteModel = async (row: TreeRow) => {
+  const deleteModel = async (row: TreeRow | ModelOption) => {
     if (!window.confirm(`Delete model "${row.name}"?`)) return;
-    const id = row._id.slice(MODEL_NODE_PREFIX.length);
+    const id = "kind" in row ? row._id.slice(MODEL_NODE_PREFIX.length) : row._id;
     const res = await fetch(`/api/device-models/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (!res.ok || !data.success) {
@@ -278,10 +301,10 @@ export default function BrandsPage() {
     refreshSeriesAndModels();
   };
 
-  // One-click fix for catalog data that predates the Series level (brands
-  // with zero Series, models with no seriesId) -- see
-  // /api/series/backfill's own header comment for why this exists instead
-  // of just re-running the seed script.
+  // One-click fix for catalog data that predates the Series level (models
+  // with no seriesId that an admin would rather see grouped under a named
+  // Series) -- see /api/series/backfill's own header comment. Series is no
+  // longer mandatory, so this is offered as a convenience, not a repair.
   const runBackfill = async () => {
     if (!businessId) return;
     setBackfilling(true);
@@ -295,7 +318,7 @@ export default function BrandsPage() {
       const { seriesCreated, modelsBackfilled } = data.summary;
       showToast(
         seriesCreated === 0 && modelsBackfilled === 0
-          ? "Everything already has a Series -- nothing to fix."
+          ? "Nothing to group -- every model already has a Series or is intentionally direct."
           : `Created ${seriesCreated} Series, linked ${modelsBackfilled} models.`
       );
       refreshSeriesAndModels();
@@ -306,8 +329,8 @@ export default function BrandsPage() {
     }
   };
 
-  const openAdd = () => {
-    setFormData({ name: "", description: "", logoUrl: "", parentId: "", category: "", productCategoryId: "", businessScope: "SINGLE", businessIds: [] });
+  const openAdd = (category?: DeviceCategory) => {
+    setFormData({ name: "", description: "", logoUrl: "", parentId: "", category: category || "", productCategoryId: "", businessScope: "SINGLE", businessIds: [] });
     setFormError("");
     setModal({ type: "add" });
   };
@@ -453,6 +476,61 @@ export default function BrandsPage() {
     }
   };
 
+  // ---- Series modal (create only -- rename/delete reuse the existing
+  // prompt/confirm flows above, wired into both Table and Tree views) ----
+  const openAddSeries = (brand: { _id: string; name: string }) => {
+    setSeriesModal({ open: true, brandId: brand._id, brandName: brand.name });
+  };
+  const closeSeriesModal = () => setSeriesModal(null);
+  const submitSeriesModal = async (name: string) => {
+    if (!seriesModal || !name.trim() || !businessId) return;
+    const res = await fetch("/api/series", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), brandId: seriesModal.brandId, businessId }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || "Failed to create series.", false);
+      return;
+    }
+    showToast("Series created.");
+    closeSeriesModal();
+    refreshSeriesAndModels();
+  };
+
+  // ---- Model modal (create + edit -- reuses same POST/PUT device-models
+  // endpoints the old Models page used, now with optional seriesId) ----
+  const openAddModel = (brand: { _id: string; name: string }, seriesId = "") => {
+    setModelModal({ open: true, mode: "add", brandId: brand._id, brandName: brand.name, seriesId });
+  };
+  const openEditModel = (brand: { _id: string; name: string }, model: ModelOption) => {
+    setModelModal({ open: true, mode: "edit", brandId: brand._id, brandName: brand.name, seriesId: model.seriesId || "", model });
+  };
+  const closeModelModal = () => setModelModal(null);
+  const submitModelModal = async (name: string, seriesId: string, isActive: boolean) => {
+    if (!modelModal || !name.trim() || !businessId) return;
+    const isEdit = modelModal.mode === "edit" && modelModal.model;
+    const url = isEdit ? `/api/device-models/${modelModal.model!._id}` : "/api/device-models";
+    const method = isEdit ? "PUT" : "POST";
+    const body = isEdit
+      ? { name: name.trim(), seriesId: seriesId || null, isActive }
+      : { name: name.trim(), brandId: modelModal.brandId, seriesId: seriesId || null, businessId };
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      showToast(data.error || `Failed to ${isEdit ? "update" : "create"} model.`, false);
+      return;
+    }
+    showToast(isEdit ? "Model updated." : "Model created.");
+    closeModelModal();
+    refreshSeriesAndModels();
+  };
+
   const activeBrands = brands.filter((b) => b.isActive);
   const inactiveBrands = brands.filter((b) => !b.isActive);
 
@@ -475,16 +553,16 @@ export default function BrandsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Brands</h1>
+          <h1 className="text-xl font-semibold text-gray-900">Brands &amp; Models</h1>
           <p className="text-sm text-gray-500 mt-0.5 max-w-2xl">
-            The brand list used everywhere a product needs a brand — the Add Product form's
-            Brand dropdown, storefront brand filters, and the mobile app all read from here.
-            Give a brand a parent to group it under a broader line (e.g. a "Mobile" brand
-            group with its own sub-brands and logos underneath, separate from a "Laptops"
-            group) — same branching pattern as Product/Material Categories.
+            The single catalog manager: every Device Category, the Brands under it, each Brand's
+            optional Series (product lines), and every Model/Variant. Category is a fixed,
+            platform-wide picklist -- pick it while adding a Brand below, there's no separate
+            "Add Category" step. Series is optional: if a brand has no meaningful product line,
+            add its Models directly to the brand with no Series at all.
           </p>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
+        <button onClick={() => openAdd()} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 shrink-0">
           <Plus size={16} />
           Add Brand
         </button>
@@ -545,7 +623,7 @@ export default function BrandsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search brands…"
+            placeholder="Search category, brand, series or model…"
             className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
           />
         </div>
@@ -553,18 +631,18 @@ export default function BrandsPage() {
           <button
             onClick={runBackfill}
             disabled={backfilling}
-            title="Create a 'General' Series for any brand that has none, and link any pre-existing model to it -- fixes brands/models that predate the Series level"
+            title="Group any model that has no Series yet under a newly created 'General' Series -- Series is optional, so this is a convenience, not a requirement"
             className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 disabled:opacity-50 shrink-0"
           >
-            {backfilling ? "Fixing…" : "Fix Missing Series"}
+            {backfilling ? "Fixing…" : "Group Unassigned Models"}
           </button>
         )}
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1 shrink-0">
           <button
-            onClick={() => setView("grid")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${view === "grid" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+            onClick={() => setView("table")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${view === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
           >
-            Grid
+            Table
           </button>
           <button
             onClick={() => setView("tree")}
@@ -574,6 +652,30 @@ export default function BrandsPage() {
           </button>
         </div>
       </div>
+
+      {/* Table view -- one row per leaf Model, grouped by Category > Brand >
+          Series, with every category (even empty ones) always shown as its
+          own section so admins can add the first Brand anywhere without
+          hunting. */}
+      {view === "table" && (
+        <CatalogTable
+          brands={brands}
+          seriesOptions={seriesOptions}
+          modelOptions={modelOptions}
+          categoryFilter={categoryFilter}
+          search={search}
+          loading={loading}
+          onAddBrand={openAdd}
+          onEditBrand={openEdit}
+          onDeleteBrand={openDelete}
+          onAddSeries={openAddSeries}
+          onRenameSeries={renameSeries}
+          onDeleteSeries={deleteSeries}
+          onAddModel={openAddModel}
+          onEditModel={openEditModel}
+          onDeleteModel={deleteModel}
+        />
+      )}
 
       {/* Tree view -- collapsible/expandable, multi-root, full
           Category -> Brand -> Series -> Model hierarchy. Each row kind
@@ -657,49 +759,6 @@ export default function BrandsPage() {
           }}
         />
       )}
-      {!loading && view === "tree" && brands.length > 0 && seriesOptions.length === 0 && modelOptions.length === 0 && (
-        <p className="text-xs text-gray-400 -mt-2">
-          Loading series &amp; models… if a brand has none yet, add them from{" "}
-          <a href="/admin/masters/series" className="underline hover:text-gray-600">Series</a> or{" "}
-          <a href="/admin/masters/models" className="underline hover:text-gray-600">Models</a>.
-        </p>
-      )}
-
-      {/* Grid */}
-      {view === "tree" ? null : loading ? (
-        <div className="p-12 text-center text-gray-500">Loading…</div>
-      ) : brands.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center">
-            <Tag size={24} className="text-gray-600" />
-          </div>
-          <div className="text-center">
-            <p className="text-gray-900 font-medium">No brands found</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {search ? "Try a different search term." : "Get started by adding your first brand."}
-            </p>
-          </div>
-          {!search && (
-            <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
-              <Plus size={16} />
-              Add Brand
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {brands.map((brand) => (
-            <BrandCard
-              key={brand._id}
-              brand={brand}
-              parentName={brands.find((b) => b._id === brand.parentId)?.name}
-              onEdit={openEdit}
-              onDelete={openDelete}
-              onToggleActive={toggleActive}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Add Modal */}
       {modal.type === "add" && (
@@ -771,99 +830,412 @@ export default function BrandsPage() {
           </div>
         </div>
       )}
+
+      {/* Series create modal */}
+      {seriesModal?.open && (
+        <SeriesModal
+          brandName={seriesModal.brandName}
+          onClose={closeSeriesModal}
+          onSubmit={submitSeriesModal}
+        />
+      )}
+
+      {/* Model create/edit modal */}
+      {modelModal?.open && (
+        <ModelModal
+          state={modelModal}
+          seriesOptions={seriesOptions.filter((s) => s.brandId === modelModal.brandId)}
+          onClose={closeModelModal}
+          onSubmit={submitModelModal}
+        />
+      )}
     </div>
   );
 }
 
-function BrandCard({
-  brand,
-  parentName,
-  onEdit,
-  onDelete,
-  onToggleActive,
-}: {
+// ---------------------------------------------------------------------------
+// Table view
+// ---------------------------------------------------------------------------
+
+interface LeafRow {
+  key: string;
+  category: DeviceCategory;
   brand: Brand;
-  parentName?: string;
-  onEdit: (b: Brand) => void;
-  onDelete: (b: Brand) => void;
-  onToggleActive: (b: Brand) => void;
+  series: SeriesOption | null;
+  model: ModelOption | null; // null = placeholder "no models yet" row
+  isFirstOfGroup: boolean; // first row in a contiguous Category+Brand+Series run
+}
+
+function CatalogTable({
+  brands,
+  seriesOptions,
+  modelOptions,
+  categoryFilter,
+  search,
+  loading,
+  onAddBrand,
+  onEditBrand,
+  onDeleteBrand,
+  onAddSeries,
+  onRenameSeries,
+  onDeleteSeries,
+  onAddModel,
+  onEditModel,
+  onDeleteModel,
+}: {
+  brands: Brand[];
+  seriesOptions: SeriesOption[];
+  modelOptions: ModelOption[];
+  categoryFilter: DeviceCategory | "";
+  search: string;
+  loading: boolean;
+  onAddBrand: (category?: DeviceCategory) => void;
+  onEditBrand: (b: Brand) => void;
+  onDeleteBrand: (b: Brand) => void;
+  onAddSeries: (b: { _id: string; name: string }) => void;
+  onRenameSeries: (s: SeriesOption) => void;
+  onDeleteSeries: (s: SeriesOption) => void;
+  onAddModel: (b: { _id: string; name: string }, seriesId?: string) => void;
+  onEditModel: (b: { _id: string; name: string }, m: ModelOption) => void;
+  onDeleteModel: (m: ModelOption) => void;
 }) {
-  const [imgError, setImgError] = useState(false);
+  const q = search.trim().toLowerCase();
+
+  const categories = categoryFilter ? [categoryFilter] : DEVICE_CATEGORIES;
+
+  // Group brands (top-level only -- sub-brands render nested under a
+  // top-level brand's own section via their own category, same as Tree)
+  // by category.
+  const brandsByCategory = useMemo(() => {
+    const map = new Map<DeviceCategory, Brand[]>();
+    for (const c of DEVICE_CATEGORIES) map.set(c, []);
+    for (const b of brands) {
+      if (!b.category) continue;
+      map.get(b.category)?.push(b);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [brands]);
+
+  const seriesByBrand = useMemo(() => {
+    const map = new Map<string, SeriesOption[]>();
+    for (const s of seriesOptions) {
+      if (!map.has(s.brandId)) map.set(s.brandId, []);
+      map.get(s.brandId)!.push(s);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [seriesOptions]);
+
+  const modelsByBrandSeries = useMemo(() => {
+    // key: brandId + "|" + (seriesId || "")
+    const map = new Map<string, ModelOption[]>();
+    for (const m of modelOptions) {
+      const key = `${m.brandId}|${m.seriesId || ""}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(m);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [modelOptions]);
+
+  function matchesSearch(categoryLabel: string, brandName: string, seriesName: string | null, modelName: string | null) {
+    if (!q) return true;
+    return (
+      categoryLabel.toLowerCase().includes(q) ||
+      brandName.toLowerCase().includes(q) ||
+      (seriesName ? seriesName.toLowerCase().includes(q) : false) ||
+      (modelName ? modelName.toLowerCase().includes(q) : false)
+    );
+  }
+
+  if (loading) {
+    return <div className="p-12 text-center text-gray-500">Loading…</div>;
+  }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col gap-3 hover:border-gray-300 transition-colors group">
-      {/* Logo */}
-      <div className="flex items-start justify-between">
-        <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-          {brand.logoUrl && !imgError ? (
-            <img
-              src={brand.logoUrl}
-              alt={brand.name}
-              className="w-full h-full object-contain p-1"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <ImageOff size={18} className="text-gray-600" />
-          )}
-        </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => onEdit(brand)}
-            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Edit"
-          >
+    <div className="space-y-6">
+      {categories.map((category) => {
+        const categoryLabel = DEVICE_CATEGORY_LABELS[category];
+        const categoryBrands = (brandsByCategory.get(category) || []).filter((b) => !b.parentId);
+
+        // Pre-compute whether this category has any row matching search --
+        // if searching and nothing matches, collapse the whole section.
+        let categoryHasMatch = !q || categoryLabel.toLowerCase().includes(q);
+        if (!categoryHasMatch) {
+          for (const brand of categoryBrands) {
+            if (brand.name.toLowerCase().includes(q)) {
+              categoryHasMatch = true;
+              break;
+            }
+            const brandSeries = seriesByBrand.get(brand._id) || [];
+            for (const s of brandSeries) {
+              if (s.name.toLowerCase().includes(q)) categoryHasMatch = true;
+            }
+            const allBrandModels = modelOptions.filter((m) => m.brandId === brand._id);
+            for (const m of allBrandModels) {
+              if (m.name.toLowerCase().includes(q)) categoryHasMatch = true;
+            }
+          }
+        }
+        if (!categoryHasMatch) return null;
+
+        return (
+          <div key={category} className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+            {/* Category section header -- always shown, even with zero brands */}
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <FolderTree size={15} className="text-gray-400" />
+                <h3 className="text-sm font-semibold text-gray-900">{categoryLabel}</h3>
+                <span className="text-[11px] text-gray-400">
+                  {categoryBrands.length} brand{categoryBrands.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <button
+                onClick={() => onAddBrand(category)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+              >
+                <Plus size={12} /> Add Brand
+              </button>
+            </div>
+
+            {categoryBrands.length === 0 ? (
+              <p className="px-4 py-4 text-xs text-gray-400">
+                No brands yet in this category —{" "}
+                <button onClick={() => onAddBrand(category)} className="underline hover:text-gray-700">
+                  add the first one
+                </button>
+                .
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                    <th className="px-4 py-2 font-medium">Category</th>
+                    <th className="px-4 py-2 font-medium">Brand</th>
+                    <th className="px-4 py-2 font-medium">Series</th>
+                    <th className="px-4 py-2 font-medium">Model / Variant</th>
+                    <th className="px-4 py-2 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoryBrands.map((brand) => {
+                    const brandMatches =
+                      !q ||
+                      categoryLabel.toLowerCase().includes(q) ||
+                      brand.name.toLowerCase().includes(q) ||
+                      (seriesByBrand.get(brand._id) || []).some((s) => s.name.toLowerCase().includes(q)) ||
+                      modelOptions.some((m) => m.brandId === brand._id && m.name.toLowerCase().includes(q));
+                    if (!brandMatches) return null;
+
+                    const brandSeries = seriesByBrand.get(brand._id) || [];
+                    const directModels = modelsByBrandSeries.get(`${brand._id}|`) || [];
+
+                    // Build the rows: brand header row, then direct models
+                    // (no series), then each series header + its models.
+                    const rows: React.ReactNode[] = [];
+
+                    rows.push(
+                      <tr key={`brand-${brand._id}`} className="bg-gray-50/60">
+                        <td className="px-4 py-2 text-xs text-gray-500" colSpan={2}>
+                          <div className="flex items-center gap-2">
+                            <Tag size={13} className="text-gray-400" />
+                            <span className="font-medium text-gray-800">{brand.name}</span>
+                            {!brand.isActive && <span className="text-[10px] text-gray-400">(inactive)</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2" colSpan={2}></td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => onAddSeries(brand)}
+                              className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[11px] font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+                            >
+                              <Plus size={11} /> Series
+                            </button>
+                            <button
+                              onClick={() => onAddModel(brand)}
+                              className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[11px] font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+                            >
+                              <Plus size={11} /> Model
+                            </button>
+                            <button onClick={() => onEditBrand(brand)} className="text-gray-400 hover:text-gray-700" title="Edit brand">
+                              <Edit2 size={13} />
+                            </button>
+                            <button onClick={() => onDeleteBrand(brand)} className="text-gray-400 hover:text-red-500" title="Delete brand">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+
+                    // Direct-under-brand models (no series)
+                    if (directModels.length === 0) {
+                      // Only show the placeholder if there's no series either
+                      // (otherwise the "no models" state is implied and this
+                      // row would just be noise above the series sections).
+                    } else {
+                      directModels
+                        .filter((m) => matchesSearch(categoryLabel, brand.name, null, m.name))
+                        .forEach((m, idx) => {
+                          rows.push(
+                            <ModelDataRow
+                              key={`model-${m._id}`}
+                              categoryLabel={categoryLabel}
+                              brandName={brand.name}
+                              seriesLabel={null}
+                              model={m}
+                              muted={idx > 0}
+                              onEdit={() => onEditModel(brand, m)}
+                              onDelete={() => onDeleteModel(m)}
+                            />
+                          );
+                        });
+                    }
+                    if (directModels.length === 0 && brandSeries.length === 0) {
+                      rows.push(
+                        <tr key={`noseries-noModel-${brand._id}`}>
+                          <td className="px-4 py-2 text-xs text-gray-300">{categoryLabel}</td>
+                          <td className="px-4 py-2 text-xs text-gray-300">{brand.name}</td>
+                          <td className="px-4 py-2 text-xs text-gray-400">— (direct)</td>
+                          <td className="px-4 py-2 text-xs text-gray-400 italic" colSpan={2}>
+                            No models yet —{" "}
+                            <button onClick={() => onAddModel(brand)} className="underline hover:text-gray-700 not-italic">
+                              + Add Model
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    // Series sections
+                    brandSeries
+                      .filter((s) => !q || brand.name.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || (modelsByBrandSeries.get(`${brand._id}|${s._id}`) || []).some((m) => m.name.toLowerCase().includes(q)))
+                      .forEach((series) => {
+                        const seriesModels = (modelsByBrandSeries.get(`${brand._id}|${series._id}`) || []).filter((m) =>
+                          matchesSearch(categoryLabel, brand.name, series.name, m.name)
+                        );
+                        rows.push(
+                          <tr key={`series-${series._id}`} className="bg-gray-50/30">
+                            <td className="px-4 py-2"></td>
+                            <td className="px-4 py-2"></td>
+                            <td className="px-4 py-2 text-xs" colSpan={2}>
+                              <div className="flex items-center gap-2">
+                                <Layers size={12} className="text-indigo-400" />
+                                <span className="font-medium text-gray-700">{series.name}</span>
+                                {!series.isActive && <span className="text-[10px] text-gray-400">(inactive)</span>}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => onAddModel(brand, series._id)}
+                                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[11px] font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+                                >
+                                  <Plus size={11} /> Model
+                                </button>
+                                <button onClick={() => onRenameSeries(series)} className="text-gray-400 hover:text-gray-700" title="Rename series">
+                                  <Edit2 size={13} />
+                                </button>
+                                <button onClick={() => onDeleteSeries(series)} className="text-gray-400 hover:text-red-500" title="Delete series">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                        if (seriesModels.length === 0) {
+                          rows.push(
+                            <tr key={`series-empty-${series._id}`}>
+                              <td className="px-4 py-2 text-xs text-gray-300">{categoryLabel}</td>
+                              <td className="px-4 py-2 text-xs text-gray-300">{brand.name}</td>
+                              <td className="px-4 py-2 text-xs text-gray-300">{series.name}</td>
+                              <td className="px-4 py-2 text-xs text-gray-400 italic" colSpan={2}>
+                                No models yet —{" "}
+                                <button onClick={() => onAddModel(brand, series._id)} className="underline hover:text-gray-700 not-italic">
+                                  + Add Model
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        } else {
+                          seriesModels.forEach((m, idx) => {
+                            rows.push(
+                              <ModelDataRow
+                                key={`model-${m._id}`}
+                                categoryLabel={categoryLabel}
+                                brandName={brand.name}
+                                seriesLabel={series.name}
+                                model={m}
+                                muted={idx > 0}
+                                onEdit={() => onEditModel(brand, m)}
+                                onDelete={() => onDeleteModel(m)}
+                              />
+                            );
+                          });
+                        }
+                      });
+
+                    return rows;
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModelDataRow({
+  categoryLabel,
+  brandName,
+  seriesLabel,
+  model,
+  muted,
+  onEdit,
+  onDelete,
+}: {
+  categoryLabel: string;
+  brandName: string;
+  seriesLabel: string | null;
+  model: ModelOption;
+  muted: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  // Full values always stay in the DOM (for search/accessibility) -- only
+  // visually muted on repeats within a contiguous Category+Brand+Series run.
+  const dim = muted ? "text-gray-300" : "text-gray-600";
+  return (
+    <tr className="border-t border-gray-50 hover:bg-gray-50/50">
+      <td className={`px-4 py-2 text-xs ${dim}`}>{categoryLabel}</td>
+      <td className={`px-4 py-2 text-xs ${dim}`}>{brandName}</td>
+      <td className={`px-4 py-2 text-xs ${dim}`}>
+        {seriesLabel || <span className="text-gray-400 italic">Direct</span>}
+      </td>
+      <td className={`px-4 py-2 text-xs ${model.isActive ? "text-gray-900" : "text-gray-400 line-through"} font-medium`}>
+        {model.name}
+      </td>
+      <td className="px-4 py-2">
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={onEdit} className="text-gray-400 hover:text-gray-700" title="Rename model">
             <Edit2 size={13} />
           </button>
-          <button
-            onClick={() => onDelete(brand)}
-            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-            title="Delete"
-          >
+          <button onClick={onDelete} className="text-gray-400 hover:text-red-500" title="Delete model">
             <Trash2 size={13} />
           </button>
         </div>
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-sm font-medium text-gray-900 truncate">
-            {parentName && <span className="text-gray-400 font-normal">↳ </span>}
-            {brand.name}
-          </h3>
-        </div>
-        {parentName && <p className="text-[11px] text-gray-400 -mt-1 mb-1">under {parentName}</p>}
-        {brand.description ? (
-          <p className="text-xs text-gray-500 line-clamp-2">{brand.description}</p>
-        ) : (
-          <p className="text-xs text-gray-700 italic">No description</p>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-        <button
-          onClick={() => onToggleActive(brand)}
-          className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
-            brand.isActive
-              ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
-              : "text-gray-500 bg-white hover:bg-gray-100"
-          }`}
-          title={brand.isActive ? "Click to deactivate" : "Click to activate"}
-        >
-          {brand.isActive ? "Active" : "Inactive"}
-        </button>
-        <span className="text-xs text-gray-600">
-          {new Date(brand.createdAt).toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-        </span>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Brand modal (unchanged behaviour from the original Brands page)
+// ---------------------------------------------------------------------------
 
 function BrandModal({
   title,
@@ -1103,6 +1475,192 @@ function BrandModal({
             className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? "Saving…" : title}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Series create modal (matches BrandModal's visual style)
+// ---------------------------------------------------------------------------
+
+function SeriesModal({
+  brandName,
+  onClose,
+  onSubmit,
+}: {
+  brandName: string;
+  onClose: () => void;
+  onSubmit: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(name);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h2 className="text-base font-semibold text-gray-900">Add Series</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Brand</label>
+            <input
+              value={brandName}
+              disabled
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">
+              Series Name <span className="text-red-400">*</span>
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              placeholder="e.g. Galaxy S, Galaxy A"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400">
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !name.trim()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Saving…" : "Add Series"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Model create/edit modal (matches BrandModal's visual style)
+// ---------------------------------------------------------------------------
+
+function ModelModal({
+  state,
+  seriesOptions,
+  onClose,
+  onSubmit,
+}: {
+  state: ModelModalState;
+  seriesOptions: SeriesOption[];
+  onClose: () => void;
+  onSubmit: (name: string, seriesId: string, isActive: boolean) => void;
+}) {
+  const [name, setName] = useState(state.model?.name || "");
+  const [seriesId, setSeriesId] = useState(state.seriesId || "");
+  const [isActive, setIsActive] = useState(state.model?.isActive ?? true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(name, seriesId, isActive);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h2 className="text-base font-semibold text-gray-900">{state.mode === "edit" ? "Edit Model" : "Add Model"}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Brand</label>
+            <input
+              value={state.brandName}
+              disabled
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Series</label>
+            <select
+              value={seriesId}
+              onChange={(e) => setSeriesId(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none"
+            >
+              <option value="">No series (direct under brand)</option>
+              {seriesOptions.map((s) => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">
+              Model / Variant Name <span className="text-red-400">*</span>
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              placeholder="e.g. A35 8+128, iPhone 15 Pro Max 256GB"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400"
+              autoFocus
+            />
+          </div>
+
+          {state.mode === "edit" && (
+            <div className="flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg">
+              <span className="text-xs text-gray-600">Active</span>
+              <button
+                type="button"
+                onClick={() => setIsActive((v) => !v)}
+                className={`relative w-9 h-5 rounded-full transition-colors ${isActive ? "bg-emerald-500" : "bg-gray-300"}`}
+              >
+                <span
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    isActive ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-400">
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !name.trim()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Saving…" : state.mode === "edit" ? "Save Changes" : "Add Model"}
           </button>
         </div>
       </div>

@@ -13,10 +13,8 @@ export interface IDeviceModel extends Document {
   name: string;
   brandId: mongoose.Types.ObjectId;
   // Which Series (product line) under brandId this model belongs to.
-  // Mandatory going forward -- enforced in the /api/device-models POST
-  // handler, not at the schema level, so pre-migration docs (and the
-  // migration script itself, which reads/writes docs before they're
-  // backfilled) never fail Mongoose validation.
+  // Optional -- a brand with no meaningful product line can have models
+  // attach directly to it with no Series at all.
   seriesId?: mongoose.Types.ObjectId | null;
   businessId: mongoose.Types.ObjectId;
   businessScope: BusinessScope;

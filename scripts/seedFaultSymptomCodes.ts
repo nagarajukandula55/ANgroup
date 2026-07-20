@@ -164,7 +164,7 @@ const FAULT_DATA: Partial<Record<DeviceCategory, CodeSeed[]>> = {
     { code: "FC-SW-009", description: "Bluetooth / app sync failure", category: "Software" },
     { code: "FC-SW-010", description: "Water damage", category: "Water Resistance" },
   ],
-  AUDIO: [
+  HEADPHONE_EARBUD: [
     { code: "FC-AUD-001", description: "No sound output", category: "Speaker" },
     { code: "FC-AUD-002", description: "Distorted / crackling sound", category: "Speaker" },
     { code: "FC-AUD-003", description: "Battery draining fast", category: "Battery" },
@@ -176,7 +176,7 @@ const FAULT_DATA: Partial<Record<DeviceCategory, CodeSeed[]>> = {
     { code: "FC-AUD-009", description: "Water damage", category: "General" },
     { code: "FC-AUD-010", description: "Physical damage to casing", category: "General" },
   ],
-  PRINTER: [
+  PRINTER_SCANNER: [
     { code: "FC-PRN-001", description: "Print quality poor (streaks / faded)", category: "Print Head" },
     { code: "FC-PRN-002", description: "Cartridge not detected", category: "Print Head" },
     { code: "FC-PRN-003", description: "Print head clogged", category: "Print Head" },
@@ -282,7 +282,7 @@ const SYMPTOM_DATA: Partial<Record<DeviceCategory, CodeSeed[]>> = {
     { code: "SY-SW-007", description: "Sensor readings inaccurate", category: "Sensors" },
     { code: "SY-SW-008", description: "Physical damage to strap / body", category: "General" },
   ],
-  AUDIO: [
+  HEADPHONE_EARBUD: [
     { code: "SY-AUD-001", description: "No sound output", category: "Speaker" },
     { code: "SY-AUD-002", description: "Distorted / crackling sound", category: "Speaker" },
     { code: "SY-AUD-003", description: "Does not charge", category: "Battery" },
@@ -292,7 +292,7 @@ const SYMPTOM_DATA: Partial<Record<DeviceCategory, CodeSeed[]>> = {
     { code: "SY-AUD-007", description: "One side not working", category: "General" },
     { code: "SY-AUD-008", description: "Mic not working on calls", category: "Microphone" },
   ],
-  PRINTER: [
+  PRINTER_SCANNER: [
     { code: "SY-PRN-001", description: "Does not power on", category: "General" },
     { code: "SY-PRN-002", description: "Paper jam", category: "Paper Feed" },
     { code: "SY-PRN-003", description: "Poor print quality", category: "Print Head" },
