@@ -52,6 +52,21 @@ const ALLERGEN_KEYWORDS: [RegExp, string][] = [
   [/sesame|til\b/i, "Sesame"],
 ];
 
+// Standard "Contains ..." warning line per detected allergen -- generated
+// the same way the allergen suggestions themselves are (a suggestion for
+// the vendor to confirm/edit, never saved without the field being visible
+// and editable).
+const ALLERGEN_WARNING: Record<string, string> = {
+  Milk: "Contains milk",
+  Gluten: "Contains gluten",
+  Peanuts: "Contains peanuts",
+  "Tree nuts": "Contains tree nuts",
+  Soy: "Contains soy",
+  Egg: "Contains egg",
+  Mustard: "Contains mustard",
+  Sesame: "Contains sesame",
+};
+
 export default function StepCompliance({
   draftId,
   next,
@@ -154,6 +169,16 @@ export default function StepCompliance({
         // longer starts empty when a real match was found.
         if (!form.allergens && suggestions.length) {
           setForm((prev) => ({ ...prev, allergens: suggestions.join(", ") }));
+        }
+
+        // Derive "Contains X" warning lines from the same allergen matches
+        // -- Warnings previously had no auto-generation at all and had to
+        // be typed by hand every time. Same rule as allergens/ingredients
+        // above: only fills the field when it's still empty, never
+        // overwrites something the vendor already wrote.
+        const warningSuggestions = suggestions.map((label) => ALLERGEN_WARNING[label]).filter(Boolean);
+        if (!form.warnings && warningSuggestions.length) {
+          setForm((prev) => ({ ...prev, warnings: warningSuggestions.join(", ") }));
         }
       })
       .catch(() => {});
@@ -297,7 +322,7 @@ export default function StepCompliance({
               ))}
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            Approximate — only accurate if your BOM quantities share a common unit.
+            Ingredients only — packaging/other BOM materials are excluded. Approximate, and only accurate if your BOM quantities share a common unit.
           </p>
         </div>
       )}

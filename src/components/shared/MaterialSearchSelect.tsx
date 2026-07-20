@@ -8,6 +8,7 @@ interface Material {
   materialCode: string;
   unit: string;
   currentPrice?: number;
+  materialType?: string;
 }
 
 interface MaterialSearchSelectProps {

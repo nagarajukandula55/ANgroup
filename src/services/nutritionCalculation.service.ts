@@ -40,6 +40,14 @@ export async function calculateProductNutrition(
   let totalWeight = 0;
 
   for (const item of bomItems) {
+    // Only ingredient-classified BOM rows contribute -- packaging/other
+    // rows (pouches, labels, cartons) were previously included whenever
+    // the underlying Material happened to default isNutritionalMaterial
+    // to true, silently pulling packaging into the nutrition totals.
+    if ((item.materialType || "INGREDIENT") !== "INGREDIENT") {
+      continue;
+    }
+
     const material: any = await Material.findById(
       item.materialId
     ).lean();

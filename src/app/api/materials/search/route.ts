@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     if (businessId) query.businessId = businessId;
 
     const materials = await Material.find(query)
-      .select("_id materialName materialCode stockUnit currentPrice")
+      .select("_id materialName materialCode stockUnit currentPrice materialType")
       .limit(20)
       .lean();
 
@@ -44,6 +44,7 @@ export async function GET(req: Request) {
       materialCode: m.materialCode,
       unit: m.stockUnit,
       currentPrice: m.currentPrice || 0,
+      materialType: m.materialType,
     }));
 
     return NextResponse.json({
