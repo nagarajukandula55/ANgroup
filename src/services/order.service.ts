@@ -81,7 +81,7 @@ type CartBaseItem = {
 
   vendorId?: string;
 
-  weightKg: number;
+  weightKg?: number;
 };
 
 type CartTaxedItem =

@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     if (search) filter.name = { $regex: search, $options: "i" };
 
     const products = await NativeProduct.find(filter)
-      .select("name slug sku basePrice mrp isActive images variantGroupKey createdAt businessId vendorId")
+      .select("name slug sku basePrice mrp weightKg isActive images variantGroupKey createdAt businessId vendorId")
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
