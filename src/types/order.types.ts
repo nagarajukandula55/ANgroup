@@ -6,7 +6,6 @@ export type CartBaseItem = {
   sellingPrice: number;
   gstRate: number;
   baseTotal: number;
-  vendorId?: string;
   weightKg?: number;
 };
 
