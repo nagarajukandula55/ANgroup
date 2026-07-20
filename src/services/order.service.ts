@@ -343,6 +343,9 @@ export class OrderService {
 
               price:
                 taxed.sellingPrice,
+
+              weightKg:
+                taxed.weightKg ?? 0,
             };
           }
         );
