@@ -10,12 +10,17 @@ const RATE_UNITS = ["kg", "g", "l", "ml", "pcs"];
 // left as Ingredient, which leaked them into the Compliance step's
 // ingredients list/nutrition/allergen estimate (that step only reads
 // INGREDIENT-classified rows, correctly, but the classification itself was
-// wrong at the source). Auto-correct the obvious cases from the material's
-// own name when it's picked, so the default is right without relying on the
-// vendor remembering to change it every time -- still fully editable after.
+// wrong at the source). Prefer the material's own `materialType` (set once,
+// authoritatively, on the Material record) when it's picked; fall back to a
+// name hint only for materials that predate that field.
 const PACKAGING_NAME_HINT = /pouch|box|carton|label|sticker|container|wrapper|\bbag\b|bottle|\bcap\b|\blid\b|tape|jar/i;
 
-function guessMaterialType(materialName: string): BOMRowData["materialType"] {
+const PACKAGING_MATERIAL_TYPES = new Set(["PACKAGING_MATERIAL", "LABEL", "BOX", "CONSUMABLE"]);
+
+function guessMaterialType(materialName: string, sourceMaterialType?: string): BOMRowData["materialType"] {
+  if (sourceMaterialType === "SERVICE") return "OTHER";
+  if (sourceMaterialType && PACKAGING_MATERIAL_TYPES.has(sourceMaterialType)) return "PACKAGING";
+  if (sourceMaterialType === "RAW_MATERIAL" || sourceMaterialType === "SEMI_FINISHED") return "INGREDIENT";
   return PACKAGING_NAME_HINT.test(materialName || "") ? "PACKAGING" : "INGREDIENT";
 }
 
@@ -72,7 +77,7 @@ export default function BOMRow({
           if (m.currentPrice) updateRow(index, "currentRate", m.currentPrice);
           // Only guess on a fresh row (no material picked yet) -- never
           // override a Type the vendor already deliberately set.
-          if (!row.materialId) updateRow(index, "materialType", guessMaterialType(m.materialName));
+          if (!row.materialId) updateRow(index, "materialType", guessMaterialType(m.materialName, m.materialType));
         }}
       />
 
