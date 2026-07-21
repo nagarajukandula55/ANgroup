@@ -135,6 +135,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { label: "Growth", items: [
     { key: "social",   label: "Social Media", route: "/admin/social",    icon: "Share2" },
     { key: "ai-image", label: "AI Studio",    route: "/admin/ai-image",  icon: "Sparkles" },
+    { key: "design-studio", label: "Design Studio", route: "/admin/design-studio", icon: "Palette" },
     { key: "native",   label: "Native App",   route: "/admin/native",    icon: "MessageSquare" },
     // ANu is no longer a page -- it's the floating AnuWidget (see
     // AdminShell.tsx), reachable from every admin page via the icon at
