@@ -4,17 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { StateSelect, CitySelect, PincodeInput } from '@/components/shared/LocationSelect'
-import { TreeSelect } from '@/components/shared/TreeSelect'
 import { useActiveBusinessId } from '@/hooks/useActiveBusinessId'
 import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS, type DeviceCategory } from '@/core/catalog/deviceCategory'
+import { DeviceCatalogFields } from '@/components/crm/DeviceCatalogFields'
 
 interface Brand { _id: string; name: string; parentId?: string | null; logoUrl?: string }
 interface FaultCode { _id: string; code: string; description: string }
 interface SymptomCode { _id: string; code: string; description: string }
-interface ProductCategory { _id: string; name: string; parentId?: { _id: string; name: string } | null }
 interface StaffMember { _id: string; userId: { _id: string; name: string; email: string } | string }
-interface DeviceModelOption { _id: string; name: string }
-interface VariantOption { _id: string; name: string }
 
 // Vendor's own equivalent of /admin/crm/calls/new -- a real page, not the
 // inline right-hand modal this used to be (which was also missing Email,
@@ -27,12 +24,9 @@ export default function NewVendorAppointmentPage() {
   const router = useRouter()
   const { businessId } = useActiveBusinessId()
   const [brands, setBrands] = useState<Brand[]>([])
-  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([])
   const [symptomCodes, setSymptomCodes] = useState<SymptomCode[]>([])
   const [staff, setStaff] = useState<StaffMember[]>([])
-  const [models, setModels] = useState<DeviceModelOption[]>([])
-  const [variants, setVariants] = useState<VariantOption[]>([])
   const [vendorCategories, setVendorCategories] = useState<DeviceCategory[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -40,7 +34,7 @@ export default function NewVendorAppointmentPage() {
   const [form, setForm] = useState({
     customerName: '', phone: '', email: '',
     address: '', city: '', state: '', pincode: '',
-    source: 'User Contact', product: '', deviceCategory: '' as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '',
+    source: 'User Contact', deviceCategory: '' as DeviceCategory | '', brandId: '', seriesId: '', deviceModelId: '', deviceModel: '', variantId: '',
     faultCodeId: '', symptomCodeId: '', subject: '',
     appointmentType: 'WALKIN', requestType: 'REPAIR', priority: 'MEDIUM', assignedTo: '',
   })
@@ -56,32 +50,11 @@ export default function NewVendorAppointmentPage() {
   }, [])
 
   useEffect(() => {
-    if (!businessId) return
-    fetch(`/api/product-categories?businessId=${businessId}`).then(r => r.json()).then(d => setProductCategories(d.categories || d.productCategories || d.data || [])).catch(() => {})
-  }, [businessId])
-
-  useEffect(() => {
     if (!businessId || !form.deviceCategory) { setBrands([]); setFaultCodes([]); setSymptomCodes([]); return }
     fetch(`/api/brands?businessId=${businessId}&category=${form.deviceCategory}`).then(r => r.json()).then(d => setBrands(d.brands || d.data || [])).catch(() => {})
     fetch(`/api/fault-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setFaultCodes(d.faultCodes || d.data || [])).catch(() => {})
     fetch(`/api/symptom-codes?businessId=${businessId}&deviceCategory=${form.deviceCategory}`).then(r => r.json()).then(d => setSymptomCodes(d.symptomCodes || d.data || [])).catch(() => {})
   }, [businessId, form.deviceCategory])
-
-  useEffect(() => {
-    if (!form.brandId || !businessId) { setModels([]); return }
-    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
-      .then(r => r.json())
-      .then(d => setModels(d.models || []))
-      .catch(() => setModels([]))
-  }, [form.brandId, businessId])
-
-  useEffect(() => {
-    if (!form.deviceModelId || !businessId) { setVariants([]); return }
-    fetch(`/api/variants?businessId=${businessId}&modelId=${form.deviceModelId}`)
-      .then(r => r.json())
-      .then(d => setVariants(d.variants || []))
-      .catch(() => setVariants([]))
-  }, [form.deviceModelId, businessId])
 
   useEffect(() => {
     fetch('/api/vendor/staff')
@@ -192,20 +165,11 @@ export default function NewVendorAppointmentPage() {
           <section className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
             <h2 className="text-sm font-semibold text-gray-900">Device & Issue</h2>
             <div>
-              <label className={labelCls}>Product *</label>
-              <select required value={form.product} onChange={(e) => setForm((p) => ({ ...p, product: e.target.value }))} className={inputCls}>
-                <option value="">Select product category…</option>
-                {productCategories.map((c) => (
-                  <option key={c._id} value={c.name}>{c.parentId ? `↳ ${c.name}` : c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className={labelCls}>Device Category *</label>
               <select
                 required
                 value={form.deviceCategory}
-                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', deviceModelId: '', deviceModel: '', variantId: '', faultCodeId: '', symptomCodeId: '' }))}
+                onChange={(e) => setForm((p) => ({ ...p, deviceCategory: e.target.value as DeviceCategory | '', brandId: '', seriesId: '', deviceModelId: '', deviceModel: '', variantId: '', faultCodeId: '', symptomCodeId: '' }))}
                 className={inputCls}
               >
                 <option value="">Select device type…</option>
@@ -214,48 +178,15 @@ export default function NewVendorAppointmentPage() {
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Device Brand *</label>
-                <TreeSelect
-                  items={brands}
-                  value={form.brandId}
-                  onChange={(id) => setForm((p) => ({ ...p, brandId: id, deviceModelId: '', deviceModel: '', variantId: '' }))}
-                  placeholder={!form.deviceCategory ? 'Select a device type first' : 'Select brand…'}
-                  className={`${inputCls} ${!form.deviceCategory ? 'opacity-50 pointer-events-none' : ''}`}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Model *</label>
-                <select
-                  required
-                  value={form.deviceModelId}
-                  onChange={(e) => {
-                    const m = models.find((mm) => mm._id === e.target.value)
-                    setForm((p) => ({ ...p, deviceModelId: e.target.value, deviceModel: m?.name || '', variantId: '' }))
-                  }}
-                  disabled={!form.brandId}
-                  title="Select model"
-                  className={`${inputCls} disabled:opacity-50`}
-                >
-                  <option value="">{!form.brandId ? 'Select a brand first' : 'Select model…'}</option>
-                  {models.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Variant</label>
-                <select
-                  value={form.variantId}
-                  onChange={(e) => setForm((p) => ({ ...p, variantId: e.target.value }))}
-                  disabled={!form.deviceModelId || variants.length === 0}
-                  title="Select variant"
-                  className={`${inputCls} disabled:opacity-50`}
-                >
-                  <option value="">No specific variant</option>
-                  {variants.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
-                </select>
-              </div>
-            </div>
+            <DeviceCatalogFields
+              businessId={businessId}
+              deviceCategory={form.deviceCategory}
+              brands={brands}
+              value={{ brandId: form.brandId, seriesId: form.seriesId, deviceModelId: form.deviceModelId, deviceModel: form.deviceModel, variantId: form.variantId }}
+              onChange={(patch) => setForm((p) => ({ ...p, ...patch }))}
+              inputCls={inputCls}
+              labelCls={labelCls}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Fault Code</label>

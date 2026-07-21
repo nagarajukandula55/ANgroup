@@ -58,7 +58,12 @@ export async function GET(req: NextRequest) {
       delete query.$or;
     }
 
-    const series = await Series.find(query).sort({ name: 1 }).lean();
+    // The Series dropdown only reads _id/name -- keep brandId/isActive too
+    // since the masters UI may show/filter on them.
+    const series = await Series.find(query)
+      .select("name brandId isActive")
+      .sort({ name: 1 })
+      .lean();
 
     return NextResponse.json({ success: true, series });
   } catch (error: unknown) {

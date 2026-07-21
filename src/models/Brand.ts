@@ -62,6 +62,11 @@ const BrandSchema = new Schema<IBrand>(
 
 BrandSchema.index({ businessId: 1, isActive: 1 });
 BrandSchema.index({ businessId: 1, productCategoryId: 1 });
+// Covers the CRM creation forms' Brand dropdown query shape
+// (GET /api/brands?businessId&category, defaults to isActive:true) --
+// previously only { businessId, isActive } and { businessId,
+// productCategoryId } existed, neither of which covers a category filter.
+BrandSchema.index({ businessId: 1, category: 1, isActive: 1 });
 // A brand name is unique per (business, category) rather than per business
 // alone -- lets a genuinely multi-line brand (e.g. Samsung: Mobile, TV,
 // Refrigerator, ...) have one row per category it's classified under. Two

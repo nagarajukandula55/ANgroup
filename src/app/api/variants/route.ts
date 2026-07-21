@@ -58,7 +58,12 @@ export async function GET(req: NextRequest) {
       delete query.$or;
     }
 
-    const variants = await Variant.find(query).sort({ name: 1 }).lean();
+    // Variant dropdown only reads _id/name -- keep modelId/isActive too
+    // since callers filter/group on them.
+    const variants = await Variant.find(query)
+      .select("name modelId isActive")
+      .sort({ name: 1 })
+      .lean();
 
     return NextResponse.json({ success: true, variants });
   } catch (error: unknown) {

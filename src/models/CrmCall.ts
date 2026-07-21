@@ -94,6 +94,12 @@ export interface ICrmCall extends Document {
   // workorder's BOM-part picker filter to exactly this model instead of
   // just the brand.
   deviceModelId?: Types.ObjectId; // ref DeviceModel
+  // Structured series selection -- optional, sits between Brand and Model
+  // in the catalog tree (Brand -> Series -> DeviceModel, see Series.ts).
+  // Same optional-ObjectId-ref pattern as variantId below; a model can
+  // attach directly to a Brand with no Series ("Direct"), so this stays
+  // unset in that case.
+  seriesId?: Types.ObjectId; // ref Series
   // Structured variant selection -- optional, only meaningful once a
   // deviceModelId is picked; same optional-ObjectId-ref pattern as
   // DeviceModel.seriesId. Lets a specific RAM/Storage/Colour variant round
@@ -196,6 +202,7 @@ const CrmCallSchema = new Schema<ICrmCall>(
     brandId: { type: Schema.Types.ObjectId, ref: "Brand" },
     deviceModel: { type: String, trim: true },
     deviceModelId: { type: Schema.Types.ObjectId, ref: "DeviceModel" },
+    seriesId: { type: Schema.Types.ObjectId, ref: "Series" },
     variantId: { type: Schema.Types.ObjectId, ref: "Variant" },
     faultCodeId: { type: Schema.Types.ObjectId, ref: "FaultCode" },
     symptomCodeId: { type: Schema.Types.ObjectId, ref: "SymptomCode" },

@@ -19,6 +19,7 @@ import { requireAssignedEngineer } from "@/core/access/crmJobsheetAccess";
 import "@/models/User";
 import "@/models/CrmCall";
 import "@/models/Brand";
+import "@/models/Series";
 import "@/models/FaultCode";
 import "@/models/SymptomCode";
 import "@/models/Solution";
@@ -54,6 +55,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .populate("assignedTo", "name email")
       .populate("callId", "callNumber status")
       .populate("brandId", "name")
+      .populate("seriesId", "name")
       .populate("variantId", "name")
       // Per-line Fault Phenomenon/Symptom/Solution -- needed both by the
       // repair page's dropdowns (to show the currently-selected value's
@@ -102,6 +104,7 @@ const ALLOWED_FIELDS = [
   "brandId",
   "deviceModel",
   "deviceModelId",
+  "seriesId",
   "variantId",
   "imeiOrSerialNumber",
   "issueDescription",

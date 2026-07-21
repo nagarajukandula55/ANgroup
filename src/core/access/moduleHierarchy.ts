@@ -80,6 +80,15 @@ export const ACCESS_HIERARCHY: Category[] = [
           // above.
           { key: "brands", label: "Brands", description: "Manage the brand master used by products and device models." },
           { key: "device_models", label: "Device Models", description: "Manage the device-model master used by the repair/service flow." },
+          // Backs the Brand/Series/Model/Variant "Can't find it? Request to
+          // add" flow on the CRM call/jobsheet creation forms -- a normal,
+          // broadly-grantable permission (create = propose a new catalog
+          // entry). Approving/rejecting a request is a SEPARATE, hardcoded
+          // session.isSuperAdmin check (see api/catalog/requests/[id]/approve),
+          // same reasoning as vendor-products' approve route -- never gated
+          // by this module's own "approve" action, which could be
+          // over-granted to a vendor "full access" role.
+          { key: "catalog", label: "Catalog Change Requests", description: "Propose new brands/series/models/variants for admin approval." },
           { key: "material_categories", label: "Material Categories", description: "Organize materials into categories." },
           { key: "bom", label: "Bill of Materials", description: "Define which materials/parts make up a product." },
           { key: "grn", label: "Goods Receipt (GRN)", description: "Record incoming stock received from purchase orders." },

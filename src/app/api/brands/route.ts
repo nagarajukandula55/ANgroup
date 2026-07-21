@@ -78,7 +78,14 @@ export async function GET(req: NextRequest) {
       delete query.$or;
     }
 
-    const brands = await Brand.find(query).sort({ name: 1 }).lean();
+    // Dropdown/TreeSelect payload only ever reads _id/name/parentId/logoUrl
+    // (see TreeSelectItem) plus isActive/category for masters-page display
+    // -- restricting the projection cuts payload size now that the catalog
+    // spans thousands of models across 45 categories.
+    const brands = await Brand.find(query)
+      .select("name parentId logoUrl isActive category businessId")
+      .sort({ name: 1 })
+      .lean();
 
     return NextResponse.json({ success: true, brands });
   } catch (error: unknown) {

@@ -49,7 +49,12 @@ export async function GET(req: NextRequest) {
       delete query.$or;
     }
 
-    const models = await DeviceModel.find(query).sort({ name: 1 }).lean();
+    // Model dropdown only reads _id/name -- keep brandId/seriesId/isActive
+    // too since callers filter/group on them.
+    const models = await DeviceModel.find(query)
+      .select("name brandId seriesId isActive")
+      .sort({ name: 1 })
+      .lean();
     return NextResponse.json({ success: true, models });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";

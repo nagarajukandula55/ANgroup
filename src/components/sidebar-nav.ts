@@ -37,6 +37,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // Invoice Branding / GST entries documented further below.
       { key: "masters-units",    label: "Units",              route: "/admin/masters/units",              icon: "Ruler" },
       { key: "masters-brands",   label: "Brands & Models",    route: "/admin/masters/brands",              icon: "Tags" },
+      { key: "masters-catalog-requests", label: "Catalog Change Requests", route: "/admin/masters/catalog-requests", icon: "ClipboardCheck" },
       { key: "masters-prod-cat", label: "Product Categories", route: "/admin/masters/product-categories",  icon: "Layers" },
       { key: "masters-mat-cat",  label: "Material Categories",route: "/admin/masters/material-categories", icon: "Layers" },
       // Same bug again — these 2 also had complete, working pages with no
