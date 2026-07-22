@@ -236,7 +236,13 @@ export async function POST(req: NextRequest) {
           const vendorTags = matches.map((m) => `matchedVendor:${(m as any)._id}`);
           await CrmCall.updateOne({ _id: call._id }, { $push: { tags: { $each: vendorTags } } });
 
-          if (matches.length === 1) routedVendorId = String((matches[0] as any)._id);
+          if (matches.length === 1) {
+            routedVendorId = String((matches[0] as any)._id);
+            await CrmCall.updateOne(
+              { _id: call._id },
+              { $set: { routedVendorId: new mongoose.Types.ObjectId(routedVendorId) } }
+            );
+          }
 
           for (const m of matches) {
             notify({
@@ -245,10 +251,19 @@ export async function POST(req: NextRequest) {
               message: `📅 New appointment request ${call.callNumber} matched to your service area\nCustomer: ${call.customerName}\nPhone: ${call.phone}\nPincode: ${trimmedPincode}\nSubject: ${call.subject}`,
             }).catch(() => {});
           }
+        } else {
+          // No vendor covers this pincode -- flag it so the Appointments
+          // admin view can surface it for a Super Admin to manually assign
+          // a vendor (see api/crm/calls/[id]/assign-vendor).
+          await CrmCall.updateOne({ _id: call._id }, { $push: { tags: "needsAssignment" } });
         }
       } catch {
         // Routing is best-effort — request already succeeded above.
       }
+    } else {
+      // No pincode submitted at all -- can't auto-route, flag for manual
+      // assignment same as the zero-match case above.
+      await CrmCall.updateOne({ _id: call._id }, { $push: { tags: "needsAssignment" } }).catch(() => {});
     }
 
     notify({

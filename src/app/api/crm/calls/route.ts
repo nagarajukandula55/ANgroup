@@ -26,6 +26,8 @@ import { buildPermissionCode } from "@/core/access/actions";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/User";
 import "@/models/Brand";
+import "@/models/DeviceModel";
+import "@/models/VendorProfile";
 
 /* ── GET /api/crm/calls ───────────────────────────────────────────── */
 export async function GET(req: NextRequest) {
@@ -76,6 +78,12 @@ export async function GET(req: NextRequest) {
       if (ids.length > 0) filter.assignedTo = { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) };
     }
 
+    const source = req.nextUrl.searchParams.get("source");
+    if (source) filter.source = source;
+
+    const tag = req.nextUrl.searchParams.get("tag");
+    if (tag) filter.tags = tag;
+
     const search = req.nextUrl.searchParams.get("search");
     if (search) {
       filter.$or = [
@@ -97,6 +105,8 @@ export async function GET(req: NextRequest) {
         .limit(limit)
         .populate("assignedTo", "name email")
         .populate("brandId", "name")
+        .populate("deviceModelId", "name")
+        .populate("routedVendorId", "companyName phone email")
         .lean(),
       CrmCall.countDocuments(filter),
       CrmCall.aggregate([

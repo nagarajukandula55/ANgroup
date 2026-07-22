@@ -144,6 +144,15 @@ export interface ICrmCall extends Document {
   estimatedValue?: number;
   currency: string;
 
+  // Which VendorProfile this call/appointment is routed to for service
+  // fulfilment -- distinct from assignedTo (refs User, the internal staff
+  // member handling the call). Set automatically when exactly one vendor's
+  // pincode coverage matches a public appointment request (see
+  // app/api/appointment-requests/route.ts), or manually by a Super Admin
+  // via app/api/crm/calls/[id]/assign-vendor/route.ts when no single vendor
+  // auto-matched (zero or multiple candidates).
+  routedVendorId?: Types.ObjectId; // ref VendorProfile
+
   tags: string[];
   isDeleted: boolean;
   /**
@@ -243,6 +252,8 @@ const CrmCallSchema = new Schema<ICrmCall>(
     closedReason: { type: String },
     estimatedValue: { type: Number, default: 0 },
     currency: { type: String, default: "INR" },
+
+    routedVendorId: { type: Schema.Types.ObjectId, ref: "VendorProfile", index: true },
 
     tags: { type: [String], default: [] },
     isDeleted: { type: Boolean, default: false, index: true },
