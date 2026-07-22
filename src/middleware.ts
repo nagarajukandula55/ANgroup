@@ -96,6 +96,14 @@ const PUBLIC_PREFIXES = [
   // -- same gap, must be public since it's called before any session exists.
   "/api/businesses/platform-id",
   "/vendor-apply",               // public vendor application form page
+  // Public marketing pages (homepage CTAs / cards) -- each was built but
+  // never added here, so anonymous visitors got bounced to /login instead
+  // of seeing them. Same gap class as /vendor-apply and /appointment-request
+  // above, just missed for these four.
+  "/contact",
+  "/partner-signup",
+  "/solutions/crm",
+  "/solutions/ecommerce",
   // Guest checkout -- Order.customer is a standalone {name,phone,email}
   // sub-object independent of any userId, so an unauthenticated Native
   // visitor can check out without ever logging in (see checkout/page.tsx's
