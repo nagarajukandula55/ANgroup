@@ -33,6 +33,7 @@ import { generateDocumentNumber } from "@/core/numbering/numberingService";
 import { logAction } from "@/lib/audit/logAction";
 import { notify } from "@/lib/notify";
 import { captureCustomer } from "@/services/customer.service";
+import { DEVICE_CATEGORIES } from "@/core/catalog/deviceCategory";
 
 const PINCODE_REGEX = /^[1-9][0-9]{5}$/;
 
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest) {
       pincode,
       subject,
       description,
+      deviceCategory,
+      brandId,
+      deviceModelId,
+      preferredDate,
       verificationToken,
     } = body || {};
 
@@ -104,6 +109,39 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    // Device type/brand/model/preferred-date are all REQUIRED on the new
+    // public /appointment-request page (enforced client-side there), but
+    // kept optional at this API level rather than hard-rejected -- this
+    // exact route may also be called by an external integration (e.g.
+    // Native's own storefront appointment widget, per this file's header
+    // comment) that predates these fields and doesn't send them; rejecting
+    // those requests here would silently break that integration instead of
+    // just leaving these fields unset on the resulting CrmCall.
+    if (deviceCategory && !(DEVICE_CATEGORIES as readonly string[]).includes(deviceCategory)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid device type" },
+        { status: 400 }
+      );
+    }
+    if (brandId && !mongoose.Types.ObjectId.isValid(brandId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid brand" },
+        { status: 400 }
+      );
+    }
+    if (deviceModelId && !mongoose.Types.ObjectId.isValid(deviceModelId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid device model" },
+        { status: 400 }
+      );
+    }
+    const parsedPreferredDate = preferredDate ? new Date(preferredDate) : null;
+    if (preferredDate && (!parsedPreferredDate || Number.isNaN(parsedPreferredDate.getTime()))) {
+      return NextResponse.json(
+        { success: false, message: "Invalid preferred date" },
+        { status: 400 }
+      );
+    }
     const trimmedPincode = String(pincode || "").trim();
     if (trimmedPincode && !PINCODE_REGEX.test(trimmedPincode)) {
       return NextResponse.json(
@@ -141,6 +179,13 @@ export async function POST(req: NextRequest) {
       source: "Public Appointment Request",
       subject: subject.trim(),
       description: description?.trim(),
+      deviceCategory: deviceCategory || undefined,
+      brandId: brandId ? new mongoose.Types.ObjectId(brandId) : undefined,
+      deviceModelId: deviceModelId ? new mongoose.Types.ObjectId(deviceModelId) : undefined,
+      // "When can we contact you or visit" -- appointmentDate already
+      // exists on CrmCall for this exact purpose (see that field's
+      // comment), just never populated by this public flow before.
+      appointmentDate: parsedPreferredDate || undefined,
       priority: "MEDIUM",
       status: "NEW",
       tags: trimmedPincode ? [`pincode:${trimmedPincode}`] : [],

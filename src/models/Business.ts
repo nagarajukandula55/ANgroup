@@ -666,6 +666,23 @@ const BusinessSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Which ONE business the public, unauthenticated pages default to when
+    // no specific business is named in the URL (e.g. the homepage's bare
+    // "Book an Appointment" CTA at /appointment-request with no
+    // ?businessId=/?code=). Defaults to whichever Business has this flag
+    // set (should only ever be one -- toggling it on for a new business is
+    // the admin's responsibility to also turn off on the previous one);
+    // falls back to the AN Group platform business (isPlatform: true) if
+    // none is set. Lets an admin point public appointment/service links at
+    // their actual customer-facing service business (e.g. a distinct
+    // "Service Flow" business) instead of AN Group's own platform record,
+    // without any code change.
+    isDefaultPublicBusiness: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     aiEnabled: {
       type: Boolean,
       default: true,

@@ -18,6 +18,9 @@ export default function BusinessDetailsPage({
   const [settings, setSettings] =
     useState<any>(null)
 
+  const [savingDefaultPublic, setSavingDefaultPublic] =
+    useState(false)
+
   useEffect(() => {
     async function initialize() {
       const resolvedParams = await params
@@ -43,6 +46,30 @@ export default function BusinessDetailsPage({
       }
     } catch (error) {
       console.error(error)
+    }
+  }
+
+  async function toggleDefaultPublic(next: boolean) {
+    setSavingDefaultPublic(true)
+    try {
+      const response = await fetch(
+        `/api/businesses/${business._id}/default-public`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isDefaultPublicBusiness: next }),
+        }
+      )
+      const data = await response.json()
+      if (data.success) {
+        setBusiness(data.business)
+      } else {
+        alert(data.message || 'Failed to update')
+      }
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setSavingDefaultPublic(false)
     }
   }
 
@@ -220,6 +247,34 @@ export default function BusinessDetailsPage({
                 value={settings?.financialYear}
               />
             </SectionCard>
+
+            <div className="rounded-[32px] border border-emerald-500/10 bg-gradient-to-b from-emerald-500/10 to-teal-700/10 p-7">
+              <p className="text-sm uppercase tracking-widest text-emerald-300">
+                PUBLIC APPOINTMENT BOOKING
+              </p>
+
+              <h3 className="mt-4 text-2xl font-black">
+                {business.isDefaultPublicBusiness ? 'DEFAULT' : 'NOT DEFAULT'}
+              </h3>
+
+              <p className="mt-5 text-slate-300">
+                {business.isDefaultPublicBusiness
+                  ? 'Public pages (e.g. the homepage\'s "Book an Appointment" link) with no specific business in the URL submit against this business.'
+                  : 'Turn this on to make public appointment links default to this business instead of AN Group\'s own platform record.'}
+              </p>
+
+              <button
+                onClick={() => toggleDefaultPublic(!business.isDefaultPublicBusiness)}
+                disabled={savingDefaultPublic}
+                className="mt-8 w-full rounded-2xl bg-white py-4 font-semibold text-black disabled:opacity-50"
+              >
+                {savingDefaultPublic
+                  ? 'Saving…'
+                  : business.isDefaultPublicBusiness
+                    ? 'Remove as Default'
+                    : 'Set as Default Public Business'}
+              </button>
+            </div>
 
             <div className="rounded-[32px] border border-cyan-500/10 bg-gradient-to-b from-cyan-500/10 to-blue-700/10 p-7">
               <p className="text-sm uppercase tracking-widest text-cyan-300">

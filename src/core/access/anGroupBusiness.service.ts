@@ -23,3 +23,19 @@ export async function getOrCreateANGroupBusinessId(): Promise<string> {
   });
   return String(created._id);
 }
+
+/**
+ * Which business a PUBLIC page (no ?businessId=/?code= in the URL, e.g. the
+ * homepage's bare "Book an Appointment" CTA) should default to. Prefers
+ * whichever Business has isDefaultPublicBusiness set (an admin's explicit
+ * choice, e.g. a distinct customer-facing "Service Flow" business), falling
+ * back to AN Group's own platform business if none has been designated.
+ */
+export async function getDefaultPublicBusinessId(): Promise<string> {
+  const designated = await Business.findOne({ isDefaultPublicBusiness: true, isActive: true })
+    .select("_id")
+    .lean();
+  if (designated) return String((designated as any)._id);
+
+  return getOrCreateANGroupBusinessId();
+}

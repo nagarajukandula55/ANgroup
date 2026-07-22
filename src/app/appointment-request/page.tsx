@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PincodeInput } from "@/components/shared/LocationSelect";
+import { DEVICE_CATEGORIES, DEVICE_CATEGORY_LABELS } from "@/core/catalog/deviceCategory";
 
 function Field({
   label,
@@ -97,7 +98,38 @@ function AppointmentRequestForm() {
     state: "",
     subject: "",
     description: "",
+    deviceCategory: "",
+    brandId: "",
+    deviceModelId: "",
+    preferredDate: "",
   });
+
+  // Device Type -> Brand -> Model, scoped to whichever business this link
+  // resolved to (see the resolvedBusinessId effect above) -- reuses the
+  // same catalog APIs the internal CRM call/jobsheet forms use, kept as a
+  // simpler 3-level cascade here (no Series/Variant, no "request to add"
+  // flow) since this is an anonymous public form, not an authenticated
+  // staff form.
+  const [brands, setBrands] = useState<{ _id: string; name: string }[]>([]);
+  const [models, setModels] = useState<{ _id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!businessId || !form.deviceCategory) { setBrands([]); return; }
+    fetch(`/api/brands?businessId=${businessId}&category=${form.deviceCategory}`)
+      .then((r) => r.json())
+      .then((d) => setBrands(d.brands || []))
+      .catch(() => setBrands([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, form.deviceCategory]);
+
+  useEffect(() => {
+    if (!businessId || !form.brandId) { setModels([]); return; }
+    fetch(`/api/device-models?businessId=${businessId}&brandId=${form.brandId}`)
+      .then((r) => r.json())
+      .then((d) => setModels(d.models || []))
+      .catch(() => setModels([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, form.brandId]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -115,6 +147,16 @@ function AppointmentRequestForm() {
   const set = (field: string, value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
 
+  // Category -> Brand -> Model cascade: changing an upstream field clears
+  // whichever downstream selections no longer apply, same convention as
+  // the internal CRM forms' DeviceCatalogFields.
+  const setDeviceCategory = (value: string) =>
+    setForm((f) => ({ ...f, deviceCategory: value, brandId: "", deviceModelId: "" }));
+  const setBrandId = (value: string) =>
+    setForm((f) => ({ ...f, brandId: value, deviceModelId: "" }));
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+
   function validate(): string | null {
     if (!businessId) return "This link is missing a business reference. Please use the link provided by the business.";
     if (!form.customerName.trim() || !form.phone.trim() || !form.subject.trim()) {
@@ -122,6 +164,12 @@ function AppointmentRequestForm() {
     }
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       return "A valid email is required — we'll send a verification code to it.";
+    }
+    if (!form.deviceCategory || !form.brandId || !form.deviceModelId) {
+      return "Please select the device type, brand, and model.";
+    }
+    if (!form.preferredDate) {
+      return "Please pick a preferred date for us to contact you or visit.";
     }
     return null;
   }
@@ -191,6 +239,10 @@ function AppointmentRequestForm() {
           pincode: form.pincode,
           subject: form.subject,
           description: form.description,
+          deviceCategory: form.deviceCategory,
+          brandId: form.brandId,
+          deviceModelId: form.deviceModelId,
+          preferredDate: form.preferredDate,
           verificationToken: verifyJson.verificationToken,
         }),
       });
@@ -319,6 +371,53 @@ function AppointmentRequestForm() {
                   />
                 </Field>
               </div>
+              <Field label="Device Type" required>
+                <select
+                  className={inputCls}
+                  value={form.deviceCategory}
+                  onChange={(e) => setDeviceCategory(e.target.value)}
+                >
+                  <option value="">Select device type…</option>
+                  {DEVICE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{DEVICE_CATEGORY_LABELS[c]}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Brand" required>
+                <select
+                  className={inputCls}
+                  value={form.brandId}
+                  onChange={(e) => setBrandId(e.target.value)}
+                  disabled={!form.deviceCategory}
+                >
+                  <option value="">{!form.deviceCategory ? "Select a device type first" : "Select brand…"}</option>
+                  {brands.map((b) => (
+                    <option key={b._id} value={b._id}>{b.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Model" required>
+                <select
+                  className={inputCls}
+                  value={form.deviceModelId}
+                  onChange={(e) => set("deviceModelId", e.target.value)}
+                  disabled={!form.brandId}
+                >
+                  <option value="">{!form.brandId ? "Select a brand first" : "Select model…"}</option>
+                  {models.map((m) => (
+                    <option key={m._id} value={m._id}>{m.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Preferred Date" required>
+                <input
+                  type="date"
+                  className={inputCls}
+                  min={todayIso}
+                  value={form.preferredDate}
+                  onChange={(e) => set("preferredDate", e.target.value)}
+                />
+              </Field>
               <div className="md:col-span-2">
                 <Field label="What service do you need?" required>
                   <input

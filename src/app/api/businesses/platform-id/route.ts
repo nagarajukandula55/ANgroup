@@ -1,19 +1,21 @@
 /**
- * GET /api/businesses/platform-id — PUBLIC. Returns AN Group's own platform
- * businessId, so a public link that doesn't specify ?businessId=/?code=
- * (e.g. the homepage's plain "Book an Appointment" CTA) still has a real
- * business to submit against instead of failing with "missing business
- * reference" -- it defaults to AN Group's own service business rather than
- * requiring every public link to know/embed a specific id.
+ * GET /api/businesses/platform-id — PUBLIC. Returns the businessId a public
+ * link without ?businessId=/?code= should submit against (e.g. the
+ * homepage's plain "Book an Appointment" CTA), so it doesn't fail with
+ * "missing business reference". Prefers whichever Business an admin has
+ * explicitly designated via isDefaultPublicBusiness (e.g. a distinct
+ * customer-facing service business, separate from AN Group's own platform
+ * record) -- see getDefaultPublicBusinessId()'s own comment -- falling back
+ * to AN Group's platform business if none has been designated.
  */
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { getOrCreateANGroupBusinessId } from "@/core/access/anGroupBusiness.service";
+import { getDefaultPublicBusinessId } from "@/core/access/anGroupBusiness.service";
 
 export async function GET() {
   try {
     await connectDB();
-    const businessId = await getOrCreateANGroupBusinessId();
+    const businessId = await getDefaultPublicBusinessId();
     return NextResponse.json({ success: true, businessId });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
