@@ -55,6 +55,7 @@ async function verifyEdgeToken(token: string): Promise<JWTPayload | null> {
 // public as a side effect of a prefix match -- using PUBLIC_EXACT rather
 // than PUBLIC_PREFIXES for this one is what keeps that route protected.
 const PUBLIC_EXACT = new Set([
+  "/",
   "/login",
   "/register",
   "/forgot-password",
