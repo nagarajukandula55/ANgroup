@@ -35,23 +35,50 @@ function AppointmentRequestForm() {
   // Short links use ?code=AB (a business's 2-char brandShortcut) instead of the
   // full ObjectId in ?businessId= -- resolved client-side on mount so this
   // still works as a plain static link with no server rendering needed.
+  //
+  // A bare link with neither ?businessId= nor ?code= (e.g. the homepage's
+  // plain "Book an Appointment" CTA) defaults to AN Group's own platform
+  // business via /api/businesses/platform-id, rather than failing with
+  // "missing business reference" -- every public entry point should
+  // resolve to a real business to submit against.
   const [resolvedBusinessId, setResolvedBusinessId] = useState(rawBusinessId);
-  const [resolvingCode, setResolvingCode] = useState(Boolean(brandShortcut && !rawBusinessId));
+  const [resolvingCode, setResolvingCode] = useState(Boolean(!rawBusinessId));
   const [codeError, setCodeError] = useState("");
 
   useEffect(() => {
-    if (!brandShortcut || rawBusinessId) return;
+    if (rawBusinessId) {
+      setResolvingCode(false);
+      return;
+    }
+    if (brandShortcut) {
+      (async () => {
+        try {
+          const res = await fetch(`/api/businesses/resolve-code?code=${encodeURIComponent(brandShortcut)}`);
+          const json = await res.json();
+          if (json.success) {
+            setResolvedBusinessId(json.businessId);
+          } else {
+            setCodeError(json.message || "Invalid business code");
+          }
+        } catch {
+          setCodeError("Failed to resolve business code");
+        } finally {
+          setResolvingCode(false);
+        }
+      })();
+      return;
+    }
     (async () => {
       try {
-        const res = await fetch(`/api/businesses/resolve-code?code=${encodeURIComponent(brandShortcut)}`);
+        const res = await fetch("/api/businesses/platform-id");
         const json = await res.json();
         if (json.success) {
           setResolvedBusinessId(json.businessId);
         } else {
-          setCodeError(json.message || "Invalid business code");
+          setCodeError(json.message || "This service is temporarily unavailable. Please try again shortly.");
         }
       } catch {
-        setCodeError("Failed to resolve business code");
+        setCodeError("This service is temporarily unavailable. Please try again shortly.");
       } finally {
         setResolvingCode(false);
       }

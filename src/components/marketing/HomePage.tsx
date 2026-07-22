@@ -14,6 +14,14 @@ import {
   X,
 } from "lucide-react";
 import Logo from "./Logo";
+import {
+  neonButtonNav,
+  neonButtonGhostNav,
+  neonButtonPrimary,
+  neonButtonSecondary,
+  neonGradientText,
+  neonGlow,
+} from "./theme";
 
 /* -------------------------------------------------------------------- */
 /* Data                                                                  */
@@ -66,6 +74,9 @@ const NAV_LINKS = [
   { href: "#contact", label: "Contact" },
 ];
 
+const NAV_BOOK_APPOINTMENT = "/appointment-request";
+const NAV_PARTNER_SIGNUP = "/partner-signup";
+
 /* -------------------------------------------------------------------- */
 /* Motion helpers                                                        */
 /* -------------------------------------------------------------------- */
@@ -117,11 +128,14 @@ export default function HomePage() {
             ))}
           </nav>
 
-          <div className="hidden md:block">
-            <Link
-              href="/login"
-              className="inline-flex items-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fg)] shadow-sm transition-colors hover:bg-[var(--primary-hover)]"
-            >
+          <div className="hidden items-center gap-3 md:flex">
+            <Link href={NAV_BOOK_APPOINTMENT} className={neonButtonGhostNav}>
+              Book an Appointment
+            </Link>
+            <Link href={NAV_PARTNER_SIGNUP} className={neonButtonGhostNav}>
+              Become a Partner
+            </Link>
+            <Link href="/login" className={neonButtonNav}>
               Login
             </Link>
           </div>
@@ -148,10 +162,13 @@ export default function HomePage() {
                   {link.label}
                 </a>
               ))}
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fg)]"
-              >
+              <Link href={NAV_BOOK_APPOINTMENT} className={neonButtonGhostNav}>
+                Book an Appointment
+              </Link>
+              <Link href={NAV_PARTNER_SIGNUP} className={neonButtonGhostNav}>
+                Become a Partner
+              </Link>
+              <Link href="/login" className={neonButtonNav}>
                 Login
               </Link>
             </nav>
@@ -164,13 +181,13 @@ export default function HomePage() {
         {/* Subtle ambient shapes for dynamism */}
         <motion.div
           aria-hidden
-          className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[var(--surface-3)]"
+          className={`${neonGlow("violet")} -right-32 -top-32 h-96 w-96`}
           animate={{ scale: [1, 1.08, 1] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           aria-hidden
-          className="pointer-events-none absolute -left-40 top-40 h-72 w-72 rounded-full bg-[var(--surface-3)] opacity-70"
+          className={`${neonGlow("cyan")} -left-40 top-40 h-72 w-72 opacity-70`}
           animate={{ scale: [1, 1.12, 1] }}
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         />
@@ -184,7 +201,8 @@ export default function HomePage() {
             className="text-4xl font-bold leading-tight tracking-tight md:text-6xl"
           >
             Powering Every Business
-            <br className="hidden md:block" /> Under One Group
+            <br className="hidden md:block" /> Under{" "}
+            <span className={neonGradientText}>One Group</span>
           </motion.h1>
 
           <motion.p
@@ -207,19 +225,35 @@ export default function HomePage() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-7 py-3.5 text-base font-semibold text-[var(--primary-fg)] shadow-[var(--shadow)] transition-transform hover:-translate-y-0.5 hover:bg-[var(--primary-hover)]"
-            >
+            <Link href="/login" className={neonButtonPrimary}>
               Get Started
               <ArrowRight size={18} />
             </Link>
-            <a
-              href="#verticals"
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-strong)] px-7 py-3.5 text-base font-semibold text-[var(--text)] transition-colors hover:bg-[var(--surface-3)]"
-            >
+            <a href="#verticals" className={neonButtonSecondary}>
               Explore Our Businesses
             </a>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-6 flex flex-col items-center justify-center gap-3 text-sm sm:flex-row"
+          >
+            <Link
+              href={NAV_BOOK_APPOINTMENT}
+              className="font-medium text-violet-700 underline decoration-violet-300 decoration-2 underline-offset-4 transition-colors hover:text-cyan-600"
+            >
+              Book an Appointment →
+            </Link>
+            <span className="hidden text-[var(--text-3)] sm:inline">·</span>
+            <Link
+              href={NAV_PARTNER_SIGNUP}
+              className="font-medium text-violet-700 underline decoration-violet-300 decoration-2 underline-offset-4 transition-colors hover:text-cyan-600"
+            >
+              Become a Partner →
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -305,22 +339,32 @@ export default function HomePage() {
           viewport={{ once: true, amount: 0.4 }}
           variants={fadeUp}
           transition={{ duration: 0.5 }}
-          className="container mx-auto max-w-3xl rounded-[28px] bg-[var(--primary)] px-8 py-14 text-center text-[var(--primary-fg)]"
+          className="container relative mx-auto max-w-3xl overflow-hidden rounded-[28px] bg-gradient-to-br from-violet-600 via-violet-500 to-cyan-500 px-8 py-14 text-center text-white shadow-[0_20px_60px_-15px_rgba(139,92,246,0.5)]"
         >
-          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-[80px]"
+          />
+          <h2 className="relative text-3xl font-bold tracking-tight md:text-4xl">
             Ready to bring your business onto AN Group?
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-white/80">
-            Sign in to manage your business, or reach out to explore how
-            AN Group can support what you build next.
+          <p className="relative mx-auto mt-4 max-w-xl text-white/85">
+            Sign in to manage your business, book an appointment, or apply
+            to become a partner — AN Group can support what you build next.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="relative mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-semibold text-[var(--primary)] transition-transform hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-semibold text-violet-700 shadow-sm transition-transform hover:-translate-y-0.5"
             >
               Login to Your Account
               <ArrowRight size={18} />
+            </Link>
+            <Link
+              href={NAV_PARTNER_SIGNUP}
+              className="inline-flex items-center gap-2 rounded-full border border-white/40 px-7 py-3.5 text-base font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              Become a Partner
             </Link>
             <a
               href="#contact"
@@ -350,7 +394,8 @@ export default function HomePage() {
             <ul className="mt-4 space-y-2 text-sm text-[var(--text-2)]">
               <li><a href="#about" className="hover:text-[var(--text)]">About</a></li>
               <li><a href="#verticals" className="hover:text-[var(--text)]">Business Verticals</a></li>
-              <li><Link href="/vendor-apply" className="hover:text-[var(--text)]">Become a Partner</Link></li>
+              <li><Link href={NAV_PARTNER_SIGNUP} className="font-medium text-violet-600 hover:text-cyan-600">Become a Partner</Link></li>
+              <li><Link href={NAV_BOOK_APPOINTMENT} className="hover:text-[var(--text)]">Book an Appointment</Link></li>
             </ul>
           </div>
 
