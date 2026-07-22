@@ -142,7 +142,11 @@ function AppointmentRequestForm() {
         body: JSON.stringify({ email: form.email.trim(), businessId }),
       });
       const json = await res.json();
-      if (!json.success) {
+      // The route returns HTTP success even when OTP generation succeeded
+      // but the actual email failed to send (json.sent === false) -- must
+      // check this explicitly, otherwise the form silently advances to
+      // "enter your code" for an email that was never sent.
+      if (!json.success || json.sent === false) {
         setError(json.message || "Failed to send verification code");
         return;
       }
