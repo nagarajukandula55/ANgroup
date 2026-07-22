@@ -10,6 +10,7 @@ import { getEnrichedSession } from "@/lib/auth/session-enriched";
 import { requirePermission } from "@/middleware/permission.guard";
 import { buildPermissionCode } from "@/core/access/actions";
 import { logAction } from "@/lib/audit/logAction";
+import { sendTelegramMessage } from "@/lib/telegram";
 // Required for .populate(...) below -- model must be registered before populate can resolve it.
 import "@/models/User";
 
@@ -168,6 +169,11 @@ export async function POST(req: NextRequest) {
       req,
       actor: { id: session.user.id, businessId },
     });
+
+    // Fire-and-forget -- a Telegram outage must never fail the request creation.
+    sendTelegramMessage(
+      `New catalog request: ${kind} "${trimmedName}" — review at /admin/masters/catalog-requests`
+    ).catch((err) => console.error("[catalog/requests] Telegram notify failed:", err));
 
     return NextResponse.json({ success: true, request }, { status: 201 });
   } catch (err: any) {

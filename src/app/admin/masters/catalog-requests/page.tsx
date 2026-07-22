@@ -47,6 +47,8 @@ export default function CatalogChangeRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING')
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [sendingReport, setSendingReport] = useState(false)
+  const [reportMessage, setReportMessage] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -105,10 +107,37 @@ export default function CatalogChangeRequestsPage() {
     }
   }
 
+  async function handleSendOpsReport() {
+    setSendingReport(true)
+    setReportMessage(null)
+    try {
+      const res = await fetch('/api/cron/ops-report', { method: 'POST' })
+      const d = await res.json()
+      if (!res.ok || d.success === false) throw new Error(d.message || 'Failed to send ops report')
+      setReportMessage(d.telegramSent ? 'Ops report sent to Telegram.' : 'Ops report generated, but Telegram delivery was skipped (not configured).')
+    } catch (err: any) {
+      setReportMessage(err.message || 'Something went wrong')
+    } finally {
+      setSendingReport(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-6xl mx-auto px-6 py-10">
-        <h1 className="text-2xl font-semibold mb-1">Catalog Change Requests</h1>
+        <div className="flex items-start justify-between gap-4 mb-1">
+          <h1 className="text-2xl font-semibold">Catalog Change Requests</h1>
+          <button
+            onClick={handleSendOpsReport}
+            disabled={sendingReport}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:border-gray-400 disabled:opacity-50"
+          >
+            {sendingReport ? 'Sending…' : 'Send Ops Report Now'}
+          </button>
+        </div>
+        {reportMessage && (
+          <div className="mb-4 text-xs text-gray-500">{reportMessage}</div>
+        )}
         <p className="text-sm text-gray-400 mb-6">Brand / Series / Model / Variant additions proposed from the CRM creation forms.</p>
 
         {error && (

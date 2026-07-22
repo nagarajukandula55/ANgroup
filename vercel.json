@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/sync-trackings",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/ops-report",
+      "schedule": "0 3 * * *"
     }
   ]
 }
