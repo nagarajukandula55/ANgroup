@@ -82,6 +82,13 @@ const PUBLIC_PREFIXES = [
   "/api/ping",
   "/api/vendors/apply",          // public vendor application submission
   "/api/businesses/public",      // public business name lookup for the form
+  // Public appointment-request short-link resolution (?code=AB -> businessId)
+  // -- was missing here, so every ?code= link 401'd before ever resolving.
+  "/api/businesses/resolve-code",
+  // Public default-business lookup for a bare (no ?businessId=/?code=)
+  // appointment-request link, e.g. the homepage's "Book an Appointment" CTA
+  // -- same gap, must be public since it's called before any session exists.
+  "/api/businesses/platform-id",
   "/vendor-apply",               // public vendor application form page
   // Guest checkout -- Order.customer is a standalone {name,phone,email}
   // sub-object independent of any userId, so an unauthenticated Native
