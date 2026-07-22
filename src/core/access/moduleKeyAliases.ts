@@ -65,6 +65,10 @@ export const MODULE_KEY_ALIASES: Record<string, string> = {
   // the ModuleDefinition row seeded under that key has never actually been
   // checked by anything.
   "purchase-orders": "purchase",
+  // api/contact/route.ts's GET / api/contact/[id]/route.ts's PATCH enforce
+  // "contact_messages" (underscore, per moduleHierarchy.ts) -- the sidebar
+  // nav key is kebab-case "contact-messages" like every other nav leaf.
+  "contact-messages": "contact_messages",
 };
 
 /**

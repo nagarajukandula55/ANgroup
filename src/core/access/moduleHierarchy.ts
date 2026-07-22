@@ -170,6 +170,12 @@ export const ACCESS_HIERARCHY: Category[] = [
       { key: "fault_codes", label: "Fault Codes", description: "Manage the list of standard fault/issue codes." },
       { key: "solutions", label: "Solutions", description: "Manage standard fixes/solutions linked to fault codes." },
       { key: "blog", label: "Blog", description: "Write and publish blog posts on the storefront." },
+      // Backs the public Contact Us page (app/contact/page.tsx) -> admin
+      // inbox at /admin/contact-messages -- newly added alongside that
+      // page/route, following the same "register it here so it's actually
+      // grantable" pattern "catalog" was added under previously (see that
+      // module's own comment above for the class of bug this avoids).
+      { key: "contact_messages", label: "Contact Messages", description: "View and manage messages submitted through the public Contact Us form." },
     ],
   },
   {

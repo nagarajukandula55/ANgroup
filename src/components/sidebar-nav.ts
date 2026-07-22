@@ -111,6 +111,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // sidebar's active-business switcher -- per explicit direction,
       // after that switcher was reported as unreliable.
       { key: "support_tickets", label: "Support Tickets", route: "/admin/support-tickets", icon: "LifeBuoy" },
+      // Public "Contact Us" page (app/contact/page.tsx) inbox -- gated on
+      // the "contact_messages" permission module registered in
+      // moduleHierarchy.ts alongside this page/its API route.
+      { key: "contact-messages", label: "Contact Messages", route: "/admin/contact-messages", icon: "MessageSquare" },
     ]},
   ]},
   { label: "Documents", items: [

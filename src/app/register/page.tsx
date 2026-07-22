@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Eye,
   EyeOff,
@@ -107,9 +107,13 @@ function InputField({
   )
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<Tab>('customer')
+  const searchParams = useSearchParams()
+  // Homepage's "Become a Partner" CTA links here with ?tab=vendor so the
+  // vendor tab is pre-selected instead of landing on the default Customer
+  // tab and making the visitor find it themselves.
+  const [activeTab, setActiveTab] = useState<Tab>(searchParams.get('tab') === 'vendor' ? 'vendor' : 'customer')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -397,30 +401,34 @@ export default function RegisterPage() {
 
           {/* Vendor Form */}
           {activeTab === 'vendor' && (
-            // This tab used to duplicate a second, thinner vendor-signup
-            // form here (no document uploads, no bank details, no
-            // pre-registered-User-ID validation) alongside the real,
-            // fuller vendor application flow at /vendor-apply -- two
-            // divergent forms for the same thing, and this one is why
-            // "vendor register from signup asks for very few details."
-            // Rather than keep maintaining both, point here at the real
-            // one: register your own login first (the Customer tab), then
-            // apply as a vendor with full company/bank details and
-            // required documents.
+            // /partner-signup is a single guided flow that creates the
+            // account AND submits the vendor application together, so a
+            // brand-new visitor doesn't have to do the Customer tab first
+            // and then separately go find /vendor-apply. Someone who
+            // already HAS an account and just needs to apply (or finish
+            // an application after their account creation succeeded but
+            // the application step failed) still uses /vendor-apply
+            // directly -- both entry points end at the same real
+            // application record either way.
             <div className="space-y-4">
               <div className="rounded-xl bg-violet-50 border border-violet-200 px-4 py-4 space-y-2">
-                <p className="text-sm text-gray-800 font-medium">Two quick steps to become a vendor:</p>
-                <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
-                  <li>Register a regular account first (use the Customer tab above) to get your User ID.</li>
-                  <li>Then submit your vendor application with company details, bank details, and required documents (GST certificate, PAN, etc.).</li>
-                </ol>
+                <p className="text-sm text-gray-800 font-medium">Become an AN Group Partner</p>
+                <p className="text-xs text-gray-600">
+                  One guided form creates your account and submits your business application together.
+                </p>
               </div>
               <Link
-                href="/vendor-apply"
+                href="/partner-signup"
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all"
               >
-                Go to Vendor Application
+                Get Started as a Partner
               </Link>
+              <p className="text-center text-xs text-gray-400">
+                Already have an account?{' '}
+                <Link href="/vendor-apply" className="text-violet-600 hover:text-violet-700">
+                  Apply as a vendor
+                </Link>
+              </p>
             </div>
           )}
 
@@ -455,5 +463,13 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   )
 }

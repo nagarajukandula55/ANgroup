@@ -33,12 +33,14 @@ const VERTICALS = [
     title: "Retail & E-Commerce",
     description:
       "A native storefront and marketplace experience for brands that want to sell directly to customers online.",
+    href: "/solutions/ecommerce",
   },
   {
     icon: Wrench,
     title: "Repair & Service Centers",
     description:
       "End-to-end job-sheet, appointment and CRM tooling for service-driven businesses managing repairs at scale.",
+    href: "/solutions/crm",
   },
   {
     icon: Warehouse,
@@ -71,11 +73,14 @@ const STATS = [
 const NAV_LINKS = [
   { href: "#verticals", label: "Business Verticals" },
   { href: "#about", label: "About" },
-  { href: "#contact", label: "Contact" },
+  { href: "/contact", label: "Contact" },
 ];
 
 const NAV_BOOK_APPOINTMENT = "/appointment-request";
-const NAV_PARTNER_SIGNUP = "/partner-signup";
+// /register?tab=vendor pre-selects the vendor tab, which itself links on to
+// /partner-signup (the real guided flow) -- kept as /register per explicit
+// direction rather than sending this CTA straight to /partner-signup.
+const NAV_PARTNER_SIGNUP = "/register?tab=vendor";
 
 /* -------------------------------------------------------------------- */
 /* Motion helpers                                                        */
@@ -282,6 +287,22 @@ export default function HomePage() {
           <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {VERTICALS.map((v, i) => {
               const Icon = v.icon;
+              const cardInner = (
+                <>
+                  <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--surface-3)]">
+                    <Icon size={22} strokeWidth={1.75} />
+                  </div>
+                  <h3 className="text-lg font-semibold">{v.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--text-2)]">
+                    {v.description}
+                  </p>
+                  {v.href && (
+                    <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-violet-700">
+                      Learn more <ArrowRight size={14} />
+                    </span>
+                  )}
+                </>
+              );
               return (
                 <motion.div
                   key={v.title}
@@ -290,15 +311,18 @@ export default function HomePage() {
                   viewport={{ once: true, amount: 0.3 }}
                   variants={fadeUp}
                   transition={{ duration: 0.5, delay: (i % 3) * 0.1 }}
-                  className="card p-7 transition-shadow hover:shadow-[var(--shadow-lg)]"
+                  className={v.href ? "" : "card p-7 transition-shadow hover:shadow-[var(--shadow-lg)]"}
                 >
-                  <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--surface-3)]">
-                    <Icon size={22} strokeWidth={1.75} />
-                  </div>
-                  <h3 className="text-lg font-semibold">{v.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--text-2)]">
-                    {v.description}
-                  </p>
+                  {v.href ? (
+                    <Link
+                      href={v.href}
+                      className="card block p-7 transition-shadow hover:shadow-[var(--shadow-lg)]"
+                    >
+                      {cardInner}
+                    </Link>
+                  ) : (
+                    cardInner
+                  )}
                 </motion.div>
               );
             })}
@@ -366,12 +390,12 @@ export default function HomePage() {
             >
               Become a Partner
             </Link>
-            <a
-              href="#contact"
+            <Link
+              href="/contact"
               className="inline-flex items-center gap-2 rounded-full border border-white/30 px-7 py-3.5 text-base font-semibold text-white transition-colors hover:bg-white/10"
             >
               Contact Us
-            </a>
+            </Link>
           </div>
         </motion.div>
       </section>

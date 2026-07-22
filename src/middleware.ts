@@ -65,6 +65,12 @@ const PUBLIC_EXACT = new Set([
   "/api/newsletter/subscribe",
   "/api/auth/reset-password",
   "/api/auth/reset-password/request",
+  // Exact, not prefix -- same reasoning as "/api/reviews" above. The public
+  // contact-form POST (and the route's own permission-gated GET) live
+  // exactly at "/api/contact"; its sibling "/api/contact/[id]" (admin
+  // status-update PATCH) must NOT become public as a side effect of a
+  // prefix match, so it stays out of PUBLIC_PREFIXES.
+  "/api/contact",
 ]);
 
 /* ── Public prefixes ────────────────────────────────────────────────────── */
@@ -133,10 +139,10 @@ const PUBLIC_PREFIXES = [
   "/api/appointment-requests",   // public appointment-request submission
   "/appointment-request",        // public appointment-request form page
   // Native storefront: public blog listing (read-only; create/delete stay
-  // behind the admin UI, which isn't reachable without a session anyway)
-  // and the public contact-form submission endpoint.
+  // behind the admin UI, which isn't reachable without a session anyway).
+  // The public contact-form submission endpoint ("/api/contact") is listed
+  // in PUBLIC_EXACT above instead, not here -- see that entry's comment.
   "/api/blog/list",
-  "/api/contact",
   // B2B partner ordering portal (Distributor/Retailer self-signup, login,
   // catalog, checkout) -- authenticated by its own b2b_token cookie (see
   // lib/auth/b2bSession.ts), completely separate from this middleware's
