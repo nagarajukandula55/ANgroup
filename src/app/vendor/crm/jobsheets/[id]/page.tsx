@@ -670,13 +670,24 @@ export default function JobSheetDetailPage() {
               <Printer className="w-4 h-4" /> Print Estimate
             </button>
             {job.invoiceId && (
-              // No vendor-side invoice detail page exists yet -- links to
-              // the vendor's own invoice list instead of the admin one.
+              // No vendor-side invoice detail page exists -- /vendor/invoices
+              // only ever lists marketplace product-sale invoices (its own
+              // API hardcodes invoiceType:"B2B" and filters by vendorId,
+              // which CRM-closed job sheet invoices never carry), so a
+              // job-sheet Bill/Invoice would never actually show up there.
+              // The printable /invoice/[invoiceNumber] page works off just
+              // the invoice number with no vendor-context requirement, so
+              // link there directly instead of that dead end.
               <button
-                onClick={() => router.push('/vendor/invoices')}
+                onClick={() => window.open(`/invoice/${job.invoiceNumber}`, '_blank')}
                 className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
               >
-                <FileText className="w-4 h-4" /> View Invoice ({job.invoiceNumber})
+                {/* NON_GST_INVOICE ("BILL-...") means no company name and
+                    no tax -- a plain Bill, not a Tax/B2B Invoice. See
+                    core/numbering/types.ts's PREFIXES and the isB2B/
+                    zeroTaxForB2C branch in api/crm/jobsheets/[id]/close. */}
+                <FileText className="w-4 h-4" />
+                {job.invoiceNumber?.startsWith('BILL') ? 'View Bill' : 'View Invoice'} ({job.invoiceNumber})
               </button>
             )}
           </div>

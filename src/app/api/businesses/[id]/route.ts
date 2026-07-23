@@ -75,6 +75,10 @@ const EDITABLE_FIELDS = [
   // (serialized) or just pull from the Service Center BOM (not
   // serialized) -- see models/Business.ts's inventorySerialized comment.
   "inventorySerialized",
+  // Whether tax/GST is applied when a job sheet closes into a plain B2C
+  // bill (no company name on the customer) -- see models/Business.ts's
+  // applyTaxOnB2CBilling comment.
+  "applyTaxOnB2CBilling",
   // Business Type / Industry enums + address fields — the edit form used
   // to only show city/state/pincode read-only (they were never actually
   // saveable), and type/industry weren't editable post-creation at all.

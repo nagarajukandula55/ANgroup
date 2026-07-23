@@ -10,6 +10,10 @@
  *    "Add Labour Charge" line when no LABOUR-type BOM entry is configured.
  *  - customerLogoUrl -- shown on the Intake Receipt/Workorder print in
  *    place of the device brand's own logo (blank = no logo at all).
+ *  - applyTaxOnB2CBilling -- whether GST/tax is applied when a job sheet
+ *    closes into a plain B2C bill (no company name on the customer). B2B
+ *    invoices (company name present) always carry tax regardless of this
+ *    toggle -- see api/crm/jobsheets/[id]/close/route.ts.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
@@ -33,13 +37,14 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Vendor is not yet assigned to a business" }, { status: 400 });
     }
 
-    const business = await Business.findById((vendor as any).businessId).select("inventorySerialized termsAndConditions defaultLabourCharge customerLogoUrl").lean();
+    const business = await Business.findById((vendor as any).businessId).select("inventorySerialized termsAndConditions defaultLabourCharge customerLogoUrl applyTaxOnB2CBilling").lean();
     return NextResponse.json({
       success: true,
       inventorySerialized: Boolean((business as any)?.inventorySerialized),
       termsAndConditions: (business as any)?.termsAndConditions || "",
       defaultLabourCharge: Number((business as any)?.defaultLabourCharge) || 0,
       customerLogoUrl: (business as any)?.customerLogoUrl || "",
+      applyTaxOnB2CBilling: (business as any)?.applyTaxOnB2CBilling !== false,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -66,6 +71,7 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.termsAndConditions === "string") update.termsAndConditions = body.termsAndConditions;
     if (typeof body.defaultLabourCharge === "number" && body.defaultLabourCharge >= 0) update.defaultLabourCharge = body.defaultLabourCharge;
     if (typeof body.customerLogoUrl === "string") update.customerLogoUrl = body.customerLogoUrl;
+    if (typeof body.applyTaxOnB2CBilling === "boolean") update.applyTaxOnB2CBilling = body.applyTaxOnB2CBilling;
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ success: false, error: "Nothing to update" }, { status: 400 });
     }

@@ -113,6 +113,10 @@ export default function VendorProfilePage() {
   // false and the section below never renders for them.
   const [canManageSettings, setCanManageSettings] = useState(false)
   const [inventorySerialized, setInventorySerialized] = useState(false)
+  // Whether GST/tax is applied on a plain B2C bill (customer with no
+  // company name) at job-sheet close -- default true (existing behaviour).
+  // B2B invoices (company name present) always carry tax regardless.
+  const [applyTaxOnB2CBilling, setApplyTaxOnB2CBilling] = useState(true)
   const [termsAndConditions, setTermsAndConditions] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsMessage, setSettingsMessage] = useState('')
@@ -165,6 +169,7 @@ export default function VendorProfilePage() {
         if (d.success) {
           setCanManageSettings(true)
           setInventorySerialized(Boolean(d.inventorySerialized))
+          setApplyTaxOnB2CBilling(d.applyTaxOnB2CBilling !== false)
           setTermsAndConditions(d.termsAndConditions || '')
           setDefaultLabourCharge(String(d.defaultLabourCharge ?? 0))
           setCustomerLogoUrl(d.customerLogoUrl || '')
@@ -213,6 +218,29 @@ export default function VendorProfilePage() {
       const d = await res.json()
       if (d.success) {
         setInventorySerialized(value)
+        setSettingsMessage('Saved.')
+      } else {
+        setSettingsMessage(d.error || 'Failed to save.')
+      }
+    } catch {
+      setSettingsMessage('Failed to save.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  async function saveTaxOnB2CBilling(value: boolean) {
+    setSavingSettings(true)
+    setSettingsMessage('')
+    try {
+      const res = await fetch('/api/vendor/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applyTaxOnB2CBilling: value }),
+      })
+      const d = await res.json()
+      if (d.success) {
+        setApplyTaxOnB2CBilling(value)
         setSettingsMessage('Saved.')
       } else {
         setSettingsMessage(d.error || 'Failed to save.')
@@ -760,6 +788,21 @@ export default function VendorProfilePage() {
               <span className="font-medium text-gray-900">Serialized Inventory</span> — check real stock and
               deduct on workorder close. When off, part selection just pulls from the Service Center BOM price
               list with no live stock check.
+            </span>
+          </label>
+
+          <label className="flex items-start gap-3 cursor-pointer mt-4 pt-4 border-t border-gray-100">
+            <input
+              type="checkbox"
+              checked={applyTaxOnB2CBilling}
+              disabled={savingSettings}
+              onChange={(e) => saveTaxOnB2CBilling(e.target.checked)}
+              className="w-4 h-4 mt-0.5"
+            />
+            <span className="text-sm text-gray-700">
+              <span className="font-medium text-gray-900">Apply Tax on B2C Billing</span> — when a customer has no
+              company name, generate their Bill with GST included. Turn this off to raise B2C Bills with no tax
+              at all. B2B invoices (customer has a company name) always include tax regardless of this setting.
             </span>
           </label>
 

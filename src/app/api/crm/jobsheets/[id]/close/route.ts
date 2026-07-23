@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // in the job sheet's warehouse; deducted only after every check
     // passes, so a mid-batch insufficient-stock failure never leaves a
     // partial deduction behind.
-    const business = await Business.findById(jobSheet.businessId).select("inventorySerialized").lean();
+    const business = await Business.findById(jobSheet.businessId).select("inventorySerialized applyTaxOnB2CBilling").lean();
     const deductions: { materialId: string; quantity: number; partName: string }[] = [];
     if ((business as any)?.inventorySerialized) {
       if (!jobSheet.warehouseId) {
@@ -130,24 +130,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
+    // A job sheet whose customer entered a company name is a B2B customer
+    // -- computed here (not just further down at numbering time) because
+    // it also decides whether the B2C tax toggle below applies at all.
+    const isB2B = Boolean((jobSheet as any).company?.trim());
+    // Business.applyTaxOnB2CBilling (default true) -- when a Super
+    // Admin/vendor Owner-Manager has turned this OFF, a plain B2C bill
+    // (no company name) is generated with NO tax at all, regardless of
+    // what taxRate each line item/BOM part normally carries. B2B
+    // invoices are never affected by this toggle, per explicit direction.
+    const applyB2CTax = (business as any)?.applyTaxOnB2CBilling !== false;
+    const zeroTaxForB2C = !isB2B && !applyB2CTax;
+
     /* ── Build invoice items with the same GST-split logic as
        app/api/sales/invoices/route.ts, so CRM-originated invoices are
        structurally identical to manually-created ones. ────────────── */
     let subtotal = 0, cgstTotal = 0, sgstTotal = 0, igstTotal = 0;
 
     const invoiceItems = jobSheet.lineItems.map((item: any) => {
+      const effectiveTaxRate = zeroTaxForB2C ? 0 : (item.taxRate || 0);
       const lineAmt = (item.quantity || 1) * (item.unitPrice || 0);
-      const totalGST = lineAmt * ((item.taxRate || 0) / 100);
+      const totalGST = lineAmt * (effectiveTaxRate / 100);
 
       let cgstRate = 0, cgstAmount = 0, sgstRate = 0, sgstAmount = 0;
       let igstRate = 0, igstAmount = 0;
 
       if (supplyType === "INTERSTATE") {
-        igstRate = item.taxRate || 0;
+        igstRate = effectiveTaxRate;
         igstAmount = totalGST;
         igstTotal += igstAmount;
       } else {
-        cgstRate = (item.taxRate || 0) / 2;
+        cgstRate = effectiveTaxRate / 2;
         sgstRate = cgstRate;
         cgstAmount = totalGST / 2;
         sgstAmount = totalGST / 2;
@@ -162,7 +175,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         quantity: item.quantity || 1,
         unit: item.unit || "pcs",
         unitPrice: item.unitPrice || 0,
-        taxRate: item.taxRate || 0,
+        taxRate: effectiveTaxRate,
         taxAmount: totalGST,
         cgstRate, cgstAmount,
         sgstRate, sgstAmount,
@@ -203,13 +216,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // whether ANY line item actually carries GST, not the job sheet's
     // overall total (a single taxed line is enough to make this a GST
     // invoice even if others are zero-rated).
-    // A job sheet whose customer entered a company name is a B2B customer
-    // -- gets its own invoice number series (B2B_INVOICE) and invoiceType,
+    // isB2B/zeroTaxForB2C already computed above (they drove the tax
+    // zeroing on invoiceItems). A B2B customer (company name present)
+    // gets its own invoice number series (B2B_INVOICE) and invoiceType,
     // separate from the walk-in/individual B2C series, per explicit
-    // requirement. GST-vs-non-GST series selection (below) still applies
-    // independently within either B2B or B2C.
-    const isB2B = Boolean((jobSheet as any).company?.trim());
-    const isGstInvoice = jobSheet.lineItems.some((item: any) => (item.taxRate || 0) > 0);
+    // requirement. GST-vs-non-GST series selection below still applies
+    // independently within either B2B or B2C -- checked against
+    // invoiceItems (the actual, possibly-zeroed rates), not the raw job
+    // sheet line items, so a B2C bill with tax turned off always lands on
+    // NON_GST_INVOICE even if its BOM parts normally carry GST.
+    const isGstInvoice = zeroTaxForB2C ? false : invoiceItems.some((item: any) => (item.taxRate || 0) > 0);
     const { value: invoiceNumber } = await generateDocumentNumber(
       jobSheet.businessId.toString(),
       isB2B ? "B2B_INVOICE" : isGstInvoice ? "INVOICE" : "NON_GST_INVOICE"

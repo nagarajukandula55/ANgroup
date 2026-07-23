@@ -670,7 +670,12 @@ export default function JobSheetDetailPage() {
                 onClick={() => router.push(`/admin/crm/invoices/${job.invoiceId}`)}
                 className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"
               >
-                <FileText className="w-4 h-4" /> View Invoice ({job.invoiceNumber})
+                {/* NON_GST_INVOICE ("BILL-...") means no company name and
+                    no tax -- a plain Bill, not a Tax/B2B Invoice. See
+                    core/numbering/types.ts's PREFIXES and the isB2B/
+                    zeroTaxForB2C branch in api/crm/jobsheets/[id]/close. */}
+                <FileText className="w-4 h-4" />
+                {job.invoiceNumber?.startsWith('BILL') ? 'View Bill' : 'View Invoice'} ({job.invoiceNumber})
               </button>
             )}
           </div>

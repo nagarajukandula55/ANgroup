@@ -33,6 +33,10 @@ export default function InvoicePage() {
   const [loading, setLoading] = useState(true);
   const [qr, setQr] = useState("");
   const isB2B = data?.type === "B2B";
+  // No company name AND no tax on this document -- a plain Bill, not a
+  // Tax Invoice. See api/invoice/view/[invoiceNumber]/route.ts's
+  // isGstInvoice comment.
+  const isPlainBill = !isB2B && data?.isGstInvoice === false;
   const safe = (v: any) => v ?? "N/A";
 
   useEffect(() => {
@@ -92,9 +96,9 @@ export default function InvoicePage() {
       <style>{styles}</style>
       
 
-{/* TAX INVOICE TITLE */}
+{/* TAX INVOICE / BILL TITLE */}
 <div className="invoiceTitle">
-  TAX INVOICE
+  {isPlainBill ? "BILL" : "TAX INVOICE"}
 </div>
 
 {/* COMPANY + INVOICE DETAILS */}
@@ -135,13 +139,13 @@ export default function InvoicePage() {
   <div className="invoiceBox">
 
     <div>
-      <b>Invoice No:</b>
+      <b>{isPlainBill ? "Bill No:" : "Invoice No:"}</b>
       {" "}
       {safe(data?.invoiceNumber)}
     </div>
 
     <div>
-      <b>Invoice Date:</b>
+      <b>{isPlainBill ? "Bill Date:" : "Invoice Date:"}</b>
       {" "}
       {new Date(data?.invoiceDate)
         .toLocaleDateString("en-IN")}
@@ -165,9 +169,9 @@ export default function InvoicePage() {
     )}
 
     <div>
-      <b>Invoice Type:</b>
+      <b>Document Type:</b>
       {" "}
-      {isB2B ? "B2B" : "B2C"}
+      {isPlainBill ? "Bill (No Tax)" : isB2B ? "B2B" : "B2C"}
     </div>
 
   </div>
@@ -432,7 +436,7 @@ export default function InvoicePage() {
 
   <br />
 
-  This is a computer generated GST invoice.
+  {isPlainBill ? "This is a computer generated bill." : "This is a computer generated GST invoice."}
 
 </div>
 

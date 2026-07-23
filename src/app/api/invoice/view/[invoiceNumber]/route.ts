@@ -116,6 +116,13 @@ export async function GET(
       type:
         invoice.invoiceType,
 
+      // NON_GST_INVOICE ("BILL-...") documents carry zero tax -- see the
+      // isB2B/applyTaxOnB2CBilling branch in
+      // api/crm/jobsheets/[id]/close/route.ts. Lets the printable page
+      // title itself "BILL" instead of "TAX INVOICE" for these, matching
+      // what the number series and invoiceType already distinguish.
+      isGstInvoice: (invoice.taxTotal || 0) > 0,
+
       company: {
         name:
           (business as any)?.name ||

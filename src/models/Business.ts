@@ -614,6 +614,20 @@ const BusinessSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Whether GST/tax gets applied on a plain B2C bill (a job sheet whose
+    // customer has no company name -- see the isB2B branch in
+    // api/crm/jobsheets/[id]/close/route.ts). Default true (existing
+    // behaviour: B2C bills still carry whatever taxRate each line item
+    // has). When turned off, B2C billing zeroes out tax on every line and
+    // always lands on the NON_GST_INVOICE ("BILL") number series --
+    // B2B invoices (company name present) are never affected by this
+    // toggle, per explicit direction ("if it is on Business name then
+    // B2B invoice must be generated").
+    applyTaxOnB2CBilling: {
+      type: Boolean,
+      default: true,
+    },
+
     // Default rate for the workorder detail page's one-click "Add Labour
     // Charge" line, set by the vendor's Owner/Manager (Settings > Business
     // Settings) -- used whenever the vendor has no LABOUR-type

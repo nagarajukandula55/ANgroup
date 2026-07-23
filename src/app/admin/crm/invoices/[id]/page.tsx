@@ -104,7 +104,13 @@ export default function CrmInvoiceViewPage() {
         <button onClick={() => router.back()} className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-100 transition">
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h1 className="text-lg font-semibold flex-1">Invoice {invoice.invoiceNumber}</h1>
+        {/* NON_GST_INVOICE ("BILL-...") means no company name and no tax --
+            a plain Bill, not a Tax Invoice. See core/numbering/types.ts's
+            PREFIXES and the isB2B/zeroTaxForB2C branch in
+            api/crm/jobsheets/[id]/close/route.ts. */}
+        <h1 className="text-lg font-semibold flex-1">
+          {invoice.invoiceNumber?.startsWith('BILL') ? 'Bill' : 'Invoice'} {invoice.invoiceNumber}
+        </h1>
         <button
           onClick={() => window.print()}
           className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition"

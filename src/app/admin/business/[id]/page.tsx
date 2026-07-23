@@ -46,6 +46,7 @@ interface Business {
   businessCode?: string;
   brandShortcut?: string;
   inventorySerialized?: boolean;
+  applyTaxOnB2CBilling?: boolean;
   industry?: string;
   type?: string;
   email?: string;
@@ -94,6 +95,7 @@ type EditableForm = {
   businessCode: string;
   brandShortcut: string;
   inventorySerialized: boolean;
+  applyTaxOnB2CBilling: boolean;
   industry: string;
   type: string;
   address: string;
@@ -156,6 +158,7 @@ function toForm(biz: Business): EditableForm {
     businessCode: biz.businessCode || "",
     brandShortcut: biz.brandShortcut || "",
     inventorySerialized: biz.inventorySerialized || false,
+    applyTaxOnB2CBilling: biz.applyTaxOnB2CBilling !== false,
     industry: biz.industry || "",
     type: biz.type || "",
     address: biz.address || "",
@@ -520,6 +523,23 @@ export default function BusinessDetailPage() {
               />
               <span className="text-sm text-gray-700">
                 Serialized (check real stock and deduct on workorder close — otherwise part selection just pulls from the Service Center BOM)
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <label className={labelCls}>B2C Billing Tax</label>
+            <label className="flex items-center gap-2 mt-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.applyTaxOnB2CBilling}
+                onChange={(e) => setForm({ ...form, applyTaxOnB2CBilling: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700">
+                Apply tax on B2C bills (no company name on customer). When off, walk-in bills are generated with
+                no GST and always use the plain Bill number series — B2B invoices (company name present) always
+                carry tax regardless of this setting.
               </span>
             </label>
           </div>
